@@ -1,8 +1,8 @@
 module "lambda" {
   source = "../../modules/lambda"
 
-  function_name = "${var.project_name}-${var.environment}-api"
-  source_dir    = "${path.root}/../../../lambda_src"
+  function_name = "${var.environment}-${var.project_name}-api"
+  source_dir    = "${path.root}/../../../backend/lambda_test"
 }
 
 module "apigateway" {
@@ -11,6 +11,5 @@ module "apigateway" {
   api_name = "${var.project_name}-${var.environment}-api"
 
   lambda_function_name = module.lambda.function_name
-  lambda_function_arn  = module.lambda.function_arn
   lambda_invoke_arn    = module.lambda.invoke_arn
 }
