@@ -35,3 +35,6 @@ frontend/.next/
 .vscode/
 *.swp
 *.swo
+
+#backend
+lambda/

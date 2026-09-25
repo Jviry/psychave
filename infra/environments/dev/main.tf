@@ -1,7 +1,7 @@
 module "lambda" {
   source = "../../modules/lambda"
 
-  function_name = "${var.environment}-${var.project_name}-api"
+  function_name = "${var.project_name}-${var.environment}-lambda"
   source_dir    = "${path.root}/../../../backend/lambda_test"
 }
 

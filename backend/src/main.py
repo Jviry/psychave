@@ -22,3 +22,8 @@ app.add_middleware(
 @app.get("/health", tags=["Health"])
 async def health_check():
     return {"status": "ok", "env": settings.ENV}
+
+
+@app.get("/hello")
+async def hello_world():
+    return {"hello": "world"}

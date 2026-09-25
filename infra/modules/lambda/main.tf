@@ -1,3 +1,20 @@
+# lambda function
+resource "aws_lambda_function" "this" {
+  function_name = var.function_name
+  role          = aws_iam_role.lambda.arn
+
+  runtime = var.runtime
+  handler = "main.handler"
+
+  filename         = data.archive_file.lambda.output_path
+  source_code_hash = data.archive_file.lambda.output_base64sha256
+
+  depends_on = [
+    aws_iam_role_policy_attachment.basic_execution
+  ]
+}
+
+# IAM role for lambda
 resource "aws_iam_role" "lambda" {
   name = "${var.function_name}-role"
 
@@ -18,28 +35,16 @@ resource "aws_iam_role" "lambda" {
   })
 }
 
+# IAM policy for the role
 resource "aws_iam_role_policy_attachment" "basic_execution" {
   role       = aws_iam_role.lambda.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+# zip for lambda
 data "archive_file" "lambda" {
   type        = "zip"
   source_dir  = var.source_dir
   output_path = "${path.module}/lambda.zip"
 }
 
-resource "aws_lambda_function" "this" {
-  function_name = var.function_name
-  role          = aws_iam_role.lambda.arn
-
-  runtime = var.runtime
-  handler = "main.handler"
-
-  filename         = data.archive_file.lambda.output_path
-  source_code_hash = data.archive_file.lambda.output_base64sha256
-
-  depends_on = [
-    aws_iam_role_policy_attachment.basic_execution
-  ]
-}
