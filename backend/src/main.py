@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from mangum import Mangum
 from fastapi.middleware.cors import CORSMiddleware
 from common.settings import settings
-from common.middleware.error_middleware import register_error_handlers
 from controllers.app_router import app_router
 
 app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG)
@@ -18,8 +17,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-register_error_handlers(app)
 
 
 @app.get("/health", tags=["Health"])
