@@ -44,5 +44,6 @@ frontend/.next/
 *.tfstate.*
 crash.log
 crash.*.log
+
 backend/package/
 backend/lambda.zip
