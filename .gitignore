@@ -36,5 +36,9 @@ frontend/.next/
 *.swp
 *.swo
 
+# Infra
+*.tfstate
+*.tfstate.*
+
 #backend
-lambda/
+lambda_test/

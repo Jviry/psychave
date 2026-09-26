@@ -6,8 +6,8 @@ resource "aws_lambda_function" "this" {
   runtime = var.runtime
   handler = "main.handler"
 
-  filename         = data.archive_file.lambda.output_path
-  source_code_hash = data.archive_file.lambda.output_base64sha256
+  filename         = "${path.root}/../../../backend/lambda.zip"
+  source_code_hash = filebase64sha256("${path.root}/../../../backend/lambda.zip")
 
   depends_on = [
     aws_iam_role_policy_attachment.basic_execution
@@ -40,11 +40,3 @@ resource "aws_iam_role_policy_attachment" "basic_execution" {
   role       = aws_iam_role.lambda.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
-
-# zip for lambda
-data "archive_file" "lambda" {
-  type        = "zip"
-  source_dir  = var.source_dir
-  output_path = "${path.module}/lambda.zip"
-}
-
