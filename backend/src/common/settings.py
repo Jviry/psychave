@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["*"]
     SECRET_KEY: str = "temporary-secret-key"
 
+    AWS_REGION: str
+    COGNITO_USER_POOL_ID: str
+    COGNITO_APP_CLIENT_ID: str
+
     model_config = SettingsConfigDict(
         env_file=(BASE_DIR / ".env", ".env"),
         env_file_encoding="utf_8",

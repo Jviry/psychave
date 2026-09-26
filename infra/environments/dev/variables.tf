@@ -13,3 +13,12 @@ variable "environment" {
 variable "lambda_zip_path" {
   type = string
 }
+
+variable "callback_urls" {
+  type        = list(string)
+}
+
+variable "logout_urls" {
+  type        = list(string)
+}
+

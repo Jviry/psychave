@@ -38,6 +38,7 @@ frontend/.next/
 
 # Infra
 .terraform
+.terraform.lock.hcl
 *.tfplan
 *.tfplan.json
 *.tfstate
