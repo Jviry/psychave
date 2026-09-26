@@ -10,6 +10,6 @@ variable "environment" {
   type = string
 }
 
-variable "lambda_path" {
+variable "lambda_zip_path" {
   type = string
 }

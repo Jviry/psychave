@@ -2,7 +2,7 @@ module "lambda" {
   source = "../../modules/lambda"
 
   function_name = "${var.project_name}-${var.environment}-lambda"
-  source_dir = var.lambda_path
+  lambda_zip_path = var.lambda_zip_path
 }
 
 module "apigateway" {
