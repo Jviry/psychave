@@ -16,13 +16,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
+      - name: Debug OIDC token
+        run: |
+          IDTOKEN=$(curl -sSL -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
+          echo $IDTOKEN | cut -d "." -f2 | base64 -d | jq .
+        env:
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
+          ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
       # AWS authentication using GitHub OIDC
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ap-southeast-1
-          role-to-assume: arn:aws:iam::401106839578:role/psychave-github-oidc-role
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
 
       # Python setup
       - name: Set up Python
