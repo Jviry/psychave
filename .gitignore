@@ -37,7 +37,7 @@ frontend/.next/
 *.swo
 
 # Infra
-*.terraform
+.terraform
 *.tfplan
 *.tfplan.json
 *.tfstate
