@@ -9,3 +9,7 @@ variable "project_name" {
 variable "environment" {
   type = string
 }
+
+variable "lambda_path" {
+  type = string
+}
