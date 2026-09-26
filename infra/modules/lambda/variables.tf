@@ -2,7 +2,7 @@ variable "function_name" {
   type = string
 }
 
-variable "source_dir" {
+variable "lambda_zip_path" {
   type = string
 }
 

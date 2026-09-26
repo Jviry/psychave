@@ -37,8 +37,12 @@ frontend/.next/
 *.swo
 
 # Infra
+*.terraform
+*.tfplan
+*.tfplan.json
 *.tfstate
 *.tfstate.*
-
-#backend
-lambda_test/
+crash.log
+crash.*.log
+backend/package/
+backend/lambda.zip

@@ -6,8 +6,8 @@ resource "aws_lambda_function" "this" {
   runtime = var.runtime
   handler = "main.handler"
 
-  filename         = "${path.root}/../../../backend/lambda.zip"
-  source_code_hash = filebase64sha256("${path.root}/../../../backend/lambda.zip")
+  filename         = var.lambda_zip_path
+  source_code_hash = filebase64sha256(var.lambda_zip_path)
 
   depends_on = [
     aws_iam_role_policy_attachment.basic_execution
