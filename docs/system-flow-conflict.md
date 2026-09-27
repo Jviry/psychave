@@ -1,61 +1,60 @@
-# System Flow Conflict — Flow A vs Flow B
+# System Flow Conflict — Flow C (Official) vs Flow A (Legacy) vs Flow B
 
-Companion to `system-flow.md`. `system-flow.md` uses **Flow A as canonical** per instruction.
+Companion to `system-flow.md`. `system-flow.md` uses **Flow C (Official Queue Flow) as canonical** per 2026-09-27 instruction. Flow A is retained as legacy wherever appropriate.
 
 ## TL;DR
 
-- **Flow A — Admin-Guided (canonical):** Client → Admin approves + assigns psychologist → Email payment link → Client pays → Client picks schedule.
-- **Flow B — Psychologist-Review (alternative, matches current DB shape better):** Client → Psychologist reviews intake → Proposes slots + price → Client selects slot → Pays → Gets contact info.
-- Both flows appear verbatim in the source notes. They disagree on who approves, who proposes schedule/price, payment order, and who assigns the psychologist.
+- **Flow C — Official (canonical):** Client submits (persona) → pending queue visible to psychologists → verified psychologist picks up + sets price + proposes exactly 3 times → client selects 1 + pays → finalized only on payment success → contact unlock.
+- **Flow A — Admin-Guided (legacy):** Client → Admin approves + assigns psychologist → Email payment link → Client pays → Client picks schedule (pay-then-schedule, admin assigns). Superseded; kept for traceability.
+- **Flow B — Psychologist-Review / early Current Workflow (legacy):** Psychologist reviews → proposes slots + price (count unspecified) → client picks → pays → contact unlock. Absorbed into Flow C except for the exact-3 rule and queue semantics.
 
 ---
 
-## Flow A — Admin-Guided Booking Workflow (Canonical)
+## Flow C — Official Queue Flow (Canonical)
 
-Source: `CORE FEATURES #1 Appointment & Scheduling System` + `Notification & Reminder`.
+Source: revised official plan 2026-09-27.
 
-1. Client views Psychologist Directory (specialization, languages, availability).
-2. Client submits booking request → routed **directly to admin dashboard**.
-3. Admin reviews, approves, **assigns a specific psychiatrist/psychologist**.
-4. Client receives direct email with payment link.
-5. Once payment is processed, client finalizes/selects schedule on interactive calendar.
-6. Instant alerts + 24h/1h reminders + status updates for changes/cancellations.
+1. Directory view (specialization, languages, availability); hidden until admin verifies credentials.
+2. Client submits booking request, optionally for a persona (self/dependent); enters pending queue visible to available psychologists; intake also routed to admin dashboard for preliminary assessment (both statements kept from official text).
+3. Verified psychologist picks up, sets price, proposes exactly 3 candidate times.
+4. Client reviews 3, selects 1 (`selected_slot_id`), completes payment; finalized only on `payments(status=paid)`.
+5. Notifications: new-request → psychologists; proposal → client; payment confirmation → both; 24h/1h reminders; real-time status updates.
+6. Contact unlock after verified payment + final confirmations.
+7. Auth: AWS Cognito with Cognito Groups (client/psychologist/admin), verified every request.
 
-Key property: **pay-then-schedule, admin assigns.**
+Key properties: **queue pick-up, exactly 3 proposals, schedule-then-pay, payment-gated finalization.**
 
-## Flow B — Psychologist-Review / Current Workflow (Alternative)
+## Flow A — Admin-Guided (Legacy, noted where appropriate)
 
-Source: `Workflow — The Booking & Coordination 1-6` + `System Flow Notes — Client user flow 1-6`.
+Source: original `CORE FEATURES #1` + early `system-flow.md`.
 
-1. **Profile Selection & Intake:** Client selects Patient Profile (Persona, self or dependent), completes intake form (personal info, concerns, needs).
-2. **Request Submission & Routing:** System logs request, forwards intake forms — in one version to admin dashboard for preliminary assessment, in another version directly to selected psychologist for review.
-3. **Psychologist Review & Proposal:** Psychologist reviews intake for fit. Upon approval, psychologist generates proposal with available dates, time slots, and price.
-4. **Schedule Confirmation:** Client reviews proposed schedule on dashboard and locks in preferred slot.
-5. **Secure Payment Processing:** Client pays via payment gateway. System updates transaction status, marks appointment as `Paid`.
-6. **Confirmation & Connection:** Once verified, system unlocks psychologist's direct contact info. Both parties get final confirmation.
+1. Client views directory.
+2. Client submits → routed directly to admin dashboard.
+3. Admin reviews, approves, assigns specific psychologist.
+4. Client receives email payment link; pays; then picks schedule on calendar.
+5. Admin notified on submission; client emailed on approval; 24h/1h reminders.
 
-Condensed chain from notes:
+Key property: **pay-then-schedule, admin assigns.** Superseded by Flow C steps 2-4.
 
-```text
-Client completes forms → Submits appointment request → Psychologist approves
-and provides slots + price → Client selects date/time → Client pays
-→ Client receives psychologist contact information.
-```
+## Flow B — Psychologist-Review (Legacy)
 
-Key property: **schedule-then-pay, psychologist proposes.**
+Source: early `Workflow — The Booking & Coordination 1-6`.
+
+Same shape as Flow C except: proposal count unspecified, no explicit pending-queue semantics, routing ambiguous (admin vs psychologist). Flow C resolves these with queue + exactly-3 rule.
 
 ---
 
-## Point-by-Point Conflict
+## Point-by-Point: C vs A
 
-| # | Decision | Flow A says | Flow B says | Impact |
-|---|---|---|---|---|
-| 1 | Who approves? | Admin reviews + approves | Psychologist reviews intake for fit | Different dashboard permissions, different `status` transitions |
-| 2 | Who assigns psychologist? | Admin assigns specific psychologist | Client selects / psychologists discuss among themselves (`kinsa na client i take`) | Sept 9 notes explicitly say `Admin don't decide which Therapist the Client is assigned to` — directly contradicts Flow A |
-| 3 | Who proposes slots + price? | Unspecified; calendar selection after payment | Psychologist generates proposal with dates/slots/price | Changes whether `proposed_slots` + `price` are created before or after payment |
-| 4 | Payment order | Email payment link → pay → pick schedule | Pick schedule → pay → get contact | State machine for `appointments` / `payments` flips |
-| 5 | Contact unlock | Not specified in A | Contact unlocked only after `Paid` | Privacy/guardrail rule only defined in B |
-| 6 | Routing target | Always admin dashboard | Ambiguous: admin dashboard in one paragraph, selected psychologist in another | Same section contradicts itself |
+| # | Decision | Flow C (official) | Flow A (legacy) |
+|---|---|---|---|
+| 1 | Queue entry | Pending queue visible to available psychologists (+ admin preliminary view) | Directly to admin dashboard only |
+| 2 | Who assigns | Verified psychologist self-picks-up | Admin assigns specific psychologist |
+| 3 | Proposal | Exactly 3 candidate times + price set at pick-up | Unspecified; calendar after payment |
+| 4 | Payment order | Select 1 of 3 → pay → finalized only on success | Pay via email link → pick schedule |
+| 5 | Alerts | New request → psychologists; proposal → client; confirmation → both | Submit → admin; approval → client |
+| 6 | Gate | Unverified cannot pick up (explicit) | Hidden roster only (implicit) |
+| 7 | Auth | Cognito Groups verified every request (explicit) | Cognito implied by `cognito_sub` only |
 
 ---
 
@@ -68,31 +67,19 @@ Current backend models (`backend/src/models/`):
 - `Payment: appointment_id FK, amount, status=pending`
 - `PsychologistProfile.approval_status=pending, approved_by FK->admin_profiles`
 
-This shape fits **Flow B** more naturally (psychologist creates `proposed_slots` + sets `price` per appointment, client picks `selected_slot_id`, then `payments` flips to paid).
+Flow C fits these models with two added constraints (no schema change yet):
 
-To fully support **Flow A as canonical**, the following are still missing / need decisions:
-
-- Admin approval audit on `appointments` (who approved, when) — currently only psychologist approval fields exist.
-- Assignment action (`admin_id -> appointments.psychologist_id`) with authorization check.
-- Email payment-link token/state (pay-before-schedule) — no column/state for `payment_link_sent`.
-- Calendar availability source (per-psychologist availability vs per-appointment `proposed_slots`) — Sept 9 notes want Calendly-like availability + NowServing-style queue; neither is modeled yet.
-- Contact-unlock rule enforcement if keeping B's Step 6.
+- Enforce exactly 3 `proposed_slots` rows per `appointment_id` at proposal time (application rule).
+- Gate pick-up (`psychologist_id` set) on `approval_status=approved`; gate finalization on `payments(status=paid)`.
+- Still missing / needs decision: pending-queue visibility query (available psychologists scope), proposal expiry / re-proposal, no-show of unpicked requests, admin preliminary-assessment write vs read-only, Cognito Groups → app role mapping + per-request verification, contact-unlock enforcement.
 
 No code changes were made in this docs task.
 
 ---
 
-## Recommendation
-
-1. Keep `system-flow.md` (Flow A) as the stakeholder-facing canonical flow.
-2. Treat Flow B as `Alternative / Legacy — do not implement until resolved`.
-3. Resolve with team (Naza flowchart / Sept 9 attendees): confirm whether admin assigns or therapists self-claim, and whether payment comes before or after slot selection.
-4. Once resolved, update `system-flow.md` and add the corresponding `status` state machine + missing columns via a new Alembic migration.
-
----
-
 ## Sources
 
-- Flow A: `CORE FEATURES #1-2`, `TARGET USERS AND ROLES`
-- Flow B: `Workflow — Current Workflow 1-6`, `System Flow Notes 1-6`
-- Constraints: `Platform Security & Guardrails`, `Minutes Sept 9, 2026` (therapist specialization, admin-doesn't-decide, Calendly-like calendar, automated email waiting→approval→payment)
+- Flow C: official revised plan 2026-09-27 (INTRODUCTION, TARGET USERS, CORE FEATURES #1-4).
+- Flow A: original `CORE FEATURES #1` + early `system-flow.md` (legacy).
+- Flow B: early `Workflow — Current Workflow 1-6` (legacy).
+- Deck: `site-map.md`, `services-catalog.md` (structure/services only; no personal names).

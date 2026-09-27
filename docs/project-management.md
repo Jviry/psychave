@@ -6,6 +6,8 @@
 - **PsychAvenue Forms Link:** https://forms.gle/fZFiCUEaxsBAfdyQ6
 - **Canva Link:** https://www.canva.com/design/DAG6-QESfMM/RNbbDrpfCt6gxvDQtPUXsQ/edit?utm_content=DAG6-QESfMM&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton
 - **ERD (Miro):** https://miro.com/welcomeonboard/MHNaY2orRGxMTEdoU0ZFNGViZHNtTHB3Q0poR2VTZDFPTDBQcGJHVVl2ZFc1dnFUQ1F3dXdOM1dYck0zWnhYOWszK0tCZ2xwcXM5anZSc1hrWS8rdk9RNHBPdmJsT1dFcnhvMERWQXUvVW9rRURaem1GdzBnbXh2SzlPSCthWUV0R2lncW1vRmFBVnlLcVJzTmdFdlNRPT0hdjE=?share_link_id=684426152450
+- **Site Map & Details deck:** https://docs.google.com/presentation/d/1wDJcAl3PUMOE1_KM4MrVJ6aWH6XLzb7Nwv62o5srTzU/mobilepresent?slide=id.g37842b95ffd_0_0
+- Contact from deck: `psychaveph.info@gmail.com` (permanent fallback). Personal names and testimonial quotes intentionally omitted from docs.
 
 ## To Do This Week (as given)
 

@@ -1,105 +1,105 @@
-# System Flow — PsychAvenuePH (Canonical: Flow A)
+# System Flow — PsychAvenuePH (Canonical: Official Queue Flow)
 
 > Flow Conflict: See at system-flow-conflict.md
+> Note: Flow A (Admin-Guided: admin assigns psychologist, pay-then-schedule) is retained as legacy in `system-flow-conflict.md`. It is **not** canonical.
 
 ## Overview
 
-This document describes the **current canonical booking & coordination flow** for PsychAvenuePH.
+This document describes the **official canonical booking & coordination flow** for PsychAvenuePH.
 
-**Canonical choice: Flow A — Admin-Guided Booking Workflow.**
+**Canonical choice: Official Queue Flow (Flow C) — Client-Initiated Booking → Psychologist Pick-Up with 3 proposed times → Client selects 1 + pays to finalize.**
 
-Flow A is taken from `CORE FEATURES AND FUNCTIONALITIES #1 — Appointment & Scheduling System` in the source notes. An alternative flow (Flow B — Psychologist-Review) exists in the notes and is preserved for reference in `system-flow-conflict.md`. Do not implement both without resolving the conflict first.
+Source: revised official plan pasted 2026-09-27 (supersedes Flow A). Deck additions (`site-map.md`, `services-catalog.md`) still apply; personal names/quotes stay out of docs.
 
-Related docs (planned):
+Related docs:
 - `overview.md` — project objective, target users/roles
 - `requirements.md` — core features, guardrails
-- `tech-stack.md` — frontend/backend/db
-- `project-management.md` — links, todos, minutes
+- `system-flow-conflict.md` — Flow A (legacy admin-assign) vs Flow B vs Flow C
+- `site-map.md` — public page tree + permanent external Book-a-session fallback
+- `services-catalog.md` — service durations/descriptions
 
 ---
 
-## Flow A — Admin-Guided Booking Workflow (Canonical)
+## Official Flow — Client-Initiated Queue (Canonical)
 
-### A.1 Psychologist Directory View
+### C.1 Psychologist Directory View
 
-- A straightforward list of all 5 psychologists.
-- Each entry shows: specialization, spoken languages, and general availability.
-- Psychologist accounts remain hidden from the public roster until the System Administrator manually verifies credentials (see Security section in requirements).
+- A list of available psychologists where clients can view each one's specialization, spoken languages, and general availability.
+- Psychologist accounts remain hidden from the public roster and cannot pick up appointment requests until the System Administrator manually reviews and approves their credentials.
 
-### A.2 Steps
+### C.2 Steps
 
 **Step 1 — Profile Selection & Intake**
 
-- The client initiates booking by selecting a Patient Profile (Persona).
-- Allows booking for self or on behalf of a dependent.
-- Client completes a comprehensive intake form detailing personal information, primary concerns, and specific needs.
+- The client initiates booking by selecting a Patient Profile (Persona) — themselves or a dependent.
+- Client completes intake form (personal info, primary concerns, specific needs).
 - Model mapping: `users -> client_profiles -> persona -> forms`.
 
 **Step 2 — Request Submission & Routing**
 
 - Upon submission, the system logs the appointment request as `appointments(status=pending)`.
-- Request is routed **directly to the admin dashboard** for review (not directly to a psychologist).
-- Admin gets an instant booking-submission alert (email / in-app).
+- Official text keeps two routing statements: intake forms go to the admin dashboard for preliminary assessment, and the request enters a pending queue visible to available psychologists.
+- Available psychologists are notified of the new pending request (email/in-app). Admin submission alert is legacy Flow A behavior; official alert target is psychologists.
 
-**Step 3 — Admin Review, Approval & Assignment**
+**Step 3 — Psychologist Pick-Up & Proposal**
 
-- Administrator reviews and approves the request.
-- Administrator assigns a specific psychiatrist/psychologist to the client.
-- Assignment should consider specialization and availability, per Sept 9 notes.
-- Model mapping: `appointments.psychologist_id` set by admin action.
+- A psychologist picks up a pending request, sets the session price, and proposes exactly 3 candidate date/time options.
+- Model mapping: `appointments.psychologist_id` set by pick-up actor; `appointments.price` set here; 3 rows in `proposed_slots` per `appointment_id`.
+- Gate: unverified psychologists cannot pick up.
 
-**Step 4 — Email Payment Link & Scheduling**
+**Step 4 — Client Selection & Payment**
 
-- Upon admin approval, the client receives a direct email at their registered account containing a link to complete payment.
-- Once payment is processed, the client proceeds to finalize and select their consultation schedule on the interactive calendar.
-- Order in Flow A: **pay-then-schedule** (payment link first, calendar second).
-- Model mapping: `payments(appointment_id, amount, status)` → then `proposed_slots` → `appointments.selected_slot_id`.
+- Client reviews the 3 proposed times, selects one (`appointments.selected_slot_id`), and completes payment.
+- Appointment is only finalized once payment succeeds (`payments(status=paid)` → `appointments(status=paid/confirmed)`).
+- Order: **schedule-then-pay**.
 
-**Step 5 — Notification & Reminders**
+**Step 5 — Notifications**
 
-- Instant Booking & Payment Alerts: admin notified on submission; client emailed on approval.
-- Automated Reminders: SMS, email, or in-app alerts 24 hours and 1 hour before session.
-- Status Updates: real-time notifications for schedule changes, cancellations, or admin announcements.
+- New Request Alerts → available psychologists on queue entry.
+- Slot Proposal Alert → client by email/in-app to select + pay.
+- Payment Confirmation → both client and psychologist; session locked in.
+- Automated Reminders: SMS/email/in-app 24h and 1h before session.
+- Status Updates: real-time for cancellations, rescheduling, admin announcements.
 
 **Step 6 — Confirmation & Connection**
 
-- Once payment is verified, the system finalizes the booking and marks `appointments(status=paid/confirmed)`.
-- Both parties receive final confirmation for coordination before the session.
-- Per Flow B notes (kept for parity): unlocking psychologist direct contact info happens only after `payments(status=paid)`.
+- Once payment is verified, system finalizes booking and unlocks psychologist's direct contact info for the client.
+- Both parties receive final confirmation for coordination.
 
-### A.3 Text Diagram (Flow A)
+### C.3 Text Diagram (Official)
 
 ```text
 Client selects Persona + completes Intake Form (forms)
-  -> Submits Appointment Request (appointments: pending)
-  -> Admin Dashboard (instant alert)
-  -> Admin approves + assigns Psychologist (appointments.psychologist_id)
-  -> Client receives Email Payment Link
-  -> Client pays (payments: pending -> paid)
-  -> Client selects schedule on Calendar (proposed_slots -> selected_slot_id)
-  -> Confirmation + Reminders (24h / 1h) + Status updates
+  -> Submits Request (appointments: pending) -> pending queue (+ admin preliminary view)
+  -> Available psychologists notified
+  -> Psychologist picks up (psychologist_id) + sets price + proposes 3 slots (proposed_slots x3)
+  -> Client notified (proposal ready)
+  -> Client selects 1 of 3 (selected_slot_id) + pays (payments: pending -> paid)
+  -> Finalized only on payment success -> contact unlock + confirmations + 24h/1h reminders
 ```
 
-### A.4 Roles in Flow A
+### C.4 Roles (Official)
 
-- **Patients (Clients):** Search verified psychologists, book/manage appointments, view services, receive real-time notifications. Can only view their own booking history.
-- **Psychologists (Providers):** Manage consultation schedules, update profile/services, accept or modify bookings assigned to them. Can only access schedules/details of patients booked under them.
-- **System Administrator (Admin):** Verify psychologist credentials, review/approve requests, assign psychologist, manage website content, ensure smooth/secure operation. Manages roles without accessing private consultation details.
+- **Patients (Clients):** Search verified psychologists, book/manage across all linked personas, view services, receive proposal/payment/reminder notifications. Own booking history only.
+- **Psychologists (Providers):** View pending queue (if verified), pick up requests, set price, propose 3 times, manage own schedules. Only schedules/details of clients/personas booked under them.
+- **System Administrator (Admin):** Verify credentials (unhide roster + enable pick-up), manage user roles / approvals / CMS content. No access to private consultation details or session notes.
+- **Authentication:** AWS Cognito; role membership (client / psychologist / admin) via Cognito Groups, verified on every request.
+
+### Flow A note (legacy, where appropriate)
+
+- Flow A differed: request → admin dashboard → admin assigns psychologist → email payment link → pay → pick schedule (pay-then-schedule, admin assigns).
+- Retained in `system-flow-conflict.md` for traceability. Do not implement alongside Flow C.
 
 ---
 
 ## Placeholders for Missing Diagrams
 
-The source notes referenced embedded images that were not recoverable as files (base64 blobs `image1`, `image4`, `image5`, `image6`):
-
-- `[Workflow diagram — image4]` — missing. See Miro ERD / Canva links in project-management docs.
-- `[Current Workflow diagram — image5]` — missing.
-- `[Client user flow diagram — image6]` — missing.
-
-Do not delete this section; replace with exported PNGs when available.
+- Original `image1`-`image8` (table design, workflow) were base64 blobs, not recoverable. See Miro ERD / Canva links in `project-management.md`.
+- Deck sitemap screenshots are transcribed in `site-map.md`; do not re-embed.
 
 ---
 
 ## Sources
 
-Condensed from pasted project notes: `PsychAvenue Main — INTRODUCTION`, `TARGET USERS AND ROLES`, `CORE FEATURES #1-2`, `Workflow — Current Workflow`, `System Flow Notes`, `Minutes Sept 9, 2026`.
+- Official revised plan (2026-09-27 paste): INTRODUCTION, TARGET USERS, CORE FEATURES #1-4 (queue + 3-slot + Cognito Groups).
+- Deck: `site-map.md`, `services-catalog.md` (structure/services only; no personal names).
