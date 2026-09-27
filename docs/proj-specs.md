@@ -17,7 +17,7 @@
 - API Gateway
 - Lambda — Serverless
 - Postgres
-- Cognito — Login / Google OAuth / Supabase auth (source lists all three; needs decision)
+- Cognito — official: AWS Cognito login with Cognito Groups (client / psychologist / admin), verified on every request. Google OAuth / Supabase auth are not canonical.
 - Stripe — Payment Gateway
 - Payload CMS
 
@@ -37,7 +37,8 @@
 - Models (9 tables, UUID PKs): `users`, `admin_profiles`, `psychologist_profiles`, `client_profiles`, `persona`, `forms`, `appointments`, `proposed_slots` (circular FK with `appointments.selected_slot_id`), `payments`.
 - Controllers: `app_router` aggregates `auth_controller.router` (currently empty — no endpoints).
 - Layers `repo/user_repo.py`, `usecase/user_usecase.py`, `services/`, `utils/` are stubs.
-- Auth: `User.cognito_sub` implies Cognito IdP; `python-jose` installed but unused. No JWT verification yet.
+- Auth: official decision is AWS Cognito + Cognito Groups verified per request. `User.cognito_sub` aligns; `python-jose` installed but JWT/Groups verification still unimplemented.
+- Official queue rules (application-level, no schema change yet): exactly 3 `proposed_slots` per proposal; pick-up gated on `approval_status=approved`; finalization gated on `payments(status=paid)`; Flow A (admin-assign, pay-then-schedule) is legacy — see `system-flow-conflict.md`.
 - Migrations: `alembic/versions/8bb9e943352d_initial_tables.py` creates all 9 tables.
 
 See `backend/README.md` for run/migration guide. Do not duplicate it here.
@@ -45,21 +46,29 @@ See `backend/README.md` for run/migration guide. Do not duplicate it here.
 ## 3. Architecture Notes / Gaps
 
 - Serverless: Mangum + NullPool is intentional for Lambda + Supabase PgBouncer.
-- Auth decision needed: Cognito vs Supabase Auth vs Google OAuth — source lists `Cognito - Login / Google oauth / supabase auth` as one line. Pick one IdP; `cognito_sub` column assumes Cognito.
+- Auth decision: official Cognito Groups (verified per request in production; mocked role switcher in `frontend/` for initial UI).
 - Payments: Stripe is specified but no webhook / `payments.status` state machine yet.
-- CMS: Payload CMS is listed but no integration point defined (likely for landing / services / doctor profiles content).
-- Frontend has no repo folder yet; requirements call for Admin Page, Psychology dashboard, Calendar, Landing page.
+- CMS: Payload CMS scope is now services catalog, roster section structure, testimonials structure (no personal quotes in docs), Vision & Mission, Clinic Overview and Impact. See `services-catalog.md` and `site-map.md`.
+- Frontend: `frontend/` exists (AI Studio Next.js prototype, mock-first). Run: `cd frontend; npm install; npm run dev` with `frontend/.env.local` (`NEXT_PUBLIC_API_URL=http://localhost:8000`, `NEXT_PUBLIC_AUTH_MODE=mock`). No backend dependency for initial UI. Contract map: see `frontend-backend-contract.md`.
 - Missing from repo but mentioned in README: `common/middleware/error_middleware.py`, `Dockerfile`.
 - Known typo: `PsychologistProfile.liscence_number` should be `licence_number` / `license_number` — needs migration if renamed.
 
 ## 4. Spec Decisions Needed
 
-1. Auth provider canonical choice.
-2. Payment order (see `system-flow-conflict.md`): pay-then-schedule (Flow A) vs schedule-then-pay (Flow B).
-3. Calendar source: per-psychologist availability vs per-appointment `proposed_slots`; Calendly-like UX requested Sept 9.
+1. Auth provider: decided — Cognito Groups (implement verification; mocked in frontend).
+2. Payment order: decided official — schedule-then-pay with payment-gated finalization. Flow A pay-then-schedule is legacy.
+3. Calendar source: per-psychologist availability vs per-appointment `proposed_slots` (exactly 3); Calendly-like UX requested Sept 9.
 4. Messaging: source mentions `Alternative where the website has its own messaging feature` (image3 missing) — in-scope or out?
-5. CMS scope: which pages are Payload-driven vs hardcoded?
+5. CMS scope: which pages are Payload-driven vs hardcoded? Current answer: services, roster structure, testimonials structure, Vision/Mission, Clinic Overview are CMS-driven; personal names/quotes stay out of docs.
+6. Facebook page URL + Vision/Mission + Clinic Overview copy still pending from stakeholders.
+
+## 5. Brand Tokens (from deck Image 2)
+
+- Fonts: preferably sans-serif — `Proxima Nova Condensed` and `Aileron`.
+- Colors: `#25372D`, `#D0E187`, `#5D8B69`, `#8FBE8F`, `#C0D3C3`.
+- Logo: `PSYCHAVE PH` badge (asset pending; do not embed from screenshot).
+- Contact config: `psychaveph.info@gmail.com`; Facebook page URL pending. `Book a session` links are external config, not app routes. See `site-map.md`.
 
 ## Sources
 
-- `TechStack` notes section + `backend/requirements.txt`, `backend/src/*`, `backend/README.md`.
+- Official revised plan 2026-09-27 + `TechStack` notes + `backend/requirements.txt`, `backend/src/*`, `backend/README.md`.
