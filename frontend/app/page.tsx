@@ -1,15 +1,16 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { AppLink, useAppRouter } from '../lib/navigation';
 import { useAppStore } from '../stores/useAppStore';
 import { Button, Card } from '../components/ui/primitives';
 import { TestimonialsConsentSection } from '../components/TestimonialsConsentSection';
 
 export default function HomePage() {
-  const { navigate } = useAppRouter();
+  const router = useRouter();
   const { setCognitoRole, updateIntakeDraft } = useAppStore();
 
   const { data: services = [] } = useQuery({
@@ -32,7 +33,7 @@ export default function HomePage() {
       actionLabel: 'Open Intake Form',
       onAction: () => {
         setCognitoRole('client');
-        navigate('/personas');
+        router.push('/personas');
       },
     },
     {
@@ -44,7 +45,7 @@ export default function HomePage() {
       actionLabel: 'Inspect Queue',
       onAction: () => {
         setCognitoRole('psychologist');
-        navigate('/psych/queue');
+        router.push('/psych/queue');
       },
     },
     {
@@ -56,7 +57,7 @@ export default function HomePage() {
       actionLabel: 'Test Proposal Creator',
       onAction: () => {
         setCognitoRole('psychologist');
-        navigate('/psych/queue');
+        router.push('/psych/queue');
       },
     },
     {
@@ -68,7 +69,7 @@ export default function HomePage() {
       actionLabel: 'Review Proposal #102',
       onAction: () => {
         setCognitoRole('client');
-        navigate('/proposal/BK-2026-102');
+        router.push('/proposal/BK-2026-102');
       },
     },
     {
@@ -80,7 +81,7 @@ export default function HomePage() {
       actionLabel: 'View Confirmed Booking',
       onAction: () => {
         setCognitoRole('client');
-        navigate('/bookings');
+        router.push('/bookings');
       },
     },
   ];
@@ -113,7 +114,7 @@ export default function HomePage() {
               size="lg"
               onClick={() => {
                 setCognitoRole('client');
-                navigate('/personas');
+                router.push('/personas');
               }}
             >
               Start Flow C Intake
@@ -121,16 +122,16 @@ export default function HomePage() {
             <Button
               variant="outline"
               size="lg"
-              onClick={() => navigate('/services')}
+              onClick={() => router.push('/services')}
             >
               Explore 7 Services & Guardrails
             </Button>
-            <AppLink
+            <Link
               href="/book"
               className="text-sm font-medium text-[#25372D]/80 hover:text-[#25372D] underline underline-offset-4 px-2"
             >
               External Booking Fallback
-            </AppLink>
+            </Link>
           </div>
         </div>
 
@@ -281,12 +282,12 @@ export default function HomePage() {
               Clinical &amp; Advisory Services Directory
             </h2>
           </div>
-          <AppLink
+          <Link
             href="/services"
             className="text-sm font-semibold text-[#5D8B69] hover:text-[#25372D] underline underline-offset-4"
           >
             View Full Services Specification →
-          </AppLink>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -335,7 +336,7 @@ export default function HomePage() {
                   onClick={() => {
                     updateIntakeDraft({ serviceId: srv.id });
                     setCognitoRole('client');
-                    navigate('/personas');
+                    router.push('/personas');
                   }}
                 >
                   Book Service →

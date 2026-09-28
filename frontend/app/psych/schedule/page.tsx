@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/api';
 import { useAppStore } from '../../../stores/useAppStore';
-import { useAppRouter } from '../../../lib/navigation';
+import { useRouter } from 'next/navigation';
 import {
   BookingStatusTag,
   Button,
@@ -14,7 +14,7 @@ import {
 
 export default function PsychologistSchedulePage() {
   const queryClient = useQueryClient();
-  const { navigate } = useAppRouter();
+  const router = useRouter();
   const { activePsychologistId, setActivePsychologistId, publishFlowEvent } =
     useAppStore();
 
@@ -109,7 +109,7 @@ export default function PsychologistSchedulePage() {
             <strong>#{activePsychologistId}</strong>. Visit the Pending Queue to pick up an intake
             request and propose 3 slots.
           </p>
-          <Button variant="primary" size="sm" onClick={() => navigate('/psych/queue')}>
+          <Button variant="primary" size="sm" onClick={() => router.push('/psych/queue')}>
             Open Pending Queue →
           </Button>
         </Card>

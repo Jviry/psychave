@@ -49,7 +49,7 @@ See `backend/README.md` for run/migration guide. Do not duplicate it here.
 - Auth decision: official Cognito Groups (verified per request in production; mocked role switcher in `frontend/` for initial UI).
 - Payments: Stripe is specified but no webhook / `payments.status` state machine yet.
 - CMS: Payload CMS scope is now services catalog, roster section structure, testimonials structure (no personal quotes in docs), Vision & Mission, Clinic Overview and Impact. See `services-catalog.md` and `site-map.md`.
-- Frontend: `frontend/` exists (AI Studio Next.js prototype, mock-first). Run: `cd frontend; npm install; npm run dev` with `frontend/.env.local` (`NEXT_PUBLIC_API_URL=http://localhost:8000`, `NEXT_PUBLIC_AUTH_MODE=mock`). No backend dependency for initial UI. Contract map: see `frontend-backend-contract.md`.
+- Frontend: `frontend/` exists (AI Studio Next.js prototype, mock-first). Routing is native Next.js App Router (custom prototype router removed). Styling is Tailwind v4 via `app/globals.css` + PostCSS. Run: `cd frontend; npm install; npm run dev` with `frontend/.env.local` (`NEXT_PUBLIC_API_URL=http://localhost:8000`, `NEXT_PUBLIC_AUTH_MODE=mock`). No backend dependency for initial UI. Contract map: see `frontend-backend-contract.md`.
 - Missing from repo but mentioned in README: `common/middleware/error_middleware.py`, `Dockerfile`.
 - Known typo: `PsychologistProfile.liscence_number` should be `licence_number` / `license_number` — needs migration if renamed.
 

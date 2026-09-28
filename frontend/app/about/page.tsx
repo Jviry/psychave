@@ -1,9 +1,9 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
-import { AppLink } from '../../lib/navigation';
 import { Card } from '../../components/ui/primitives';
 import { TestimonialsConsentSection } from '../../components/TestimonialsConsentSection';
 
@@ -79,12 +79,12 @@ export default function AboutPage() {
               Clinic Overview &amp; Ethical Impact Architecture
             </h2>
           </div>
-          <AppLink
+          <Link
             href="/admin/cms"
             className="text-xs font-semibold text-[#5D8B69] hover:text-[#25372D] underline underline-offset-4"
           >
             Edit Placeholders in Admin CMS →
-          </AppLink>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

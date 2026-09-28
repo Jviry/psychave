@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { useAppStore } from '../../stores/useAppStore';
-import { useAppRouter } from '../../lib/navigation';
+import { useRouter } from 'next/navigation';
 import { BookingStatus } from '../../lib/types';
 import {
   BookingStatusTag,
@@ -14,7 +14,7 @@ import {
 
 export default function ClientBookingsPage() {
   const queryClient = useQueryClient();
-  const { navigate } = useAppRouter();
+  const router = useRouter();
   const { setCognitoRole, publishFlowEvent } = useAppStore();
   const [statusFilter, setStatusFilter] = useState<'all' | BookingStatus>('all');
 
@@ -78,7 +78,7 @@ export default function ClientBookingsPage() {
         <Button
           variant="primary"
           size="md"
-          onClick={() => navigate('/personas')}
+          onClick={() => router.push('/personas')}
         >
           + New Persona Intake Request
         </Button>
@@ -100,7 +100,7 @@ export default function ClientBookingsPage() {
           <Button
             variant="dark"
             size="md"
-            onClick={() => navigate(`/proposal/${proposedBookings[0].id}`)}
+            onClick={() => router.push(`/proposal/${proposedBookings[0].id}`)}
           >
             Review 3 Slots &amp; Pay ({proposedBookings[0].id}) →
           </Button>
@@ -176,7 +176,7 @@ export default function ClientBookingsPage() {
             <Button variant="outline" size="sm" onClick={() => setStatusFilter('all')}>
               Reset Filter
             </Button>
-            <Button variant="primary" size="sm" onClick={() => navigate('/personas')}>
+            <Button variant="primary" size="sm" onClick={() => router.push('/personas')}>
               Start Flow C Intake
             </Button>
           </div>
@@ -257,7 +257,7 @@ export default function ClientBookingsPage() {
                           size="sm"
                           onClick={() => {
                             setCognitoRole('psychologist');
-                            navigate('/psych/queue');
+                            router.push('/psych/queue');
                           }}
                         >
                           Test Pick-Up as Verified Psychologist →
@@ -283,7 +283,7 @@ export default function ClientBookingsPage() {
                           variant="primary"
                           size="sm"
                           className="w-full"
-                          onClick={() => navigate(`/proposal/${booking.id}`)}
+                          onClick={() => router.push(`/proposal/${booking.id}`)}
                         >
                           Review 3 Slots &amp; Complete Payment →
                         </Button>
