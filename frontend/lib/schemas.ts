@@ -45,9 +45,11 @@ export type IntakeFormValues = z.infer<typeof intakeFormSchema>;
  */
 const isFutureDate = (val: string) => {
   if (!val) return false;
-  const d = new Date(val);
-  // Allow a 2-minute buffer for form fill time
-  return !isNaN(d.getTime()) && d.getTime() >= Date.now() - 2 * 60 * 1000;
+  // If string has no timezone offset, normalize as Asia/Manila (+08:00)
+  const hasTimezone = /[zZ]|([+-]\d{2}:?\d{2})$/.test(val);
+  const normalized = hasTimezone ? val : (val.length === 16 ? `${val}:00+08:00` : `${val}+08:00`);
+  const d = new Date(normalized);
+  return !isNaN(d.getTime()) && d.getTime() > Date.now();
 };
 
 export const proposalFormSchema = z

@@ -50,31 +50,51 @@ export default function PsychologistQueuePage() {
   const pendingQueue = bookings.filter((b) => b.status === 'pending');
   const targetBooking = pendingQueue.find((b) => b.id === activeModalBookingId) || null;
 
-  // Format datetime for datetime-local input (YYYY-MM-DDTHH:mm)
-  const formatForInput = (d: Date) => {
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  // Format datetime for datetime-local input strictly in Philippine Standard Time (Asia/Manila)
+  const formatForManilaInput = (d: Date) => {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Manila',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(d);
+    const getPart = (type: string) => parts.find((p) => p.type === type)?.value || '00';
+    const year = getPart('year');
+    const month = getPart('month');
+    const day = getPart('day');
+    let hour = getPart('hour');
+    if (hour === '24') hour = '00';
+    const minute = getPart('minute');
+    return `${year}-${month}-${day}T${hour}:${minute}`;
   };
 
-  // Generate dynamic future default slots
+  const serializeManilaIso = (val: string) => {
+    if (!val) return val;
+    const hasTimezone = /[zZ]|([+-]\d{2}:?\d{2})$/.test(val);
+    if (hasTimezone) return val;
+    return val.length === 16 ? `${val}:00+08:00` : `${val}+08:00`;
+  };
+
+  // Generate dynamic future default slots in Asia/Manila
   const defaultSlots = useMemo(() => {
     const now = new Date();
     const d1 = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    d1.setHours(10, 0, 0, 0);
     const d2 = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-    d2.setHours(14, 0, 0, 0);
     const d3 = new Date(now.getTime() + 72 * 60 * 60 * 1000);
-    d3.setHours(16, 30, 0, 0);
 
     return {
-      slot1: formatForInput(d1),
-      slot2: formatForInput(d2),
-      slot3: formatForInput(d3),
+      slot1: formatForManilaInput(d1),
+      slot2: formatForManilaInput(d2),
+      slot3: formatForManilaInput(d3),
     };
   }, []);
 
   const minDateTime = useMemo(() => {
-    return formatForInput(new Date());
+    return formatForManilaInput(new Date());
   }, []);
 
   // React Hook Form with Zod validation
@@ -97,9 +117,9 @@ export default function PsychologistQueuePage() {
         bookingId: targetBooking.id,
         psychologistId: activePsychologistId,
         pricePhp: values.pricePhp,
-        slot1DateTime: values.slot1DateTime,
-        slot2DateTime: values.slot2DateTime,
-        slot3DateTime: values.slot3DateTime,
+        slot1DateTime: serializeManilaIso(values.slot1DateTime),
+        slot2DateTime: serializeManilaIso(values.slot2DateTime),
+        slot3DateTime: serializeManilaIso(values.slot3DateTime),
         clinicalPrepNote: values.clinicalPrepNote,
       });
     },

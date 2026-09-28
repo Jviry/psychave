@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../lib/api';
 import { useAppStore } from '../../../stores/useAppStore';
@@ -48,11 +48,23 @@ export default function PsychologistSchedulePage() {
     return bookings.filter((b) => b.psychologistId === activePsychologistId);
   }, [bookings, activePsychologistId]);
 
-  // Determine if a session slot is upcoming or past
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
+
+  // Periodically refresh current time (every 30s) so session categorization dynamically updates without full refresh
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 30_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Determine if a session slot is upcoming or past based on current clock (Asia/Manila)
   const isSlotPast = (isoString?: string) => {
     if (!isoString) return false;
-    const slotDate = new Date(isoString);
-    return !isNaN(slotDate.getTime()) && slotDate.getTime() < Date.now();
+    const hasTimezone = /[zZ]|([+-]\d{2}:?\d{2})$/.test(isoString);
+    const normalized = hasTimezone ? isoString : `${isoString}+08:00`;
+    const slotDate = new Date(normalized);
+    return !isNaN(slotDate.getTime()) && slotDate.getTime() < currentTime;
   };
 
   // Categorize sessions into upcoming, past, and proposed
@@ -73,13 +85,13 @@ export default function PsychologistSchedulePage() {
         }
       } else if (session.status === 'proposed') {
         proposed.push(session);
-      } else if (session.status === 'reschedule-requested' || session.status === 'cancelled') {
-        past.push(session);
       }
+      // Note: reschedule-requested and cancelled sessions are kept out of Past Confirmed
+      // and remain cataloged under 'all' (All Assigned).
     });
 
     return { upcoming, past, proposed, all: myAssignedSessions };
-  }, [myAssignedSessions]);
+  }, [myAssignedSessions, currentTime]);
 
   const displayedSessions = categorizedSessions[activeTab];
 
@@ -98,7 +110,7 @@ export default function PsychologistSchedulePage() {
       setEditingNoteId(null);
       publishFlowEvent(
         'Private Clinical Note Updated',
-        `Saved encrypted note on ${updated.id} (Visible to ${activePsychologistId} only; redacted from Admin & Client).`
+        `Saved confidential note on ${updated.id} (Visible to ${activePsychologistId} only; redacted from Admin & Client).`
       );
     },
   });
@@ -593,7 +605,7 @@ export default function PsychologistSchedulePage() {
                               Direct Teletherapy Link Locked
                             </p>
                             <p className="text-pine/75 leading-relaxed">
-                              This booking has not yet been paid by the client. The encrypted video link,
+                              This booking has not yet been paid by the client. The direct teletherapy video link,
                               coordination email, and automated reminders unlock automatically upon payment confirmation.
                             </p>
                           </div>
@@ -611,7 +623,7 @@ export default function PsychologistSchedulePage() {
                           <span className="font-heading text-base">Private Clinical Notes (Psychologist Only)</span>
                         </div>
                         <span className="px-2 py-0.5 rounded-sm bg-[#EBF2EC] text-sage font-semibold text-[10px]">
-                          Encrypted · Hidden from Admin &amp; Client
+                          Confidential · Hidden from Admin &amp; Client
                         </span>
                       </div>
 
