@@ -163,6 +163,7 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
     verificationStatus: 'verified',
     visibleOnPublicRoster: true,
     assignedBookingsCount: 2,
+    bio: 'Licensed clinical psychologist specializing in cognitive behavioral therapy, anxiety disorders, and trauma-informed care for adults. Committed to culturally sensitive and evidence-based mental healthcare.',
   },
   {
     id: 'RP-02',
@@ -179,6 +180,7 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
     verificationStatus: 'verified',
     visibleOnPublicRoster: true,
     assignedBookingsCount: 1,
+    bio: 'Dedicated relational therapist trained in systemic and Emotion-Focused Therapy for couples and families navigating transitional stress, communication breakdowns, and attachment repair.',
   },
   {
     id: 'RP-03',
@@ -195,6 +197,7 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
     verificationStatus: 'verified',
     visibleOnPublicRoster: true,
     assignedBookingsCount: 0,
+    bio: 'Academic researcher and certified behavioral coach specializing in psychological test construction, quantitative statistical methodology, and executive performance coaching.',
   },
   {
     id: 'RP-04',
@@ -210,6 +213,7 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
     verificationStatus: 'waiting_approval',
     visibleOnPublicRoster: false,
     assignedBookingsCount: 0,
+    bio: 'Associate practitioner focusing on child and adolescent emotional regulation, academic adjustment, and parent-child communication dynamics. Awaiting administrative credential verification.',
   },
 ];
 
@@ -543,6 +547,21 @@ export const api = {
       }
     ),
 
+  updatePsychologistProfile: async (
+    psychId: string,
+    updates: Partial<Pick<ResidentPsychologist, 'specialization' | 'prcCredentialCode' | 'bio' | 'languages' | 'yearsPractice'>>
+  ): Promise<ResidentPsychologist> =>
+    requestWithMockFallback(
+      `/api/v1/psychologists/${psychId}/profile`,
+      { method: 'PATCH', body: JSON.stringify(updates) },
+      () => {
+        const idx = mockRoster.findIndex((r) => r.id === psychId);
+        if (idx === -1) throw new Error('Psychologist profile not found.');
+        mockRoster[idx] = { ...mockRoster[idx], ...updates };
+        return { ...mockRoster[idx] };
+      }
+    ),
+
   /**
    * Client Personas API
    */
@@ -675,8 +694,54 @@ export const api = {
     slot2DateTime: string;
     slot3DateTime: string;
     clinicalPrepNote: string;
-  }): Promise<BookingRequest> =>
-    requestWithMockFallback(
+  }): Promise<BookingRequest> => {
+    // If backend is active and using /appointments REST routes, execute dual pickup + slots endpoints
+    if (AUTH_MODE !== 'mock') {
+      try {
+        const pickupRes = await fetch(`${API_BASE_URL}/appointments/${input.bookingId}/pickup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            psychologistId: input.psychologistId,
+            pricePhp: input.pricePhp,
+          }),
+        });
+        if (pickupRes.ok) {
+          const slotsRes = await fetch(`${API_BASE_URL}/appointments/${input.bookingId}/slots`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              slots: [
+                { slotNumber: 1, dateTime: input.slot1DateTime },
+                { slotNumber: 2, dateTime: input.slot2DateTime },
+                { slotNumber: 3, dateTime: input.slot3DateTime },
+              ],
+              clinicalPrepNote: input.clinicalPrepNote,
+            }),
+          });
+          if (slotsRes.ok) {
+            return (await slotsRes.json()) as BookingRequest;
+          }
+        } else if (pickupRes.status === 409 || pickupRes.status === 400) {
+          const errData = await pickupRes.json().catch(() => ({}));
+          throw new Error(
+            errData.message ||
+              `Request already claimed: Booking ${input.bookingId} has already been claimed by another psychologist.`
+          );
+        } else if (pickupRes.status === 403) {
+          throw new Error(
+            'Credential Guardrail: Unverified psychologists cannot pick up intake requests or propose slots.'
+          );
+        }
+      } catch (err: unknown) {
+        if (err instanceof Error && (err.message.includes('already claimed') || err.message.includes('Credential Guardrail'))) {
+          throw err;
+        }
+        // If /appointments endpoints aren't implemented, fall through to /api/v1/bookings propose
+      }
+    }
+
+    return requestWithMockFallback(
       `/api/v1/bookings/${input.bookingId}/propose`,
       { method: 'POST', body: JSON.stringify(input) },
       () => {
@@ -690,6 +755,12 @@ export const api = {
         const target = mockBookings.find((b) => b.id === input.bookingId);
         if (!target) {
           throw new Error('Booking request not found.');
+        }
+
+        if (target.status !== 'pending') {
+          throw new Error(
+            `Request already claimed: Booking ${input.bookingId} has already been claimed by another psychologist (current status: ${target.status}). Please refresh your queue.`
+          );
         }
 
         const serviceObj = mockServices.find((s) => s.id === target.serviceId);
@@ -736,7 +807,8 @@ export const api = {
         mockBookings = mockBookings.map((b) => (b.id === input.bookingId ? updated : b));
         return updated;
       }
-    ),
+    );
+  },
 
   /**
    * Flow C Step 4: Client selects 1 of 3 slots and completes payment.

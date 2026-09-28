@@ -43,15 +43,31 @@ export type IntakeFormValues = z.infer<typeof intakeFormSchema>;
 /**
  * Flow C Step 3: Verified Psychologist Pick-Up + Price + 3 Date/Time Slots Schema
  */
+const isFutureDate = (val: string) => {
+  if (!val) return false;
+  const d = new Date(val);
+  // Allow a 2-minute buffer for form fill time
+  return !isNaN(d.getTime()) && d.getTime() >= Date.now() - 2 * 60 * 1000;
+};
+
 export const proposalFormSchema = z
   .object({
     pricePhp: z
       .number({ message: 'Enter a valid PHP session fee.' })
       .min(500, 'Minimum session fee is ₱500.')
       .max(25000, 'Maximum session fee is ₱25,000.'),
-    slot1DateTime: z.string().min(1, 'Slot 1 date and time is required.'),
-    slot2DateTime: z.string().min(1, 'Slot 2 date and time is required.'),
-    slot3DateTime: z.string().min(1, 'Slot 3 date and time is required.'),
+    slot1DateTime: z
+      .string()
+      .min(1, 'Slot 1 date and time is required.')
+      .refine(isFutureDate, { message: 'Slot 1 date and time cannot be in the past.' }),
+    slot2DateTime: z
+      .string()
+      .min(1, 'Slot 2 date and time is required.')
+      .refine(isFutureDate, { message: 'Slot 2 date and time cannot be in the past.' }),
+    slot3DateTime: z
+      .string()
+      .min(1, 'Slot 3 date and time is required.')
+      .refine(isFutureDate, { message: 'Slot 3 date and time cannot be in the past.' }),
     clinicalPrepNote: z
       .string()
       .min(10, 'Provide a brief preparation note for the client (at least 10 characters).')
@@ -71,6 +87,28 @@ export const proposalFormSchema = z
   );
 
 export type ProposalFormValues = z.infer<typeof proposalFormSchema>;
+
+/**
+ * Psychologist Profile Schema
+ */
+export const psychologistProfileSchema = z.object({
+  specialization: z
+    .string()
+    .min(3, 'Specialization must be at least 3 characters.')
+    .max(150, 'Specialization must be under 150 characters.'),
+  prcCredentialCode: z
+    .string()
+    .min(3, 'PRC license credential code must be at least 3 characters.')
+    .max(80, 'Credential code must be under 80 characters.'),
+  bio: z
+    .string()
+    .min(10, 'Bio must be at least 10 characters.')
+    .max(1000, 'Bio must be under 1,000 characters.'),
+  yearsPractice: z.string().min(1, 'Years of practice is required.'),
+  languages: z.string().min(2, 'Languages must be specified (comma-separated).'),
+});
+
+export type PsychologistProfileValues = z.infer<typeof psychologistProfileSchema>;
 
 /**
  * Flow C Step 4: Client Proposal Slot Selection & Payment Schema
