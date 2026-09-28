@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { AppLink } from '../lib/navigation';
+import Link from 'next/link';
 
 export function SiteFooter() {
   return (
@@ -28,24 +28,24 @@ export function SiteFooter() {
             </p>
             <ul className="space-y-2 text-[#C0D3C3]">
               <li>
-                <AppLink href="/" className="hover:text-white transition-colors">
+                <Link href="/" className="hover:text-white transition-colors">
                   Home
-                </AppLink>
+                </Link>
               </li>
               <li>
-                <AppLink href="/services" className="hover:text-white transition-colors">
+                <Link href="/services" className="hover:text-white transition-colors">
                   Services & Guardrails
-                </AppLink>
+                </Link>
               </li>
               <li>
-                <AppLink href="/about" className="hover:text-white transition-colors">
+                <Link href="/about" className="hover:text-white transition-colors">
                   About Us & Anonymized Roster
-                </AppLink>
+                </Link>
               </li>
               <li>
-                <AppLink href="/book" className="hover:text-white transition-colors">
+                <Link href="/book" className="hover:text-white transition-colors">
                   Book a Session (Fallback & Intake)
-                </AppLink>
+                </Link>
               </li>
             </ul>
           </div>
@@ -56,34 +56,34 @@ export function SiteFooter() {
             </p>
             <ul className="space-y-2 text-[#C0D3C3]">
               <li>
-                <AppLink href="/personas" className="hover:text-white transition-colors">
+                <Link href="/personas" className="hover:text-white transition-colors">
                   Client Personas & Intake Form
-                </AppLink>
+                </Link>
               </li>
               <li>
-                <AppLink href="/bookings" className="hover:text-white transition-colors">
+                <Link href="/bookings" className="hover:text-white transition-colors">
                   Client Bookings & Proposal Picker
-                </AppLink>
+                </Link>
               </li>
               <li>
-                <AppLink href="/psych/queue" className="hover:text-white transition-colors">
+                <Link href="/psych/queue" className="hover:text-white transition-colors">
                   Psychologist Pending Queue
-                </AppLink>
+                </Link>
               </li>
               <li>
-                <AppLink href="/psych/schedule" className="hover:text-white transition-colors">
+                <Link href="/psych/schedule" className="hover:text-white transition-colors">
                   Psychologist My Schedules
-                </AppLink>
+                </Link>
               </li>
               <li>
-                <AppLink href="/admin/verifications" className="hover:text-white transition-colors">
+                <Link href="/admin/verifications" className="hover:text-white transition-colors">
                   Admin Credential Verification
-                </AppLink>
+                </Link>
               </li>
               <li>
-                <AppLink href="/admin/cms" className="hover:text-white transition-colors">
+                <Link href="/admin/cms" className="hover:text-white transition-colors">
                   Admin Payload CMS Editors
-                </AppLink>
+                </Link>
               </li>
             </ul>
           </div>

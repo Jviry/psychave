@@ -10,7 +10,7 @@ import {
   ProposalFormValues,
 } from '../../../lib/schemas';
 import { useAppStore } from '../../../stores/useAppStore';
-import { useAppRouter } from '../../../lib/navigation';
+import { useRouter } from 'next/navigation';
 import {
   BookingStatusTag,
   Button,
@@ -22,7 +22,7 @@ import {
 
 export default function PsychologistQueuePage() {
   const queryClient = useQueryClient();
-  const { navigate } = useAppRouter();
+  const router = useRouter();
   const {
     activePsychologistId,
     setActivePsychologistId,
@@ -164,7 +164,7 @@ export default function PsychologistQueuePage() {
               size="sm"
               onClick={() => {
                 setCognitoRole('admin');
-                navigate('/admin/verifications');
+                router.push('/admin/verifications');
               }}
             >
               Approve #RP-04 in Admin Verifications →
@@ -191,7 +191,7 @@ export default function PsychologistQueuePage() {
             size="md"
             onClick={() => {
               setCognitoRole('client');
-              navigate(`/proposal/${recentProposedId}`);
+              router.push(`/proposal/${recentProposedId}`);
             }}
           >
             Open Client Proposal Picker ({recentProposedId}) →
@@ -233,7 +233,7 @@ export default function PsychologistQueuePage() {
                   size="sm"
                   onClick={() => {
                     setCognitoRole('client');
-                    navigate('/personas');
+                    router.push('/personas');
                   }}
                 >
                   + Submit New Client Intake
@@ -241,7 +241,7 @@ export default function PsychologistQueuePage() {
                 <Button
                   variant="primary"
                   size="sm"
-                  onClick={() => navigate('/psych/schedule')}
+                  onClick={() => router.push('/psych/schedule')}
                 >
                   Go to My Schedules
                 </Button>

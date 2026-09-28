@@ -1,13 +1,15 @@
 'use client';
 
 import React from 'react';
-import { AppLink, useAppRouter } from '../lib/navigation';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAppStore } from '../stores/useAppStore';
 import { CognitoRole } from '../lib/types';
 import { API_BASE_URL } from '../lib/api';
 
 export function SiteHeader() {
-  const { pathname, navigate } = useAppRouter();
+  const pathname = usePathname();
+  const router = useRouter();
   const {
     cognitoRole,
     setCognitoRole,
@@ -22,11 +24,11 @@ export function SiteHeader() {
   const handleRoleSwitch = (nextRole: CognitoRole) => {
     setCognitoRole(nextRole);
     if (nextRole === 'client' && (pathname.startsWith('/psych') || pathname.startsWith('/admin'))) {
-      navigate('/bookings');
+      router.push('/bookings');
     } else if (nextRole === 'psychologist' && (pathname.startsWith('/bookings') || pathname.startsWith('/admin'))) {
-      navigate('/psych/queue');
+      router.push('/psych/queue');
     } else if (nextRole === 'admin' && (pathname.startsWith('/bookings') || pathname.startsWith('/psych'))) {
-      navigate('/admin/verifications');
+      router.push('/admin/verifications');
     }
   };
 
@@ -109,12 +111,12 @@ export function SiteHeader() {
       {/* Top Bar Contract: Zone 1 (Single Wordmark) — Zone 2 (Clean Text Nav Links) — Zone 3 (Actions) */}
       <header className="max-w-[1280px] mx-auto px-4 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Zone 1: Brand Title, single text element in Proxima Nova Condensed */}
-        <AppLink
+        <Link
           href="/"
           className="font-heading text-2xl font-bold tracking-tight text-[#25372D] whitespace-nowrap shrink-0"
         >
           PSYCHAVE PH
-        </AppLink>
+        </Link>
 
         {/* Zone 2: Primary Public Site Map Navigation Links */}
         <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-[#25372D]/80">
@@ -126,7 +128,7 @@ export function SiteHeader() {
           ].map((item) => {
             const isActive = pathname === item.href;
             return (
-              <AppLink
+              <Link
                 key={item.href}
                 href={item.href}
                 className={`py-1 transition-colors whitespace-nowrap border-b-2 ${
@@ -136,7 +138,7 @@ export function SiteHeader() {
                 }`}
               >
                 {item.label}
-              </AppLink>
+              </Link>
             );
           })}
         </nav>
@@ -172,12 +174,12 @@ export function SiteHeader() {
             })}
           </div>
 
-          <AppLink
+          <Link
             href="/personas"
             className="hidden sm:inline-flex items-center justify-center px-3.5 py-2 text-xs font-semibold rounded-lg bg-[#5D8B69] text-white hover:bg-[#4c7557] transition-colors whitespace-nowrap shrink-0"
           >
             Start Flow C Intake
-          </AppLink>
+          </Link>
         </div>
       </header>
 
@@ -194,7 +196,7 @@ export function SiteHeader() {
                   pathname === item.href ||
                   (item.href.startsWith('/proposal/') && pathname.startsWith('/proposal/'));
                 return (
-                  <AppLink
+                  <Link
                     key={item.href}
                     href={item.href}
                     className={`whitespace-nowrap transition-colors py-0.5 ${
@@ -204,7 +206,7 @@ export function SiteHeader() {
                     }`}
                   >
                     {item.label}
-                  </AppLink>
+                  </Link>
                 );
               })}
             </div>
@@ -212,13 +214,13 @@ export function SiteHeader() {
 
           {/* Mobile public nav mirror */}
           <div className="flex md:hidden items-center gap-3 text-xs text-[#25372D]/80">
-            <AppLink href="/" className="hover:underline">Home</AppLink>
+            <Link href="/" className="hover:underline">Home</Link>
             <span>·</span>
-            <AppLink href="/services" className="hover:underline">Services</AppLink>
+            <Link href="/services" className="hover:underline">Services</Link>
             <span>·</span>
-            <AppLink href="/about" className="hover:underline">About</AppLink>
+            <Link href="/about" className="hover:underline">About</Link>
             <span>·</span>
-            <AppLink href="/book" className="hover:underline">Book</AppLink>
+            <Link href="/book" className="hover:underline">Book</Link>
           </div>
 
           {/* Tiered Access Guardrail Summary */}

@@ -1,14 +1,14 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
-import { useAppRouter } from '../../lib/navigation';
 import { useAppStore } from '../../stores/useAppStore';
 import { Button, Card } from '../../components/ui/primitives';
 
 export default function ServicesPage() {
-  const { navigate } = useAppRouter();
+  const router = useRouter();
   const { setCognitoRole, updateIntakeDraft } = useAppStore();
 
   const { data: services = [], isLoading } = useQuery({
@@ -58,7 +58,7 @@ export default function ServicesPage() {
               onClick={() => {
                 updateIntakeDraft({ serviceId: standaloneConsultation.id });
                 setCognitoRole('client');
-                navigate('/personas');
+                router.push('/personas');
               }}
             >
               Start 45-Min Consultation Intake
@@ -160,7 +160,7 @@ export default function ServicesPage() {
                     onClick={() => {
                       updateIntakeDraft({ serviceId: srv.id });
                       setCognitoRole('client');
-                      navigate('/personas');
+                      router.push('/personas');
                     }}
                   >
                     Select &amp; Complete Intake
