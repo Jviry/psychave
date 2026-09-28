@@ -39,8 +39,9 @@ export function SiteHeader() {
       { label: 'Proposal Picker (#102)', href: '/proposal/BK-2026-102' },
     ],
     psychologist: [
-      { label: 'Pending Queue', href: '/psych/queue' },
-      { label: 'My Schedules', href: '/psych/schedule' },
+      { label: 'Pending Requests', href: '/psych/queue' },
+      { label: 'My Schedule', href: '/psych/schedule' },
+      { label: 'Profile', href: '/psych/profile' },
     ],
     admin: [
       { label: 'Credential Verifications', href: '/admin/verifications' },
@@ -49,13 +50,13 @@ export function SiteHeader() {
   };
 
   return (
-    <div className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-[#C0D3C3]">
+    <div className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-mist">
       {/* Canonical Prototype Demo Banner */}
-      <div className="bg-[#25372D] text-white px-4 lg:px-8 py-1.5 text-xs">
-        <div className="max-w-[1280px] mx-auto flex flex-wrap items-center justify-between gap-2">
+      <div className="bg-pine text-white px-4 lg:px-8 py-1.5 text-xs">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <svg
-              className="w-3.5 h-3.5 text-[#D0E187] shrink-0"
+              className="w-3.5 h-3.5 text-lime-soft shrink-0"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -64,13 +65,13 @@ export function SiteHeader() {
               <circle cx="12" cy="12" r="9" />
               <path d="M12 8v4l2.5 2.5" />
             </svg>
-            <span className="font-medium text-[#F6F9F6]">
+            <span className="font-medium text-parchment">
               Frontend prototype — mock mode, Flow C canonical, plugs into existing backend/ via NEXT_PUBLIC_API_URL ({API_BASE_URL}).
             </span>
           </div>
 
           {/* Interactive State Simulation Controls for Prototype Evaluation */}
-          <div className="flex items-center gap-4 text-[11px] text-[#C0D3C3]">
+          <div className="flex items-center gap-4 text-[11px] text-mist">
             {cognitoRole === 'psychologist' && (
               <div className="flex items-center gap-1.5">
                 <span>Psych Identity:</span>
@@ -79,7 +80,7 @@ export function SiteHeader() {
                   onClick={() =>
                     setActivePsychologistId(activePsychologistId === 'RP-01' ? 'RP-04' : 'RP-01')
                   }
-                  className="underline text-[#D0E187] hover:text-white font-medium cursor-pointer whitespace-nowrap"
+                  className="underline text-lime-soft hover:text-white font-medium cursor-pointer whitespace-nowrap"
                 >
                   {activePsychologistId === 'RP-01'
                     ? 'Resident #RP-01 (Verified)'
@@ -94,14 +95,14 @@ export function SiteHeader() {
                 <button
                   type="button"
                   onClick={() => setSimulatePaymentFailure(!simulatePaymentFailure)}
-                  className="underline text-[#D0E187] hover:text-white font-medium cursor-pointer whitespace-nowrap"
+                  className="underline text-lime-soft hover:text-white font-medium cursor-pointer whitespace-nowrap"
                 >
                   {simulatePaymentFailure ? 'Simulate Payment Failed' : 'Payment Succeeds'}
                 </button>
               </div>
             )}
 
-            <span className="hidden sm:inline text-[#8FBE8F]">
+            <span className="hidden sm:inline text-mint">
               NEXT_PUBLIC_AUTH_MODE=mock
             </span>
           </div>
@@ -109,17 +110,17 @@ export function SiteHeader() {
       </div>
 
       {/* Top Bar Contract: Zone 1 (Single Wordmark) — Zone 2 (Clean Text Nav Links) — Zone 3 (Actions) */}
-      <header className="max-w-[1280px] mx-auto px-4 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <header className="max-w-7xl mx-auto px-4 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Zone 1: Brand Title, single text element in Proxima Nova Condensed */}
         <Link
           href="/"
-          className="font-heading text-2xl font-bold tracking-tight text-[#25372D] whitespace-nowrap shrink-0"
+          className="font-heading text-2xl font-bold tracking-tight text-pine whitespace-nowrap shrink-0"
         >
           PSYCHAVE PH
         </Link>
 
         {/* Zone 2: Primary Public Site Map Navigation Links */}
-        <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-[#25372D]/80">
+        <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-pine/80">
           {[
             { label: 'Home', href: '/' },
             { label: 'Services', href: '/services' },
@@ -133,8 +134,8 @@ export function SiteHeader() {
                 href={item.href}
                 className={`py-1 transition-colors whitespace-nowrap border-b-2 ${
                   isActive
-                    ? 'text-[#25372D] border-[#5D8B69] font-semibold'
-                    : 'border-transparent hover:text-[#25372D] hover:border-[#C0D3C3]'
+                    ? 'text-pine border-sage font-semibold'
+                    : 'border-transparent hover:text-pine hover:border-mist'
                 }`}
               >
                 {item.label}
@@ -148,7 +149,7 @@ export function SiteHeader() {
           <div
             role="group"
             aria-label="Mock AWS Cognito Groups Role Switcher"
-            className="flex items-center gap-0.5 p-1 bg-[#EBF2EC] rounded-lg border border-[#C0D3C3]"
+            className="flex items-center gap-0.5 p-1 bg-[#EBF2EC] rounded-lg border border-mist"
           >
             {(['client', 'psychologist', 'admin'] as CognitoRole[]).map((role) => {
               const active = cognitoRole === role;
@@ -164,8 +165,8 @@ export function SiteHeader() {
                   onClick={() => handleRoleSwitch(role)}
                   className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
                     active
-                      ? 'bg-[#25372D] text-white shadow-xs'
-                      : 'text-[#25372D]/75 hover:text-[#25372D]'
+                      ? 'bg-pine text-white shadow-xs'
+                      : 'text-pine/75 hover:text-pine'
                   }`}
                 >
                   {labels[role]}
@@ -176,7 +177,7 @@ export function SiteHeader() {
 
           <Link
             href="/personas"
-            className="hidden sm:inline-flex items-center justify-center px-3.5 py-2 text-xs font-semibold rounded-lg bg-[#5D8B69] text-white hover:bg-[#4c7557] transition-colors whitespace-nowrap shrink-0"
+            className="hidden sm:inline-flex items-center justify-center px-3.5 py-2 text-xs font-semibold rounded-lg bg-sage text-white hover:bg-[#4c7557] transition-colors whitespace-nowrap shrink-0"
           >
             Start Flow C Intake
           </Link>
@@ -184,10 +185,10 @@ export function SiteHeader() {
       </header>
 
       {/* Secondary Contextual Workspace Sub-Bar for Role Dashboards & Mobile Nav */}
-      <div className="bg-[#F1F6F2] border-t border-[#C0D3C3]/70 px-4 lg:px-8 py-2">
-        <div className="max-w-[1280px] mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div className="bg-[#F1F6F2] border-t border-mist/70 px-4 lg:px-8 py-2">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-4 overflow-x-auto">
-            <span className="text-[#25372D]/65 font-medium whitespace-nowrap">
+            <span className="text-pine/65 font-medium whitespace-nowrap">
               Cognito Group ({cognitoRole}) Workspace:
             </span>
             <div className="flex items-center gap-4">
@@ -201,8 +202,8 @@ export function SiteHeader() {
                     href={item.href}
                     className={`whitespace-nowrap transition-colors py-0.5 ${
                       active
-                        ? 'text-[#25372D] font-semibold underline decoration-[#5D8B69] decoration-2 underline-offset-4'
-                        : 'text-[#25372D]/75 hover:text-[#25372D]'
+                        ? 'text-pine font-semibold underline decoration-sage decoration-2 underline-offset-4'
+                        : 'text-pine/75 hover:text-pine'
                     }`}
                   >
                     {item.label}
@@ -213,7 +214,7 @@ export function SiteHeader() {
           </div>
 
           {/* Mobile public nav mirror */}
-          <div className="flex md:hidden items-center gap-3 text-xs text-[#25372D]/80">
+          <div className="flex md:hidden items-center gap-3 text-xs text-pine/80">
             <Link href="/" className="hover:underline">Home</Link>
             <span>·</span>
             <Link href="/services" className="hover:underline">Services</Link>
@@ -224,9 +225,9 @@ export function SiteHeader() {
           </div>
 
           {/* Tiered Access Guardrail Summary */}
-          <div className="hidden lg:flex items-center gap-1.5 text-[#25372D]/70">
+          <div className="hidden lg:flex items-center gap-1.5 text-pine/70">
             <svg
-              className="w-3.5 h-3.5 text-[#5D8B69]"
+              className="w-3.5 h-3.5 text-sage"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -254,11 +255,11 @@ export function SiteHeader() {
 
       {/* Real-time Flow C Notification Banner when active */}
       {lastFlowEvent && (
-        <div className="bg-[#D0E187]/45 border-t border-[#8FBE8F] px-4 lg:px-8 py-2 text-xs text-[#25372D]">
-          <div className="max-w-[1280px] mx-auto flex items-center justify-between gap-4">
+        <div className="bg-lime-soft/45 border-t border-mint px-4 lg:px-8 py-2 text-xs text-pine">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <svg
-                className="w-4 h-4 text-[#25372D] shrink-0"
+                className="w-4 h-4 text-pine shrink-0"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -270,13 +271,13 @@ export function SiteHeader() {
               <div>
                 <span className="font-semibold">{lastFlowEvent.title}:</span>{' '}
                 <span>{lastFlowEvent.detail}</span>
-                <span className="ml-2 text-[#25372D]/60">({lastFlowEvent.timestamp})</span>
+                <span className="ml-2 text-pine/60">({lastFlowEvent.timestamp})</span>
               </div>
             </div>
             <button
               type="button"
               onClick={clearFlowEvent}
-              className="text-xs font-medium text-[#25372D]/70 hover:text-[#25372D] underline cursor-pointer whitespace-nowrap"
+              className="text-xs font-medium text-pine/70 hover:text-pine underline cursor-pointer whitespace-nowrap"
             >
               Dismiss
             </button>

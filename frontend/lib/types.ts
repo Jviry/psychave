@@ -94,6 +94,7 @@ export interface ResidentPsychologist {
   verificationStatus: 'verified' | 'waiting_approval';
   visibleOnPublicRoster: boolean;
   assignedBookingsCount: number;
+  bio?: string;
 }
 
 export interface TestimonialSlot {

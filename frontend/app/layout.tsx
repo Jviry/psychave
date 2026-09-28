@@ -27,9 +27,9 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <QueryClientProvider client={queryClient}>
-          <div className="min-h-screen flex flex-col bg-[#F6F9F6] text-[#25372D] font-body">
+          <div className="min-h-screen flex flex-col bg-parchment text-pine font-body">
             <SiteHeader />
-            <main className="flex-1 max-w-[1280px] w-full mx-auto px-4 lg:px-8 py-10">
+            <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-10">
               {children}
             </main>
             <SiteFooter />
