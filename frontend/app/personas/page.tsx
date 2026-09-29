@@ -12,7 +12,7 @@ import {
   PersonaFormValues,
 } from '../../lib/schemas';
 import { useAppStore } from '../../stores/useAppStore';
-import { useAppRouter } from '../../lib/navigation';
+import { useRouter } from 'next/navigation';
 import {
   Button,
   Card,
@@ -24,7 +24,7 @@ import {
 
 export default function PersonasAndIntakePage() {
   const queryClient = useQueryClient();
-  const { navigate } = useAppRouter();
+  const router = useRouter();
   const {
     cognitoRole,
     setCognitoRole,
@@ -186,7 +186,7 @@ export default function PersonasAndIntakePage() {
             <Button
               variant="primary"
               size="sm"
-              onClick={() => navigate('/bookings')}
+              onClick={() => router.push('/bookings')}
             >
               View in My Bookings (Client)
             </Button>
@@ -195,7 +195,7 @@ export default function PersonasAndIntakePage() {
               size="sm"
               onClick={() => {
                 setCognitoRole('psychologist');
-                navigate('/psych/queue');
+                router.push('/psych/queue');
               }}
             >
               Switch to Psychologist Role &amp; Pick Up #{submittedBookingId} →

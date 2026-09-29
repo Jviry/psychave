@@ -9,7 +9,7 @@ import {
   slotSelectionPaymentSchema,
   SlotSelectionPaymentValues,
 } from '../../../lib/schemas';
-import { useAppRouter } from '../../../lib/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useAppStore } from '../../../stores/useAppStore';
 import {
   BookingStatusTag,
@@ -19,8 +19,9 @@ import {
 
 export default function ProposalPickerPage() {
   const queryClient = useQueryClient();
-  const { params, navigate } = useAppRouter();
-  const bookingId = params.id || 'BK-2026-102';
+  const router = useRouter();
+  const routeParams = useParams<{ id: string }>();
+  const bookingId = routeParams.id || 'BK-2026-102';
 
   const {
     simulatePaymentFailure,
@@ -82,7 +83,7 @@ export default function ProposalPickerPage() {
         <p className="text-sm text-[#25372D]/75">
           Could not locate booking proposal #{bookingId}.
         </p>
-        <Button variant="primary" onClick={() => navigate('/bookings')}>
+        <Button variant="primary" onClick={() => router.push('/bookings')}>
           Return to My Bookings
         </Button>
       </Card>
@@ -166,12 +167,12 @@ export default function ProposalPickerPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <Button variant="primary" onClick={() => navigate('/bookings')}>
+            <Button variant="primary" onClick={() => router.push('/bookings')}>
               View All Client Bookings
             </Button>
             <Button
               variant="outline"
-              onClick={() => navigate('/psych/schedule')}
+              onClick={() => router.push('/psych/schedule')}
             >
               Inspect Psychologist Schedule View →
             </Button>

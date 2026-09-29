@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useAppRouter } from '../../lib/navigation';
+import { useRouter } from 'next/navigation';
 import { useAppStore } from '../../stores/useAppStore';
 import { Button, Card } from '../../components/ui/primitives';
 
 export default function BookFallbackPage() {
-  const { navigate } = useAppRouter();
+  const router = useRouter();
   const { setCognitoRole } = useAppStore();
   const [copiedField, setCopiedField] = useState<'email' | 'fb' | 'template' | null>(null);
 
@@ -82,7 +82,7 @@ General Availability Window: [Days & Times]`;
               size="lg"
               onClick={() => {
                 setCognitoRole('client');
-                navigate('/personas');
+                router.push('/personas');
               }}
             >
               Launch Flow C Intake Form
@@ -92,7 +92,7 @@ General Availability Window: [Days & Times]`;
               size="lg"
               onClick={() => {
                 setCognitoRole('client');
-                navigate('/bookings');
+                router.push('/bookings');
               }}
             >
               View Existing Bookings

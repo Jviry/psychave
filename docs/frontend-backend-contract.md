@@ -7,6 +7,7 @@
 - `frontend/.env.local`: `NEXT_PUBLIC_API_URL=http://localhost:8000`, `NEXT_PUBLIC_AUTH_MODE=mock`.
 - `frontend/lib/api.ts` tries `NEXT_PUBLIC_API_URL` first with short timeout, then falls back to in-memory mocks. With no backend endpoints, every screen works offline.
 - Auth is a header role switcher (`client / psychologist / admin`); no real Cognito verification in the UI prototype.
+- Routing is native Next.js App Router (`next/link` + `next/navigation` `useRouter`/`usePathname`/`useParams`). The earlier custom `lib/navigation.tsx` prototype router was removed; public nav (`/`, `/services`, `/about`, `/book`) and role workspaces navigate via real routes.
 
 ## 2. Endpoint Map (Frontend Expects → Backend Has)
 

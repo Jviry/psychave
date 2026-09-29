@@ -163,6 +163,7 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
     verificationStatus: 'verified',
     visibleOnPublicRoster: true,
     assignedBookingsCount: 2,
+    bio: 'Licensed clinical psychologist specializing in cognitive behavioral therapy, anxiety disorders, and trauma-informed care for adults. Committed to culturally sensitive and evidence-based mental healthcare.',
   },
   {
     id: 'RP-02',
@@ -179,6 +180,7 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
     verificationStatus: 'verified',
     visibleOnPublicRoster: true,
     assignedBookingsCount: 1,
+    bio: 'Dedicated relational therapist trained in systemic and Emotion-Focused Therapy for couples and families navigating transitional stress, communication breakdowns, and attachment repair.',
   },
   {
     id: 'RP-03',
@@ -195,6 +197,7 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
     verificationStatus: 'verified',
     visibleOnPublicRoster: true,
     assignedBookingsCount: 0,
+    bio: 'Academic researcher and certified behavioral coach specializing in psychological test construction, quantitative statistical methodology, and executive performance coaching.',
   },
   {
     id: 'RP-04',
@@ -210,6 +213,7 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
     verificationStatus: 'waiting_approval',
     visibleOnPublicRoster: false,
     assignedBookingsCount: 0,
+    bio: 'Associate practitioner focusing on child and adolescent emotional regulation, academic adjustment, and parent-child communication dynamics. Awaiting administrative credential verification.',
   },
 ];
 
@@ -427,44 +431,83 @@ let mockBookings: BookingRequest[] = [...INITIAL_BOOKINGS];
 let mockCms: CmsContent = JSON.parse(JSON.stringify(INITIAL_CMS));
 
 /**
- * Helper to attempt real backend fetch against NEXT_PUBLIC_API_URL first
- * (with short timeout so offline preview responds instantaneously with mock fallback).
+ * Shared fetch helper with AbortController timeout to prevent hung requests.
+ */
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs = 8000
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return res;
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeoutMs}ms: ${url}`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Helper to attempt real backend fetch against NEXT_PUBLIC_API_URL.
+ * - When AUTH_MODE === 'mock', immediately resolves using in-memory mock state.
+ * - When AUTH_MODE !== 'mock', executes real HTTP requests.
+ *   HTTP errors (4xx, 5xx) and network transport failures are surfaced directly
+ *   to avoid masking missing endpoints or producing false success on mutations.
  */
 async function requestWithMockFallback<T>(
   endpoint: string,
   options: RequestInit | undefined,
   mockResolver: () => T | Promise<T>
 ): Promise<T> {
-  // When in mock mode or when backend is unreachable, fall back cleanly
   if (AUTH_MODE === 'mock') {
     await new Promise((r) => setTimeout(r, 120));
     return mockResolver();
   }
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 1200);
-  try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  const response = await fetchWithTimeout(
+    `${API_BASE_URL}${endpoint}`,
+    {
       ...options,
       headers: {
         'Content-Type': 'application/json',
         ...(options?.headers || {}),
       },
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+    },
+    8000
+  );
+
+  if (!response.ok) {
+    let errDetail = `HTTP ${response.status} ${response.statusText}`;
+    try {
+      const data = await response.json();
+      if (data?.message) errDetail = data.message;
+      else if (data?.detail) {
+        errDetail = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+      }
+    } catch {
+      // Body not JSON
     }
-    return (await response.json()) as T;
-  } catch {
-    clearTimeout(timer);
-    return mockResolver();
+    throw new Error(`Backend Error (${response.status}) on ${endpoint}: ${errDetail}`);
   }
+
+  return (await response.json()) as T;
 }
 
 function formatSlotDateAndTime(isoString: string, durationMinutes = 60): { dateLabel: string; timeLabel: string } {
-  const parsed = new Date(isoString);
+  // If string has no timezone offset (Z or +/-HH:mm), treat wall-clock value as Asia/Manila (+08:00)
+  const hasTimezone = /[zZ]|([+-]\d{2}:?\d{2})$/.test(isoString);
+  const normalized = hasTimezone ? isoString : `${isoString}+08:00`;
+  const parsed = new Date(normalized);
+
   if (Number.isNaN(parsed.getTime())) {
     return {
       dateLabel: isoString.split('T')[0] || 'Scheduled Date',
@@ -477,14 +520,17 @@ function formatSlotDateAndTime(isoString: string, durationMinutes = 60): { dateL
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+    timeZone: 'Asia/Manila',
   });
   const startLabel = parsed.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: 'Asia/Manila',
   });
   const endLabel = end.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: 'Asia/Manila',
   });
   return {
     dateLabel,
@@ -540,6 +586,21 @@ export const api = {
       () => {
         mockRoster = mockRoster.map((r) => (r.id === psychId ? { ...r, ...updates } : r));
         return [...mockRoster];
+      }
+    ),
+
+  updatePsychologistProfile: async (
+    psychId: string,
+    updates: Partial<Pick<ResidentPsychologist, 'specialization' | 'prcCredentialCode' | 'bio' | 'languages' | 'yearsPractice'>>
+  ): Promise<ResidentPsychologist> =>
+    requestWithMockFallback(
+      `/api/v1/psychologists/${psychId}/profile`,
+      { method: 'PATCH', body: JSON.stringify(updates) },
+      () => {
+        const idx = mockRoster.findIndex((r) => r.id === psychId);
+        if (idx === -1) throw new Error('Psychologist profile not found.');
+        mockRoster[idx] = { ...mockRoster[idx], ...updates };
+        return { ...mockRoster[idx] };
       }
     ),
 
@@ -675,8 +736,91 @@ export const api = {
     slot2DateTime: string;
     slot3DateTime: string;
     clinicalPrepNote: string;
-  }): Promise<BookingRequest> =>
-    requestWithMockFallback(
+  }): Promise<BookingRequest> => {
+    // If backend is active and using /appointments REST routes, execute dual pickup + slots endpoints
+    if (AUTH_MODE !== 'mock') {
+      const pickupRes = await fetchWithTimeout(
+        `${API_BASE_URL}/appointments/${input.bookingId}/pickup`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            psychologistId: input.psychologistId,
+            pricePhp: input.pricePhp,
+          }),
+        },
+        8000
+      );
+
+      if (pickupRes.status === 409 || pickupRes.status === 400) {
+        const errData = await pickupRes.json().catch(() => ({}));
+        throw new Error(
+          errData.message ||
+            `Request already claimed: Booking ${input.bookingId} has already been claimed by another psychologist.`
+        );
+      }
+      if (pickupRes.status === 403) {
+        throw new Error(
+          'Credential Guardrail: Unverified psychologists cannot pick up intake requests or propose slots.'
+        );
+      }
+
+      // If /appointments endpoint is not implemented (404), fail clearly without masking contract absence
+      if (pickupRes.status === 404) {
+        return requestWithMockFallback(
+          `/api/v1/bookings/${input.bookingId}/propose`,
+          { method: 'POST', body: JSON.stringify(input) },
+          () => {
+            throw new Error(
+              `Backend contract missing: neither /appointments/${input.bookingId}/pickup nor /api/v1/bookings/${input.bookingId}/propose are implemented on ${API_BASE_URL}.`
+            );
+          }
+        );
+      }
+
+      if (!pickupRes.ok) {
+        throw new Error(
+          `Pickup failed with HTTP ${pickupRes.status}: Unable to claim booking ${input.bookingId}.`
+        );
+      }
+
+      // CRITICAL (Copilot Finding 2): Pickup was successful! The appointment is now claimed.
+      // We MUST NOT fall back to legacy /propose or mock if slot submission fails,
+      // as that would leave the booking claimed without slots or double-claim.
+      const slotsRes = await fetchWithTimeout(
+        `${API_BASE_URL}/appointments/${input.bookingId}/slots`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            slots: [
+              { slotNumber: 1, dateTime: input.slot1DateTime },
+              { slotNumber: 2, dateTime: input.slot2DateTime },
+              { slotNumber: 3, dateTime: input.slot3DateTime },
+            ],
+            clinicalPrepNote: input.clinicalPrepNote,
+          }),
+        },
+        8000
+      );
+
+      if (!slotsRes.ok) {
+        let slotErr = `HTTP ${slotsRes.status}`;
+        try {
+          const slotData = await slotsRes.json();
+          if (slotData?.message) slotErr = slotData.message;
+        } catch {
+          // ignore
+        }
+        throw new Error(
+          `Appointment ${input.bookingId} was successfully claimed, but proposing slots failed (${slotErr}). Please check My Schedule or contact admin.`
+        );
+      }
+
+      return (await slotsRes.json()) as BookingRequest;
+    }
+
+    return requestWithMockFallback(
       `/api/v1/bookings/${input.bookingId}/propose`,
       { method: 'POST', body: JSON.stringify(input) },
       () => {
@@ -690,6 +834,12 @@ export const api = {
         const target = mockBookings.find((b) => b.id === input.bookingId);
         if (!target) {
           throw new Error('Booking request not found.');
+        }
+
+        if (target.status !== 'pending') {
+          throw new Error(
+            `Request already claimed: Booking ${input.bookingId} has already been claimed by another psychologist (current status: ${target.status}). Please refresh your queue.`
+          );
         }
 
         const serviceObj = mockServices.find((s) => s.id === target.serviceId);
@@ -736,7 +886,8 @@ export const api = {
         mockBookings = mockBookings.map((b) => (b.id === input.bookingId ? updated : b));
         return updated;
       }
-    ),
+    );
+  },
 
   /**
    * Flow C Step 4: Client selects 1 of 3 slots and completes payment.
