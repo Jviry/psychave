@@ -6,6 +6,14 @@ import {
   ResidentPsychologist,
   ServiceItem,
 } from './types';
+import {
+  CONSENT_VERSION,
+  isFutureDob,
+  isMinorDob,
+  isValidPhone,
+  normalizeName,
+  type PersonaWizardPayload,
+} from './consent';
 
 /**
  * Single canonical API client for PsychAvenuePH (PSYCHAVE PH).
@@ -623,6 +631,75 @@ export const api = {
           preferredLanguage: input.preferredLanguage ?? 'English / Taglish',
           id: `persona-${input.type}-${Date.now().toString().slice(-4)}`,
           clientId: 'client-01',
+          createdAt: new Date().toISOString().slice(0, 10),
+        };
+        mockPersonas = [...mockPersonas, created];
+        return created;
+      }
+    ),
+
+  /**
+   * Persona creation wizard: single POST /personas creating persona + consent
+   * rows in one transaction. Backend remains source of truth; the mock below
+   * mirrors server validation so UI errors map to the right field/page.
+   * Nothing is sent until the wizard's final submit calls this once.
+   */
+  createPersonaWithConsent: async (payload: PersonaWizardPayload): Promise<Persona> =>
+    requestWithMockFallback(
+      '/api/v1/personas',
+      { method: 'POST', body: JSON.stringify(payload) },
+      () => {
+        const fieldErrors: Record<string, string> = {};
+        const { persona, consent } = payload;
+        if (consent.consent_version !== CONSENT_VERSION) {
+          throw new Error(
+            'Consent version mismatch: reload the latest terms and re-sign before submitting.'
+          );
+        }
+        if (consent.scope_acknowledged !== true)
+          fieldErrors['consent.scope_acknowledged'] = 'Scope acknowledgement is required.';
+        if (consent.information_confirmed !== true)
+          fieldErrors['consent.information_confirmed'] = 'Information confirmation is required.';
+        if (consent.is_overseas_or_foreign && consent.overseas_acknowledged !== true)
+          fieldErrors['consent.overseas_acknowledged'] =
+            'Overseas acknowledgement is required for overseas clients.';
+        if (!persona.persona_name || persona.persona_name.trim().length < 2)
+          fieldErrors['persona.persona_name'] = 'Enter the persona full name.';
+        if (!persona.date_of_birth) fieldErrors['persona.date_of_birth'] = 'Date of birth is required.';
+        else if (isFutureDob(persona.date_of_birth))
+          fieldErrors['persona.date_of_birth'] = 'Date of birth cannot be in the future.';
+        else if (isMinorDob(persona.date_of_birth) && consent.terms_signer_relation === 'self')
+          fieldErrors['consent.terms_signer_relation'] =
+            'A minor cannot use signer relation "self".';
+        if (
+          normalizeName(consent.terms_signer_name).length > 0 &&
+          normalizeName(consent.consent_signer_name).length > 0 &&
+          normalizeName(consent.terms_signer_name) !== normalizeName(consent.consent_signer_name)
+        )
+          fieldErrors['consent.consent_signer_name'] =
+            'consent_signer_name must match terms_signer_name.';
+        if (!isValidPhone(persona.contact_number || '', consent.is_overseas_or_foreign))
+          fieldErrors['persona.contact_number'] = 'Enter a valid contact number.';
+        if (!isValidPhone(persona.emergency_contact_number || '', consent.is_overseas_or_foreign))
+          fieldErrors['persona.emergency_contact_number'] =
+            'Enter a valid emergency contact number.';
+        if (!persona.nationality || persona.nationality.trim().length < 2)
+          fieldErrors['persona.nationality'] = 'Enter nationality.';
+        if (!persona.permanent_address || persona.permanent_address.trim().length < 5)
+          fieldErrors['persona.permanent_address'] = 'Enter the permanent address.';
+        if (!persona.present_address || persona.present_address.trim().length < 5)
+          fieldErrors['persona.present_address'] = 'Enter the present address.';
+        if (Object.keys(fieldErrors).length > 0) {
+          throw new Error(`Persona validation failed. FIELDS:${JSON.stringify(fieldErrors)}`);
+        }
+        const created: Persona = {
+          id: `persona-wiz-${Date.now().toString().slice(-6)}`,
+          clientId: 'client-01',
+          type: persona.relation_to_account_holder === 'self' ? 'self' : 'dependent',
+          label: persona.persona_name,
+          ageGroup: `DOB ${persona.date_of_birth}`,
+          relationshipToClient: persona.relation_to_account_holder,
+          preferredLanguage: 'English / Taglish',
           createdAt: new Date().toISOString().slice(0, 10),
         };
         mockPersonas = [...mockPersonas, created];

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -13,6 +13,8 @@ import {
 } from '../../lib/schemas';
 import { useAppStore } from '../../stores/useAppStore';
 import { useRouter } from 'next/navigation';
+import { usePersonaWizardStore } from '../../stores/usePersonaWizardStore';
+import { PersonaWizardModal } from '../../components/PersonaWizardModal';
 import {
   Button,
   Card,
@@ -33,11 +35,16 @@ export default function PersonasAndIntakePage() {
     resetIntakeDraft,
     publishFlowEvent,
   } = useAppStore();
+  const openWizard = usePersonaWizardStore((s) => s.openWizard);
+  const wizardOpen = usePersonaWizardStore((s) => s.isOpen);
+  const lastUsedPersonaId = usePersonaWizardStore((s) => s.lastUsedPersonaId);
+  const setLastUsedPersonaId = usePersonaWizardStore((s) => s.setLastUsedPersonaId);
 
-  const [showNewPersonaForm, setShowNewPersonaForm] = useState(false);
+  const [showLegacyPersonaForm, setShowLegacyPersonaForm] = useState(false);
   const [submittedBookingId, setSubmittedBookingId] = useState<string | null>(null);
+  const autoOpenedWizard = useRef(false);
 
-  const { data: personas = [] } = useQuery({
+  const { data: personas = [], isLoading: personasLoading } = useQuery({
     queryKey: ['personas'],
     queryFn: () => api.getPersonas(),
   });
@@ -82,9 +89,25 @@ export default function PersonasAndIntakePage() {
     }
   }, [intakeDraft.serviceId, intakeDraft.personaId, intakeForm]);
 
+  // Booking-flow persona step: no personas -> launch wizard once data loads.
+  useEffect(() => {
+    if (!personasLoading && personas.length === 0 && !autoOpenedWizard.current && !wizardOpen) {
+      autoOpenedWizard.current = true;
+      openWizard('manage');
+    }
+  }, [personasLoading, personas.length, wizardOpen, openWizard]);
+
   const selectedServiceId = intakeForm.watch('serviceId');
   const selectedPersonaId = intakeForm.watch('personaId');
   const activeService = services.find((s) => s.id === selectedServiceId) || services[0];
+  const selectedPersona = personas.find((p) => p.id === selectedPersonaId) || null;
+
+  const selectPersona = (personaId: string, preferredLanguage?: string) => {
+    intakeForm.setValue('personaId', personaId, { shouldValidate: true });
+    if (preferredLanguage) intakeForm.setValue('preferredLanguage', preferredLanguage);
+    updateIntakeDraft({ personaId, ...(preferredLanguage ? { preferredLanguage } : {}) });
+    setLastUsedPersonaId(personaId);
+  };
 
   const createPersonaMutation = useMutation({
     mutationFn: (values: PersonaFormValues) => api.createPersona(values),
@@ -93,8 +116,9 @@ export default function PersonasAndIntakePage() {
       updateIntakeDraft({ personaId: created.id, preferredLanguage: created.preferredLanguage });
       intakeForm.setValue('personaId', created.id);
       intakeForm.setValue('preferredLanguage', created.preferredLanguage);
+      setLastUsedPersonaId(created.id);
       personaForm.reset();
-      setShowNewPersonaForm(false);
+      setShowLegacyPersonaForm(false);
       publishFlowEvent(
         'Client Persona Created',
         `Added ${created.label} (${created.type.toUpperCase()}) and selected it for Flow C intake.`
@@ -144,8 +168,8 @@ export default function PersonasAndIntakePage() {
             Client Personas &amp; Clinical Intake Form
           </h1>
           <p className="text-sm text-[#25372D]/80 max-w-2xl">
-            Select whether this session is for yourself or a dependent ward, review the mandatory
-            service guardrail, and submit your intake to the verified psychologist queue.
+            Create a persona with signed consent through the 4-step wizard, pick who the booking is
+            for, then submit intake to the verified psychologist queue.
           </p>
         </div>
 
@@ -205,43 +229,61 @@ export default function PersonasAndIntakePage() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Personas List (Self / Dependent) */}
+        {/* Left Column: Manage Personas + wizard launcher */}
         <div className="lg:col-span-5 space-y-6">
           <Card className="space-y-5">
             <div className="flex items-center justify-between border-b border-[#C0D3C3] pb-3">
               <div>
                 <h2 className="font-heading text-2xl font-bold text-[#25372D]">
-                  1. Select Client Persona
+                  1. Manage Personas
                 </h2>
                 <p className="text-xs text-[#25372D]/70">
-                  Manage Self &amp; Dependent intake profiles (no personal names)
+                  Who is the session for? Personas include signed consent.
                 </p>
               </div>
               <Button
-                variant="outline"
+                variant="primary"
                 size="sm"
-                onClick={() => setShowNewPersonaForm(!showNewPersonaForm)}
+                onClick={() => openWizard('manage')}
               >
-                {showNewPersonaForm ? 'Cancel' : '+ Add Persona'}
+                + New Persona
               </Button>
             </div>
 
-            {/* Existing Personas */}
+            {/* Booking-for indicator (single persona preselected) */}
+            {selectedPersona && personas.length === 1 && (
+              <div className="p-4 rounded-xl bg-[#EBF2EC] border-l-4 border-[#5D8B69] flex items-center justify-between gap-3">
+                <p className="text-sm text-[#25372D]">
+                  Booking for: <strong className="font-semibold">{selectedPersona.label}</strong>
+                </p>
+                <Button variant="outline" size="sm" onClick={() => openWizard('manage')}>
+                  Change / Add someone else
+                </Button>
+              </div>
+            )}
+
+            {/* Existing Personas picker */}
             <div className="space-y-3">
+              {personasLoading && (
+                <p className="text-xs text-[#25372D]/70">Loading personas…</p>
+              )}
+              {!personasLoading && personas.length === 0 && (
+                <div className="p-4 rounded-xl bg-[#F6F9F6] border border-[#8FBE8F] space-y-3">
+                  <p className="text-sm text-[#25372D]">
+                    No personas yet. Create one with signed consent to start booking.
+                  </p>
+                  <Button variant="primary" size="sm" onClick={() => openWizard('manage')}>
+                    Launch Persona Wizard
+                  </Button>
+                </div>
+              )}
               {personas.map((persona) => {
                 const isSelected = selectedPersonaId === persona.id;
                 return (
                   <button
                     key={persona.id}
                     type="button"
-                    onClick={() => {
-                      intakeForm.setValue('personaId', persona.id, { shouldValidate: true });
-                      intakeForm.setValue('preferredLanguage', persona.preferredLanguage);
-                      updateIntakeDraft({
-                        personaId: persona.id,
-                        preferredLanguage: persona.preferredLanguage,
-                      });
-                    }}
+                    onClick={() => selectPersona(persona.id, persona.preferredLanguage)}
                     className={`w-full text-left p-4 rounded-xl border transition-colors cursor-pointer ${
                       isSelected
                         ? 'border-2 border-[#5D8B69] bg-[#F1F6F2]'
@@ -260,91 +302,126 @@ export default function PersonasAndIntakePage() {
                     <p className="text-xs text-[#25372D]/70 mt-1">
                       Relationship: {persona.relationshipToClient} · Language: {persona.preferredLanguage}
                     </p>
+                    {lastUsedPersonaId === persona.id && (
+                      <p className="text-[11px] text-[#5D8B69] font-semibold mt-1">Last used</p>
+                    )}
                   </button>
                 );
               })}
             </div>
 
-            {/* Add New Persona Form (RHF + Zod) */}
-            {showNewPersonaForm && (
-              <form
-                onSubmit={personaForm.handleSubmit((vals) => createPersonaMutation.mutate(vals))}
-                className="p-4 rounded-xl bg-[#F6F9F6] border border-[#8FBE8F] space-y-4"
-              >
-                <p className="font-heading text-lg font-bold text-[#25372D]">
-                  Create New Anonymized Persona
-                </p>
-
-                <div>
-                  <Label htmlFor="persona-type">Persona Classification</Label>
-                  <Select id="persona-type" {...personaForm.register('type')}>
-                    <option value="self">Self (Primary Account)</option>
-                    <option value="dependent">Dependent (Child / Adolescent / Ward)</option>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="persona-label">Anonymized Profile Label (No Real Names)</Label>
-                  <Input
-                    id="persona-label"
-                    placeholder="e.g., Dependent Ward #D-02 (Young Adult)"
-                    {...personaForm.register('label')}
-                  />
-                  {personaForm.formState.errors.label && (
-                    <p className="text-xs text-red-700 mt-1">
-                      {personaForm.formState.errors.label.message}
-                    </p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="persona-age">Age Bracket</Label>
-                    <Select id="persona-age" {...personaForm.register('ageGroup')}>
-                      <option value="Child (7–12)">Child (7–12)</option>
-                      <option value="Adolescent (13–17)">Adolescent (13–17)</option>
-                      <option value="Young Adult (18–24)">Young Adult (18–24)</option>
-                      <option value="Adult (25–34)">Adult (25–34)</option>
-                      <option value="Adult (35–49)">Adult (35–49)</option>
-                      <option value="Senior (50+)">Senior (50+)</option>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="persona-lang">Preferred Language</Label>
-                    <Select id="persona-lang" {...personaForm.register('preferredLanguage')}>
-                      <option value="English / Taglish">English / Taglish</option>
-                      <option value="Filipino / Taglish">Filipino / Taglish</option>
-                      <option value="English">English</option>
-                      <option value="Cebuano / English">Cebuano / English</option>
-                    </Select>
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="persona-rel">Relationship / Legal Authority</Label>
-                  <Input
-                    id="persona-rel"
-                    placeholder="e.g., Legal Guardian / Parent"
-                    {...personaForm.register('relationshipToClient')}
-                  />
-                  {personaForm.formState.errors.relationshipToClient && (
-                    <p className="text-xs text-red-700 mt-1">
-                      {personaForm.formState.errors.relationshipToClient.message}
-                    </p>
-                  )}
-                </div>
-
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="sm"
-                  disabled={createPersonaMutation.isPending}
-                >
-                  {createPersonaMutation.isPending ? 'Saving Persona...' : 'Save Persona Profile'}
-                </Button>
-              </form>
+            {personas.length > 1 && (
+              <Button variant="outline" size="sm" onClick={() => openWizard('manage')}>
+                + Add someone else
+              </Button>
             )}
+
+            {/* Legacy quick-add (temporary) — deprecated once POST /personas is real */}
+            <details className="rounded-xl bg-[#F6F9F6] border border-[#C0D3C3]">
+              <summary className="px-4 py-3 text-xs font-semibold text-[#25372D]/75 cursor-pointer list-none">
+                Legacy quick-add (temporary) — old label/age-group form, kept until backend POST
+                /personas supports persona + consent
+              </summary>
+              <div className="px-4 pb-4">
+                {!showLegacyPersonaForm ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowLegacyPersonaForm(true)}
+                  >
+                    Show legacy form
+                  </Button>
+                ) : (
+                <form
+                  onSubmit={personaForm.handleSubmit((vals) => createPersonaMutation.mutate(vals))}
+                  className="p-4 rounded-xl bg-white border border-[#8FBE8F] space-y-4"
+                >
+                  <p className="font-heading text-lg font-bold text-[#25372D]">
+                    Create New Anonymized Persona (Legacy)
+                  </p>
+
+                  <div>
+                    <Label htmlFor="persona-type">Persona Classification</Label>
+                    <Select id="persona-type" {...personaForm.register('type')}>
+                      <option value="self">Self (Primary Account)</option>
+                      <option value="dependent">Dependent (Child / Adolescent / Ward)</option>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="persona-label">Anonymized Profile Label (No Real Names)</Label>
+                    <Input
+                      id="persona-label"
+                      placeholder="e.g., Dependent Ward #D-02 (Young Adult)"
+                      {...personaForm.register('label')}
+                    />
+                    {personaForm.formState.errors.label && (
+                      <p className="text-xs text-red-700 mt-1">
+                        {personaForm.formState.errors.label.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="persona-age">Age Bracket</Label>
+                      <Select id="persona-age" {...personaForm.register('ageGroup')}>
+                        <option value="Child (7–12)">Child (7–12)</option>
+                        <option value="Adolescent (13–17)">Adolescent (13–17)</option>
+                        <option value="Young Adult (18–24)">Young Adult (18–24)</option>
+                        <option value="Adult (25–34)">Adult (25–34)</option>
+                        <option value="Adult (35–49)">Adult (35–49)</option>
+                        <option value="Senior (50+)">Senior (50+)</option>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="persona-lang">Preferred Language</Label>
+                      <Select id="persona-lang" {...personaForm.register('preferredLanguage')}>
+                        <option value="English / Taglish">English / Taglish</option>
+                        <option value="Filipino / Taglish">Filipino / Taglish</option>
+                        <option value="English">English</option>
+                        <option value="Cebuano / English">Cebuano / English</option>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="persona-rel">Relationship / Legal Authority</Label>
+                    <Input
+                      id="persona-rel"
+                      placeholder="e.g., Legal Guardian / Parent"
+                      {...personaForm.register('relationshipToClient')}
+                    />
+                    {personaForm.formState.errors.relationshipToClient && (
+                      <p className="text-xs text-red-700 mt-1">
+                        {personaForm.formState.errors.relationshipToClient.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      size="sm"
+                      disabled={createPersonaMutation.isPending}
+                    >
+                      {createPersonaMutation.isPending ? 'Saving Persona...' : 'Save Persona Profile'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowLegacyPersonaForm(false)}
+                    >
+                      Hide
+                    </Button>
+                  </div>
+                </form>
+                )}
+              </div>
+            </details>
           </Card>
         </div>
 
@@ -488,6 +565,13 @@ export default function PersonasAndIntakePage() {
           </form>
         </Card>
       </div>
+
+      <PersonaWizardModal
+        onCreated={(id) => {
+          const created = personas.find((p) => p.id === id);
+          selectPersona(id, created?.preferredLanguage);
+        }}
+      />
     </div>
   );
 }
