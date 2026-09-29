@@ -151,6 +151,12 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
   const [versionMismatch, setVersionMismatch] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
+  /**
+   * When true, the next step change is a programmatic jump to a validation
+   * error (not user Back/Next) — keep attempted errors + server message and
+   * let focusFirstError() own focus instead of the first-field autofocus.
+   */
+  const keepAttemptedRef = useRef(false);
 
   const { data: services = [] } = useQuery({
     queryKey: ['services'],
@@ -164,7 +170,21 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
     [isOpen, currentStep, JSON.stringify(draft)]
   );
   const shownErrors: Errors = attempted ? liveErrors : {};
-  const canProceed = Object.keys(liveErrors).length === 0;
+
+  /**
+   * Move keyboard focus to the first invalid field so the blocker is always
+   * visible. Next/Submit stay clickable (validate-on-attempt) instead of
+   * disabled-while-invalid, so errors can never be unreachable.
+   */
+  function focusFirstError() {
+    window.setTimeout(() => {
+      const target = panelRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+      if (target) {
+        target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        target.focus({ preventScroll: true });
+      }
+    }, 80);
+  }
 
   function requestClose() {
     const dirty = JSON.stringify(draft) !== JSON.stringify(DEFAULT_DRAFT_SNAPSHOT);
@@ -178,13 +198,19 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
   function goNext() {
     setAttempted(true);
     const errs = validateStep(currentStep, draft);
-    if (Object.keys(errs).length > 0) return;
+    if (Object.keys(errs).length > 0) {
+      focusFirstError();
+      return;
+    }
     setStep((currentStep + 1) as 1 | 2 | 3 | 4);
   }
 
-  // Focus first field on step change; Esc to attempt close.
+  // Focus first field on user-driven step change; Esc to attempt close.
   useEffect(() => {
     if (!isOpen) return;
+    const jumpedToErrors = keepAttemptedRef.current;
+    keepAttemptedRef.current = false;
+    if (jumpedToErrors) return undefined;
     setAttempted(false);
     setServerError(null);
     setVersionMismatch(false);
@@ -274,8 +300,12 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
       if (Object.keys(mapped).length > 0) {
         setAttempted(true);
         const firstField = Object.keys(fields).find((k) => k !== '_form');
-        if (firstField) setStep(stepForField(firstField));
+        if (firstField) {
+          keepAttemptedRef.current = true;
+          setStep(stepForField(firstField));
+        }
         setServerError('Please fix the highlighted fields.');
+        focusFirstError();
       } else {
         setServerError(msg);
       }
@@ -323,13 +353,17 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
       });
       const first = full.error.issues[0];
       const dotted = first.path.join('.');
+      keepAttemptedRef.current = true;
       setStep(stepForField(dotted));
       setServerError('Please fix the highlighted fields.');
+      focusFirstError();
       return;
     }
     if (!isValidPhone(draft.contact_number, draft.is_overseas_or_foreign)) {
+      keepAttemptedRef.current = true;
       setStep(3);
       setServerError('Enter a valid contact number.');
+      focusFirstError();
       return;
     }
     mutation.mutate();
@@ -825,11 +859,11 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
               </Button>
             )}
             {currentStep < 4 ? (
-              <Button variant="primary" size="md" onClick={goNext} disabled={!canProceed || mutation.isPending} title={!canProceed ? 'Complete this page to continue' : undefined}>
+              <Button variant="primary" size="md" onClick={goNext} disabled={mutation.isPending}>
                 Next
               </Button>
             ) : (
-              <Button variant="primary" size="md" onClick={handleSubmit} disabled={!canProceed || mutation.isPending}>
+              <Button variant="primary" size="md" onClick={handleSubmit} disabled={mutation.isPending}>
                 {mutation.isPending ? 'Submitting…' : 'Submit persona & consent'}
               </Button>
             )}
