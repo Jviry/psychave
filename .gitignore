@@ -28,6 +28,7 @@ htmlcov/
 frontend/node_modules/
 frontend/dist/
 frontend/.next/
+*.tsbuildinfo
 
 # Editor & OS files
 .DS_Store
@@ -47,3 +48,10 @@ crash.*.log
 
 backend/package/
 backend/lambda.zip
+
+# Agents
+AGENT.md
+AGENTS.md
+
+# Sensitive? Docs
+'Site Map & Details.pdf'
