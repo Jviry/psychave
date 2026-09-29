@@ -40,10 +40,10 @@ const INITIAL_SERVICES: ServiceItem[] = [
     durationMinutes: 45,
     guardrailTitle: 'Screening-Only · Not Full Therapy',
     guardrailNotice:
-      'Consultation (45 min) is strictly for initial clinical screening, intake clarification, and care navigation. It does not constitute a full psychotherapy session.',
+      'Consultation (45 min) is strictly for initial clinical screening, booking clarification, and care navigation. It does not constitute a full psychotherapy session.',
     description:
       'Structured initial consultation to clarify presenting concerns, evaluate clinical urgency, and match the client or dependent with the appropriate therapeutic modality.',
-    clinicalFormat: '1-on-1 Intake Screening (Telehealth)',
+    clinicalFormat: '1-on-1 Booking Screening (Telehealth)',
     isStandaloneConsultation: true,
   },
   {
@@ -272,7 +272,7 @@ const INITIAL_BOOKINGS: BookingRequest[] = [
     psychologistSpecialization: 'Adult Psychotherapy, Anxiety Disorders & Trauma-Informed CBT',
     pricePhp: 3200,
     clinicalPrepNote:
-      'We will begin with a 30-minute joint intake, followed by two 15-minute individual breakout check-ins, and reconvene for 30 minutes of goal alignment.',
+      'We will begin with a 30-minute joint booking, followed by two 15-minute individual breakout check-ins, and reconvene for 30 minutes of goal alignment.',
     proposedSlots: [
       {
         id: 'slot-102-a',
@@ -302,7 +302,7 @@ const INITIAL_BOOKINGS: BookingRequest[] = [
       reminder1h: 'pending',
     },
     privateClinicalNote:
-      'CONFIDENTIAL PSYCHOLOGIST NOTE: Prepare Gottman-informed relational intake protocol and separate breakout room links prior to session start.',
+      'CONFIDENTIAL PSYCHOLOGIST NOTE: Prepare Gottman-informed relational booking protocol and separate breakout room links prior to session start.',
   },
   {
     id: 'BK-2026-103',
@@ -372,7 +372,7 @@ const INITIAL_CMS: CmsContent = {
   vision:
     'Placeholder — Vision Statement: To establish a trusted, ethically governed Philippine mental-health ecosystem where every client and family accesses credential-verified psychological care with full clinical transparency.',
   mission:
-    'Placeholder — Mission Statement: We bridge individuals, couples, families, and early-career practitioners with PRC-verified psychologists through structured clinical intake, clear therapeutic guardrails, and privacy-first care navigation.',
+    'Placeholder — Mission Statement: We bridge individuals, couples, families, and early-career practitioners with PRC-verified psychologists through structured clinical booking, clear therapeutic guardrails, and privacy-first care navigation.',
   clinicOverview:
     'Placeholder — Clinic Overview: PsychAvenuePH (PSYCHAVE PH) operates a structured, multi-disciplinary psychological practice delivering consultation, psychotherapy, relational systems counseling, non-clinical coaching, clinical supervision, and ethical research advisory.',
   impactNarrative:
@@ -388,7 +388,7 @@ const INITIAL_CMS: CmsContent = {
       id: 'imp-2',
       metricValue: '3-Slot',
       metricLabel: 'Canonical Flow C Proposal Standard',
-      timeframeContext: 'Every picked-up intake receives 3 curated schedule options',
+      timeframeContext: 'Every picked-up booking receives 3 curated schedule options',
     },
     {
       id: 'imp-3',
@@ -750,9 +750,9 @@ export const api = {
     }),
 
   /**
-   * Flow C Step 1: Client submits Persona + Intake Form -> enters 'pending' queue
+   * Flow C Step 1: Client submits Persona + Booking Form -> enters 'pending' queue
    */
-  submitIntakeRequest: async (input: {
+  submitBookingRequest: async (input: {
     personaId: string;
     serviceId: string;
     preferredLanguage: string;
@@ -838,7 +838,7 @@ export const api = {
       }
       if (pickupRes.status === 403) {
         throw new Error(
-          'Credential Guardrail: Unverified psychologists cannot pick up intake requests or propose slots.'
+          'Credential Guardrail: Unverified psychologists cannot pick up booking requests or propose slots.'
         );
       }
 
@@ -904,7 +904,7 @@ export const api = {
         const psych = mockRoster.find((r) => r.id === input.psychologistId);
         if (!psych || psych.verificationStatus !== 'verified') {
           throw new Error(
-            'Credential Guardrail: Unverified psychologists cannot pick up intake requests or propose slots.'
+            'Credential Guardrail: Unverified psychologists cannot pick up booking requests or propose slots.'
           );
         }
 
@@ -957,7 +957,7 @@ export const api = {
               timeLabel: s3.timeLabel,
             },
           ],
-          privateClinicalNote: `CONFIDENTIAL PSYCHOLOGIST NOTE (${psych.anonymizedTitle}): Intake reviewed and 3 slots proposed. Hidden from Admin tier.`,
+          privateClinicalNote: `CONFIDENTIAL PSYCHOLOGIST NOTE (${psych.anonymizedTitle}): Booking reviewed and 3 slots proposed. Hidden from Admin tier.`,
         };
 
         mockBookings = mockBookings.map((b) => (b.id === input.bookingId ? updated : b));

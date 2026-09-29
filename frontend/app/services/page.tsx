@@ -9,7 +9,7 @@ import { Button, Card } from '../../components/ui/primitives';
 
 export default function ServicesPage() {
   const router = useRouter();
-  const { setCognitoRole, updateIntakeDraft } = useAppStore();
+  const { setCognitoRole, updateBookingDraft } = useAppStore();
 
   const { data: services = [], isLoading } = useQuery({
     queryKey: ['services'],
@@ -33,7 +33,7 @@ export default function ServicesPage() {
         </h1>
         <p className="text-base text-[#25372D]/80 max-w-3xl">
           Every service offered at PsychAvenuePH enforces explicit clinical scope boundaries and
-          duration rules during Flow C intake and psychologist slot proposal.
+          duration rules during Flow C booking and psychologist slot proposal.
         </p>
       </header>
 
@@ -56,12 +56,12 @@ export default function ServicesPage() {
               variant="accent"
               size="md"
               onClick={() => {
-                updateIntakeDraft({ serviceId: standaloneConsultation.id });
+                updateBookingDraft({ serviceId: standaloneConsultation.id });
                 setCognitoRole('client');
                 router.push('/personas');
               }}
             >
-              Start 45-Min Consultation Intake
+              Start 45-Min Consultation Booking
             </Button>
           </div>
 
@@ -158,12 +158,12 @@ export default function ServicesPage() {
                     variant="primary"
                     size="sm"
                     onClick={() => {
-                      updateIntakeDraft({ serviceId: srv.id });
+                      updateBookingDraft({ serviceId: srv.id });
                       setCognitoRole('client');
                       router.push('/personas');
                     }}
                   >
-                    Select &amp; Complete Intake
+                    Select &amp; Complete Booking
                   </Button>
                 </div>
               </Card>
@@ -178,7 +178,7 @@ export default function ServicesPage() {
           <h3 className="font-heading text-xl font-bold text-[#25372D]">
             Canonical Service Duration &amp; Boundary Reference Matrix
           </h3>
-          <span className="text-xs text-[#25372D]/70">Enforced in Flow C Intake &amp; Proposals</span>
+          <span className="text-xs text-[#25372D]/70">Enforced in Flow C Booking &amp; Proposals</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-sm">

@@ -146,7 +146,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
   const { isOpen, currentStep, draft, returnTo } = usePersonaWizardStore();
   const { updateDraft, setStep, closeWizard, resetDraft, setLastUsedPersonaId } =
     usePersonaWizardStore.getState();
-  const { updateIntakeDraft, publishFlowEvent } = useAppStore.getState();
+  const { updateBookingDraft, publishFlowEvent } = useAppStore.getState();
 
   const [attempted, setAttempted] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -273,7 +273,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ['personas'] });
       setLastUsedPersonaId(created.id);
-      updateIntakeDraft({ personaId: created.id });
+      updateBookingDraft({ personaId: created.id });
       publishFlowEvent(
         'Persona Created (Wizard)',
         `${created.label} created with signed consent ${getConsentVersion()}${returnTo === 'booking' ? ' and preselected for booking.' : '.'}`

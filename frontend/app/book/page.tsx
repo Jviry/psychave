@@ -32,13 +32,13 @@ General Availability Window: [Days & Times]`;
         <div className="flex items-center gap-2 text-xs text-[#5D8B69] font-semibold">
           <span>Book a Session</span>
           <span aria-hidden="true">·</span>
-          <span>Canonical Flow C Intake + Official External Fallback</span>
+          <span>Canonical Flow C Booking + Official External Fallback</span>
         </div>
         <h1 className="font-heading text-4xl font-bold text-[#25372D]">
           Book a Session with PSYCHAVE PH
         </h1>
         <p className="text-base text-[#25372D]/80 max-w-3xl">
-          Initiate your booking through our structured Flow C platform intake, or reach our clinical
+          Initiate your booking through our structured Flow C platform booking, or reach our clinical
           coordination desk directly via our official Facebook page or email fallback.
         </p>
       </header>
@@ -52,10 +52,10 @@ General Availability Window: [Days & Times]`;
               <span>Flow C Canonical Workflow</span>
             </div>
             <h2 className="font-heading text-3xl font-bold text-[#25372D]">
-              Complete Persona &amp; Clinical Intake Online
+              Complete Persona &amp; Clinical Booking Online
             </h2>
             <p className="text-sm text-[#25372D]/80 leading-relaxed">
-              Submit your intake under a Self or Dependent persona. Your request enters our secure
+              Submit your booking under a Self or Dependent persona. Your request enters our secure
               pending queue where a PRC-verified resident psychologist reviews fit, sets the session
               fee, and proposes 3 distinct schedule slots for your selection.
             </p>
@@ -85,7 +85,7 @@ General Availability Window: [Days & Times]`;
                 router.push('/personas');
               }}
             >
-              Launch Flow C Intake Form
+              Launch Flow C Booking Form
             </Button>
             <Button
               variant="outline"
@@ -110,7 +110,7 @@ General Availability Window: [Days & Times]`;
               External Booking Fallback
             </h2>
             <p className="text-xs text-[#25372D]/75 leading-relaxed">
-              Prefer manual coordination or assisting an institutional group? Reach our intake desk
+              Prefer manual coordination or assisting an institutional group? Reach our booking desk
               directly via Facebook or email.
             </p>
           </div>

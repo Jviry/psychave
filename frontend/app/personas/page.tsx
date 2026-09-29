@@ -6,8 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import {
-  intakeFormSchema,
-  IntakeFormValues,
+  bookingFormSchema,
+  BookingFormValues,
   personaSchema,
   PersonaFormValues,
 } from '../../lib/schemas';
@@ -24,15 +24,15 @@ import {
   Textarea,
 } from '../../components/ui/primitives';
 
-export default function PersonasAndIntakePage() {
+export default function PersonasAndBookingPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const {
     cognitoRole,
     setCognitoRole,
-    intakeDraft,
-    updateIntakeDraft,
-    resetIntakeDraft,
+    bookingDraft,
+    updateBookingDraft,
+    resetBookingDraft,
     publishFlowEvent,
   } = useAppStore();
   const openWizard = usePersonaWizardStore((s) => s.openWizard);
@@ -66,28 +66,28 @@ export default function PersonasAndIntakePage() {
     },
   });
 
-  // React Hook Form for Flow C Step 1 Intake Form
-  const intakeForm = useForm<IntakeFormValues>({
-    resolver: zodResolver(intakeFormSchema),
+  // React Hook Form for Flow C Step 1 Booking Form
+  const bookingForm = useForm<BookingFormValues>({
+    resolver: zodResolver(bookingFormSchema),
     defaultValues: {
-      personaId: intakeDraft.personaId || 'persona-self-01',
-      serviceId: intakeDraft.serviceId || 'srv-individual',
-      preferredLanguage: intakeDraft.preferredLanguage || 'English / Taglish',
-      concernsSummary: intakeDraft.concernsSummary || '',
-      specificNeeds: intakeDraft.specificNeeds || '',
+      personaId: bookingDraft.personaId || 'persona-self-01',
+      serviceId: bookingDraft.serviceId || 'srv-individual',
+      preferredLanguage: bookingDraft.preferredLanguage || 'English / Taglish',
+      concernsSummary: bookingDraft.concernsSummary || '',
+      specificNeeds: bookingDraft.specificNeeds || '',
       guardrailAcknowledged: false,
     },
   });
 
   // Keep form synced if user pre-selected a service from /services
   useEffect(() => {
-    if (intakeDraft.serviceId) {
-      intakeForm.setValue('serviceId', intakeDraft.serviceId);
+    if (bookingDraft.serviceId) {
+      bookingForm.setValue('serviceId', bookingDraft.serviceId);
     }
-    if (intakeDraft.personaId) {
-      intakeForm.setValue('personaId', intakeDraft.personaId);
+    if (bookingDraft.personaId) {
+      bookingForm.setValue('personaId', bookingDraft.personaId);
     }
-  }, [intakeDraft.serviceId, intakeDraft.personaId, intakeForm]);
+  }, [bookingDraft.serviceId, bookingDraft.personaId, bookingForm]);
 
   // Booking-flow persona step: no personas -> launch wizard once data loads.
   useEffect(() => {
@@ -97,15 +97,15 @@ export default function PersonasAndIntakePage() {
     }
   }, [personasLoading, personas.length, wizardOpen, openWizard]);
 
-  const selectedServiceId = intakeForm.watch('serviceId');
-  const selectedPersonaId = intakeForm.watch('personaId');
+  const selectedServiceId = bookingForm.watch('serviceId');
+  const selectedPersonaId = bookingForm.watch('personaId');
   const activeService = services.find((s) => s.id === selectedServiceId) || services[0];
   const selectedPersona = personas.find((p) => p.id === selectedPersonaId) || null;
 
   const selectPersona = (personaId: string, preferredLanguage?: string) => {
-    intakeForm.setValue('personaId', personaId, { shouldValidate: true });
-    if (preferredLanguage) intakeForm.setValue('preferredLanguage', preferredLanguage);
-    updateIntakeDraft({ personaId, ...(preferredLanguage ? { preferredLanguage } : {}) });
+    bookingForm.setValue('personaId', personaId, { shouldValidate: true });
+    if (preferredLanguage) bookingForm.setValue('preferredLanguage', preferredLanguage);
+    updateBookingDraft({ personaId, ...(preferredLanguage ? { preferredLanguage } : {}) });
     setLastUsedPersonaId(personaId);
   };
 
@@ -113,22 +113,22 @@ export default function PersonasAndIntakePage() {
     mutationFn: (values: PersonaFormValues) => api.createPersona(values),
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ['personas'] });
-      updateIntakeDraft({ personaId: created.id, preferredLanguage: created.preferredLanguage });
-      intakeForm.setValue('personaId', created.id);
-      intakeForm.setValue('preferredLanguage', created.preferredLanguage);
+      updateBookingDraft({ personaId: created.id, preferredLanguage: created.preferredLanguage });
+      bookingForm.setValue('personaId', created.id);
+      bookingForm.setValue('preferredLanguage', created.preferredLanguage);
       setLastUsedPersonaId(created.id);
       personaForm.reset();
       setShowLegacyPersonaForm(false);
       publishFlowEvent(
         'Client Persona Created',
-        `Added ${created.label} (${created.type.toUpperCase()}) and selected it for Flow C intake.`
+        `Added ${created.label} (${created.type.toUpperCase()}) and selected it for Flow C booking.`
       );
     },
   });
 
-  const submitIntakeMutation = useMutation({
-    mutationFn: (values: IntakeFormValues) =>
-      api.submitIntakeRequest({
+  const submitBookingMutation = useMutation({
+    mutationFn: (values: BookingFormValues) =>
+      api.submitBookingRequest({
         personaId: values.personaId,
         serviceId: values.serviceId,
         preferredLanguage: values.preferredLanguage,
@@ -137,8 +137,8 @@ export default function PersonasAndIntakePage() {
       }),
     onSuccess: (createdBooking) => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
-      resetIntakeDraft();
-      intakeForm.reset({
+      resetBookingDraft();
+      bookingForm.reset({
         personaId: createdBooking.personaId,
         serviceId: createdBooking.serviceId,
         preferredLanguage: createdBooking.preferredLanguage,
@@ -148,7 +148,7 @@ export default function PersonasAndIntakePage() {
       });
       setSubmittedBookingId(createdBooking.id);
       publishFlowEvent(
-        'Flow C Step 1 Complete — Intake Submitted',
+        'Flow C Step 1 Complete — Booking Submitted',
         `Request ${createdBooking.id} (${createdBooking.serviceTitle}) entered the Pending Queue. Verified psychologists notified.`
       );
     },
@@ -162,14 +162,14 @@ export default function PersonasAndIntakePage() {
           <div className="flex items-center gap-2 text-xs text-[#5D8B69] font-semibold">
             <span>Flow C Step 1 of 5</span>
             <span aria-hidden="true">·</span>
-            <span>Client Persona &amp; Clinical Intake</span>
+            <span>Client Persona &amp; Clinical Booking</span>
           </div>
           <h1 className="font-heading text-4xl font-bold text-[#25372D]">
-            Client Personas &amp; Clinical Intake Form
+            Client Personas &amp; Clinical Booking Form
           </h1>
           <p className="text-sm text-[#25372D]/80 max-w-2xl">
             Create a persona with signed consent through the 4-step wizard, pick who the booking is
-            for, then submit intake to the verified psychologist queue.
+            for, then submit booking to the verified psychologist queue.
           </p>
         </div>
 
@@ -196,7 +196,7 @@ export default function PersonasAndIntakePage() {
                 FLOW C STEP 1 SUBMITTED · STATUS: PENDING
               </p>
               <h2 className="font-heading text-2xl font-bold text-[#25372D]">
-                Intake Request #{submittedBookingId} Entered Pending Queue
+                Booking Request #{submittedBookingId} Entered Pending Queue
               </h2>
               <p className="text-sm text-[#25372D]/80">
                 PRC-verified psychologists have been notified. Your booking will move to{' '}
@@ -425,11 +425,11 @@ export default function PersonasAndIntakePage() {
           </Card>
         </div>
 
-        {/* Right Column: Canonical Flow C Intake Form (RHF + Zod) */}
+        {/* Right Column: Canonical Flow C Booking Form (RHF + Zod) */}
         <Card className="lg:col-span-7 space-y-6">
           <div className="border-b border-[#C0D3C3] pb-4">
             <h2 className="font-heading text-2xl font-bold text-[#25372D]">
-              2. Complete Clinical Intake Form
+              2. Complete Clinical Booking Form
             </h2>
             <p className="text-xs text-[#25372D]/70">
               Validated with React Hook Form + Zod · Enters Pending Queue for Verified Psychologists
@@ -437,16 +437,16 @@ export default function PersonasAndIntakePage() {
           </div>
 
           <form
-            onSubmit={intakeForm.handleSubmit((vals) => submitIntakeMutation.mutate(vals))}
+            onSubmit={bookingForm.handleSubmit((vals) => submitBookingMutation.mutate(vals))}
             className="space-y-5"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="intake-service">Selected Service &amp; Duration</Label>
+                <Label htmlFor="booking-service">Selected Service &amp; Duration</Label>
                 <Select
-                  id="intake-service"
-                  {...intakeForm.register('serviceId', {
-                    onChange: (e) => updateIntakeDraft({ serviceId: e.target.value }),
+                  id="booking-service"
+                  {...bookingForm.register('serviceId', {
+                    onChange: (e) => updateBookingDraft({ serviceId: e.target.value }),
                   })}
                 >
                   {services.map((srv) => (
@@ -458,11 +458,11 @@ export default function PersonasAndIntakePage() {
               </div>
 
               <div>
-                <Label htmlFor="intake-language">Preferred Session Language</Label>
+                <Label htmlFor="booking-language">Preferred Session Language</Label>
                 <Select
-                  id="intake-language"
-                  {...intakeForm.register('preferredLanguage', {
-                    onChange: (e) => updateIntakeDraft({ preferredLanguage: e.target.value }),
+                  id="booking-language"
+                  {...bookingForm.register('preferredLanguage', {
+                    onChange: (e) => updateBookingDraft({ preferredLanguage: e.target.value }),
                   })}
                 >
                   <option value="English / Taglish">English / Taglish</option>
@@ -489,39 +489,39 @@ export default function PersonasAndIntakePage() {
             )}
 
             <div>
-              <Label htmlFor="intake-concerns">
+              <Label htmlFor="booking-concerns">
                 Presenting Concerns, Context &amp; Goals (Min 20 chars)
               </Label>
               <Textarea
-                id="intake-concerns"
+                id="booking-concerns"
                 rows={4}
                 placeholder="Describe primary concerns, goals for this service, and relevant context (do not include real full names)..."
-                {...intakeForm.register('concernsSummary', {
-                  onChange: (e) => updateIntakeDraft({ concernsSummary: e.target.value }),
+                {...bookingForm.register('concernsSummary', {
+                  onChange: (e) => updateBookingDraft({ concernsSummary: e.target.value }),
                 })}
               />
-              {intakeForm.formState.errors.concernsSummary && (
+              {bookingForm.formState.errors.concernsSummary && (
                 <p className="text-xs text-red-700 mt-1">
-                  {intakeForm.formState.errors.concernsSummary.message}
+                  {bookingForm.formState.errors.concernsSummary.message}
                 </p>
               )}
             </div>
 
             <div>
-              <Label htmlFor="intake-needs">
+              <Label htmlFor="booking-needs">
                 Scheduling Preferences, Breakout Setup &amp; Specific Needs
               </Label>
               <Textarea
-                id="intake-needs"
+                id="booking-needs"
                 rows={2}
                 placeholder="e.g., Prefer weekday evenings after 6 PM PST; separate devices ready if Couples 15-min breakout applies..."
-                {...intakeForm.register('specificNeeds', {
-                  onChange: (e) => updateIntakeDraft({ specificNeeds: e.target.value }),
+                {...bookingForm.register('specificNeeds', {
+                  onChange: (e) => updateBookingDraft({ specificNeeds: e.target.value }),
                 })}
               />
-              {intakeForm.formState.errors.specificNeeds && (
+              {bookingForm.formState.errors.specificNeeds && (
                 <p className="text-xs text-red-700 mt-1">
-                  {intakeForm.formState.errors.specificNeeds.message}
+                  {bookingForm.formState.errors.specificNeeds.message}
                 </p>
               )}
             </div>
@@ -531,7 +531,7 @@ export default function PersonasAndIntakePage() {
                 <input
                   type="checkbox"
                   className="mt-0.5 h-4 w-4 rounded border-[#5D8B69] text-[#5D8B69] focus:ring-[#5D8B69]"
-                  {...intakeForm.register('guardrailAcknowledged')}
+                  {...bookingForm.register('guardrailAcknowledged')}
                 />
                 <span className="leading-relaxed">
                   I acknowledge the clinical guardrail for{' '}
@@ -540,9 +540,9 @@ export default function PersonasAndIntakePage() {
                   proposes 3 schedule slots and payment is completed.
                 </span>
               </label>
-              {intakeForm.formState.errors.guardrailAcknowledged && (
+              {bookingForm.formState.errors.guardrailAcknowledged && (
                 <p className="text-xs text-red-700">
-                  {intakeForm.formState.errors.guardrailAcknowledged.message}
+                  {bookingForm.formState.errors.guardrailAcknowledged.message}
                 </p>
               )}
             </div>
@@ -555,11 +555,11 @@ export default function PersonasAndIntakePage() {
                 type="submit"
                 variant="primary"
                 size="lg"
-                disabled={submitIntakeMutation.isPending}
+                disabled={submitBookingMutation.isPending}
               >
-                {submitIntakeMutation.isPending
-                  ? 'Submitting Intake to Queue...'
-                  : 'Submit Intake Request (Status: Pending)'}
+                {submitBookingMutation.isPending
+                  ? 'Submitting Booking to Queue...'
+                  : 'Submit Booking Request (Status: Pending)'}
               </Button>
             </div>
           </form>

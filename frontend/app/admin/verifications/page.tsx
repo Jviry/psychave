@@ -60,7 +60,7 @@ export default function AdminVerificationsPage() {
           Psychologist Credential Verifications &amp; Roster Control
         </h1>
         <p className="text-sm text-[#25372D]/80 max-w-3xl">
-          Approve PRC credentials so psychologists can pick up Flow C intake requests, toggle
+          Approve PRC credentials so psychologists can pick up Flow C booking requests, toggle
           anonymized public roster visibility on <code>/about</code>, and audit preliminary queue
           statuses without access to private clinical session notes.
         </p>
@@ -174,12 +174,12 @@ export default function AdminVerificationsPage() {
         )}
       </Card>
 
-      {/* Section 2: Admin Preliminary Intake View (With Strict Redaction of Session Notes) */}
+      {/* Section 2: Admin Preliminary Booking View (With Strict Redaction of Session Notes) */}
       <Card className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#C0D3C3] pb-4">
           <div>
             <h2 className="font-heading text-2xl font-bold text-[#25372D]">
-              2. Preliminary Intake Queue Audit (No Session Notes Visible)
+              2. Preliminary Booking Queue Audit (No Session Notes Visible)
             </h2>
             <p className="text-xs text-[#25372D]/70">
               Tiered Cognito Access Guardrail: Admins inspect operational queue progress only;

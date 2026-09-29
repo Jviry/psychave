@@ -14,7 +14,7 @@ export function SiteFooter() {
             </p>
             <p className="text-sm text-[#C0D3C3] max-w-md leading-relaxed">
               PsychAvenuePH is a structured Philippine mental-health booking platform built around
-              canonical Flow C intake, PRC-verified resident psychologists, explicit clinical duration
+              canonical Flow C booking, PRC-verified resident psychologists, explicit clinical duration
               guardrails, and strict confidentiality governance.
             </p>
             <p className="text-xs text-[#8FBE8F] pt-1">
@@ -44,7 +44,7 @@ export function SiteFooter() {
               </li>
               <li>
                 <Link href="/book" className="hover:text-white transition-colors">
-                  Book a Session (Fallback & Intake)
+                  Book a Session (Fallback & Booking)
                 </Link>
               </li>
             </ul>
@@ -57,7 +57,7 @@ export function SiteFooter() {
             <ul className="space-y-2 text-[#C0D3C3]">
               <li>
                 <Link href="/personas" className="hover:text-white transition-colors">
-                  Client Personas & Intake Form
+                  Client Personas & Booking Form
                 </Link>
               </li>
               <li>

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { CognitoRole } from '../lib/types';
 
-interface IntakeDraft {
+interface BookingDraft {
   personaId: string;
   serviceId: string;
   preferredLanguage: string;
@@ -32,11 +32,11 @@ interface AppState {
   setSimulatePaymentFailure: (val: boolean) => void;
 
   /**
-   * Client Intake Draft state (persisted while browsing Services -> Personas/Intake)
+   * Client Booking Draft state (persisted while browsing Services -> Personas/Booking)
    */
-  intakeDraft: IntakeDraft;
-  updateIntakeDraft: (partial: Partial<IntakeDraft>) => void;
-  resetIntakeDraft: () => void;
+  bookingDraft: BookingDraft;
+  updateBookingDraft: (partial: Partial<BookingDraft>) => void;
+  resetBookingDraft: () => void;
 
   /**
    * Toast / notification banner message for real-time Flow C transitions
@@ -51,7 +51,7 @@ interface AppState {
   clearFlowEvent: () => void;
 }
 
-const DEFAULT_DRAFT: IntakeDraft = {
+const DEFAULT_DRAFT: BookingDraft = {
   personaId: 'persona-self-01',
   serviceId: 'srv-individual',
   preferredLanguage: 'English / Taglish',
@@ -69,12 +69,12 @@ export const useAppStore = create<AppState>((set) => ({
   simulatePaymentFailure: false,
   setSimulatePaymentFailure: (val) => set({ simulatePaymentFailure: val }),
 
-  intakeDraft: DEFAULT_DRAFT,
-  updateIntakeDraft: (partial) =>
+  bookingDraft: DEFAULT_DRAFT,
+  updateBookingDraft: (partial) =>
     set((state) => ({
-      intakeDraft: { ...state.intakeDraft, ...partial },
+      bookingDraft: { ...state.bookingDraft, ...partial },
     })),
-  resetIntakeDraft: () => set({ intakeDraft: DEFAULT_DRAFT }),
+  resetBookingDraft: () => set({ bookingDraft: DEFAULT_DRAFT }),
 
   lastFlowEvent: {
     id: 'init-flow-c',

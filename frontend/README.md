@@ -34,11 +34,11 @@ frontend/
 │   ├── services/page.tsx           # /services (7 canonical services + durations & guardrails)
 │   ├── about/page.tsx              # /about (Anonymized Roster without names, Vision/Mission, Overview)
 │   ├── book/page.tsx               # /book (Flow C launcher + Facebook & psychaveph.info@gmail.com fallback)
-│   ├── personas/page.tsx           # /personas (Manage personas + 4-step wizard modal + Flow C Intake Form)
+│   ├── personas/page.tsx           # /personas (Manage personas + 4-step wizard modal + Flow C Booking Form)
 │   │                               Wizard: components/PersonaWizardModal.tsx + stores/usePersonaWizardStore.ts
 │   │                               (single POST /personas at final submit; draft in sessionStorage).
 │   │                               Consent copy: lib/consent.ts, CONSENT_VERSION=v2, sourced from the
-│   │                               firm's intake forms (informed consent + scope/overseas blocks).
+│   │                               firm's booking forms (informed consent + scope/overseas blocks).
 │   │                               Legacy quick-add form kept temporarily in a collapsed disclosure until
 │   │                               backend POST /personas supports the persona+consent payload — then remove it.
 │   ├── bookings/page.tsx           # /bookings (Client bookings, status chips, contact unlock, reminders)
@@ -57,8 +57,8 @@ frontend/
 ├── lib/
 │   ├── api.ts                      # Single API client hitting NEXT_PUBLIC_API_URL with mock fallback
 │   ├── navigation.tsx              # Universal App Router navigation wrapper
-│   ├── schemas.ts                  # Zod validation schemas for Persona, Intake, 3-Slot Proposal, Payment, CMS
+│   ├── schemas.ts                  # Zod validation schemas for Persona, Booking, 3-Slot Proposal, Payment, CMS
 │   └── types.ts                    # Domain TypeScript interfaces
 └── stores/
-    └── useAppStore.ts              # Zustand store for Cognito role switch, intake draft, and Flow C events
+    └── useAppStore.ts              # Zustand store for Cognito role switch, booking draft, and Flow C events
 ```

@@ -69,7 +69,7 @@ export default function ClientBookingsPage() {
             My Bookings &amp; Flow C Status Tracker
           </h1>
           <p className="text-sm text-[#25372D]/80 max-w-2xl">
-            Track your submitted intake forms from <strong className="font-semibold">pending</strong>{' '}
+            Track your submitted booking forms from <strong className="font-semibold">pending</strong>{' '}
             to <strong className="font-semibold">proposed</strong> (3 psychologist slots) and{' '}
             <strong className="font-semibold">paid-confirmed</strong> (contact unlocked + reminders).
           </p>
@@ -80,7 +80,7 @@ export default function ClientBookingsPage() {
           size="md"
           onClick={() => router.push('/personas')}
         >
-          + New Persona Intake Request
+          + New Persona Booking Request
         </Button>
       </header>
 
@@ -169,7 +169,7 @@ export default function ClientBookingsPage() {
             No Bookings Matching Selected Status
           </p>
           <p className="text-sm text-[#25372D]/75 max-w-md mx-auto">
-            Start a new Flow C intake under a Self or Dependent persona, or switch the filter above
+            Start a new Flow C booking under a Self or Dependent persona, or switch the filter above
             to view all existing bookings.
           </p>
           <div className="flex justify-center gap-3">
@@ -177,7 +177,7 @@ export default function ClientBookingsPage() {
               Reset Filter
             </Button>
             <Button variant="primary" size="sm" onClick={() => router.push('/personas')}>
-              Start Flow C Intake
+              Start Flow C Booking
             </Button>
           </div>
         </Card>
@@ -249,7 +249,7 @@ export default function ClientBookingsPage() {
                           <span>No Pick-Up Yet · Waiting Psychologist Review</span>
                         </div>
                         <p className="text-xs text-[#25372D]/80 leading-relaxed">
-                          Your intake is in the verified psychologist pending queue. No fee or date
+                          Your booking is in the verified psychologist pending queue. No fee or date
                           slots are assigned yet, and direct contact remains locked.
                         </p>
                         <Button

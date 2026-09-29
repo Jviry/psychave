@@ -34,7 +34,7 @@ export function SiteHeader() {
 
   const roleNavItems: Record<CognitoRole, { label: string; href: string }[]> = {
     client: [
-      { label: 'Personas & Intake', href: '/personas' },
+      { label: 'Personas & Booking', href: '/personas' },
       { label: 'My Bookings', href: '/bookings' },
       { label: 'Proposal Picker (#102)', href: '/proposal/BK-2026-102' },
     ],
@@ -179,7 +179,7 @@ export function SiteHeader() {
             href="/personas"
             className="hidden sm:inline-flex items-center justify-center px-3.5 py-2 text-xs font-semibold rounded-lg bg-sage text-white hover:bg-[#4c7557] transition-colors whitespace-nowrap shrink-0"
           >
-            Start Flow C Intake
+            Start Flow C Booking
           </Link>
         </div>
       </header>

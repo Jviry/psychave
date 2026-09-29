@@ -212,7 +212,7 @@ export default function ProposalPickerPage() {
 
       {/* Proposal Details + 3-Slot Picker Form */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left: Intake & Psychologist Proposal Metadata */}
+        {/* Left: Booking & Psychologist Proposal Metadata */}
         <Card className="lg:col-span-5 space-y-5">
           <div className="border-b border-[#C0D3C3] pb-3">
             <p className="text-xs font-semibold text-[#5D8B69]">

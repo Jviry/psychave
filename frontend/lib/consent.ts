@@ -1,7 +1,7 @@
 /**
  * Persona wizard constants + helpers (frontend-only).
  *
- * Source: firm intake forms (consent v2). Logic reads CONSENT_VERSION from this
+ * Source: firm booking forms (consent v2). Logic reads CONSENT_VERSION from this
  * single constant and sends it in the POST /personas payload.
  */
 

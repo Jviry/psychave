@@ -19,16 +19,16 @@ export const personaSchema = z.object({
 export type PersonaFormValues = z.infer<typeof personaSchema>;
 
 /**
- * Flow C Step 1: Canonical Client Intake Schema
+ * Flow C Step 1: Canonical Client Booking Schema
  */
-export const intakeFormSchema = z.object({
+export const bookingFormSchema = z.object({
   personaId: z.string().min(1, 'Please select a Persona (Self or Dependent) before submitting.'),
   serviceId: z.string().min(1, 'Please select a clinical service.'),
   preferredLanguage: z.string().min(1, 'Please choose your preferred session language.'),
   concernsSummary: z
     .string()
     .min(20, 'Please describe your primary concerns or goals (at least 20 characters) to help verified psychologists assess fit.')
-    .max(1200, 'Please keep intake summary under 1,200 characters.'),
+    .max(1200, 'Please keep booking summary under 1,200 characters.'),
   specificNeeds: z
     .string()
     .min(5, 'Please note any scheduling preferences, accessibility needs, or breakout accommodations.')
@@ -38,7 +38,7 @@ export const intakeFormSchema = z.object({
   }),
 });
 
-export type IntakeFormValues = z.infer<typeof intakeFormSchema>;
+export type BookingFormValues = z.infer<typeof bookingFormSchema>;
 
 /**
  * Flow C Step 3: Verified Psychologist Pick-Up + Price + 3 Date/Time Slots Schema
