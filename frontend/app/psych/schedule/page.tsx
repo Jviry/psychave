@@ -143,7 +143,7 @@ export default function PsychologistSchedulePage() {
             My Practice Schedule
           </h1>
           <p className="text-sm text-pine/80 max-w-2xl">
-            Track confirmed appointments separated into upcoming and past sessions, review client intake details,
+            Track confirmed appointments separated into upcoming and past sessions, review client booking details,
             and manage confidential clinical notes.
           </p>
         </div>
@@ -338,7 +338,7 @@ export default function PsychologistSchedulePage() {
               {activeTab === 'proposed' &&
                 'You have no proposed slot packages currently waiting for client slot selection.'}
               {activeTab === 'all' &&
-                'Visit the Pending Requests queue to pick up new intakes and schedule appointments.'}
+                'Visit the Pending Requests queue to pick up new bookings and schedule appointments.'}
             </p>
           </div>
           <div className="pt-2">
@@ -493,7 +493,7 @@ export default function PsychologistSchedulePage() {
                             <span className="font-semibold text-pine">{session.personaLabel}</span>
                           </div>
                           <div className="flex justify-between border-b border-mist/50 pb-1.5">
-                            <span className="text-pine/70">Intake Type:</span>
+                            <span className="text-pine/70">Booking Type:</span>
                             <span className="font-semibold text-pine uppercase">{session.personaType}</span>
                           </div>
                           <div className="flex justify-between border-b border-mist/50 pb-1.5">

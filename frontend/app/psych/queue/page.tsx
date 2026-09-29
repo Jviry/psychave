@@ -168,7 +168,7 @@ export default function PsychologistQueuePage() {
             Pending Booking Requests
           </h1>
           <p className="text-sm text-pine/80 max-w-2xl">
-            Review incoming persona intakes, evaluate clinical fit, and claim requests by proposing{' '}
+            Review incoming persona bookings, evaluate clinical fit, and claim requests by proposing{' '}
             <strong>session fee and 3 distinct schedule slots</strong>.
           </p>
         </div>
@@ -221,7 +221,7 @@ export default function PsychologistQueuePage() {
           </div>
           <p className="text-xs text-amber-900/90 leading-relaxed max-w-3xl">
             You are logged in as <strong>{activePsych?.anonymizedTitle}</strong>. In accordance with
-            clinical governance standards, psychologists cannot pick up client intake requests or propose
+            clinical governance standards, psychologists cannot pick up client booking requests or propose
             session slots until their PRC license credentials are authenticated and approved by clinic administrators.
           </p>
           <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -264,7 +264,7 @@ export default function PsychologistQueuePage() {
                 Proposal Successfully Dispatched for {recentProposedId}
               </p>
               <p className="text-xs text-pine/80">
-                The intake has transitioned to <strong>proposed</strong>. Client has been notified to select 1 slot and submit payment.
+                The booking has transitioned to <strong>proposed</strong>. Client has been notified to select 1 slot and submit payment.
               </p>
             </div>
           </div>
@@ -292,7 +292,7 @@ export default function PsychologistQueuePage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h2 className="font-heading text-2xl font-bold text-pine">
-              Open Intake Queue
+              Open Booking Queue
             </h2>
             <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-sage/15 text-pine">
               {pendingQueue.length} {pendingQueue.length === 1 ? 'request' : 'requests'} pending
@@ -334,8 +334,8 @@ export default function PsychologistQueuePage() {
                 Pending Queue is All Clear
               </h3>
               <p className="text-xs text-pine/75 max-w-md mx-auto">
-                All submitted client intake requests have been claimed and scheduled.
-                Switch to the Client role to submit a new intake form or manage confirmed appointments in My Schedule.
+                All submitted client booking requests have been claimed and scheduled.
+                Switch to the Client role to submit a new booking form or manage confirmed appointments in My Schedule.
               </p>
             </div>
             <div className="flex justify-center gap-3 pt-2">
@@ -347,7 +347,7 @@ export default function PsychologistQueuePage() {
                   router.push('/personas');
                 }}
               >
-                + Submit Test Intake (Client Role)
+                + Submit Test Booking (Client Role)
               </Button>
               <Button
                 variant="primary"
@@ -436,7 +436,7 @@ export default function PsychologistQueuePage() {
                     </p>
                   </div>
 
-                  {/* Intake Notes */}
+                  {/* Booking Notes */}
                   <div className="p-3.5 rounded-lg bg-parchment border border-mist/60 space-y-1.5">
                     <p className="font-semibold text-sage uppercase tracking-wide text-[10px]">
                       Presenting Concerns &amp; Needs
@@ -473,7 +473,7 @@ export default function PsychologistQueuePage() {
                   Flow C Step 3 · Claim &amp; Propose Slots
                 </p>
                 <h2 id="modal-title" className="font-heading text-2xl font-bold text-pine">
-                  Pick Up Intake #{targetBooking.id}
+                  Pick Up Booking #{targetBooking.id}
                 </h2>
                 <p className="text-xs text-pine/75 mt-0.5">
                   {targetBooking.serviceTitle} ({targetBooking.serviceDuration}) · {targetBooking.personaLabel}

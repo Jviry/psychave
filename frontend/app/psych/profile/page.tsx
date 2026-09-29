@@ -149,7 +149,7 @@ export default function PsychologistProfilePage() {
           </div>
           <p className="text-xs text-amber-900/90 leading-relaxed max-w-3xl">
             Your clinical account is currently <strong>awaiting administrator verification</strong>.
-            While pending approval, your profile is hidden from the public roster and intake pick-up actions
+            While pending approval, your profile is hidden from the public roster and booking pick-up actions
             remain blocked app-wide to maintain patient safety and clinical regulatory standards.
           </p>
           <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -356,7 +356,7 @@ export default function PsychologistProfilePage() {
               Certified Service Eligibility
             </h3>
             <p className="text-xs text-pine/70">
-              Services you are certified to evaluate and pick up from the pending intake queue:
+              Services you are certified to evaluate and pick up from the pending booking queue:
             </p>
             <ul className="space-y-2 text-xs">
               {activePsych?.serviceEligibility?.map((service) => (

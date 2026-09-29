@@ -6,6 +6,14 @@ import {
   ResidentPsychologist,
   ServiceItem,
 } from './types';
+import {
+  CONSENT_VERSION,
+  isFutureDob,
+  isMinorDob,
+  isValidPhone,
+  normalizeName,
+  type PersonaWizardPayload,
+} from './consent';
 
 /**
  * Single canonical API client for PsychAvenuePH (PSYCHAVE PH).
@@ -32,10 +40,10 @@ const INITIAL_SERVICES: ServiceItem[] = [
     durationMinutes: 45,
     guardrailTitle: 'Screening-Only · Not Full Therapy',
     guardrailNotice:
-      'Consultation (45 min) is strictly for initial clinical screening, intake clarification, and care navigation. It does not constitute a full psychotherapy session.',
+      'Consultation (45 min) is strictly for initial clinical screening, booking clarification, and care navigation. It does not constitute a full psychotherapy session.',
     description:
       'Structured initial consultation to clarify presenting concerns, evaluate clinical urgency, and match the client or dependent with the appropriate therapeutic modality.',
-    clinicalFormat: '1-on-1 Intake Screening (Telehealth)',
+    clinicalFormat: '1-on-1 Booking Screening (Telehealth)',
     isStandaloneConsultation: true,
   },
   {
@@ -264,7 +272,7 @@ const INITIAL_BOOKINGS: BookingRequest[] = [
     psychologistSpecialization: 'Adult Psychotherapy, Anxiety Disorders & Trauma-Informed CBT',
     pricePhp: 3200,
     clinicalPrepNote:
-      'We will begin with a 30-minute joint intake, followed by two 15-minute individual breakout check-ins, and reconvene for 30 minutes of goal alignment.',
+      'We will begin with a 30-minute joint booking, followed by two 15-minute individual breakout check-ins, and reconvene for 30 minutes of goal alignment.',
     proposedSlots: [
       {
         id: 'slot-102-a',
@@ -294,7 +302,7 @@ const INITIAL_BOOKINGS: BookingRequest[] = [
       reminder1h: 'pending',
     },
     privateClinicalNote:
-      'CONFIDENTIAL PSYCHOLOGIST NOTE: Prepare Gottman-informed relational intake protocol and separate breakout room links prior to session start.',
+      'CONFIDENTIAL PSYCHOLOGIST NOTE: Prepare Gottman-informed relational booking protocol and separate breakout room links prior to session start.',
   },
   {
     id: 'BK-2026-103',
@@ -364,7 +372,7 @@ const INITIAL_CMS: CmsContent = {
   vision:
     'Placeholder — Vision Statement: To establish a trusted, ethically governed Philippine mental-health ecosystem where every client and family accesses credential-verified psychological care with full clinical transparency.',
   mission:
-    'Placeholder — Mission Statement: We bridge individuals, couples, families, and early-career practitioners with PRC-verified psychologists through structured clinical intake, clear therapeutic guardrails, and privacy-first care navigation.',
+    'Placeholder — Mission Statement: We bridge individuals, couples, families, and early-career practitioners with PRC-verified psychologists through structured clinical booking, clear therapeutic guardrails, and privacy-first care navigation.',
   clinicOverview:
     'Placeholder — Clinic Overview: PsychAvenuePH (PSYCHAVE PH) operates a structured, multi-disciplinary psychological practice delivering consultation, psychotherapy, relational systems counseling, non-clinical coaching, clinical supervision, and ethical research advisory.',
   impactNarrative:
@@ -380,7 +388,7 @@ const INITIAL_CMS: CmsContent = {
       id: 'imp-2',
       metricValue: '3-Slot',
       metricLabel: 'Canonical Flow C Proposal Standard',
-      timeframeContext: 'Every picked-up intake receives 3 curated schedule options',
+      timeframeContext: 'Every picked-up booking receives 3 curated schedule options',
     },
     {
       id: 'imp-3',
@@ -631,6 +639,75 @@ export const api = {
     ),
 
   /**
+   * Persona creation wizard: single POST /personas creating persona + consent
+   * rows in one transaction. Backend remains source of truth; the mock below
+   * mirrors server validation so UI errors map to the right field/page.
+   * Nothing is sent until the wizard's final submit calls this once.
+   */
+  createPersonaWithConsent: async (payload: PersonaWizardPayload): Promise<Persona> =>
+    requestWithMockFallback(
+      '/api/v1/personas',
+      { method: 'POST', body: JSON.stringify(payload) },
+      () => {
+        const fieldErrors: Record<string, string> = {};
+        const { persona, consent } = payload;
+        if (consent.consent_version !== CONSENT_VERSION) {
+          throw new Error(
+            'Consent version mismatch: reload the latest terms and re-sign before submitting.'
+          );
+        }
+        if (consent.scope_acknowledged !== true)
+          fieldErrors['consent.scope_acknowledged'] = 'Scope acknowledgement is required.';
+        if (consent.information_confirmed !== true)
+          fieldErrors['consent.information_confirmed'] = 'Information confirmation is required.';
+        if (consent.is_overseas_or_foreign && consent.overseas_acknowledged !== true)
+          fieldErrors['consent.overseas_acknowledged'] =
+            'Overseas acknowledgement is required for overseas clients.';
+        if (!persona.persona_name || persona.persona_name.trim().length < 2)
+          fieldErrors['persona.persona_name'] = 'Enter the persona full name.';
+        if (!persona.date_of_birth) fieldErrors['persona.date_of_birth'] = 'Date of birth is required.';
+        else if (isFutureDob(persona.date_of_birth))
+          fieldErrors['persona.date_of_birth'] = 'Date of birth cannot be in the future.';
+        else if (isMinorDob(persona.date_of_birth) && consent.terms_signer_relation === 'self')
+          fieldErrors['consent.terms_signer_relation'] =
+            'A minor cannot use signer relation "self".';
+        if (
+          normalizeName(consent.terms_signer_name).length > 0 &&
+          normalizeName(consent.consent_signer_name).length > 0 &&
+          normalizeName(consent.terms_signer_name) !== normalizeName(consent.consent_signer_name)
+        )
+          fieldErrors['consent.consent_signer_name'] =
+            'consent_signer_name must match terms_signer_name.';
+        if (!isValidPhone(persona.contact_number || '', consent.is_overseas_or_foreign))
+          fieldErrors['persona.contact_number'] = 'Enter a valid contact number.';
+        if (!isValidPhone(persona.emergency_contact_number || '', consent.is_overseas_or_foreign))
+          fieldErrors['persona.emergency_contact_number'] =
+            'Enter a valid emergency contact number.';
+        if (!persona.nationality || persona.nationality.trim().length < 2)
+          fieldErrors['persona.nationality'] = 'Enter nationality.';
+        if (!persona.permanent_address || persona.permanent_address.trim().length < 5)
+          fieldErrors['persona.permanent_address'] = 'Enter the permanent address.';
+        if (!persona.present_address || persona.present_address.trim().length < 5)
+          fieldErrors['persona.present_address'] = 'Enter the present address.';
+        if (Object.keys(fieldErrors).length > 0) {
+          throw new Error(`Persona validation failed. FIELDS:${JSON.stringify(fieldErrors)}`);
+        }
+        const created: Persona = {
+          id: `persona-wiz-${Date.now().toString().slice(-6)}`,
+          clientId: 'client-01',
+          type: persona.relation_to_account_holder === 'self' ? 'self' : 'dependent',
+          label: persona.persona_name,
+          ageGroup: `DOB ${persona.date_of_birth}`,
+          relationshipToClient: persona.relation_to_account_holder,
+          preferredLanguage: 'English / Taglish',
+          createdAt: new Date().toISOString().slice(0, 10),
+        };
+        mockPersonas = [...mockPersonas, created];
+        return created;
+      }
+    ),
+
+  /**
    * Flow C Bookings API with Tiered Role Filtering:
    * - Client: sees only their own client-01 bookings (without private clinical notes)
    * - Psychologist:
@@ -673,9 +750,9 @@ export const api = {
     }),
 
   /**
-   * Flow C Step 1: Client submits Persona + Intake Form -> enters 'pending' queue
+   * Flow C Step 1: Client submits Persona + Booking Form -> enters 'pending' queue
    */
-  submitIntakeRequest: async (input: {
+  submitBookingRequest: async (input: {
     personaId: string;
     serviceId: string;
     preferredLanguage: string;
@@ -761,7 +838,7 @@ export const api = {
       }
       if (pickupRes.status === 403) {
         throw new Error(
-          'Credential Guardrail: Unverified psychologists cannot pick up intake requests or propose slots.'
+          'Credential Guardrail: Unverified psychologists cannot pick up booking requests or propose slots.'
         );
       }
 
@@ -827,7 +904,7 @@ export const api = {
         const psych = mockRoster.find((r) => r.id === input.psychologistId);
         if (!psych || psych.verificationStatus !== 'verified') {
           throw new Error(
-            'Credential Guardrail: Unverified psychologists cannot pick up intake requests or propose slots.'
+            'Credential Guardrail: Unverified psychologists cannot pick up booking requests or propose slots.'
           );
         }
 
@@ -880,7 +957,7 @@ export const api = {
               timeLabel: s3.timeLabel,
             },
           ],
-          privateClinicalNote: `CONFIDENTIAL PSYCHOLOGIST NOTE (${psych.anonymizedTitle}): Intake reviewed and 3 slots proposed. Hidden from Admin tier.`,
+          privateClinicalNote: `CONFIDENTIAL PSYCHOLOGIST NOTE (${psych.anonymizedTitle}): Booking reviewed and 3 slots proposed. Hidden from Admin tier.`,
         };
 
         mockBookings = mockBookings.map((b) => (b.id === input.bookingId ? updated : b));

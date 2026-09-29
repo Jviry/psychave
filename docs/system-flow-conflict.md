@@ -15,7 +15,7 @@ Companion to `system-flow.md`. `system-flow.md` uses **Flow C (Official Queue Fl
 Source: revised official plan 2026-09-27.
 
 1. Directory view (specialization, languages, availability); hidden until admin verifies credentials.
-2. Client submits booking request, optionally for a persona (self/dependent); enters pending queue visible to available psychologists; intake also routed to admin dashboard for preliminary assessment (both statements kept from official text).
+2. Client submits booking request, optionally for a persona (self/dependent); enters pending queue visible to available psychologists; booking also routed to admin dashboard for preliminary assessment (both statements kept from official text).
 3. Verified psychologist picks up, sets price, proposes exactly 3 candidate times.
 4. Client reviews 3, selects 1 (`selected_slot_id`), completes payment; finalized only on `payments(status=paid)`.
 5. Notifications: new-request → psychologists; proposal → client; payment confirmation → both; 24h/1h reminders; real-time status updates.

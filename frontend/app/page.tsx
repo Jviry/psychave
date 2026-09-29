@@ -11,7 +11,7 @@ import { TestimonialsConsentSection } from '../components/TestimonialsConsentSec
 
 export default function HomePage() {
   const router = useRouter();
-  const { setCognitoRole, updateIntakeDraft } = useAppStore();
+  const { setCognitoRole, updateBookingDraft } = useAppStore();
 
   const { data: services = [] } = useQuery({
     queryKey: ['services'],
@@ -26,11 +26,11 @@ export default function HomePage() {
   const flowCSteps = [
     {
       step: '01',
-      title: 'Persona & Clinical Intake',
+      title: 'Persona & Clinical Booking',
       roleLabel: 'Client Action',
       description:
-        'Select a Persona (Self or Dependent) and complete the structured clinical intake form with presenting concerns and service choice.',
-      actionLabel: 'Open Intake Form',
+        'Select a Persona (Self or Dependent) and complete the structured clinical booking form with presenting concerns and service choice.',
+      actionLabel: 'Open Booking Form',
       onAction: () => {
         setCognitoRole('client');
         router.push('/personas');
@@ -41,7 +41,7 @@ export default function HomePage() {
       title: 'Pending Queue & Notification',
       roleLabel: 'System + Queue',
       description:
-        'Submitted intake enters the pending queue visible to PRC-verified psychologists (and preliminary admin audit view).',
+        'Submitted booking enters the pending queue visible to PRC-verified psychologists (and preliminary admin audit view).',
       actionLabel: 'Inspect Queue',
       onAction: () => {
         setCognitoRole('psychologist');
@@ -105,7 +105,7 @@ export default function HomePage() {
 
           <p className="text-base sm:text-lg text-[#25372D]/80 max-w-2xl leading-relaxed">
             PSYCHAVE PH connects individuals, couples, families, and early-career practitioners
-            with credential-verified psychologists through a guided intake and 3-slot proposal workflow—never exposing personal client quotes or unverified providers.
+            with credential-verified psychologists through a guided booking and 3-slot proposal workflow—never exposing personal client quotes or unverified providers.
           </p>
 
           <div className="flex flex-wrap items-center gap-4 pt-2">
@@ -117,7 +117,7 @@ export default function HomePage() {
                 router.push('/personas');
               }}
             >
-              Start Flow C Intake
+              Start Flow C Booking
             </Button>
             <Button
               variant="outline"
@@ -171,7 +171,7 @@ export default function HomePage() {
                     1. Persona Selection (Self or Dependent)
                   </p>
                   <p className="text-[#25372D]/70 mt-0.5">
-                    Separate intake records for primary adult accounts and adolescent/dependent wards.
+                    Separate booking records for primary adult accounts and adolescent/dependent wards.
                   </p>
                 </div>
                 <span className="font-mono text-[11px] text-[#5D8B69] font-semibold tabular-nums">
@@ -334,7 +334,7 @@ export default function HomePage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    updateIntakeDraft({ serviceId: srv.id });
+                    updateBookingDraft({ serviceId: srv.id });
                     setCognitoRole('client');
                     router.push('/personas');
                   }}

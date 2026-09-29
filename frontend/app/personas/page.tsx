@@ -1,18 +1,20 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import {
-  intakeFormSchema,
-  IntakeFormValues,
+  bookingFormSchema,
+  BookingFormValues,
   personaSchema,
   PersonaFormValues,
 } from '../../lib/schemas';
 import { useAppStore } from '../../stores/useAppStore';
 import { useRouter } from 'next/navigation';
+import { usePersonaWizardStore } from '../../stores/usePersonaWizardStore';
+import { PersonaWizardModal } from '../../components/PersonaWizardModal';
 import {
   Button,
   Card,
@@ -22,22 +24,27 @@ import {
   Textarea,
 } from '../../components/ui/primitives';
 
-export default function PersonasAndIntakePage() {
+export default function PersonasAndBookingPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const {
     cognitoRole,
     setCognitoRole,
-    intakeDraft,
-    updateIntakeDraft,
-    resetIntakeDraft,
+    bookingDraft,
+    updateBookingDraft,
+    resetBookingDraft,
     publishFlowEvent,
   } = useAppStore();
+  const openWizard = usePersonaWizardStore((s) => s.openWizard);
+  const wizardOpen = usePersonaWizardStore((s) => s.isOpen);
+  const lastUsedPersonaId = usePersonaWizardStore((s) => s.lastUsedPersonaId);
+  const setLastUsedPersonaId = usePersonaWizardStore((s) => s.setLastUsedPersonaId);
 
-  const [showNewPersonaForm, setShowNewPersonaForm] = useState(false);
+  const [showLegacyPersonaForm, setShowLegacyPersonaForm] = useState(false);
   const [submittedBookingId, setSubmittedBookingId] = useState<string | null>(null);
+  const autoOpenedWizard = useRef(false);
 
-  const { data: personas = [] } = useQuery({
+  const { data: personas = [], isLoading: personasLoading } = useQuery({
     queryKey: ['personas'],
     queryFn: () => api.getPersonas(),
   });
@@ -59,52 +66,69 @@ export default function PersonasAndIntakePage() {
     },
   });
 
-  // React Hook Form for Flow C Step 1 Intake Form
-  const intakeForm = useForm<IntakeFormValues>({
-    resolver: zodResolver(intakeFormSchema),
+  // React Hook Form for Flow C Step 1 Booking Form
+  const bookingForm = useForm<BookingFormValues>({
+    resolver: zodResolver(bookingFormSchema),
     defaultValues: {
-      personaId: intakeDraft.personaId || 'persona-self-01',
-      serviceId: intakeDraft.serviceId || 'srv-individual',
-      preferredLanguage: intakeDraft.preferredLanguage || 'English / Taglish',
-      concernsSummary: intakeDraft.concernsSummary || '',
-      specificNeeds: intakeDraft.specificNeeds || '',
+      personaId: bookingDraft.personaId || 'persona-self-01',
+      serviceId: bookingDraft.serviceId || 'srv-individual',
+      preferredLanguage: bookingDraft.preferredLanguage || 'English / Taglish',
+      concernsSummary: bookingDraft.concernsSummary || '',
+      specificNeeds: bookingDraft.specificNeeds || '',
       guardrailAcknowledged: false,
     },
   });
 
   // Keep form synced if user pre-selected a service from /services
   useEffect(() => {
-    if (intakeDraft.serviceId) {
-      intakeForm.setValue('serviceId', intakeDraft.serviceId);
+    if (bookingDraft.serviceId) {
+      bookingForm.setValue('serviceId', bookingDraft.serviceId);
     }
-    if (intakeDraft.personaId) {
-      intakeForm.setValue('personaId', intakeDraft.personaId);
+    if (bookingDraft.personaId) {
+      bookingForm.setValue('personaId', bookingDraft.personaId);
     }
-  }, [intakeDraft.serviceId, intakeDraft.personaId, intakeForm]);
+  }, [bookingDraft.serviceId, bookingDraft.personaId, bookingForm]);
 
-  const selectedServiceId = intakeForm.watch('serviceId');
-  const selectedPersonaId = intakeForm.watch('personaId');
+  // Booking-flow persona step: no personas -> launch wizard once data loads.
+  useEffect(() => {
+    if (!personasLoading && personas.length === 0 && !autoOpenedWizard.current && !wizardOpen) {
+      autoOpenedWizard.current = true;
+      openWizard('manage');
+    }
+  }, [personasLoading, personas.length, wizardOpen, openWizard]);
+
+  const selectedServiceId = bookingForm.watch('serviceId');
+  const selectedPersonaId = bookingForm.watch('personaId');
   const activeService = services.find((s) => s.id === selectedServiceId) || services[0];
+  const selectedPersona = personas.find((p) => p.id === selectedPersonaId) || null;
+
+  const selectPersona = (personaId: string, preferredLanguage?: string) => {
+    bookingForm.setValue('personaId', personaId, { shouldValidate: true });
+    if (preferredLanguage) bookingForm.setValue('preferredLanguage', preferredLanguage);
+    updateBookingDraft({ personaId, ...(preferredLanguage ? { preferredLanguage } : {}) });
+    setLastUsedPersonaId(personaId);
+  };
 
   const createPersonaMutation = useMutation({
     mutationFn: (values: PersonaFormValues) => api.createPersona(values),
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: ['personas'] });
-      updateIntakeDraft({ personaId: created.id, preferredLanguage: created.preferredLanguage });
-      intakeForm.setValue('personaId', created.id);
-      intakeForm.setValue('preferredLanguage', created.preferredLanguage);
+      updateBookingDraft({ personaId: created.id, preferredLanguage: created.preferredLanguage });
+      bookingForm.setValue('personaId', created.id);
+      bookingForm.setValue('preferredLanguage', created.preferredLanguage);
+      setLastUsedPersonaId(created.id);
       personaForm.reset();
-      setShowNewPersonaForm(false);
+      setShowLegacyPersonaForm(false);
       publishFlowEvent(
         'Client Persona Created',
-        `Added ${created.label} (${created.type.toUpperCase()}) and selected it for Flow C intake.`
+        `Added ${created.label} (${created.type.toUpperCase()}) and selected it for Flow C booking.`
       );
     },
   });
 
-  const submitIntakeMutation = useMutation({
-    mutationFn: (values: IntakeFormValues) =>
-      api.submitIntakeRequest({
+  const submitBookingMutation = useMutation({
+    mutationFn: (values: BookingFormValues) =>
+      api.submitBookingRequest({
         personaId: values.personaId,
         serviceId: values.serviceId,
         preferredLanguage: values.preferredLanguage,
@@ -113,8 +137,8 @@ export default function PersonasAndIntakePage() {
       }),
     onSuccess: (createdBooking) => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
-      resetIntakeDraft();
-      intakeForm.reset({
+      resetBookingDraft();
+      bookingForm.reset({
         personaId: createdBooking.personaId,
         serviceId: createdBooking.serviceId,
         preferredLanguage: createdBooking.preferredLanguage,
@@ -124,7 +148,7 @@ export default function PersonasAndIntakePage() {
       });
       setSubmittedBookingId(createdBooking.id);
       publishFlowEvent(
-        'Flow C Step 1 Complete — Intake Submitted',
+        'Flow C Step 1 Complete — Booking Submitted',
         `Request ${createdBooking.id} (${createdBooking.serviceTitle}) entered the Pending Queue. Verified psychologists notified.`
       );
     },
@@ -138,14 +162,14 @@ export default function PersonasAndIntakePage() {
           <div className="flex items-center gap-2 text-xs text-[#5D8B69] font-semibold">
             <span>Flow C Step 1 of 5</span>
             <span aria-hidden="true">·</span>
-            <span>Client Persona &amp; Clinical Intake</span>
+            <span>Client Persona &amp; Clinical Booking</span>
           </div>
           <h1 className="font-heading text-4xl font-bold text-[#25372D]">
-            Client Personas &amp; Clinical Intake Form
+            Client Personas &amp; Clinical Booking Form
           </h1>
           <p className="text-sm text-[#25372D]/80 max-w-2xl">
-            Select whether this session is for yourself or a dependent ward, review the mandatory
-            service guardrail, and submit your intake to the verified psychologist queue.
+            Create a persona with signed consent through the 4-step wizard, pick who the booking is
+            for, then submit booking to the verified psychologist queue.
           </p>
         </div>
 
@@ -172,7 +196,7 @@ export default function PersonasAndIntakePage() {
                 FLOW C STEP 1 SUBMITTED · STATUS: PENDING
               </p>
               <h2 className="font-heading text-2xl font-bold text-[#25372D]">
-                Intake Request #{submittedBookingId} Entered Pending Queue
+                Booking Request #{submittedBookingId} Entered Pending Queue
               </h2>
               <p className="text-sm text-[#25372D]/80">
                 PRC-verified psychologists have been notified. Your booking will move to{' '}
@@ -205,43 +229,61 @@ export default function PersonasAndIntakePage() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Personas List (Self / Dependent) */}
+        {/* Left Column: Manage Personas + wizard launcher */}
         <div className="lg:col-span-5 space-y-6">
           <Card className="space-y-5">
             <div className="flex items-center justify-between border-b border-[#C0D3C3] pb-3">
               <div>
                 <h2 className="font-heading text-2xl font-bold text-[#25372D]">
-                  1. Select Client Persona
+                  1. Manage Personas
                 </h2>
                 <p className="text-xs text-[#25372D]/70">
-                  Manage Self &amp; Dependent intake profiles (no personal names)
+                  Who is the session for? Personas include signed consent.
                 </p>
               </div>
               <Button
-                variant="outline"
+                variant="primary"
                 size="sm"
-                onClick={() => setShowNewPersonaForm(!showNewPersonaForm)}
+                onClick={() => openWizard('manage')}
               >
-                {showNewPersonaForm ? 'Cancel' : '+ Add Persona'}
+                + New Persona
               </Button>
             </div>
 
-            {/* Existing Personas */}
+            {/* Booking-for indicator (single persona preselected) */}
+            {selectedPersona && personas.length === 1 && (
+              <div className="p-4 rounded-xl bg-[#EBF2EC] border-l-4 border-[#5D8B69] flex items-center justify-between gap-3">
+                <p className="text-sm text-[#25372D]">
+                  Booking for: <strong className="font-semibold">{selectedPersona.label}</strong>
+                </p>
+                <Button variant="outline" size="sm" onClick={() => openWizard('manage')}>
+                  Change / Add someone else
+                </Button>
+              </div>
+            )}
+
+            {/* Existing Personas picker */}
             <div className="space-y-3">
+              {personasLoading && (
+                <p className="text-xs text-[#25372D]/70">Loading personas…</p>
+              )}
+              {!personasLoading && personas.length === 0 && (
+                <div className="p-4 rounded-xl bg-[#F6F9F6] border border-[#8FBE8F] space-y-3">
+                  <p className="text-sm text-[#25372D]">
+                    No personas yet. Create one with signed consent to start booking.
+                  </p>
+                  <Button variant="primary" size="sm" onClick={() => openWizard('manage')}>
+                    Launch Persona Wizard
+                  </Button>
+                </div>
+              )}
               {personas.map((persona) => {
                 const isSelected = selectedPersonaId === persona.id;
                 return (
                   <button
                     key={persona.id}
                     type="button"
-                    onClick={() => {
-                      intakeForm.setValue('personaId', persona.id, { shouldValidate: true });
-                      intakeForm.setValue('preferredLanguage', persona.preferredLanguage);
-                      updateIntakeDraft({
-                        personaId: persona.id,
-                        preferredLanguage: persona.preferredLanguage,
-                      });
-                    }}
+                    onClick={() => selectPersona(persona.id, persona.preferredLanguage)}
                     className={`w-full text-left p-4 rounded-xl border transition-colors cursor-pointer ${
                       isSelected
                         ? 'border-2 border-[#5D8B69] bg-[#F1F6F2]'
@@ -260,99 +302,134 @@ export default function PersonasAndIntakePage() {
                     <p className="text-xs text-[#25372D]/70 mt-1">
                       Relationship: {persona.relationshipToClient} · Language: {persona.preferredLanguage}
                     </p>
+                    {lastUsedPersonaId === persona.id && (
+                      <p className="text-[11px] text-[#5D8B69] font-semibold mt-1">Last used</p>
+                    )}
                   </button>
                 );
               })}
             </div>
 
-            {/* Add New Persona Form (RHF + Zod) */}
-            {showNewPersonaForm && (
-              <form
-                onSubmit={personaForm.handleSubmit((vals) => createPersonaMutation.mutate(vals))}
-                className="p-4 rounded-xl bg-[#F6F9F6] border border-[#8FBE8F] space-y-4"
-              >
-                <p className="font-heading text-lg font-bold text-[#25372D]">
-                  Create New Anonymized Persona
-                </p>
-
-                <div>
-                  <Label htmlFor="persona-type">Persona Classification</Label>
-                  <Select id="persona-type" {...personaForm.register('type')}>
-                    <option value="self">Self (Primary Account)</option>
-                    <option value="dependent">Dependent (Child / Adolescent / Ward)</option>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="persona-label">Anonymized Profile Label (No Real Names)</Label>
-                  <Input
-                    id="persona-label"
-                    placeholder="e.g., Dependent Ward #D-02 (Young Adult)"
-                    {...personaForm.register('label')}
-                  />
-                  {personaForm.formState.errors.label && (
-                    <p className="text-xs text-red-700 mt-1">
-                      {personaForm.formState.errors.label.message}
-                    </p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="persona-age">Age Bracket</Label>
-                    <Select id="persona-age" {...personaForm.register('ageGroup')}>
-                      <option value="Child (7–12)">Child (7–12)</option>
-                      <option value="Adolescent (13–17)">Adolescent (13–17)</option>
-                      <option value="Young Adult (18–24)">Young Adult (18–24)</option>
-                      <option value="Adult (25–34)">Adult (25–34)</option>
-                      <option value="Adult (35–49)">Adult (35–49)</option>
-                      <option value="Senior (50+)">Senior (50+)</option>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="persona-lang">Preferred Language</Label>
-                    <Select id="persona-lang" {...personaForm.register('preferredLanguage')}>
-                      <option value="English / Taglish">English / Taglish</option>
-                      <option value="Filipino / Taglish">Filipino / Taglish</option>
-                      <option value="English">English</option>
-                      <option value="Cebuano / English">Cebuano / English</option>
-                    </Select>
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="persona-rel">Relationship / Legal Authority</Label>
-                  <Input
-                    id="persona-rel"
-                    placeholder="e.g., Legal Guardian / Parent"
-                    {...personaForm.register('relationshipToClient')}
-                  />
-                  {personaForm.formState.errors.relationshipToClient && (
-                    <p className="text-xs text-red-700 mt-1">
-                      {personaForm.formState.errors.relationshipToClient.message}
-                    </p>
-                  )}
-                </div>
-
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="sm"
-                  disabled={createPersonaMutation.isPending}
-                >
-                  {createPersonaMutation.isPending ? 'Saving Persona...' : 'Save Persona Profile'}
-                </Button>
-              </form>
+            {personas.length > 1 && (
+              <Button variant="outline" size="sm" onClick={() => openWizard('manage')}>
+                + Add someone else
+              </Button>
             )}
+
+            {/* Legacy quick-add (temporary) — deprecated once POST /personas is real */}
+            <details className="rounded-xl bg-[#F6F9F6] border border-[#C0D3C3]">
+              <summary className="px-4 py-3 text-xs font-semibold text-[#25372D]/75 cursor-pointer list-none">
+                Legacy quick-add (temporary) — old label/age-group form, kept until backend POST
+                /personas supports persona + consent
+              </summary>
+              <div className="px-4 pb-4">
+                {!showLegacyPersonaForm ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowLegacyPersonaForm(true)}
+                  >
+                    Show legacy form
+                  </Button>
+                ) : (
+                <form
+                  onSubmit={personaForm.handleSubmit((vals) => createPersonaMutation.mutate(vals))}
+                  className="p-4 rounded-xl bg-white border border-[#8FBE8F] space-y-4"
+                >
+                  <p className="font-heading text-lg font-bold text-[#25372D]">
+                    Create New Anonymized Persona (Legacy)
+                  </p>
+
+                  <div>
+                    <Label htmlFor="persona-type">Persona Classification</Label>
+                    <Select id="persona-type" {...personaForm.register('type')}>
+                      <option value="self">Self (Primary Account)</option>
+                      <option value="dependent">Dependent (Child / Adolescent / Ward)</option>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="persona-label">Anonymized Profile Label (No Real Names)</Label>
+                    <Input
+                      id="persona-label"
+                      placeholder="e.g., Dependent Ward #D-02 (Young Adult)"
+                      {...personaForm.register('label')}
+                    />
+                    {personaForm.formState.errors.label && (
+                      <p className="text-xs text-red-700 mt-1">
+                        {personaForm.formState.errors.label.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="persona-age">Age Bracket</Label>
+                      <Select id="persona-age" {...personaForm.register('ageGroup')}>
+                        <option value="Child (7–12)">Child (7–12)</option>
+                        <option value="Adolescent (13–17)">Adolescent (13–17)</option>
+                        <option value="Young Adult (18–24)">Young Adult (18–24)</option>
+                        <option value="Adult (25–34)">Adult (25–34)</option>
+                        <option value="Adult (35–49)">Adult (35–49)</option>
+                        <option value="Senior (50+)">Senior (50+)</option>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="persona-lang">Preferred Language</Label>
+                      <Select id="persona-lang" {...personaForm.register('preferredLanguage')}>
+                        <option value="English / Taglish">English / Taglish</option>
+                        <option value="Filipino / Taglish">Filipino / Taglish</option>
+                        <option value="English">English</option>
+                        <option value="Cebuano / English">Cebuano / English</option>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="persona-rel">Relationship / Legal Authority</Label>
+                    <Input
+                      id="persona-rel"
+                      placeholder="e.g., Legal Guardian / Parent"
+                      {...personaForm.register('relationshipToClient')}
+                    />
+                    {personaForm.formState.errors.relationshipToClient && (
+                      <p className="text-xs text-red-700 mt-1">
+                        {personaForm.formState.errors.relationshipToClient.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      size="sm"
+                      disabled={createPersonaMutation.isPending}
+                    >
+                      {createPersonaMutation.isPending ? 'Saving Persona...' : 'Save Persona Profile'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowLegacyPersonaForm(false)}
+                    >
+                      Hide
+                    </Button>
+                  </div>
+                </form>
+                )}
+              </div>
+            </details>
           </Card>
         </div>
 
-        {/* Right Column: Canonical Flow C Intake Form (RHF + Zod) */}
+        {/* Right Column: Canonical Flow C Booking Form (RHF + Zod) */}
         <Card className="lg:col-span-7 space-y-6">
           <div className="border-b border-[#C0D3C3] pb-4">
             <h2 className="font-heading text-2xl font-bold text-[#25372D]">
-              2. Complete Clinical Intake Form
+              2. Complete Clinical Booking Form
             </h2>
             <p className="text-xs text-[#25372D]/70">
               Validated with React Hook Form + Zod · Enters Pending Queue for Verified Psychologists
@@ -360,16 +437,16 @@ export default function PersonasAndIntakePage() {
           </div>
 
           <form
-            onSubmit={intakeForm.handleSubmit((vals) => submitIntakeMutation.mutate(vals))}
+            onSubmit={bookingForm.handleSubmit((vals) => submitBookingMutation.mutate(vals))}
             className="space-y-5"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="intake-service">Selected Service &amp; Duration</Label>
+                <Label htmlFor="booking-service">Selected Service &amp; Duration</Label>
                 <Select
-                  id="intake-service"
-                  {...intakeForm.register('serviceId', {
-                    onChange: (e) => updateIntakeDraft({ serviceId: e.target.value }),
+                  id="booking-service"
+                  {...bookingForm.register('serviceId', {
+                    onChange: (e) => updateBookingDraft({ serviceId: e.target.value }),
                   })}
                 >
                   {services.map((srv) => (
@@ -381,11 +458,11 @@ export default function PersonasAndIntakePage() {
               </div>
 
               <div>
-                <Label htmlFor="intake-language">Preferred Session Language</Label>
+                <Label htmlFor="booking-language">Preferred Session Language</Label>
                 <Select
-                  id="intake-language"
-                  {...intakeForm.register('preferredLanguage', {
-                    onChange: (e) => updateIntakeDraft({ preferredLanguage: e.target.value }),
+                  id="booking-language"
+                  {...bookingForm.register('preferredLanguage', {
+                    onChange: (e) => updateBookingDraft({ preferredLanguage: e.target.value }),
                   })}
                 >
                   <option value="English / Taglish">English / Taglish</option>
@@ -412,39 +489,39 @@ export default function PersonasAndIntakePage() {
             )}
 
             <div>
-              <Label htmlFor="intake-concerns">
+              <Label htmlFor="booking-concerns">
                 Presenting Concerns, Context &amp; Goals (Min 20 chars)
               </Label>
               <Textarea
-                id="intake-concerns"
+                id="booking-concerns"
                 rows={4}
                 placeholder="Describe primary concerns, goals for this service, and relevant context (do not include real full names)..."
-                {...intakeForm.register('concernsSummary', {
-                  onChange: (e) => updateIntakeDraft({ concernsSummary: e.target.value }),
+                {...bookingForm.register('concernsSummary', {
+                  onChange: (e) => updateBookingDraft({ concernsSummary: e.target.value }),
                 })}
               />
-              {intakeForm.formState.errors.concernsSummary && (
+              {bookingForm.formState.errors.concernsSummary && (
                 <p className="text-xs text-red-700 mt-1">
-                  {intakeForm.formState.errors.concernsSummary.message}
+                  {bookingForm.formState.errors.concernsSummary.message}
                 </p>
               )}
             </div>
 
             <div>
-              <Label htmlFor="intake-needs">
+              <Label htmlFor="booking-needs">
                 Scheduling Preferences, Breakout Setup &amp; Specific Needs
               </Label>
               <Textarea
-                id="intake-needs"
+                id="booking-needs"
                 rows={2}
                 placeholder="e.g., Prefer weekday evenings after 6 PM PST; separate devices ready if Couples 15-min breakout applies..."
-                {...intakeForm.register('specificNeeds', {
-                  onChange: (e) => updateIntakeDraft({ specificNeeds: e.target.value }),
+                {...bookingForm.register('specificNeeds', {
+                  onChange: (e) => updateBookingDraft({ specificNeeds: e.target.value }),
                 })}
               />
-              {intakeForm.formState.errors.specificNeeds && (
+              {bookingForm.formState.errors.specificNeeds && (
                 <p className="text-xs text-red-700 mt-1">
-                  {intakeForm.formState.errors.specificNeeds.message}
+                  {bookingForm.formState.errors.specificNeeds.message}
                 </p>
               )}
             </div>
@@ -454,7 +531,7 @@ export default function PersonasAndIntakePage() {
                 <input
                   type="checkbox"
                   className="mt-0.5 h-4 w-4 rounded border-[#5D8B69] text-[#5D8B69] focus:ring-[#5D8B69]"
-                  {...intakeForm.register('guardrailAcknowledged')}
+                  {...bookingForm.register('guardrailAcknowledged')}
                 />
                 <span className="leading-relaxed">
                   I acknowledge the clinical guardrail for{' '}
@@ -463,9 +540,9 @@ export default function PersonasAndIntakePage() {
                   proposes 3 schedule slots and payment is completed.
                 </span>
               </label>
-              {intakeForm.formState.errors.guardrailAcknowledged && (
+              {bookingForm.formState.errors.guardrailAcknowledged && (
                 <p className="text-xs text-red-700">
-                  {intakeForm.formState.errors.guardrailAcknowledged.message}
+                  {bookingForm.formState.errors.guardrailAcknowledged.message}
                 </p>
               )}
             </div>
@@ -478,16 +555,23 @@ export default function PersonasAndIntakePage() {
                 type="submit"
                 variant="primary"
                 size="lg"
-                disabled={submitIntakeMutation.isPending}
+                disabled={submitBookingMutation.isPending}
               >
-                {submitIntakeMutation.isPending
-                  ? 'Submitting Intake to Queue...'
-                  : 'Submit Intake Request (Status: Pending)'}
+                {submitBookingMutation.isPending
+                  ? 'Submitting Booking to Queue...'
+                  : 'Submit Booking Request (Status: Pending)'}
               </Button>
             </div>
           </form>
         </Card>
       </div>
+
+      <PersonaWizardModal
+        onCreated={(id) => {
+          const created = personas.find((p) => p.id === id);
+          selectPersona(id, created?.preferredLanguage);
+        }}
+      />
     </div>
   );
 }
