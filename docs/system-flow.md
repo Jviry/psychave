@@ -29,16 +29,16 @@ Related docs:
 
 ### C.2 Steps
 
-**Step 1 — Profile Selection & Intake**
+**Step 1 — Profile Selection & Booking**
 
 - The client initiates booking by selecting a Patient Profile (Persona) — themselves or a dependent.
-- Client completes intake form (personal info, primary concerns, specific needs).
+- Client completes booking form (personal info, primary concerns, specific needs).
 - Model mapping: `users -> client_profiles -> persona -> forms`.
 
 **Step 2 — Request Submission & Routing**
 
 - Upon submission, the system logs the appointment request as `appointments(status=pending)`.
-- Official text keeps two routing statements: intake forms go to the admin dashboard for preliminary assessment, and the request enters a pending queue visible to available psychologists.
+- Official text keeps two routing statements: booking forms go to the admin dashboard for preliminary assessment, and the request enters a pending queue visible to available psychologists.
 - Available psychologists are notified of the new pending request (email/in-app). Admin submission alert is legacy Flow A behavior; official alert target is psychologists.
 
 **Step 3 — Psychologist Pick-Up & Proposal**
@@ -69,7 +69,7 @@ Related docs:
 ### C.3 Text Diagram (Official)
 
 ```text
-Client selects Persona + completes Intake Form (forms)
+Client selects Persona + completes Booking Form (forms)
   -> Submits Request (appointments: pending) -> pending queue (+ admin preliminary view)
   -> Available psychologists notified
   -> Psychologist picks up (psychologist_id) + sets price + proposes 3 slots (proposed_slots x3)

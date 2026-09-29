@@ -44,4 +44,4 @@ Source: `Site Map & Details` deck, Services Description slides (Images 5-6). Ser
 
 ## Sitemap grouping note
 
-The sitemap slide groups Couples/Family/Group as one entry and omits standalone Consultation; this catalog keeps all 7 deck items separate. If the nav must match the sitemap exactly, nest Consultation under booking/intake rather than Services, and confirm with stakeholders.
+The sitemap slide groups Couples/Family/Group as one entry and omits standalone Consultation; this catalog keeps all 7 deck items separate. If the nav must match the sitemap exactly, nest Consultation under booking rather than Services, and confirm with stakeholders.

@@ -12,7 +12,7 @@
 
 - A client submits a booking request, optionally on behalf of a specific persona under their account (e.g. themselves or a dependent).
 - The request enters a pending queue visible to available psychologists.
-- Official routing note: intake forms are also routed to the admin dashboard for preliminary assessment. Pending-queue visibility is the normative path; admin view is preliminary (read-only unless specified).
+- Official routing note: booking forms are also routed to the admin dashboard for preliminary assessment. Pending-queue visibility is the normative path; admin view is preliminary (read-only unless specified).
 - See `system-flow.md` for step-by-step. Flow A (admin assigns) is legacy; see `system-flow-conflict.md`.
 
 ### 1.3 Psychologist Pick-Up & Proposal (Official)
@@ -25,11 +25,11 @@
 - The client reviews the 3 proposed times, selects one, and completes payment to confirm the session.
 - The appointment is only finalized once payment succeeds.
 
-### 1.5 Intake / Personas / Forms
+### 1.5 Booking / Personas / Forms
 
 - Client selects a Patient Profile (Persona) — self or dependent.
 - Each persona has forms the client must complete (personal info, concerns, appointment details).
-- System records request and forwards intake for review.
+- System records request and forwards booking for review.
 - Explicit requirement mentions: Admin Page, Psychology dashboard, Payment Gateway, Calendar.
 
 ## 1.6 Book a Session (External, Permanent Fallback)
@@ -63,7 +63,7 @@
 
 ## 5. Functional Requirements Summary (Official)
 
-- FR-1: Client can submit booking for self or persona; intake forms recorded; request enters pending queue.
+- FR-1: Client can submit booking for self or persona; booking forms recorded; request enters pending queue.
 - FR-2: Verified psychologist can pick up pending request, set price, propose exactly 3 times. Unverified cannot pick up.
 - FR-3: Client can review 3 proposals, select 1, complete payment; appointment finalized only on payment success.
 - FR-4: System sends new-request → psychologists, proposal → client, payment confirmation → both; 24h/1h reminders; real-time status updates.
@@ -77,7 +77,7 @@
 
 ## 6. Non-Functional / Guardrails
 
-- Secure handling of intake forms and consultation details per tiered access; no admin session-note access.
+- Secure handling of booking forms and consultation details per tiered access; no admin session-note access.
 - Auditability of pick-up/approvals/assignments (currently missing in models — see conflict doc).
 - Usability goal from Sept 9: make it easier for both client and admins; visible history; clinic info; easier booking/payment; calendar.
 
