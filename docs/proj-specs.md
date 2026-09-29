@@ -31,13 +31,13 @@
 
 ## 2. Current Backend Reality (matches specs partially)
 
-- Entry: `backend/src/main.py` — FastAPI + CORS + `app_router` + `GET /health` + Mangum handler for Lambda.
+- Entry: `backend/src/main.py` — FastAPI + CORS + `app_router` + `GET /health` (+ teammate-added `GET /hello` test route) + Mangum handler for Lambda.
 - Config: `backend/src/common/settings.py` — `APP_NAME, ENV, DEBUG, PORT, HOST, DATABASE_URL, CORS_ORIGINS, SECRET_KEY` via `pydantic-settings`.
 - DB: `backend/src/common/database.py` — `create_engine(DATABASE_URL, NullPool)` + `get_db()`; Alembic uses `SQLModel.metadata`.
 - Models (9 tables, UUID PKs): `users`, `admin_profiles`, `psychologist_profiles`, `client_profiles`, `persona`, `forms`, `appointments`, `proposed_slots` (circular FK with `appointments.selected_slot_id`), `payments`.
 - Controllers: `app_router` aggregates `auth_controller.router` (currently empty — no endpoints).
 - Layers `repo/user_repo.py`, `usecase/user_usecase.py`, `services/`, `utils/` are stubs.
-- Auth: official decision is AWS Cognito + Cognito Groups verified per request. `User.cognito_sub` aligns; `python-jose` installed but JWT/Groups verification still unimplemented.
+- Auth: official decision is AWS Cognito + Cognito Groups verified per request. `User.cognito_sub` aligns. NOTE: teammate-slimmed `backend/requirements.txt` removed `python-jose` (+ `cryptography`, `rsa`, `ecdsa`) — backend owners must re-add a JWT verifier or choose a replacement before implementing §7.1; JWT/Groups verification still unimplemented.
 - Official queue rules (application-level, no schema change yet): exactly 3 `proposed_slots` per proposal; pick-up gated on `approval_status=approved`; finalization gated on `payments(status=paid)`; Flow A (admin-assign, pay-then-schedule) is legacy — see `system-flow-conflict.md`.
 - Migrations: `alembic/versions/8bb9e943352d_initial_tables.py` creates all 9 tables.
 
@@ -49,7 +49,7 @@ See `backend/README.md` for run/migration guide. Do not duplicate it here.
 - Auth decision: official Cognito Groups (verified per request in production; mocked role switcher in `frontend/` for initial UI).
 - Payments: Stripe is specified but no webhook / `payments.status` state machine yet.
 - CMS: Payload CMS scope is now services catalog, roster section structure, testimonials structure (no personal quotes in docs), Vision & Mission, Clinic Overview and Impact. See `services-catalog.md` and `site-map.md`.
-- Frontend: `frontend/` exists (AI Studio Next.js prototype, mock-first). Routing is native Next.js App Router (custom prototype router removed). Styling is Tailwind v4 via `app/globals.css` + PostCSS. Run: `cd frontend; npm install; npm run dev` with `frontend/.env.local` (`NEXT_PUBLIC_API_URL=http://localhost:8000`, `NEXT_PUBLIC_AUTH_MODE=mock`). No backend dependency for initial UI. Contract map: see `frontend-backend-contract.md`.
+- Frontend: `frontend/` exists (AI Studio Next.js prototype, mock-first). Run: `cd frontend; npm install; npm run dev` with `frontend/.env.local` (`NEXT_PUBLIC_API_URL=http://localhost:8000`, `NEXT_PUBLIC_AUTH_MODE=mock`). No backend dependency for initial UI. Contract map + per-endpoint specs + implementation order + flip-to-real runbook: see `frontend-backend-contract.md` §§2-8.
 - Missing from repo but mentioned in README: `common/middleware/error_middleware.py`, `Dockerfile`.
 - Known typo: `PsychologistProfile.liscence_number` should be `licence_number` / `license_number` — needs migration if renamed.
 
