@@ -1,43 +1,67 @@
 /**
  * Persona wizard constants + helpers (frontend-only).
  *
- * NOTE: Consent/service copy below is PLACEHOLDER until compliance owners
- * provide final versioned text. Logic reads CONSENT_VERSION from this single
- * constant and sends it in the POST /personas payload.
+ * Source: firm intake forms (consent v2). Logic reads CONSENT_VERSION from this
+ * single constant and sends it in the POST /personas payload.
  */
 
-export const CONSENT_VERSION = 'v1';
+export const CONSENT_VERSION = 'v2';
 
 export const WIZARD_DRAFT_KEY = 'psychave.personaWizard.v1';
 export const LAST_USED_PERSONA_KEY = 'psychave.lastUsedPersonaId';
 
-/** PLACEHOLDER — compliance to replace. Versioned informed-consent copy. */
-export const INFORMED_CONSENT_TEXT = `PLACEHOLDER — Informed Consent (${CONSENT_VERSION}).
+/** Informed consent + data privacy agreement (wizard page 1, scrollable). */
+export const INFORMED_CONSENT_TEXT = `INFORMED CONSENT AND DATA PRIVACY AGREEMENT
+This informed consent form explains the nature, purpose, scope, and limitations of the psychological services provided by licensed psychologists of PsychAve PH: Psychological Services, in accordance with the Professional Regulatory Commission (PRC) and the Psychological Association of the Philippines (PAP) Code of Ethics, as well as the Data Privacy Act of 2012 (Republic Act No. 10173).
 
-1. Nature of services. PsychAvenuePH provides scheduled outpatient psychological services (consultation, psychotherapy, relational counseling, coaching, supervision, research advisory) delivered by PRC-verified resident psychologists, primarily via telehealth.
-2. Voluntary participation. You may stop the intake or booking process at any time before payment. Paid-confirmed sessions follow the cancellation/rescheduling policy shown at booking.
-3. Confidentiality and limits. Session content is confidential subject to Philippine law, including imminent-harm, abuse-of-minor, and court-order exceptions, and the platform's tiered access rule (assigned psychologist only sees private clinical notes; admins never do).
-4. Data use. Intake and demographic details are used for care coordination and quality assurance only, in line with RA 10173. Testimonial use requires separate explicit consent and is withheld by default.
-5. Screening tools. Before or during consultation you may be asked to complete brief screening tools; results are discussed with you and are not a standalone diagnosis.
-6. Non-emergency platform. PsychAvenuePH is not a crisis service. For acute emergencies contact the NCMH Crisis Hotline 1553 / 0917-899-8727.
+All information shared during psychological services, including personal data, session content, screening results, and records, is treated as confidential in accordance with PAP ethical standards and Philippine law.
 
-By typing your full name below you acknowledge you have read this version (${CONSENT_VERSION}) and agree to proceed.`;
+Personal data is collected, processed, and stored solely for legitimate clinical, documentation, and professional purposes. Records are securely maintained and accessed only by the psychologist or authorized personnel.
 
-/** PLACEHOLDER — compliance to replace. Typed-signature statement (page 1). */
+Confidentiality may be ethically or legally breached only under the following circumstances:
+
+Presence of serious and imminent risk of harm to self or others
+Suspected abuse or neglect as required by law
+Court orders or lawful demands
+Other situations mandated by Philippine laws and professional regulations
+Important limitation: All sessions, screening, and results are strictly for therapeutic, clinical, and personal use. These will not be used, shared, or submitted for any legal, court, or administrative proceedings, unless otherwise required by law under exceptional circumstances.`;
+
+/** Typed-signature statement under the page-1 signer field. */
 export const TYPING_STATEMENT =
-  'By typing your full name, you confirm you are the person authorized to consent for this persona under this consent version.';
+  'By typing your full name in the designated field, you confirm that you have read, understood, and voluntarily agreed to the terms stated above. If filling out for a minor, write your full name and relation to the client.';
 
-/** PLACEHOLDER — compliance to replace. Scope & limitations acknowledgement (page 2). */
+/** Scope & limitations reference text (wizard page 2, scrollable). */
+export const SCOPE_LIMITATIONS_TEXT = `SCOPE & LIMITATIONS OF SERVICES: All services provided are delivered by licensed psychologists and are intended for clinical, therapeutic, coaching, and personal development purposes only. Services are based on professional training, ethical standards, client self-report, and clinical judgement, and are conducted within the psychologists' scope of competence in accordance with PRC Regulations and PAP ethical guidelines.
+
+Psychological services are not forensic or medico-legal in nature. Information shared, screening results, professional opinions, sessions notes, and documents issued are not intended for court, legal, administrative, or disciplinary proceedings, and no expert testimony or legal opinions will be provided based on these services.
+
+Outcomes may vary among individuals. Recommendations and observations are based on information available at the time of service and may change as new information emerges.`;
+
+/** Scope acknowledgement checkbox (wizard page 2). */
 export const SCOPE_ACK_TEXT =
-  'I understand each service has a defined scope and duration (e.g. Consultation 45 mins is screening-only, not full therapy; Life Coaching is not psychotherapy; Academic services exclude full-write authorship), and that my intake enters a pending queue until a verified psychologist proposes 3 schedule slots.';
+  'I have read and understood the scope and limitations applicable to all psychological services provided.';
 
-/** PLACEHOLDER — compliance to replace. Overseas/jurisdictional acknowledgement (page 2). */
+/** Overseas/jurisdictional limitations reference text (wizard page 2, scrollable, conditional). */
+export const OVERSEAS_LIMITATIONS_TEXT = `LIMITATIONS FOR OVERSEAS CLIENTS AND FOREIGN NATIONALS
+
+(Applicable to clients living abroad and foreign nationals residing in the Philippines)
+
+Jurisdiction and Professional Scope: Psychological services are provided by a psychologist licensed in the Philippines and are governed by Philippine laws, PRC regulations, and the Psychological Association of the Philippines (PAP) Code of Ethics. All services are delivered within this professional and legal framework.
+
+Overseas Filipino Clients (Filipino Citizenship): For Filipino clients residing outside the Philippines, services are limited to non-forensic, non-medico-legal psychological support. Services may be subject to legal, regulatory, or practice restrictions in the client's country of residence. The psychologist does not claim licensure or authority to practice psychology under the laws of the host country.
+
+Foreign Nationals: For foreign nationals, whether residing in the Philippines, psychological services are provided for clinical and supportive purposes only and are governed by Philippine professional and ethical standards. Services are not intended to satisfy legal, immigration, employment, or court-related requirements of the client's home country or any other jurisdiction.
+
+Emergency and Crisis Limitations:
+Psychological services are not a substitute for local emergency or crisis intervention services. Clients residing outside the Philippines, as well as foreign nationals, are responsible for identifying and accessing appropriate emergency or crisis resources within their current country of residence.`;
+
+/** Overseas acknowledgement checkbox (wizard page 2, conditional). */
 export const OVERSEAS_ACK_TEXT =
-  'I understand that as an overseas client or foreign national, sessions are governed by Philippine law and clinician licensure scope, emergency protocols may differ by jurisdiction, and certain services (e.g. prescription-related support) may be unavailable.';
+  'I understand the jurisdictional and service limitations applicable to overseas clients and foreign nationals.';
 
-/** PLACEHOLDER — compliance to replace. Final confirmation statement (page 4). */
+/** Final consent & acknowledgement statement (wizard page 4). */
 export const FINAL_CONSENT_STATEMENT =
-  'I confirm the information provided is accurate and complete, and I consent to the creation of this persona record together with this signed consent under the version shown.';
+  'By typing my full name below, I confirm that I have read and understood the description, purpose, scope, limitations, confidentiality, data privacy provisions, and ethical boundaries of the psychological service I am availing.';
 
 export type RelationToAccountHolder =
   | 'child'

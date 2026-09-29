@@ -37,6 +37,8 @@ frontend/
 │   ├── personas/page.tsx           # /personas (Manage personas + 4-step wizard modal + Flow C Intake Form)
 │   │                               Wizard: components/PersonaWizardModal.tsx + stores/usePersonaWizardStore.ts
 │   │                               (single POST /personas at final submit; draft in sessionStorage).
+│   │                               Consent copy: lib/consent.ts, CONSENT_VERSION=v2, sourced from the
+│   │                               firm's intake forms (informed consent + scope/overseas blocks).
 │   │                               Legacy quick-add form kept temporarily in a collapsed disclosure until
 │   │                               backend POST /personas supports the persona+consent payload — then remove it.
 │   ├── bookings/page.tsx           # /bookings (Client bookings, status chips, contact unlock, reminders)

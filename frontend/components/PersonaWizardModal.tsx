@@ -7,7 +7,9 @@ import {
   FINAL_CONSENT_STATEMENT,
   INFORMED_CONSENT_TEXT,
   OVERSEAS_ACK_TEXT,
+  OVERSEAS_LIMITATIONS_TEXT,
   SCOPE_ACK_TEXT,
+  SCOPE_LIMITATIONS_TEXT,
   TYPING_STATEMENT,
   isFutureDob,
   isMinorDob,
@@ -534,6 +536,16 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
                   )}
                 </ul>
               </div>
+              <div>
+                <Label htmlFor="wiz-scope-text">Scope &amp; limitations of services — scroll to read</Label>
+                <div
+                  id="wiz-scope-text"
+                  tabIndex={0}
+                  className="mt-1.5 max-h-48 overflow-y-auto p-4 rounded-lg bg-[#F6F9F6] border border-[#C0D3C3] text-xs text-[#25372D]/90 leading-relaxed whitespace-pre-wrap"
+                >
+                  {SCOPE_LIMITATIONS_TEXT}
+                </div>
+              </div>
               <label className="flex items-start gap-3 text-sm text-[#25372D] cursor-pointer p-4 rounded-lg bg-[#F6F9F6] border border-[#C0D3C3]">
                 <input
                   type="checkbox"
@@ -561,17 +573,27 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
                 <span className="leading-relaxed text-xs">I am an overseas client or foreign national</span>
               </label>
               {draft.is_overseas_or_foreign && (
-                <label className="flex items-start gap-3 text-sm text-[#25372D] cursor-pointer p-4 rounded-lg bg-[#EBF2EC] border-l-4 border-[#5D8B69]">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 h-4 w-4 rounded border-[#5D8B69] text-[#5D8B69] focus:ring-[#5D8B69]"
-                    checked={draft.overseas_acknowledged}
-                    onChange={(e) => updateDraft({ overseas_acknowledged: e.target.checked })}
-                    aria-invalid={!!shownErrors['overseas_acknowledged']}
-                    aria-describedby={shownErrors['overseas_acknowledged'] ? errId('overseas') : undefined}
-                  />
-                  <span className="leading-relaxed text-xs">{OVERSEAS_ACK_TEXT}</span>
-                </label>
+                <div className="space-y-2">
+                  <Label htmlFor="wiz-overseas-text">Limitations for overseas clients and foreign nationals — scroll to read</Label>
+                  <div
+                    id="wiz-overseas-text"
+                    tabIndex={0}
+                    className="max-h-48 overflow-y-auto p-4 rounded-lg bg-[#F6F9F6] border border-[#C0D3C3] text-xs text-[#25372D]/90 leading-relaxed whitespace-pre-wrap"
+                  >
+                    {OVERSEAS_LIMITATIONS_TEXT}
+                  </div>
+                  <label className="flex items-start gap-3 text-sm text-[#25372D] cursor-pointer p-4 rounded-lg bg-[#EBF2EC] border-l-4 border-[#5D8B69]">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 rounded border-[#5D8B69] text-[#5D8B69] focus:ring-[#5D8B69]"
+                      checked={draft.overseas_acknowledged}
+                      onChange={(e) => updateDraft({ overseas_acknowledged: e.target.checked })}
+                      aria-invalid={!!shownErrors['overseas_acknowledged']}
+                      aria-describedby={shownErrors['overseas_acknowledged'] ? errId('overseas') : undefined}
+                    />
+                    <span className="leading-relaxed text-xs">{OVERSEAS_ACK_TEXT}</span>
+                  </label>
+                </div>
               )}
               <FieldError id={errId('overseas')} message={shownErrors['overseas_acknowledged']} />
             </section>
