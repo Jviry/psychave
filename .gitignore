@@ -49,9 +49,11 @@ crash.*.log
 backend/package/
 backend/lambda.zip
 
-# Agents
+# Agents & Skills
 AGENT.md
 AGENTS.md
+SKILL.md
+SKILLS.md
 
 # Sensitive? Docs
-'Site Map & Details.pdf'
+*.pdf
