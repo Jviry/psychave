@@ -7,3 +7,4 @@ from .forms import Forms
 from .proposed_slot import ProposedSlot
 from .appointment import Appointment
 from .payment import Payment
+from .service import Service
