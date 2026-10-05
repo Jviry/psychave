@@ -38,3 +38,13 @@ def get_persona(
 ):
     usecase = PersonaUsecase(db)
     return usecase.get_persona(persona_id, current_user.user_id)
+
+
+@router.get("{persona_id}/review", response_model=PersonaWithConsentCreate)
+def get_persona_for_review(
+    persona_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.PSYCHOLOGIST))
+):
+    usecase = PersonaUsecase(db)
+    return usecase.get_persona_for_psychologist(persona_id)
