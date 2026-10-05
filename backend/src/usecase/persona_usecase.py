@@ -1,8 +1,9 @@
 import uuid
 from datetime import date
 from fastapi import HTTPException
-from sqlmodel import Session
+from sqlmodel import Session, select
 
+from models.appointment import Appointment
 from repo.persona_repo import PersonaRepo
 from schemas.persona import PersonaWithConsentCreate
 
@@ -73,3 +74,11 @@ class PersonaUsecase:
         if persona is None or persona.client_id != client_id:
             raise HTTPException(status_code=404, detail="Persona not found")
         return persona
+
+    def get_persona_for_psychologist(self, persona_id: uuid.UUID):
+        persona = self.repo.get_by_id(persona_id)
+        if persona is None:
+            raise HTTPException(status_code=404, detail="Persona not found")
+
+        form = self.repo.get_latest_form(persona_id)
+        return persona, form
