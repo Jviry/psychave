@@ -13,3 +13,26 @@ module "apigateway" {
   lambda_function_name = module.lambda.function_name
   lambda_invoke_arn    = module.lambda.invoke_arn
 }
+
+module "cognito" {
+  source = "../../modules/cognito"
+
+  user_pool_name = "${var.project_name}-${var.environment}-users"
+  app_client_name = "${var.project_name}-${var.environment}-client"
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+  }
+}
+
+module "s3" {
+  source = "../../modules/s3"
+
+  bucket_name = "${var.project_name}-${var.environment}-uploads"
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+  }
+}
