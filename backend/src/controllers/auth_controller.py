@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from usecases.auth_usecase import AuthUsecase
+from usecase.auth_usecase import AuthUsecase
 from services.aws.cognito_service import CognitoService
 from botocore.exceptions import ClientError
 from models.auth_model import (
