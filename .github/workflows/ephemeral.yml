@@ -28,8 +28,27 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Package backend
+        run: |
+          rm -rf backend/package
+          mkdir -p backend/package
+
+          cp -r backend/src/. backend/package/
+
+          pip install \
+            -r backend/requirements.txt \
+            -t backend/package
+
+          cd backend/package
+          zip -r ../lambda.zip .
 
       - name: Setup OpenTofu
         uses: opentofu/setup-opentofu@v1
@@ -39,31 +58,33 @@ jobs:
         run: |
           tofu init
 
-      - name: OpenTofu plan
-        working-directory: ${{ env.TF_WORKING_DIR }}
+      - name: OpenTofu Plan
+        working-directory: infra/environments/dev
         run: |
           tofu plan \
+            -var-file="dev.tfvars" \
             -var="environment=pr-${{ github.event.pull_request.number }}"
 
-      - name: OpenTofu apply
-        working-directory: ${{ env.TF_WORKING_DIR }}
+      - name: OpenTofu Apply
+        working-directory: infra/environments/dev
         run: |
           tofu apply \
             -auto-approve \
+            -var-file="dev.tfvars" \
             -var="environment=pr-${{ github.event.pull_request.number }}"
 
       - name: Get API URL
         id: api
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          echo "url=$(tofu output -raw api_url)" >> "$GITHUB_OUTPUT"
+          echo "url=$(tofu output -raw api_endpoint)" >> "$GITHUB_OUTPUT"
 
       - name: Run API tests
         env:
           API_URL: ${{ steps.api.outputs.url }}
         run: |
           python -m pip install pytest requests
-          pytest tests/api
+          pytest backend/tests/ephemeral
 
       - name: Comment API URL
         if: success()
