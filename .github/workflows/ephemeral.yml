@@ -53,10 +53,12 @@ jobs:
       - name: Setup OpenTofu
         uses: opentofu/setup-opentofu@v1
 
-      - name: OpenTofu init
+      - name: OpenTofu Init
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          tofu init
+          tofu init \
+            -backend-config=backend.hcl \
+            -backend-config="key=ephemeral/pr-${{ github.event.pull_request.number }}/terraform.tfstate"
 
       - name: OpenTofu Plan
         working-directory: infra/environments/dev
@@ -100,15 +102,6 @@ jobs:
               body: `Ephemeral environment deployed\n\nAPI: ${url}`
             });
 
-      - name: Destroy ephemeral environment
-        if: always()
-        working-directory: ${{ env.TF_WORKING_DIR }}
-        run: |
-          tofu destroy \
-            -auto-approve \
-            -var="environment=pr-${{ github.event.pull_request.number }}"
-
-
   destroy:
     if: github.event.action == 'closed'
     runs-on: ubuntu-latest
@@ -129,11 +122,14 @@ jobs:
       - name: OpenTofu init
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          tofu init
+          tofu init -reconfigure \
+            -backend-config=backend.hcl \
+            -backend-config="key=ephemeral/pr-${{ github.event.pull_request.number }}/terraform.tfstate"
 
       - name: Destroy ephemeral environment
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           tofu destroy \
             -auto-approve \
+            -var-file="dev.tfvars" \
             -var="environment=pr-${{ github.event.pull_request.number }}"
