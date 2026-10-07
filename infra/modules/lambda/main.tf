@@ -12,6 +12,13 @@ resource "aws_lambda_function" "this" {
   depends_on = [
     aws_iam_role_policy_attachment.basic_execution
   ]
+
+  environment {
+    variables = {
+      COGNITO_USER_POOL_ID  = var.cognito_user_pool_id
+      COGNITO_APP_CLIENT_ID = var.cognito_app_client_id
+    }
+  }
 }
 
 # IAM role for lambda

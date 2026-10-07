@@ -3,6 +3,9 @@ module "lambda" {
 
   function_name = "${var.project_name}-${var.environment}-lambda"
   lambda_zip_path = var.lambda_zip_path
+
+  cognito_user_pool_id  = module.cognito.user_pool_id
+  cognito_app_client_id = module.cognito.client_id
 }
 
 module "apigateway" {
