@@ -21,20 +21,11 @@
 - [x] ERD — all
 - [ ] Repository architecture — sol
 
-## Todos — Week 1 | June 12, 2026 - June 18, 2026
-
-- Document — Carlos
-- ERD/UML — Sol and Carlos
-- UI/UX — Carlos
-- DynamoDB Structure — Sol
-- Github Repo Structure — Carlos and Sol
-- CI/CD Pipelines — Sol
-
 > Note: DynamoDB is listed here but current backend uses PostgreSQL/Supabase. Kept verbatim; needs clarification if DynamoDB is still in scope.
 
 ## Minutes
 
-### June 12, 2026 Meeting — Docs outline
+### September 12, 2026 Meeting — Docs outline
 
 - About / Description
   - Name
@@ -49,7 +40,7 @@
 - Minimum Viable Product
 - Tracker
 
-### June 19, 2026 Meeting
+### September 19, 2026 Meeting
 
 - (No notes provided in source.)
 
