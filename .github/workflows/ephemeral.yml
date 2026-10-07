@@ -1,0 +1,135 @@
+name: Ephemeral Environment
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  AWS_REGION: ap-southeast-1
+  TF_WORKING_DIR: infra/environments/dev
+
+jobs:
+  deploy-and-test:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+
+    environment:
+      name: pr-${{ github.event.pull_request.number }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Package backend
+        run: |
+          rm -rf backend/package
+          mkdir -p backend/package
+
+          cp -r backend/src/. backend/package/
+
+          pip install \
+            -r backend/requirements.txt \
+            -t backend/package
+
+          cd backend/package
+          zip -r ../lambda.zip .
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+
+      - name: OpenTofu Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          tofu init \
+            -backend-config=backend.hcl \
+            -backend-config="key=ephemeral/pr-${{ github.event.pull_request.number }}/terraform.tfstate"
+
+      - name: OpenTofu Plan
+        working-directory: infra/environments/dev
+        run: |
+          tofu plan \
+            -var-file="dev.tfvars" \
+            -var="environment=pr-${{ github.event.pull_request.number }}"
+
+      - name: OpenTofu Apply
+        working-directory: infra/environments/dev
+        run: |
+          tofu apply \
+            -auto-approve \
+            -var-file="dev.tfvars" \
+            -var="environment=pr-${{ github.event.pull_request.number }}"
+
+      - name: Get API URL
+        id: api
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          echo "url=$(tofu output -raw api_endpoint)" >> "$GITHUB_OUTPUT"
+
+      - name: Run API tests
+        env:
+          API_URL: ${{ steps.api.outputs.url }}
+        run: |
+          python -m pip install pytest requests
+          pytest backend/tests/ephemeral
+
+      - name: Comment API URL
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = "${{ steps.api.outputs.url }}";
+
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `Ephemeral environment deployed\n\nAPI: ${url}`
+            });
+
+  destroy:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+
+      - name: OpenTofu init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          tofu init -reconfigure \
+            -backend-config=backend.hcl \
+            -backend-config="key=ephemeral/pr-${{ github.event.pull_request.number }}/terraform.tfstate"
+
+      - name: Destroy ephemeral environment
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          tofu destroy \
+            -auto-approve \
+            -var-file="dev.tfvars" \
+            -var="environment=pr-${{ github.event.pull_request.number }}"
