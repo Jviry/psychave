@@ -16,3 +16,4 @@ output "user_pool_endpoint" {
 output "client_id" {
   description = "Cognito App Client ID"
   value       = aws_cognito_user_pool_client.this.id
+}
