@@ -12,4 +12,3 @@ variable "tags" {
   description = "Tags to apply to the Cognito resources"
   type        = map(string)
   default     = {}
-}
