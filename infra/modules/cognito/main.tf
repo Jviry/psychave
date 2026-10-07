@@ -29,3 +29,18 @@ resource "aws_cognito_user_pool_client" "this" {
     "ALLOW_REFRESH_TOKEN_AUTH"
   ]
 }
+
+resource "aws_cognito_user_group" "admin" {
+  name         = "admin"
+  user_pool_id = aws_cognito_user_pool.this.id
+}
+
+resource "aws_cognito_user_group" "psychologist" {
+  name         = "psychologist"
+  user_pool_id = aws_cognito_user_pool.this.id
+}
+
+resource "aws_cognito_user_group" "client" {
+  name         = "client"
+  user_pool_id = aws_cognito_user_pool.this.id
+}
