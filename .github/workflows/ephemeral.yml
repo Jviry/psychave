@@ -116,6 +116,25 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Package backend
+        run: |
+          rm -rf backend/package
+          mkdir -p backend/package
+
+          cp -r backend/src/. backend/package/
+
+          pip install \
+            -r backend/requirements.txt \
+            -t backend/package
+
+          cd backend/package
+          zip -r ../lambda.zip .
+
       - name: Setup OpenTofu
         uses: opentofu/setup-opentofu@v1
 
