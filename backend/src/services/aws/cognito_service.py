@@ -6,6 +6,8 @@ from models.auth_model import (
     ConfirmUserRequest,
     ForgotPasswordConfirm
 )
+from dotenv import load_dotenv
+load_dotenv()
 
 
 class CognitoService:
