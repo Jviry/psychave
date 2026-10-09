@@ -152,9 +152,13 @@ def test_get_user_me_success(api_url, authenticated_user):
         params={"access_token": authenticated_user["access_token"]},
         timeout=10
     )
-    assert response.status_code == 200
-    data = response.json()
+
+    print(f"Status: {response.status_code}")
     print(f"Response: {response.text}")
+
+    assert response.status_code == 200
+
+    data = response.json()
     assert data.get("Username") == authenticated_user["username"]
 
 
@@ -206,8 +210,11 @@ def test_logout_success(api_url, admin_user_factory):
         params={"access_token": access_token},
         timeout=10
     )
-    assert response.status_code == 200
+
+    print(f"Status: {response.status_code}")
     print(f"Response: {response.text}")
+
+    assert response.status_code == 200
     assert response.json().get("message") == "logout successful"
 
 
@@ -235,9 +242,12 @@ def test_delete_user_self_success(api_url, admin_user_factory):
         params={"access_token": access_token},
         timeout=10
     )
+
+    print(f"Status: {response.status_code}")
+    print(f"Response: {response.text}")
+
     assert response.status_code == 200
     assert response.json().get("message") == "delete user successful"
-    print(f"Response: {response.text}")
 
     # Verify user is deleted by trying to log in again
     retry_login = requests.post(
