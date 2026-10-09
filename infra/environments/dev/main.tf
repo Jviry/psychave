@@ -1,11 +1,12 @@
 module "lambda" {
   source = "../../modules/lambda"
 
-  function_name = "${var.project_name}-${var.environment}-lambda"
+  function_name   = "${var.project_name}-${var.environment}-lambda"
   lambda_zip_path = var.lambda_zip_path
 
   cognito_user_pool_id  = module.cognito.user_pool_id
   cognito_app_client_id = module.cognito.client_id
+  user_pool_arn         = module.cognito.user_pool_arn
 }
 
 module "apigateway" {
@@ -15,12 +16,15 @@ module "apigateway" {
 
   lambda_function_name = module.lambda.function_name
   lambda_invoke_arn    = module.lambda.invoke_arn
+
+  jwt_issuer   = "https://cognito-idp.${var.aws_region}.amazonaws.com/${module.cognito.user_pool_id}"
+  jwt_audience = [module.cognito.client_id]
 }
 
 module "cognito" {
   source = "../../modules/cognito"
 
-  user_pool_name = "${var.project_name}-${var.environment}-users"
+  user_pool_name  = "${var.project_name}-${var.environment}-users"
   app_client_name = "${var.project_name}-${var.environment}-client"
 
   tags = {

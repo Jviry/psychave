@@ -47,3 +47,28 @@ resource "aws_iam_role_policy_attachment" "basic_execution" {
   role       = aws_iam_role.lambda.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
+
+# Signup/confirm call Cognito Admin APIs (add to group, read sub/groups),
+# so the Lambda role needs scoped access to this pool.
+resource "aws_iam_role_policy" "cognito_admin" {
+  name = "${var.function_name}-cognito"
+  role = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Effect = "Allow"
+
+        Action = [
+          "cognito-idp:AdminAddUserToGroup",
+          "cognito-idp:AdminGetUser",
+          "cognito-idp:AdminListGroupsForUser",
+        ]
+
+        Resource = var.user_pool_arn
+      }
+    ]
+  })
+}
