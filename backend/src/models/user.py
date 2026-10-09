@@ -5,9 +5,9 @@ from sqlmodel import SQLModel, Field
 
 
 class UserRole(str, Enum):
-    CLIENT = "CLIENT"
-    PSYCHOLOGIST = "PSYCHOLOGIST"
-    ADMIN = "ADMIN"
+    CLIENT = "client"
+    PSYCHOLOGIST = "psychologist"
+    ADMIN = "admin"
 
 
 class User(SQLModel, table=True):

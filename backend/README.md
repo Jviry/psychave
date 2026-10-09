@@ -108,6 +108,37 @@ uvicorn main:app --app-dir src --reload --port 8000
 
 ---
 
+## Authentication & Authorization
+
+Two layers, different jobs:
+
+| Layer | Where | Job |
+| :--- | :--- | :--- |
+| Gateway JWT authorizer | Prod only (`infra/modules/apigateway`) | Rejects bad/expired tokens before Lambda runs. Accepts both ID and access tokens. Knows nothing about users or groups. |
+| `verify_token()` (`src/common/security/cognito.py`) | App (`src/dependencies/auth.py`) | Verifies the signature **and decodes claims** (`sub`, `email`, `cognito:groups`). The only layer that works under local `uvicorn`, which bypasses the gateway. |
+
+The gateway never hands decoded claims to FastAPI — the app only sees the raw `Authorization` header, so `verify_token()` cannot be deleted without leaving the app blind.
+
+### Token contract (frontend)
+
+Always send the **ID token**: `Authorization: Bearer <id_token>`. `verify_token()` enforces `audience = COGNITO_APP_CLIENT_ID`, which only ID tokens satisfy — access tokens carry `client_id` instead of `aud` and are rejected by the app even though the gateway lets them through.
+
+### Identity and roles
+
+- `get_claims()` — parses + verifies the Bearer token. Raises domain errors (`UnauthenticatedError`), mapped to `401` by handlers in `src/main.py`.
+- `get_current_user()` — maps `claims["sub"]` to the `users` row via `UserRepository`. Raises `UserNotFoundError` (`401`) when the row is missing.
+- `require_role(UserRole.ADMIN, ...)` — checks the `cognito:groups` claim from the pool groups (`admin` / `psychologist` / `client`), not the DB `role` column. Raises `ForbiddenError` (`403`).
+- The DB `role` column is a cached copy for queries/joins only; Cognito groups are the source of truth for access.
+
+### Lifecycle
+
+1. `POST /auth/create-user` (`role` defaults to `client`; `admin` cannot be self-assigned) → Cognito `sign_up` + `admin_add_user_to_group`. Lambda needs the `cognito_admin` IAM policy for these Admin APIs.
+2. `POST /auth/confirm` → `confirm_sign_up`, then inserts `User(cognito_sub, email, role-from-groups)` (idempotent).
+3. `POST /auth/login` → returns tokens and lazily inserts the row for users created before sync existed (best-effort; never fails login).
+4. Session endpoints (`/auth/me`, `/auth/logout`, `/auth/delete`) require `Depends(get_current_user)`; the pure auth flows (login/signup/confirm/refresh/password) stay public and are also exempt from the gateway authorizer.
+
+---
+
 ## 🗄 Database & Migrations Guide (Alembic + SQLModel)
 
 This project uses **SQLModel** models and **Alembic** to manage database schema versions.

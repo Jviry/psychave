@@ -1,4 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlmodel import Session
+from common.database import get_db
+from dependencies.auth import get_current_user
 from usecase.auth_usecase import AuthUsecase
 from services.aws.cognito_service import CognitoService
 from botocore.exceptions import ClientError
@@ -8,6 +11,8 @@ from models.auth_model import (
     ConfirmUserRequest,
     ForgotPasswordConfirm
 )
+from models.user import User
+from repo.user_repo import UserRepository
 
 router = APIRouter()
 
@@ -15,7 +20,8 @@ router = APIRouter()
 @router.post("/me")
 async def get_user(
     access_token: str,
-    auth_service: CognitoService = Depends(CognitoService)
+    auth_service: CognitoService = Depends(CognitoService),
+    current_user: User = Depends(get_current_user),
 
 ):
     try:
@@ -32,10 +38,11 @@ async def get_user(
 @router.post("/login")
 async def login_user(
     credentials: UserLogin,
-    auth_service: CognitoService = Depends(CognitoService)
+    auth_service: CognitoService = Depends(CognitoService),
+    db: Session = Depends(get_db),
 ):
     try:
-        uc = AuthUsecase(auth_service)
+        uc = AuthUsecase(auth_service, UserRepository(db))
         return uc.login_user(credentials)
 
     except ClientError as e:
@@ -65,10 +72,14 @@ async def refresh_access_token(
 async def create_user(
     credentials: UserCreate,
     auth_service: CognitoService = Depends(CognitoService),
+    db: Session = Depends(get_db),
 ):
     try:
-        uc = AuthUsecase(auth_service)
+        uc = AuthUsecase(auth_service, UserRepository(db))
         return uc.create_user(credentials)
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     except ClientError as e:
         error_message = e.response["Error"]["Message"]
@@ -80,10 +91,11 @@ async def create_user(
 @router.post("/confirm")
 async def confirm_user(
     request: ConfirmUserRequest,
-    auth_service: CognitoService = Depends(CognitoService)
+    auth_service: CognitoService = Depends(CognitoService),
+    db: Session = Depends(get_db),
 ):
     try:
-        uc = AuthUsecase(auth_service)
+        uc = AuthUsecase(auth_service, UserRepository(db))
         return uc.confirm_user(request)
 
     except ClientError as e:
@@ -112,7 +124,8 @@ async def resend_confirmation_code(
 @router.post("/logout")
 async def logout_user(
     access_token: str,
-    auth_service: CognitoService = Depends(CognitoService)
+    auth_service: CognitoService = Depends(CognitoService),
+    current_user: User = Depends(get_current_user),
 ):
     try:
         uc = AuthUsecase(auth_service)
@@ -160,7 +173,8 @@ async def confirm_forgot_password(
 @router.delete("/delete")
 async def delete_user(
     access_token: str,
-    auth_service: CognitoService = Depends(CognitoService)
+    auth_service: CognitoService = Depends(CognitoService),
+    current_user: User = Depends(get_current_user),
 ):
     try:
         uc = AuthUsecase(auth_service)
