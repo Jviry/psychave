@@ -1,5 +1,5 @@
 from common.security.cognito import verify_token
-from models.auth_model import (
+from schemas.auth_model import (
     UserLogin,
     UserCreate,
     ConfirmUserRequest,

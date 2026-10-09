@@ -5,4 +5,5 @@ from controllers.persona_controller import router as persona_router
 app_router = APIRouter()
 
 app_router.include_router(auth_router, prefix="/auth", tags=["auth"])
-app_router.include_router(persona_router, tags=["personas"])
+app_router.include_router(
+    persona_router, prefix="/personas", tags=["personas"])
