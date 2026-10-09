@@ -10,6 +10,7 @@ def test_create_user_success(api_url, generate_user_credentials):
 
     assert response.status_code == 200
     data = response.json()
+    print(f"Response: {response.text}")
     assert data.get("message") == "register successful, check email for code"
 
 
@@ -28,6 +29,7 @@ def test_create_user_weak_password(api_url, generate_user_credentials):
 
     response = requests.post(
         f"{api_url}/auth/create-user", json=user_data, timeout=10)
+    print(f"Response: {response.text}")
     assert response.status_code == 400
 
 
@@ -152,6 +154,7 @@ def test_get_user_me_success(api_url, authenticated_user):
     )
     assert response.status_code == 200
     data = response.json()
+    print(f"Response: {response.text}")
     assert data.get("Username") == authenticated_user["username"]
 
 
@@ -204,6 +207,7 @@ def test_logout_success(api_url, admin_user_factory):
         timeout=10
     )
     assert response.status_code == 200
+    print(f"Response: {response.text}")
     assert response.json().get("message") == "logout successful"
 
 
@@ -233,6 +237,7 @@ def test_delete_user_self_success(api_url, admin_user_factory):
     )
     assert response.status_code == 200
     assert response.json().get("message") == "delete user successful"
+    print(f"Response: {response.text}")
 
     # Verify user is deleted by trying to log in again
     retry_login = requests.post(
