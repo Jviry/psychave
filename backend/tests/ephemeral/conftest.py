@@ -30,7 +30,8 @@ def api_url():
         time.sleep(delay)
 
     if not is_ready:
-        pytest.fail(f"API at {url} did not become ready within {max_retries * delay} seconds.")
+        pytest.fail(f"API at {url} did not become ready within {
+                    max_retries * delay} seconds.")
 
     return url
 
@@ -44,7 +45,8 @@ def aws_region():
 def cognito_user_pool_id():
     pool_id = os.getenv("COGNITO_USER_POOL_ID")
     if not pool_id:
-        pytest.skip("COGNITO_USER_POOL_ID is not set; skipping tests requiring admin user creation")
+        pytest.skip(
+            "COGNITO_USER_POOL_ID is not set; skipping tests requiring admin user creation")
     return pool_id
 
 
@@ -78,7 +80,8 @@ def registered_user(api_url, generate_user_credentials):
     user_data = generate_user_credentials()
     response = requests.post(
         f"{api_url}/auth/create-user", json=user_data, timeout=10)
-    assert response.status_code == 200, f"Failed to create fixture user: {response.text}"
+    assert response.status_code == 200, f"Failed to create fixture user: {
+        response.text}"
     return user_data
 
 
@@ -159,7 +162,8 @@ def authenticated_user(api_url, confirmed_user):
         },
         timeout=10,
     )
-    assert response.status_code == 200, f"Failed to log in fixture user: {response.text}"
+    assert response.status_code == 200, f"Failed to log in fixture user: {
+        response.text}"
     auth_result = response.json()
 
     access_token = auth_result["AccessToken"]
