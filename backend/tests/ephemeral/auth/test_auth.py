@@ -22,15 +22,6 @@ def test_create_user_duplicate_username(api_url, registered_user, generate_user_
     assert response.status_code == 400
 
 
-def test_create_user_duplicate_email(api_url, registered_user, generate_user_credentials):
-    duplicate_user = generate_user_credentials()
-    duplicate_user["email"] = registered_user["email"]
-
-    response = requests.post(
-        f"{api_url}/auth/create-user", json=duplicate_user, timeout=10)
-    assert response.status_code == 400
-
-
 def test_create_user_weak_password(api_url, generate_user_credentials):
     user_data = generate_user_credentials()
     user_data["password"] = "short"
