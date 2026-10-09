@@ -90,11 +90,7 @@ jobs:
           COGNITO_APP_CLIENT_ID: ${{ steps.api.outputs.cognito_app_client_id }}
           AWS_REGION: ${{ env.AWS_REGION }}
         run: |
-<<<<<<< HEAD
           python -m pip install pytest requests boto3
-=======
-          python -m pip install pytest requests
->>>>>>> c313127e764d2d67a4a897934dc9adbe9333780a
           pytest -v backend/tests/ephemeral
 
       - name: Comment API URL
