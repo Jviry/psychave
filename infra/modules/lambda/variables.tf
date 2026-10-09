@@ -7,7 +7,7 @@ variable "lambda_zip_path" {
 }
 
 variable "runtime" {
-  type = string
+  type    = string
   default = "python3.14"
 }
 
@@ -17,4 +17,9 @@ variable "cognito_user_pool_id" {
 
 variable "cognito_app_client_id" {
   type = string
+}
+
+variable "user_pool_arn" {
+  description = "ARN of the Cognito User Pool (scopes the Admin API policy)"
+  type        = string
 }
