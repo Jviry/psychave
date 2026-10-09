@@ -170,7 +170,7 @@ def test_get_user_me_invalid_token(api_url):
         params={"access_token": "invalid_access_token_123"},
         timeout=10
     )
-    assert response.status_code == 400
+    assert response.status_code == 401
 
 
 def test_refresh_token_success(api_url, authenticated_user):
@@ -209,7 +209,7 @@ def test_logout_success(api_url, admin_user_factory):
 
     response = requests.post(
         f"{api_url}/auth/logout",
-        params={"access_tokens": access_token},
+        params={"access_token": access_token},
         timeout=10
     )
     assert response.status_code == 200
@@ -219,10 +219,10 @@ def test_logout_success(api_url, admin_user_factory):
 def test_logout_invalid_token(api_url):
     response = requests.post(
         f"{api_url}/auth/logout",
-        params={"access_tokens": "invalid_access_token_123"},
+        params={"access_token": "invalid_access_token_123"},
         timeout=10
     )
-    assert response.status_code == 400
+    assert response.status_code == 401
 
 
 def test_delete_user_self_success(api_url, admin_user_factory):
@@ -237,7 +237,7 @@ def test_delete_user_self_success(api_url, admin_user_factory):
 
     response = requests.delete(
         f"{api_url}/auth/delete",
-        params={"access_tokens": access_token},
+        params={"access_token": access_token},
         timeout=10
     )
     assert response.status_code == 200
@@ -255,10 +255,10 @@ def test_delete_user_self_success(api_url, admin_user_factory):
 def test_delete_user_invalid_token(api_url):
     response = requests.delete(
         f"{api_url}/auth/delete",
-        params={"access_tokens": "invalid_access_token_123"},
+        params={"access_token": "invalid_access_token_123"},
         timeout=10
     )
-    assert response.status_code == 400
+    assert response.status_code == 401
 
 
 def test_admin_user_factory_with_role(api_url, admin_user_factory):
