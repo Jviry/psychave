@@ -149,6 +149,9 @@ def test_login_nonexistent_user(api_url):
 def test_get_user_me_success(api_url, authenticated_user):
     response = requests.post(
         f"{api_url}/auth/me",
+        headers={
+            "Authorization": f"Bearer {authenticated_user['access_token']}"
+        },
         params={"access_token": authenticated_user["access_token"]},
         timeout=10
     )
@@ -205,8 +208,10 @@ def test_logout_success(api_url, admin_user_factory):
     assert login_res.status_code == 200
     access_token = login_res.json()["AccessToken"]
 
+    headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.post(
         f"{api_url}/auth/logout",
+        headers=headers,
         params={"access_token": access_token},
         timeout=10
     )
@@ -237,8 +242,10 @@ def test_delete_user_self_success(api_url, admin_user_factory):
     assert login_res.status_code == 200
     access_token = login_res.json()["AccessToken"]
 
+    headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.delete(
         f"{api_url}/auth/delete",
+        headers=headers,
         params={"access_token": access_token},
         timeout=10
     )
