@@ -1,4 +1,4 @@
-from models.auth_model import (
+from schemas.auth_model import (
     UserLogin,
     UserCreate,
     ConfirmUserRequest,

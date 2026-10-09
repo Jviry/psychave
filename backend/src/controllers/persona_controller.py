@@ -8,7 +8,7 @@ from models.user import User, UserRole
 from usecase.persona_usecase import PersonaUsecase
 from schemas.persona import PersonaWithConsentCreate, PersonaRead
 
-router = APIRouter(prefix="/personas")
+router = APIRouter()
 
 
 @router.post("", response_model=PersonaRead)
