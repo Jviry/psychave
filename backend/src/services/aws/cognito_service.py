@@ -47,13 +47,15 @@ class CognitoService:
     def create_user(self, credentials: UserCreate):
         response = self.client.sign_up(
             ClientId=self.client_id,
-            Username=credentials.username,
+            Username=credentials.preferred_username,
             Password=credentials.password,
             UserAttributes=[
                 {"Name": "email", "Value": credentials.email},
-                {"Name": "preferred_username", "Value": credentials.username},
+                {"Name": "preferred_username",
+                    "Value": credentials.preferred_username},
             ],
         )
+
         return response
 
     def confirm_user(self, request: ConfirmUserRequest):
