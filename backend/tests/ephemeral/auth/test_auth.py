@@ -1,4 +1,5 @@
 import uuid
+import pytest
 import requests
 
 
@@ -108,3 +109,168 @@ def test_request_forgot_password_missing_username(api_url):
     response = requests.post(
         f"{api_url}/auth/request-forgot-password", timeout=10)
     assert response.status_code == 422
+
+
+# --- Authenticated & Confirmed User Tests (Admin API Created) ---
+
+
+def test_login_success(api_url, confirmed_user):
+    response = requests.post(
+        f"{api_url}/auth/login",
+        json={
+            "username": confirmed_user["username"],
+            "password": confirmed_user["password"]
+        },
+        timeout=10
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "AccessToken" in data
+    assert "IdToken" in data
+
+
+def test_login_invalid_password(api_url, confirmed_user):
+    response = requests.post(
+        f"{api_url}/auth/login",
+        json={
+            "username": confirmed_user["username"],
+            "password": "WrongPassword123!"
+        },
+        timeout=10
+    )
+    assert response.status_code == 400
+
+
+def test_login_nonexistent_user(api_url):
+    response = requests.post(
+        f"{api_url}/auth/login",
+        json={
+            "username": f"nonexistent_{uuid.uuid4().hex[:8]}",
+            "password": "ValidPassword123!"
+        },
+        timeout=10
+    )
+    assert response.status_code == 400
+
+
+def test_get_user_me_success(api_url, authenticated_user):
+    response = requests.post(
+        f"{api_url}/auth/me",
+        params={"access_token": authenticated_user["access_token"]},
+        timeout=10
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("Username") == authenticated_user["username"]
+
+
+def test_get_user_me_invalid_token(api_url):
+    response = requests.post(
+        f"{api_url}/auth/me",
+        params={"access_token": "invalid_access_token_123"},
+        timeout=10
+    )
+    assert response.status_code == 400
+
+
+def test_refresh_token_success(api_url, authenticated_user):
+    refresh_token = authenticated_user.get("refresh_token")
+    if not refresh_token:
+        pytest.skip("No refresh token returned during login")
+
+    response = requests.post(
+        f"{api_url}/auth/refresh-token",
+        params={"refresh_token": refresh_token},
+        timeout=10
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "AccessToken" in data
+
+
+def test_refresh_token_invalid(api_url):
+    response = requests.post(
+        f"{api_url}/auth/refresh-token",
+        params={"refresh_token": "invalid_refresh_token_123"},
+        timeout=10
+    )
+    assert response.status_code == 400
+
+
+def test_logout_success(api_url, admin_user_factory):
+    user = admin_user_factory()
+    login_res = requests.post(
+        f"{api_url}/auth/login",
+        json={"username": user["username"], "password": user["password"]},
+        timeout=10
+    )
+    assert login_res.status_code == 200
+    access_token = login_res.json()["AccessToken"]
+
+    response = requests.post(
+        f"{api_url}/auth/logout",
+        params={"access_tokens": access_token},
+        timeout=10
+    )
+    assert response.status_code == 200
+    assert response.json().get("message") == "logout successful"
+
+
+def test_logout_invalid_token(api_url):
+    response = requests.post(
+        f"{api_url}/auth/logout",
+        params={"access_tokens": "invalid_access_token_123"},
+        timeout=10
+    )
+    assert response.status_code == 400
+
+
+def test_delete_user_self_success(api_url, admin_user_factory):
+    user = admin_user_factory()
+    login_res = requests.post(
+        f"{api_url}/auth/login",
+        json={"username": user["username"], "password": user["password"]},
+        timeout=10
+    )
+    assert login_res.status_code == 200
+    access_token = login_res.json()["AccessToken"]
+
+    response = requests.delete(
+        f"{api_url}/auth/delete",
+        params={"access_tokens": access_token},
+        timeout=10
+    )
+    assert response.status_code == 200
+    assert response.json().get("message") == "delete user successful"
+
+    # Verify user is deleted by trying to log in again
+    retry_login = requests.post(
+        f"{api_url}/auth/login",
+        json={"username": user["username"], "password": user["password"]},
+        timeout=10
+    )
+    assert retry_login.status_code == 400
+
+
+def test_delete_user_invalid_token(api_url):
+    response = requests.delete(
+        f"{api_url}/auth/delete",
+        params={"access_tokens": "invalid_access_token_123"},
+        timeout=10
+    )
+    assert response.status_code == 400
+
+
+def test_admin_user_factory_with_role(api_url, admin_user_factory):
+    psychologist_user = admin_user_factory(role="psychologist")
+    response = requests.post(
+        f"{api_url}/auth/login",
+        json={
+            "username": psychologist_user["username"],
+            "password": psychologist_user["password"]
+        },
+        timeout=10
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "AccessToken" in data

@@ -75,17 +75,22 @@ jobs:
             -var-file="dev.tfvars" \
             -var="environment=pr-${{ github.event.pull_request.number }}"
 
-      - name: Get API URL
+      - name: Get API and Cognito Outputs
         id: api
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           echo "url=$(tofu output -raw api_endpoint)" >> "$GITHUB_OUTPUT"
+          echo "cognito_user_pool_id=$(tofu output -raw cognito_user_pool_id)" >> "$GITHUB_OUTPUT"
+          echo "cognito_app_client_id=$(tofu output -raw cognito_app_client_id)" >> "$GITHUB_OUTPUT"
 
       - name: Run API tests
         env:
           API_URL: ${{ steps.api.outputs.url }}
+          COGNITO_USER_POOL_ID: ${{ steps.api.outputs.cognito_user_pool_id }}
+          COGNITO_APP_CLIENT_ID: ${{ steps.api.outputs.cognito_app_client_id }}
+          AWS_REGION: ${{ env.AWS_REGION }}
         run: |
-          python -m pip install pytest requests
+          python -m pip install pytest requests boto3
           pytest -v backend/tests/ephemeral
 
       - name: Comment API URL
