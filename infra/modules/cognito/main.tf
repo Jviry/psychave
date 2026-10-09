@@ -1,7 +1,10 @@
 resource "aws_cognito_user_pool" "this" {
   name = var.user_pool_name
 
-  username_attributes = ["email"]
+  alias_attributes = [
+    "email",
+    "preferred_username"
+  ]
 
   auto_verified_attributes = ["email"]
 
@@ -10,7 +13,7 @@ resource "aws_cognito_user_pool" "this" {
     require_lowercase                = true
     require_uppercase                = true
     require_numbers                  = true
-    require_symbols                  = false
+    require_symbols                  = true
     temporary_password_validity_days = 7
   }
 

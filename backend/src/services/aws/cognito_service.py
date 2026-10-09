@@ -6,6 +6,8 @@ from models.auth_model import (
     ConfirmUserRequest,
     ForgotPasswordConfirm
 )
+from dotenv import load_dotenv
+load_dotenv()
 
 
 class CognitoService:
@@ -49,9 +51,9 @@ class CognitoService:
             Password=credentials.password,
             UserAttributes=[
                 {"Name": "email", "Value": credentials.email},
-                {"Name": "preferred_username", "Value": credentials.username},
             ],
         )
+
         return response
 
     def confirm_user(self, request: ConfirmUserRequest):

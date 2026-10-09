@@ -111,12 +111,12 @@ async def resend_confirmation_code(
 
 @router.post("/logout")
 async def logout_user(
-    access_tokens: str,
+    access_token: str,
     auth_service: CognitoService = Depends(CognitoService)
 ):
     try:
         uc = AuthUsecase(auth_service)
-        return uc.logout_user(access_tokens)
+        return uc.logout_user(access_token)
 
     except ClientError as e:
         error_message = e.response["Error"]["Message"]
@@ -159,12 +159,12 @@ async def confirm_forgot_password(
 
 @router.delete("/delete")
 async def delete_user(
-    access_tokens: str,
+    access_token: str,
     auth_service: CognitoService = Depends(CognitoService)
 ):
     try:
         uc = AuthUsecase(auth_service)
-        return uc.delete_user(access_tokens)
+        return uc.delete_user(access_token)
 
     except ClientError as e:
         error_message = e.response["Error"]["Message"]
