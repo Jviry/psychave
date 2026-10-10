@@ -1,7 +1,9 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 from pydantic import field_validator, model_validator
 from sqlmodel import SQLModel
+
+from models.persona import ContactMode, PersonaRelation
 
 MINOR_CUTOFF_AGE = 18
 
@@ -12,8 +14,7 @@ def _calculate_age(dob: date) -> int:
 
 
 class PersonaCreate(SQLModel):
-    relation_to_account_holder: str
-    # "self" | "child" | "spouse" | "parent" | "sibling" | "other"
+    relation_to_account_holder: PersonaRelation
     persona_name: str
     date_of_birth: date
     occupation: str | None = None
@@ -23,9 +24,8 @@ class PersonaCreate(SQLModel):
     contact_number: str
     socmed_platform: str | None = None
     socmed_username: str | None = None
-    preferred_contact_mode: str
-    # "phone" | "email" | "messenger" | "instagram"
-    emergency_contact_mode: str
+    preferred_contact_mode: ContactMode
+    emergency_contact_name: str
     emergency_contact_relation: str
     emergency_contact_number: str
 
@@ -58,7 +58,8 @@ class ConsentCreate(SQLModel):
                 "Overseas/foreign acknowledgement is required when is_overseas_or_foreign is true"
             )
         if self.terms_signer_name.strip().lower() != self.consent_signer_name.strip().lower():
-            raise ValueError("Terms signer name and consent signer name must match")
+            raise ValueError(
+                "Terms signer name and consent signer name must match")
         return self
 
 
@@ -68,7 +69,8 @@ class PersonaWithConsentCreate(SQLModel):
 
     @model_validator(mode="after")
     def check_minor_signer(self):
-        is_minor = _calculate_age(self.persona.date_of_birth) < MINOR_CUTOFF_AGE
+        is_minor = _calculate_age(
+            self.persona.date_of_birth) < MINOR_CUTOFF_AGE
         if is_minor and self.consent.terms_signer_relation == "self":
             raise ValueError(
                 "A minor's consent cannot be signed as 'self' — provide the signer's relation"
@@ -78,9 +80,34 @@ class PersonaWithConsentCreate(SQLModel):
 
 class PersonaRead(SQLModel):
     persona_id: uuid.UUID
-    relation_to_account_holder: str
+    relation_to_account_holder: PersonaRelation
     persona_name: str
     date_of_birth: date
+    occupation: str | None = None
     nationality: str
+    permanent_address: str
+    present_address: str
     contact_number: str
-    preferred_contact_mode: str
+    socmed_platform: str | None = None
+    socmed_username: str | None = None
+    preferred_contact_mode: ContactMode
+    emergency_contact_name: str
+    emergency_contact_relation: str
+    emergency_contact_number: str
+
+
+class ConsentRead(SQLModel):
+    consent_version: str
+    terms_signer_name: str
+    terms_signer_relation: str
+    scope_acknowledged: bool
+    is_overseas_or_foreign: bool = False
+    overseas_acknowledged: bool = False
+    information_confirmed: bool
+    consent_signer_name: str
+    signed_at: datetime | None = None
+
+
+class PersonaReviewResponse(SQLModel):
+    persona: PersonaRead
+    consent: ConsentRead

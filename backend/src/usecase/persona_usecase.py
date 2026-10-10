@@ -3,7 +3,7 @@ from sqlmodel import Session
 
 from common.exceptions import ConflictError, NotFoundError
 from repo.persona_repo import PersonaRepo
-from schemas.persona import PersonaWithConsentCreate
+from schemas.persona import PersonaWithConsentCreate, ConsentRead, PersonaRead
 
 CURRENT_CONSENT_VERSION = "v1"
 
@@ -39,4 +39,10 @@ class PersonaUsecase:
             raise NotFoundError("Persona not found")
 
         form = self.repo.get_latest_form(persona_id)
-        return persona, form
+        if form is None:
+            raise NotFoundError("Consent form not found")
+
+        return {
+            "persona": PersonaRead.model_validate(persona),
+            "consent": ConsentRead.model_validate(form)
+        }

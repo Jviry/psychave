@@ -1,6 +1,14 @@
 import uuid
+from enum import Enum
 from datetime import datetime
 from sqlmodel import SQLModel, Field
+
+
+class AppointmentStatus(str, Enum):
+    PENDING = "pending"
+    AWAITING_SLOT_SELECTION = "awaiting_slot_selection"
+    AWAITING_PAYMENT = "awaiting_payment"
+    CANCELLED = "cancelled"
 
 
 class Appointment(SQLModel, table=True):
@@ -16,6 +24,6 @@ class Appointment(SQLModel, table=True):
     )
     price: float | None = None
     requested_datetime: datetime | None = None
-    status: str = "pending"
+    status: AppointmentStatus = Field(default=AppointmentStatus.PENDING)
     service_id: uuid.UUID = Field(foreign_key="services.service_id")
     presenting_concern: str
