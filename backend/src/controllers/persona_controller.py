@@ -6,7 +6,7 @@ from common.database import get_db
 from dependencies.auth import require_role
 from models.user import User, UserRole
 from usecase.persona_usecase import PersonaUsecase
-from schemas.persona import PersonaWithConsentCreate, PersonaRead
+from schemas.persona import PersonaWithConsentCreate, PersonaRead, PersonaReviewResponse
 
 router = APIRouter()
 
@@ -40,7 +40,7 @@ def get_persona(
     return usecase.get_persona(persona_id, current_user.user_id)
 
 
-@router.get("{persona_id}/review", response_model=PersonaWithConsentCreate)
+@router.get("/{persona_id}/review", response_model=PersonaReviewResponse)
 def get_persona_for_review(
     persona_id: uuid.UUID,
     db: Session = Depends(get_db),

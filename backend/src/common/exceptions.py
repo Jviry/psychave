@@ -27,3 +27,10 @@ class ConflictError(DomainError):
 
     def __init__(self, detail: str):
         super().__init__(detail)
+
+
+class BadRequestError(DomainError):
+    status_code = 400
+
+    def __init__(self, detail: str):
+        super().__init__(detail)
