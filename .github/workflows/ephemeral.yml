@@ -65,7 +65,8 @@ jobs:
         run: |
           tofu plan \
             -var-file="dev.tfvars" \
-            -var="environment=pr-${{ github.event.pull_request.number }}"
+            -var="environment=pr-${{ github.event.pull_request.number }}" \
+            -var="database_url=${{ secrets.DATABASE_URL }}"
 
       - name: OpenTofu Apply
         working-directory: infra/environments/dev
@@ -74,6 +75,7 @@ jobs:
             -auto-approve \
             -var-file="dev.tfvars" \
             -var="environment=pr-${{ github.event.pull_request.number }}"
+            -var="database_url=${{ secrets.DATABASE_URL }}"
 
       - name: Get API and Cognito Outputs
         id: api
@@ -157,3 +159,4 @@ jobs:
             -auto-approve \
             -var-file="dev.tfvars" \
             -var="environment=pr-${{ github.event.pull_request.number }}"
+            -var="database_url=${{ secrets.DATABASE_URL }}"

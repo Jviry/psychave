@@ -13,3 +13,8 @@ variable "environment" {
 variable "lambda_zip_path" {
   type = string
 }
+
+variable "database_url" {
+  type      = string
+  sensitive = true
+}
