@@ -74,7 +74,7 @@ jobs:
           tofu apply \
             -auto-approve \
             -var-file="dev.tfvars" \
-            -var="environment=pr-${{ github.event.pull_request.number }}"
+            -var="environment=pr-${{ github.event.pull_request.number }}" \
             -var="database_url=${{ secrets.DATABASE_URL }}"
 
       - name: Get API and Cognito Outputs
@@ -158,5 +158,5 @@ jobs:
           tofu destroy \
             -auto-approve \
             -var-file="dev.tfvars" \
-            -var="environment=pr-${{ github.event.pull_request.number }}"
+            -var="environment=pr-${{ github.event.pull_request.number }}" \
             -var="database_url=${{ secrets.DATABASE_URL }}"
