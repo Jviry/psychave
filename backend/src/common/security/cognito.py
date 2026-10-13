@@ -17,6 +17,12 @@ def get_jwks():
 
 
 def verify_token(token: str) -> dict:
+    """Validate a Cognito **ID token** and return its claims.
+
+    Send the ID token in ``Authorization: Bearer <id_token>`` — access
+    tokens are rejected because they carry ``client_id`` instead of ``aud``.
+    (The gateway authorizer accepts both; the app only accepts ID tokens.)
+    """
     jwks = get_jwks()
     unverified_header = jwt.get_unverified_header(token)
     key = next((k for k in jwks if k["kid"] == unverified_header["kid"]), None)

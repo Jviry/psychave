@@ -1,5 +1,5 @@
 import boto3
-import os
+from common.settings import settings
 from models.auth_model import (
     UserLogin,
     UserCreate,
@@ -13,8 +13,10 @@ load_dotenv()
 class CognitoService:
 
     def __init__(self):
-        self.client = boto3.client("cognito-idp")
-        self.client_id = os.environ["COGNITO_APP_CLIENT_ID"]
+        self.client = boto3.client(
+            "cognito-idp", region_name=settings.AWS_REGION)
+        self.client_id = settings.COGNITO_APP_CLIENT_ID
+        self.user_pool_id = settings.COGNITO_USER_POOL_ID
 
     def get_user(self, access_token: str):
         response = self.client.get_user(AccessToken=access_token)
@@ -71,6 +73,28 @@ class CognitoService:
             Username=username,
         )
         return response
+
+    def add_user_to_group(self, username: str, group: str):
+        self.client.admin_add_user_to_group(
+            UserPoolId=self.user_pool_id,
+            Username=username,
+            GroupName=group,
+        )
+
+    def describe_user(self, username: str) -> dict:
+        response = self.client.admin_get_user(
+            UserPoolId=self.user_pool_id,
+            Username=username,
+        )
+        attrs = {a["Name"]: a["Value"] for a in response["UserAttributes"]}
+        return {"sub": attrs["sub"], "email": attrs["email"]}
+
+    def list_user_groups(self, username: str) -> list[str]:
+        response = self.client.admin_list_groups_for_user(
+            UserPoolId=self.user_pool_id,
+            Username=username,
+        )
+        return [g["GroupName"] for g in response["Groups"]]
 
     def logout_user(self, access_token: str):
         self.client.global_sign_out(AccessToken=access_token)

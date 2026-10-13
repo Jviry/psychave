@@ -23,3 +23,9 @@ variable "user_pool_arn" {
   description = "ARN of the Cognito User Pool (scopes the Admin API policy)"
   type        = string
 }
+
+variable "database_url" {
+  description = "PostgreSQL conn string passed as DATABASE_URL"
+  type = string
+  sensitive = true
+}

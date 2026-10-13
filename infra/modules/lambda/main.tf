@@ -17,6 +17,7 @@ resource "aws_lambda_function" "this" {
     variables = {
       COGNITO_USER_POOL_ID  = var.cognito_user_pool_id
       COGNITO_APP_CLIENT_ID = var.cognito_app_client_id
+      DATABASE_URL          = var.database_url
     }
   }
 }

@@ -1,58 +1,55 @@
-from fastapi import Depends, HTTPException, Header
-from sqlmodel import Session, select
+from fastapi import Depends, Header
+from sqlmodel import Session
 
-from common.security.cognito import verify_token
 from common.database import get_db
+from common.exceptions import (
+    ForbiddenError,
+    UnauthenticatedError,
+    UserNotFoundError,
+)
+from common.security.cognito import verify_token
 from models.user import User, UserRole
+from repo.user_repo import UserRepository
 
 
-def get_current_user(
-    authorization: str = Header(...),
-    db: Session = Depends(get_db),
-) -> User:
-
+def get_claims(authorization: str = Header(...)) -> dict:
     if not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid authorization header"
-        )
+        raise UnauthenticatedError("Invalid authorization header")
 
     token = authorization.removeprefix("Bearer ").strip()
 
     try:
-        claims = verify_token(token)
-    except Exception:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid or expired token"
-        )
+        return verify_token(token)
+    except Exception as exc:
+        raise UnauthenticatedError("Invalid or expired token") from exc
 
-    cognito_sub = claims["sub"]
 
-    user = db.exec(
-        select(User).where(User.cognito_sub == cognito_sub)
-    ).first()
+def get_current_user(
+    claims: dict = Depends(get_claims),
+    db: Session = Depends(get_db),
+) -> User:
+    cognito_sub = claims.get("sub")
+
+    if not cognito_sub:
+        raise UnauthenticatedError("Invalid or expired token")
+
+    user = UserRepository(db).get_by_cognito_sub(cognito_sub)
 
     if user is None:
-        raise HTTPException(
-            status_code=401,
-            detail="User not found"
-        )
+        raise UserNotFoundError()
 
     return user
 
 
 def require_role(*allowed_roles: UserRole):
+    allowed = {role.value for role in allowed_roles}
 
-    def role_checker(
-        current_user: User = Depends(get_current_user)
-    ):
-        if current_user.role not in allowed_roles:
-            raise HTTPException(
-                status_code=403,
-                detail="Insufficient permissions"
-            )
+    def role_checker(claims: dict = Depends(get_claims)) -> dict:
+        groups = set(claims.get("cognito:groups", []))
 
-        return current_user
+        if not allowed & groups:
+            raise ForbiddenError()
+
+        return claims
 
     return role_checker

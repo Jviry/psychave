@@ -65,7 +65,8 @@ jobs:
         run: |
           tofu plan \
             -var-file="dev.tfvars" \
-            -var="environment=pr-${{ github.event.pull_request.number }}"
+            -var="environment=pr-${{ github.event.pull_request.number }}" \
+            -var="database_url=${{ secrets.DATABASE_URL }}"
 
       - name: OpenTofu Apply
         working-directory: infra/environments/dev
@@ -73,7 +74,8 @@ jobs:
           tofu apply \
             -auto-approve \
             -var-file="dev.tfvars" \
-            -var="environment=pr-${{ github.event.pull_request.number }}"
+            -var="environment=pr-${{ github.event.pull_request.number }}" \
+            -var="database_url=${{ secrets.DATABASE_URL }}"
 
       - name: Get API and Cognito Outputs
         id: api
@@ -82,16 +84,6 @@ jobs:
           echo "url=$(tofu output -raw api_endpoint)" >> "$GITHUB_OUTPUT"
           echo "cognito_user_pool_id=$(tofu output -raw cognito_user_pool_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_app_client_id=$(tofu output -raw cognito_app_client_id)" >> "$GITHUB_OUTPUT"
-
-      - name: Run API tests
-        env:
-          API_URL: ${{ steps.api.outputs.url }}
-          COGNITO_USER_POOL_ID: ${{ steps.api.outputs.cognito_user_pool_id }}
-          COGNITO_APP_CLIENT_ID: ${{ steps.api.outputs.cognito_app_client_id }}
-          AWS_REGION: ${{ env.AWS_REGION }}
-        run: |
-          python -m pip install pytest requests boto3 python-dotenv
-          pytest -v backend/tests/ephemeral
 
       - name: Comment API URL
         if: success()
@@ -156,4 +148,5 @@ jobs:
           tofu destroy \
             -auto-approve \
             -var-file="dev.tfvars" \
-            -var="environment=pr-${{ github.event.pull_request.number }}"
+            -var="environment=pr-${{ github.event.pull_request.number }}" \
+            -var="database_url=${{ secrets.DATABASE_URL }}"

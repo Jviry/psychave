@@ -1,5 +1,7 @@
 from pydantic import BaseModel, EmailStr
 
+from models.user import UserRole
+
 
 class UserLogin(BaseModel):
     username: str
@@ -10,6 +12,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     username: str
     password: str
+    role: UserRole = UserRole.CLIENT
 
 
 class ConfirmUserRequest(BaseModel):
