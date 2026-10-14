@@ -1,3 +1,4 @@
+from common.exceptions import ValidationError
 from common.security.cognito import verify_token
 from schemas.auth_model import (
     UserLogin,
@@ -7,6 +8,8 @@ from schemas.auth_model import (
 )
 from models.user import User, UserRole
 from repo.user_repo import UserRepository
+from services.aws.cognito_service import CognitoService
+from sqlmodel import Session
 
 # use DTOs on the parameters in the future
 # functions that returns {"message"} have no response in cognito api
@@ -16,9 +19,9 @@ SELF_ASSIGNABLE_ROLES = {UserRole.CLIENT, UserRole.PSYCHOLOGIST}
 
 class AuthUsecase:
 
-    def __init__(self, service, user_repo: UserRepository | None = None):
+    def __init__(self, service: CognitoService, db: Session):
         self.auth = service
-        self.user_repo = user_repo
+        self.user_repo = UserRepository(db)
 
     def get_user(self, access_token: str):
         response = self.auth.get_user(access_token)
@@ -38,7 +41,7 @@ class AuthUsecase:
 
     def create_user(self, credentials: UserCreate):
         if credentials.role not in SELF_ASSIGNABLE_ROLES:
-            raise ValueError("Admin role cannot be self-assigned")
+            raise ValidationError("Admin role cannot be self-assigned")
 
         self.auth.create_user(credentials)
         self.auth.add_user_to_group(
@@ -79,9 +82,6 @@ class AuthUsecase:
 
     def _sync_user(self, username: str):
         """Create the local User row from Cognito state. Idempotent."""
-        if self.user_repo is None:
-            return
-
         profile = self.auth.describe_user(username)
         groups = self.auth.list_user_groups(username)
         role = groups[0] if groups else UserRole.CLIENT.value
@@ -98,7 +98,7 @@ class AuthUsecase:
 
         Never breaks login — sync is best-effort.
         """
-        if not id_token or self.user_repo is None:
+        if not id_token:
             return
 
         try:
