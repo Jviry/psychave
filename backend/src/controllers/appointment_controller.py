@@ -7,6 +7,10 @@ from dependencies.auth import require_role
 from models.user import User, UserRole
 from models.appointment import AppointmentStatus
 from usecase.appointment_usecase import AppointmentUsecase
+from usecase.payment_usecase import PaymentUsecase
+from dependencies.payments import get_payment_provider
+from services.payments.base import PaymentProvider
+from schemas.payment import PaymentInitiateRequest, PaymentRead
 from schemas.appointment import (
     AppointmentCreate,
     AppointmentRead,
@@ -78,3 +82,31 @@ def select_slot(
 ):
     uc = AppointmentUsecase(db)
     return uc.select_slot(appointment_id, payload.slot_id, current_user.user_id)
+
+
+# ----- payment -----
+@router.post("/{appointment_id}/payment", response_model=PaymentRead)
+def initiate_payment(
+    appointment_id: uuid.UUID,
+    payload: PaymentInitiateRequest | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.CLIENT)),
+    provider: PaymentProvider = Depends(get_payment_provider),
+):
+    uc = PaymentUsecase(db, provider)
+    return uc.initiate_payment(
+        appointment_id,
+        current_user.user_id,
+        payment_method=payload.payment_method if payload else None,
+    )
+
+
+@router.get("/{appointment_id}/payment", response_model=list[PaymentRead])
+def get_payments(
+    appointment_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.CLIENT)),
+    provider: PaymentProvider = Depends(get_payment_provider),
+):
+    uc = PaymentUsecase(db, provider)
+    return uc.get_history(appointment_id, current_user.user_id)
