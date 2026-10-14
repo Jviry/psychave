@@ -17,6 +17,7 @@ from schemas.appointment import (
 router = APIRouter()
 
 
+# ----- booking -----
 @router.post("", response_model=AppointmentRead)
 def create_appointment(
     payload: AppointmentCreate,
@@ -47,6 +48,17 @@ def get_appointment(
     return uc.get_appointment(appointment_id, current_user.user_id)
 
 
+@router.delete("/{appointment_id}", response_model=AppointmentRead)
+def cancel_appointment(
+    appointment_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.CLIENT))
+):
+    uc = AppointmentUsecase(db)
+    return uc.cancel_appointment(appointment_id, current_user.user_id)
+
+
+# ----- slot selection -----
 @router.get("/{appointment_id}/slots", response_model=list[ProposedSlotRead])
 def get_slots(
     appointment_id: uuid.UUID,
@@ -66,13 +78,3 @@ def select_slot(
 ):
     uc = AppointmentUsecase(db)
     return uc.select_slot(appointment_id, payload.slot_id, current_user.user_id)
-
-
-@router.delete("/{appointment_id}", response_model=AppointmentRead)
-def cancel_appointment(
-    appointment_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.CLIENT))
-):
-    uc = AppointmentUsecase(db)
-    return uc.cancel_appointment(appointment_id, current_user.user_id)

@@ -2,7 +2,15 @@ import uuid
 from sqlmodel import Session, select
 from models.persona import Persona
 from models.forms import Forms
+from models.appointment import Appointment, AppointmentStatus
+from models.proposed_slot import ProposedSlot
 from schemas.persona import PersonaCreate, ConsentCreate
+
+ACTIVE_APPOINTMENT_STATUSES = (
+    AppointmentStatus.PENDING,
+    AppointmentStatus.AWAITING_SLOT_SELECTION,
+    AppointmentStatus.AWAITING_PAYMENT,
+)
 
 
 class PersonaRepo:
@@ -36,3 +44,43 @@ class PersonaRepo:
             .where(Forms.persona_id == persona_id)
             .order_by(Forms.signed_at.desc())
         ).first()
+
+    def has_active_appointments(self, persona_id: uuid.UUID) -> bool:
+        return self.db.exec(
+            select(Appointment.appointment_id)
+            .where(
+                Appointment.persona_id == persona_id,
+                Appointment.status.in_(ACTIVE_APPOINTMENT_STATUSES),
+            )
+        ).first() is not None
+
+    def delete_persona(self, persona_id: uuid.UUID) -> None:
+        """Delete a persona plus its forms and inactive appointment history.
+
+        Cancelled appointments and their proposed slots are removed too,
+        otherwise their non-nullable persona_id FK would be violated.
+        Callers must block on has_active_appointments() first.
+        """
+        appointment_ids = self.db.exec(
+            select(Appointment.appointment_id).where(
+                Appointment.persona_id == persona_id
+            )
+        ).all()
+        for slot in self.db.exec(
+            select(ProposedSlot).where(
+                ProposedSlot.appointment_id.in_(appointment_ids)
+            )
+        ).all():
+            self.db.delete(slot)
+        for appt in self.db.exec(
+            select(Appointment).where(Appointment.persona_id == persona_id)
+        ).all():
+            self.db.delete(appt)
+        for form in self.db.exec(
+            select(Forms).where(Forms.persona_id == persona_id)
+        ).all():
+            self.db.delete(form)
+        persona = self.db.get(Persona, persona_id)
+        if persona is not None:
+            self.db.delete(persona)
+        self.db.commit()

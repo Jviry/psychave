@@ -33,6 +33,18 @@ class PersonaUsecase:
             raise NotFoundError("Persona not found")
         return persona
 
+    def delete_persona(self, persona_id: uuid.UUID, client_id: uuid.UUID) -> PersonaRead:
+        persona = self.repo.get_by_id(persona_id)
+        if persona is None or persona.client_id != client_id:
+            raise NotFoundError("Persona not found")
+        if self.repo.has_active_appointments(persona_id):
+            raise ConflictError(
+                "Cannot delete persona with active appointments")
+        # Snapshot before delete — the session expires attributes on commit.
+        deleted = PersonaRead.model_validate(persona)
+        self.repo.delete_persona(persona_id)
+        return deleted
+
     def get_persona_for_psychologist(self, persona_id: uuid.UUID):
         persona = self.repo.get_by_id(persona_id)
         if persona is None:

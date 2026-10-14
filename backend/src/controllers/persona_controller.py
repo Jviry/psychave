@@ -11,6 +11,7 @@ from schemas.persona import PersonaWithConsentCreate, PersonaRead, PersonaReview
 router = APIRouter()
 
 
+# client api
 @router.post("", response_model=PersonaRead)
 def create_persona(
     payload: PersonaWithConsentCreate,
@@ -40,6 +41,17 @@ def get_persona(
     return usecase.get_persona(persona_id, current_user.user_id)
 
 
+@router.delete("/{persona_id}", response_model=PersonaRead)
+def delete_persona(
+    persona_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.CLIENT)),
+):
+    usecase = PersonaUsecase(db)
+    return usecase.delete_persona(persona_id, current_user.user_id)
+
+
+# psychologist api
 @router.get("/{persona_id}/review", response_model=PersonaReviewResponse)
 def get_persona_for_review(
     persona_id: uuid.UUID,
