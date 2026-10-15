@@ -41,6 +41,14 @@ class PersonaRepo:
     def get_by_id(self, persona_id: uuid.UUID) -> Persona | None:
         return self.db.get(Persona, persona_id)
 
+    def update_persona(self, persona: Persona, data: PersonaCreate) -> Persona:
+        for field, value in data.model_dump().items():
+            setattr(persona, field, value)
+        self.db.add(persona)
+        self.db.commit()
+        self.db.refresh(persona)
+        return persona
+
     def get_latest_form(self, persona_id: uuid.UUID) -> Forms | None:
         return self.db.exec(
             select(Forms)

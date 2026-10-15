@@ -6,7 +6,12 @@ from common.database import get_db
 from dependencies.auth import require_role
 from models.user import User, UserRole
 from usecase.persona_usecase import PersonaUsecase
-from schemas.persona import PersonaWithConsentCreate, PersonaRead, PersonaReviewResponse
+from schemas.persona import (
+    PersonaCreate,
+    PersonaWithConsentCreate,
+    PersonaRead,
+    PersonaReviewResponse,
+)
 
 router = APIRouter()
 
@@ -49,6 +54,17 @@ def delete_persona(
 ):
     usecase = PersonaUsecase(db)
     return usecase.delete_persona(persona_id, current_user.user_id)
+
+
+@router.put("/{persona_id}", response_model=PersonaRead)
+def update_persona(
+    persona_id: uuid.UUID,
+    payload: PersonaCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.CLIENT)),
+):
+    usecase = PersonaUsecase(db)
+    return usecase.update_persona(persona_id, payload, current_user.user_id)
 
 
 # psychologist api

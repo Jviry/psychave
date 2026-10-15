@@ -1,9 +1,16 @@
 import uuid
 from sqlmodel import Session
 
-from common.exceptions import ConflictError, NotFoundError
+from common.exceptions import ConflictError, NotFoundError, ValidationError
 from repo.persona_repo import PersonaRepo
-from schemas.persona import PersonaWithConsentCreate, ConsentRead, PersonaRead
+from schemas.persona import (
+    PersonaCreate,
+    PersonaWithConsentCreate,
+    ConsentRead,
+    PersonaRead,
+    MINOR_CUTOFF_AGE,
+    _calculate_age,
+)
 
 CURRENT_CONSENT_VERSION = "v1"
 
@@ -44,6 +51,25 @@ class PersonaUsecase:
         deleted = PersonaRead.model_validate(persona)
         self.repo.delete_persona(persona_id)
         return deleted
+
+    def update_persona(
+        self, persona_id: uuid.UUID, data: PersonaCreate, client_id: uuid.UUID
+    ):
+        persona = self.repo.get_by_id(persona_id)
+        if persona is None or persona.client_id != client_id:
+            raise NotFoundError("Persona not found")
+
+        form = self.repo.get_latest_form(persona_id)
+        if (
+            form is not None
+            and _calculate_age(data.date_of_birth) < MINOR_CUTOFF_AGE
+            and form.terms_signer_relation == "self"
+        ):
+            raise ValidationError(
+                "A minor's consent cannot be signed as 'self' — provide the signer's relation"
+            )
+
+        return self.repo.update_persona(persona, data)
 
     def get_persona_for_psychologist(self, persona_id: uuid.UUID):
         persona = self.repo.get_by_id(persona_id)
