@@ -1,11 +1,13 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAppStore } from '../stores/useAppStore';
+import { useAuthStore } from '../authStore';
 import { CognitoRole } from '../lib/types';
 import { API_BASE_URL } from '../lib/api';
+import { LogOut, User, ChevronDown, Settings } from 'lucide-react';
 
 export function SiteHeader() {
   const pathname = usePathname();
@@ -20,6 +22,10 @@ export function SiteHeader() {
     lastFlowEvent,
     clearFlowEvent,
   } = useAppStore();
+
+  const { isAuthenticated, user, logout: authLogout } = useAuthStore();
+  const [showDevTools, setShowDevTools] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const handleRoleSwitch = (nextRole: CognitoRole) => {
     setCognitoRole(nextRole);
@@ -144,85 +150,169 @@ export function SiteHeader() {
           })}
         </nav>
 
-        {/* Zone 3: Cognito Groups Role Switcher + Primary Action */}
+        {/* Zone 3: Auth Actions */}
         <div className="flex items-center gap-3">
-          <div
-            role="group"
-            aria-label="Mock AWS Cognito Groups Role Switcher"
-            className="flex items-center gap-0.5 p-1 bg-[#EBF2EC] rounded-lg border border-mist"
-          >
-            {(['client', 'psychologist', 'admin'] as CognitoRole[]).map((role) => {
-              const active = cognitoRole === role;
-              const labels: Record<CognitoRole, string> = {
-                client: 'Client',
-                psychologist: 'Psychologist',
-                admin: 'Admin',
-              };
-              return (
-                <button
-                  key={role}
-                  type="button"
-                  onClick={() => handleRoleSwitch(role)}
-                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
-                    active
-                      ? 'bg-pine text-white shadow-xs'
-                      : 'text-pine/75 hover:text-pine'
-                  }`}
-                >
-                  {labels[role]}
-                </button>
-              );
-            })}
-          </div>
+          {isAuthenticated && user ? (
+            // ── Authenticated: avatar + user menu ──────────────────────
+            <div className="flex items-center gap-2">
+              {/* Dev Tools toggle (collapsible mock switcher) */}
+              <button
+                type="button"
+                id="dev-tools-toggle"
+                onClick={() => setShowDevTools((v) => !v)}
+                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg text-pine/60 hover:text-pine hover:bg-mist/50 transition-colors cursor-pointer border border-mist/60"
+                title="Toggle Dev Tools (prototype mock switcher)"
+              >
+                <Settings className="w-3.5 h-3.5" />
+                Dev
+                <ChevronDown className={`w-3 h-3 transition-transform ${showDevTools ? 'rotate-180' : ''}`} />
+              </button>
 
-          <Link
-            href="/personas"
-            className="hidden sm:inline-flex items-center justify-center px-3.5 py-2 text-xs font-semibold rounded-lg bg-sage text-white hover:bg-[#4c7557] transition-colors whitespace-nowrap shrink-0"
-          >
-            Start Flow C Booking
-          </Link>
+              {/* User avatar dropdown */}
+              <div className="relative">
+                <button
+                  type="button"
+                  id="user-menu-trigger"
+                  onClick={() => setShowUserMenu((v) => !v)}
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-mist hover:bg-mist/30 transition-colors cursor-pointer"
+                  aria-haspopup="true"
+                  aria-expanded={showUserMenu}
+                >
+                  <div className="w-6 h-6 rounded-full bg-sage/20 flex items-center justify-center shrink-0">
+                    <User className="w-3.5 h-3.5 text-sage" />
+                  </div>
+                  <span className="hidden sm:block text-xs font-medium text-pine max-w-[100px] truncate">
+                    {user.username}
+                  </span>
+                  <span
+                    className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                    style={{ background: '#e8f0ea', color: '#25372d' }}
+                  >
+                    {user.role}
+                  </span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-pine/50 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+                </button>
+
+                {showUserMenu && (
+                  <div className="absolute right-0 top-full mt-1.5 w-52 bg-white rounded-xl border border-mist shadow-lg py-1.5 z-50">
+                    <div className="px-4 py-2.5 border-b border-mist/60">
+                      <p className="text-xs font-semibold text-pine truncate">{user.email || user.username}</p>
+                      <p className="text-[10px] text-pine/50 capitalize mt-0.5">{user.role}</p>
+                    </div>
+                    <Link
+                      id="user-menu-dashboard"
+                      href={user.role === 'admin' ? '/admin/verifications' : user.role === 'psychologist' ? '/psych/queue' : '/bookings'}
+                      className="flex items-center gap-2 px-4 py-2 text-xs text-pine hover:bg-mist/40 transition-colors"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      <User className="w-3.5 h-3.5 text-sage" />
+                      My Dashboard
+                    </Link>
+                    <button
+                      type="button"
+                      id="user-menu-logout"
+                      onClick={() => {
+                        authLogout();
+                        setShowUserMenu(false);
+                        router.push('/');
+                      }}
+                      className="w-full flex items-center gap-2 px-4 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      Log Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            // ── Unauthenticated: Log In + Register ────────────────────
+            <div className="flex items-center gap-2">
+              <Link
+                id="header-login-link"
+                href="/login"
+                className="px-3.5 py-2 text-xs font-semibold rounded-lg text-pine border border-mist hover:bg-mist/40 transition-colors whitespace-nowrap"
+              >
+                Log In
+              </Link>
+              <Link
+                id="header-register-link"
+                href="/register"
+                className="px-3.5 py-2 text-xs font-semibold rounded-lg text-white transition-colors whitespace-nowrap"
+                style={{ background: '#25372d' }}
+              >
+                Register
+              </Link>
+            </div>
+          )}
         </div>
       </header>
 
       {/* Secondary Contextual Workspace Sub-Bar for Role Dashboards & Mobile Nav */}
+      {/* When authenticated with Dev Tools collapsed, show role workspace nav normally */}
+      {/* When Dev Tools open (prototype mode), show the full mock switcher panel */}
       <div className="bg-[#F1F6F2] border-t border-mist/70 px-4 lg:px-8 py-2">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-4 overflow-x-auto">
-            <span className="text-pine/65 font-medium whitespace-nowrap">
-              Cognito Group ({cognitoRole}) Workspace:
-            </span>
-            <div className="flex items-center gap-4">
-              {roleNavItems[cognitoRole].map((item) => {
-                const active =
-                  pathname === item.href ||
-                  (item.href.startsWith('/proposal/') && pathname.startsWith('/proposal/'));
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`whitespace-nowrap transition-colors py-0.5 ${
-                      active
-                        ? 'text-pine font-semibold underline decoration-sage decoration-2 underline-offset-4'
-                        : 'text-pine/75 hover:text-pine'
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
+          {/* Dev Tools panel (only shown when toggled) */}
+          {isAuthenticated && showDevTools && (
+            <div className="flex flex-wrap items-center gap-4 text-pine/70">
+              <span className="font-semibold text-pine/50">⚙ Dev Tools (prototype mock switcher):</span>
+              <div
+                role="group"
+                aria-label="Mock AWS Cognito Groups Role Switcher"
+                className="flex items-center gap-0.5 p-1 bg-[#EBF2EC] rounded-lg border border-mist"
+              >
+                {(['client', 'psychologist', 'admin'] as CognitoRole[]).map((role) => {
+                  const active = cognitoRole === role;
+                  const labels: Record<CognitoRole, string> = { client: 'Client', psychologist: 'Psychologist', admin: 'Admin' };
+                  return (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() => handleRoleSwitch(role)}
+                      className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
+                        active ? 'bg-pine text-white shadow-xs' : 'text-pine/75 hover:text-pine'
+                      }`}
+                    >
+                      {labels[role]}
+                    </button>
+                  );
+                })}
+              </div>
+              <Link href="/personas" className="hidden sm:inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-lg bg-sage text-white hover:bg-[#4c7557] transition-colors">
+                Start Flow C Intake
+              </Link>
             </div>
-          </div>
+          )}
 
-          {/* Mobile public nav mirror */}
-          <div className="flex md:hidden items-center gap-3 text-xs text-pine/80">
-            <Link href="/" className="hover:underline">Home</Link>
-            <span>·</span>
-            <Link href="/services" className="hover:underline">Services</Link>
-            <span>·</span>
-            <Link href="/about" className="hover:underline">About</Link>
-            <span>·</span>
-            <Link href="/book" className="hover:underline">Book</Link>
-          </div>
+          {/* Role workspace nav (always shown when NOT in dev-tools-only collapsed mode) */}
+          {(!isAuthenticated || !showDevTools) && (
+            <div className="flex items-center gap-4 overflow-x-auto">
+              <span className="text-pine/65 font-medium whitespace-nowrap">
+                Cognito Group ({cognitoRole}) Workspace:
+              </span>
+              <div className="flex items-center gap-4">
+                {roleNavItems[cognitoRole].map((item) => {
+                  const active =
+                    pathname === item.href ||
+                    (item.href.startsWith('/proposal/') && pathname.startsWith('/proposal/'));
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`whitespace-nowrap transition-colors py-0.5 ${
+                        active
+                          ? 'text-pine font-semibold underline decoration-sage decoration-2 underline-offset-4'
+                          : 'text-pine/75 hover:text-pine'
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Tiered Access Guardrail Summary */}
           <div className="hidden lg:flex items-center gap-1.5 text-pine/70">
