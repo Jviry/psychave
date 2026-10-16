@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { Card } from '../../components/ui/primitives';
@@ -24,11 +23,9 @@ export default function AboutPage() {
       {/* Header */}
       <header className="space-y-3 border-b border-[#C0D3C3] pb-6">
         <div className="flex items-center gap-2 text-xs text-[#5D8B69] font-semibold">
-          <span>Institutional Governance</span>
+          <span>About our practice</span>
           <span aria-hidden="true">·</span>
-          <span>Anonymized Resident Roster</span>
-          <span aria-hidden="true">·</span>
-          <span>Payload CMS Managed</span>
+          <span>Our psychologists</span>
         </div>
         <h1 className="font-heading text-4xl font-bold text-[#25372D]">
           About PSYCHAVE PH (PsychAvenuePH)
@@ -43,27 +40,27 @@ export default function AboutPage() {
       <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="space-y-3 border-t-4 border-t-[#25372D]">
           <div className="flex items-center justify-between text-xs text-[#5D8B69] font-semibold">
-            <span>Institutional Direction</span>
-            <span>CMS Block · Vision</span>
+            <span>Our direction</span>
+            <span>Vision</span>
           </div>
           <h2 className="font-heading text-2xl font-bold text-[#25372D]">
-            Vision Statement Placeholder
+            Our Vision
           </h2>
           <p className="text-sm text-[#25372D]/85 leading-relaxed">
-            {cms?.vision}
+            {cms?.vision || 'Mental-health care in the Philippines that is easy to reach, clearly scoped, and worthy of trust.'}
           </p>
         </Card>
 
         <Card className="space-y-3 border-t-4 border-t-[#5D8B69]">
           <div className="flex items-center justify-between text-xs text-[#5D8B69] font-semibold">
-            <span>Clinical Mandate</span>
-            <span>CMS Block · Mission</span>
+            <span>Our commitment</span>
+            <span>Mission</span>
           </div>
           <h2 className="font-heading text-2xl font-bold text-[#25372D]">
-            Mission Statement Placeholder
+            Our Mission
           </h2>
           <p className="text-sm text-[#25372D]/85 leading-relaxed">
-            {cms?.mission}
+            {cms?.mission || 'Guide every client to a verified psychologist through structured booking, transparent scope, and privacy-first care.'}
           </p>
         </Card>
       </section>
@@ -73,25 +70,22 @@ export default function AboutPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#C0D3C3] pb-4">
           <div>
             <p className="text-xs font-semibold text-[#5D8B69]">
-              CMS Block · Clinic Overview &amp; Impact Placeholder
+              Clinic overview &amp; impact
             </p>
             <h2 className="font-heading text-3xl font-bold text-[#25372D]">
-              Clinic Overview &amp; Ethical Impact Architecture
+              Clinic Overview &amp; Ethical Practice
             </h2>
           </div>
-          <Link
-            href="/admin/cms"
-            className="text-xs font-semibold text-[#5D8B69] hover:text-[#25372D] underline underline-offset-4"
-          >
-            Edit Placeholders in Admin CMS →
-          </Link>
+          <p className="text-xs text-[#25372D]/60">
+            Content managed by the clinic team
+          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-7 space-y-4 text-sm text-[#25372D]/85 leading-relaxed">
-            <p>{cms?.clinicOverview}</p>
+            <p>{cms?.clinicOverview || 'PsychAvenuePH is a structured booking platform connecting clients with verified resident psychologists, with explicit session durations and scope boundaries.'}</p>
             <p className="p-4 rounded-lg bg-[#F1F6F2] border border-[#C0D3C3] text-xs text-[#25372D]/80">
-              {cms?.impactNarrative}
+              {cms?.impactNarrative || 'Every booking follows the same guided path: share who the session is for, receive proposed times from a verified psychologist, and confirm with payment.'}
             </p>
           </div>
 
@@ -121,17 +115,17 @@ export default function AboutPage() {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#C0D3C3] pb-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-xs font-semibold text-[#5D8B69]">
-              <span>Public Clinical Roster</span>
+              <span>Our psychologists</span>
               <span aria-hidden="true">·</span>
-              <span>Strict No-Personal-Names Governance</span>
+              <span>Why you won&apos;t see names here</span>
             </div>
             <h2 className="font-heading text-3xl font-bold text-[#25372D]">
-              Verified Resident Psychologist Roster (Structure Only)
+              Verified psychologists
             </h2>
           </div>
           <p className="text-xs text-[#25372D]/70 max-w-md">
-            Individual personal names and photographs are intentionally excluded from public display.
-            Cases are matched via verified PRC credentials and specialization fit in Flow C.
+            Individual names and photos are intentionally not shown here. We match you by verified
+            credentials and specialization.
           </p>
         </div>
 
@@ -167,7 +161,7 @@ export default function AboutPage() {
 
                 <div className="space-y-1.5 pt-2">
                   <p className="text-xs font-semibold text-[#25372D]">
-                    Authorized Flow C Service Scope:
+                    Can help with:
                   </p>
                   <p className="text-xs text-[#25372D]/75 leading-relaxed">
                     {resident.serviceEligibility.join(' · ')}

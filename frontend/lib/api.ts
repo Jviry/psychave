@@ -368,44 +368,44 @@ const INITIAL_BOOKINGS: BookingRequest[] = [
   },
 ];
 
-const INITIAL_CMS: CmsContent = {
+export const INITIAL_CMS: CmsContent = {
   vision:
-    'Placeholder — Vision Statement: To establish a trusted, ethically governed Philippine mental-health ecosystem where every client and family accesses credential-verified psychological care with full clinical transparency.',
+    'Mental-health care in the Philippines that is easy to reach, clearly scoped, and worthy of trust.',
   mission:
-    'Placeholder — Mission Statement: We bridge individuals, couples, families, and early-career practitioners with PRC-verified psychologists through structured clinical booking, clear therapeutic guardrails, and privacy-first care navigation.',
+    'Guide every client to a verified psychologist through structured booking, transparent scope, and privacy-first care.',
   clinicOverview:
-    'Placeholder — Clinic Overview: PsychAvenuePH (PSYCHAVE PH) operates a structured, multi-disciplinary psychological practice delivering consultation, psychotherapy, relational systems counseling, non-clinical coaching, clinical supervision, and ethical research advisory.',
+    'PsychAvenuePH is a structured booking platform connecting clients with verified resident psychologists, with explicit session durations and scope boundaries.',
   impactNarrative:
-    'Placeholder — Impact Framework: All clinical outcomes and community access metrics are tracked in aggregate without exposing identifiable client records or session transcripts.',
+    'Every booking follows the same guided path: share who the session is for, receive proposed times from a verified psychologist, and confirm with payment.',
   impactMetrics: [
     {
       id: 'imp-1',
       metricValue: '100%',
-      metricLabel: 'PRC-Verified Clinical Roster',
-      timeframeContext: 'Mandatory credential check prior to queue pick-up access',
+      metricLabel: 'Verified psychologist roster',
+      timeframeContext: 'Every psychologist is credential-checked before replying',
     },
     {
       id: 'imp-2',
-      metricValue: '3-Slot',
-      metricLabel: 'Canonical Flow C Proposal Standard',
-      timeframeContext: 'Every picked-up booking receives 3 curated schedule options',
+      metricValue: '3',
+      metricLabel: 'Proposed times per request',
+      timeframeContext: 'Every reply includes 3 time options to choose from',
     },
     {
       id: 'imp-3',
       metricValue: '24h & 1h',
-      metricLabel: 'Automated Session Reminders',
-      timeframeContext: 'Dispatched automatically after payment confirmation',
+      metricLabel: 'Automated session reminders',
+      timeframeContext: 'Sent automatically after payment confirmation',
     },
   ],
   testimonialsConfig: {
-    sectionTitle: 'Client Reflections & Consent Governance',
+    sectionTitle: 'Client stories',
     consentFlagBanner:
-      'Consent-Flag Governance Active — No personal quotes, client names, or identifiable narratives are displayed. Empty placeholder cards reflect strict adherence to clinical confidentiality and Philippine Data Privacy Act (RA 10173) standards.',
+      'No personal quotes, client names, or identifiable stories are shown here. Stories appear only with explicit written consent.',
     ethicalStandardRef: 'PAP Code of Ethics · RA 10173 Privacy Baseline',
     emptyCards: [
       {
         id: 't-slot-01',
-        slotCode: 'CONSENT-SLOT-01',
+        slotCode: 'STORY-01',
         serviceCategory: 'Individual Counseling & Psychotherapy (1 hr)',
         consentFlagStatus: 'withheld_by_default',
         governanceNote:
@@ -413,7 +413,7 @@ const INITIAL_CMS: CmsContent = {
       },
       {
         id: 't-slot-02',
-        slotCode: 'CONSENT-SLOT-02',
+        slotCode: 'STORY-02',
         serviceCategory: 'Couples Counseling (1.5 hr w/ 15-min Breakouts)',
         consentFlagStatus: 'withheld_by_default',
         governanceNote:
@@ -421,7 +421,7 @@ const INITIAL_CMS: CmsContent = {
       },
       {
         id: 't-slot-03',
-        slotCode: 'CONSENT-SLOT-03',
+        slotCode: 'STORY-03',
         serviceCategory: 'Clinical Supervision & Academic Advisory',
         consentFlagStatus: 'anonymized_structure_only',
         governanceNote:

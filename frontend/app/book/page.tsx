@@ -12,8 +12,8 @@ export default function BookFallbackPage() {
 
   const clinicEmail = 'psychaveph.info@gmail.com';
   const facebookFallbackUrl = 'https://facebook.com/PsychAvenuePH';
-  const fallbackTemplate = `Subject: PsychAvenuePH Session Inquiry (External Fallback)
-Persona Type: [Self / Dependent]
+  const fallbackTemplate = `Subject: PsychAvenuePH session inquiry
+Who it's for: [Myself / Someone I care for]
 Requested Service: [Consultation 45m / Individual 1hr / Couples 1.5hr / Family-Group 2hr / Life Coaching / Clinical Supervision / Academic Advisory]
 Preferred Language: [English / Filipino / Taglish]
 General Availability Window: [Days & Times]`;
@@ -32,14 +32,14 @@ General Availability Window: [Days & Times]`;
         <div className="flex items-center gap-2 text-xs text-[#5D8B69] font-semibold">
           <span>Book a Session</span>
           <span aria-hidden="true">·</span>
-          <span>Canonical Flow C Booking + Official External Fallback</span>
+          <span>Online booking + other ways to reach us</span>
         </div>
         <h1 className="font-heading text-4xl font-bold text-[#25372D]">
           Book a Session with PSYCHAVE PH
         </h1>
         <p className="text-base text-[#25372D]/80 max-w-3xl">
-          Initiate your booking through our structured Flow C platform booking, or reach our clinical
-          coordination desk directly via our official Facebook page or email fallback.
+          Book online in a few minutes, or reach our care team directly through our official
+          Facebook page or email.
         </p>
       </header>
 
@@ -48,24 +48,23 @@ General Availability Window: [Days & Times]`;
         <Card className="lg:col-span-7 space-y-6 border-2 border-[#5D8B69]">
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs font-semibold text-[#5D8B69]">
-              <span>Recommended Primary Path</span>
-              <span>Flow C Canonical Workflow</span>
+              <span>Recommended</span>
+              <span>Guided online booking</span>
             </div>
             <h2 className="font-heading text-3xl font-bold text-[#25372D]">
-              Complete Persona &amp; Clinical Booking Online
+              Book online in minutes
             </h2>
             <p className="text-sm text-[#25372D]/80 leading-relaxed">
-              Submit your booking under a Self or Dependent persona. Your request enters our secure
-              pending queue where a PRC-verified resident psychologist reviews fit, sets the session
-              fee, and proposes 3 distinct schedule slots for your selection.
+              Tell us who the session is for and what you need. A verified psychologist reviews
+              your request, sets a clear session fee, and proposes 3 times for you to choose from.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div className="p-4 rounded-lg bg-[#F1F6F2] border border-[#C0D3C3] space-y-1">
-              <p className="font-semibold text-[#25372D]">1. Select Persona &amp; Service</p>
+              <p className="font-semibold text-[#25372D]">1. Tell us who it&apos;s for &amp; pick a service</p>
               <p className="text-[#25372D]/75">
-                Choose from all 7 services with built-in duration and clinical scope guardrails.
+                Choose from 7 services, each with a clear session length.
               </p>
             </div>
             <div className="p-4 rounded-lg bg-[#F1F6F2] border border-[#C0D3C3] space-y-1">
@@ -85,7 +84,7 @@ General Availability Window: [Days & Times]`;
                 router.push('/personas');
               }}
             >
-              Launch Flow C Booking Form
+              Start a booking
             </Button>
             <Button
               variant="outline"
@@ -107,10 +106,10 @@ General Availability Window: [Days & Times]`;
               Direct Coordination Channels
             </p>
             <h2 className="font-heading text-2xl font-bold text-[#25372D]">
-              External Booking Fallback
+              Prefer to message or email us?
             </h2>
             <p className="text-xs text-[#25372D]/75 leading-relaxed">
-              Prefer manual coordination or assisting an institutional group? Reach our booking desk
+              Prefer manual coordination or arranging sessions for a group? Reach our booking desk
               directly via Facebook or email.
             </p>
           </div>
@@ -123,10 +122,8 @@ General Availability Window: [Days & Times]`;
             <div className="flex flex-wrap items-center gap-2">
               <a
                 href={facebookFallbackUrl}
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleCopy('fb', facebookFallbackUrl);
-                }}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex-1 inline-flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-lg bg-[#25372D] text-white text-sm font-medium hover:bg-[#1b2921] transition-colors"
               >
                 <svg
@@ -140,10 +137,17 @@ General Availability Window: [Days & Times]`;
                 </svg>
                 <span>Message PSYCHAVE PH on Facebook</span>
               </a>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleCopy('fb', facebookFallbackUrl)}
+              >
+                {copiedField === 'fb' ? 'Link copied' : 'Copy link'}
+              </Button>
             </div>
             {copiedField === 'fb' && (
               <p className="text-xs text-[#5D8B69] font-medium">
-                Facebook fallback link copied ({facebookFallbackUrl}) — safe for sandbox preview.
+                Facebook page link copied to your clipboard.
               </p>
             )}
           </div>
@@ -151,7 +155,7 @@ General Availability Window: [Days & Times]`;
           {/* Official Email Fallback */}
           <div className="space-y-2">
             <p className="text-xs font-semibold text-[#25372D]">
-              2. Official Clinic Coordination Email
+              2. Email us directly
             </p>
             <div className="p-3.5 rounded-lg bg-white border border-[#C0D3C3] flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
@@ -183,7 +187,7 @@ General Availability Window: [Days & Times]`;
           <div className="space-y-2 pt-2 border-t border-[#C0D3C3]">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-[#25372D]">
-                Standard Email Fallback Template
+                What to include in your email
               </p>
               <button
                 type="button"
@@ -193,7 +197,7 @@ General Availability Window: [Days & Times]`;
                 {copiedField === 'template' ? 'Template Copied' : 'Copy Template'}
               </button>
             </div>
-            <pre className="p-3 rounded-lg bg-white border border-[#C0D3C3] text-[11px] text-[#25372D]/80 font-mono whitespace-pre-wrap leading-relaxed">
+            <pre className="p-3 rounded-lg bg-white border border-[#C0D3C3] text-xs text-[#25372D]/80 font-mono whitespace-pre-wrap leading-relaxed">
               {fallbackTemplate}
             </pre>
           </div>

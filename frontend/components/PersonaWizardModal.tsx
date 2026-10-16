@@ -191,7 +191,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
   function requestClose() {
     const dirty = JSON.stringify(draft) !== JSON.stringify(DEFAULT_DRAFT_SNAPSHOT);
     if (dirty) {
-      const ok = window.confirm('Leave the wizard? Your progress is saved and will restore on reopen.');
+      const ok = window.confirm('Leave this form? Your progress is saved and will restore on reopen.');
       if (!ok) return;
     }
     closeWizard();
@@ -275,7 +275,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
       setLastUsedPersonaId(created.id);
       updateBookingDraft({ personaId: created.id });
       publishFlowEvent(
-        'Persona Created (Wizard)',
+                'Person added',
         `${created.label} created with signed consent ${getConsentVersion()}${returnTo === 'booking' ? ' and preselected for booking.' : '.'}`
       );
       resetDraft();
@@ -383,7 +383,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
       aria-labelledby="persona-wizard-title"
     >
       <button
-        aria-label="Close wizard (unsaved progress is kept)"
+        aria-label="Close (unsaved progress is kept)"
         onClick={requestClose}
         className="absolute inset-0 bg-[#25372D]/60 cursor-pointer"
       />
@@ -396,17 +396,17 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
               <p className="text-xs text-[#5D8B69] font-semibold">
-                New Persona · Step {currentStep} of 4 · Consent {getConsentVersion()}
+                Add a person · Step {currentStep} of 4
               </p>
               <h2 id="persona-wizard-title" className="font-heading text-2xl font-bold text-[#25372D]">
                 {STEP_TITLES[currentStep - 1]}
               </h2>
             </div>
-            <Button variant="ghost" size="sm" onClick={requestClose} aria-label="Close wizard">
+            <Button variant="ghost" size="sm" onClick={requestClose} aria-label="Close">
               ✕
             </Button>
           </div>
-          <ol className="flex items-center gap-2 mt-3" aria-label="Wizard progress">
+          <ol className="flex items-center gap-2 mt-3" aria-label="Form progress">
             {([1, 2, 3, 4] as const).map((s) => (
               <li key={s} className="flex-1">
                 <div
@@ -451,7 +451,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
                 </div>
               </div>
               <div>
-                <Label htmlFor="wiz-whofor">Who is this persona for?</Label>
+                <Label htmlFor="wiz-whofor">Who is this booking for?</Label>
                 <Select
                   id="wiz-whofor"
                   value={draft.whoFor}
@@ -603,7 +603,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
             <section className="space-y-4" aria-label="Demographics">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
-                  <Label htmlFor="wiz-persona-name">Full name (persona_name)</Label>
+                  <Label htmlFor="wiz-persona-name">Full name</Label>
                   <Input
                     id="wiz-persona-name"
                     ref={firstFieldRef}
@@ -872,7 +872,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
         {/* Footer */}
         <div className="sticky bottom-0 bg-white border-t border-[#C0D3C3] px-5 sm:px-7 py-4 rounded-b-xl flex flex-wrap items-center justify-between gap-3">
           <span className="text-xs text-[#25372D]/65">
-            {currentStep < 4 ? 'Nothing is sent until final submit.' : `Single POST /personas · consent ${getConsentVersion()}`}
+            {currentStep < 4 ? 'Nothing is sent until final submit.' : 'Review everything above — nothing is sent until you confirm.'}
           </span>
           <div className="flex items-center gap-2.5">
             {currentStep > 1 && (
@@ -886,7 +886,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
               </Button>
             ) : (
               <Button variant="primary" size="md" onClick={handleSubmit} disabled={mutation.isPending}>
-                {mutation.isPending ? 'Submitting…' : 'Submit persona & consent'}
+                {mutation.isPending ? 'Submitting…' : 'Save & continue'}
               </Button>
             )}
           </div>

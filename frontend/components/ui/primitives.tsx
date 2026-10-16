@@ -129,27 +129,27 @@ export function BookingStatusTag({ status }: { status: BookingStatus }) {
     { label: string; textClass: string; dotClass: string }
   > = {
     pending: {
-      label: 'pending · awaiting psychologist pick-up',
+      label: 'Sent · waiting for a psychologist to reply',
       textClass: 'text-amber-900 font-semibold',
       dotClass: 'bg-amber-600',
     },
     proposed: {
-      label: 'proposed · 3 slots ready for selection',
+      label: 'Times proposed · choose 1 to continue',
       textClass: 'text-[#25372D] font-semibold underline decoration-[#5D8B69] underline-offset-4',
       dotClass: 'bg-[#5D8B69]',
     },
     'paid-confirmed': {
-      label: 'paid-confirmed · contact unlocked',
+      label: 'Confirmed · contact unlocked',
       textClass: 'text-[#25372D] font-semibold',
       dotClass: 'bg-[#5D8B69]',
     },
     'reschedule-requested': {
-      label: 'reschedule-requested · under review',
+      label: 'Reschedule requested · under review',
       textClass: 'text-amber-800 font-semibold',
       dotClass: 'bg-amber-500',
     },
     cancelled: {
-      label: 'cancelled · archived',
+      label: 'Cancelled',
       textClass: 'text-red-800 font-medium',
       dotClass: 'bg-red-600',
     },

@@ -26,11 +26,11 @@ export default function HomePage() {
   const flowCSteps = [
     {
       step: '01',
-      title: 'Persona & Clinical Booking',
-      roleLabel: 'Client Action',
+      title: 'Share who the session is for',
+      roleLabel: 'You share',
       description:
-        'Select a Persona (Self or Dependent) and complete the structured clinical booking form with presenting concerns and service choice.',
-      actionLabel: 'Open Booking Form',
+        'Choose who the session is for (yourself or someone you care for), pick a service, and describe your concerns in plain words.',
+      actionLabel: 'Start a booking',
       onAction: () => {
         setCognitoRole('client');
         router.push('/personas');
@@ -38,50 +38,24 @@ export default function HomePage() {
     },
     {
       step: '02',
-      title: 'Pending Queue & Notification',
-      roleLabel: 'System + Queue',
+      title: 'Get 3 proposed times',
+      roleLabel: 'Verified psychologist',
       description:
-        'Submitted booking enters the pending queue visible to PRC-verified psychologists (and preliminary admin audit view).',
-      actionLabel: 'Inspect Queue',
+        'A verified psychologist reviews your request, sets a clear session fee, and proposes 3 distinct times that fit the service duration.',
+      actionLabel: 'Explore services',
       onAction: () => {
-        setCognitoRole('psychologist');
-        router.push('/psych/queue');
+        router.push('/services');
       },
     },
     {
       step: '03',
-      title: 'Verified Pick-Up + 3 Slots + Fee',
-      roleLabel: 'Verified Psychologist',
+      title: 'Pick 1 time, pay & meet',
+      roleLabel: 'You confirm',
       description:
-        'Only verified psychologists can pick up a request, set the session price, and propose exactly 3 distinct date/time slots.',
-      actionLabel: 'Test Proposal Creator',
+        'Pick the time that works for you and complete payment. Your session contact unlocks, with reminders before the appointment.',
+      actionLabel: 'Other ways to book',
       onAction: () => {
-        setCognitoRole('psychologist');
-        router.push('/psych/queue');
-      },
-    },
-    {
-      step: '04',
-      title: 'Slot Selection & Payment Finalization',
-      roleLabel: 'Client Action',
-      description:
-        'Client receives a proposal alert, reviews the 3 proposed slots, selects 1, and pays. Finalized ONLY on payment success.',
-      actionLabel: 'Review Proposal #102',
-      onAction: () => {
-        setCognitoRole('client');
-        router.push('/proposal/BK-2026-102');
-      },
-    },
-    {
-      step: '05',
-      title: 'Contact Unlock & 24h / 1h Reminders',
-      roleLabel: 'Automated Lifecycle',
-      description:
-        'Payment confirmation unlocks direct session contact for both parties, dispatches 24h/1h reminders, and enables real-time status updates.',
-      actionLabel: 'View Confirmed Booking',
-      onAction: () => {
-        setCognitoRole('client');
-        router.push('/bookings');
+        router.push('/book');
       },
     },
   ];
@@ -92,20 +66,21 @@ export default function HomePage() {
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center bg-white border border-[#C0D3C3] rounded-2xl p-8 lg:p-12">
         <div className="lg:col-span-7 space-y-6">
           <div className="flex flex-wrap items-center gap-2 text-xs text-[#5D8B69] font-semibold">
-            <span>Philippine Mental-Health Care Navigation</span>
+            <span>Verified psychologists</span>
             <span aria-hidden="true">·</span>
-            <span>PRC-Verified Clinical Roster</span>
+            <span>Structured booking</span>
             <span aria-hidden="true">·</span>
-            <span>Canonical Flow C Architecture</span>
+            <span>Private by design</span>
           </div>
 
           <h1 className="font-heading text-4xl sm:text-5xl font-bold text-[#25372D] leading-[1.08]">
-            Structured, Trustworthy Psychological Care Built Around Clinical Clarity.
+            Book trusted psychological care, with clarity at every step.
           </h1>
 
           <p className="text-base sm:text-lg text-[#25372D]/80 max-w-2xl leading-relaxed">
-            PSYCHAVE PH connects individuals, couples, families, and early-career practitioners
-            with credential-verified psychologists through a guided booking and 3-slot proposal workflow—never exposing personal client quotes or unverified providers.
+            PSYCHAVE PH matches you with a verified psychologist. Tell us who the session is for,
+            receive 3 proposed times with a clear fee, then pick one and pay to confirm — your
+            personal details stay private until then.
           </p>
 
           <div className="flex flex-wrap items-center gap-4 pt-2">
@@ -117,20 +92,20 @@ export default function HomePage() {
                 router.push('/personas');
               }}
             >
-              Start Flow C Booking
+              Book a session
             </Button>
             <Button
               variant="outline"
               size="lg"
               onClick={() => router.push('/services')}
             >
-              Explore 7 Services & Guardrails
+              Explore services
             </Button>
             <Link
               href="/book"
               className="text-sm font-medium text-[#25372D]/80 hover:text-[#25372D] underline underline-offset-4 px-2"
             >
-              External Booking Fallback
+              Other ways to book
             </Link>
           </div>
         </div>
@@ -141,10 +116,10 @@ export default function HomePage() {
             <div className="flex items-center justify-between border-b border-[#C0D3C3] pb-3">
               <div>
                 <p className="font-heading text-lg font-bold text-[#25372D]">
-                  Flow C Clinical Safeguards
+                  How booking protects you
                 </p>
                 <p className="text-xs text-[#25372D]/70">
-                  Real-time state synchronization across 3 Cognito roles
+                  Verified psychologists only · Your details stay private
                 </p>
               </div>
               <svg
@@ -168,42 +143,42 @@ export default function HomePage() {
               <div className="p-3.5 rounded-lg bg-white border border-[#C0D3C3]/80 flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold text-[#25372D]">
-                    1. Persona Selection (Self or Dependent)
+                    1. Tell us who the session is for
                   </p>
                   <p className="text-[#25372D]/70 mt-0.5">
-                    Separate booking records for primary adult accounts and adolescent/dependent wards.
+                    Book for yourself or someone you care for, with consent handled up front.
                   </p>
                 </div>
-                <span className="font-mono text-[11px] text-[#5D8B69] font-semibold tabular-nums">
-                  STEP 01
+                <span className="font-mono text-xs text-[#5D8B69] font-semibold tabular-nums">
+                  Step 1
                 </span>
               </div>
 
               <div className="p-3.5 rounded-lg bg-white border border-[#C0D3C3]/80 flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold text-[#25372D]">
-                    2. Verified Psychologist Pick-Up + 3 Slots
+                    2. A verified psychologist replies with 3 times
                   </p>
                   <p className="text-[#25372D]/70 mt-0.5">
-                    Unverified accounts are blocked. Verified psychologists set price &amp; propose 3 slots.
+                    Only verified psychologists can reply. They set a clear fee and propose 3 times.
                   </p>
                 </div>
-                <span className="font-mono text-[11px] text-[#5D8B69] font-semibold tabular-nums">
-                  STEP 03
+                <span className="font-mono text-xs text-[#5D8B69] font-semibold tabular-nums">
+                  Step 2
                 </span>
               </div>
 
               <div className="p-3.5 rounded-lg bg-[#D0E187]/35 border border-[#8FBE8F] flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold text-[#25372D]">
-                    3. Payment-Gated Finalization &amp; Contact Unlock
+                    3. Pick 1 time, pay &amp; meet
                   </p>
                   <p className="text-[#25372D]/80 mt-0.5">
-                    Contact unlocks ONLY after payment succeeds. Automated 24h &amp; 1h reminders follow.
+                    Session contact unlocks after payment succeeds. Reminders follow before your session.
                   </p>
                 </div>
-                <span className="font-mono text-[11px] text-[#25372D] font-semibold tabular-nums">
-                  STEP 04–05
+                <span className="font-mono text-xs text-[#25372D] font-semibold tabular-nums">
+                  Step 3
                 </span>
               </div>
             </div>
@@ -211,23 +186,23 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Interactive Canonical Flow C Walkthrough */}
+      {/* How booking works */}
       <section className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#C0D3C3] pb-4">
           <div>
             <p className="text-xs font-semibold text-[#5D8B69]">
-              Official Booking Architecture
+              How booking works
             </p>
             <h2 className="font-heading text-3xl font-bold text-[#25372D]">
-              Flow C End-to-End Interactive Prototype
+              Booking in three steps
             </h2>
           </div>
           <p className="text-sm text-[#25372D]/75 max-w-md">
-            Click any stage below to automatically switch the mock AWS Cognito role and test that screen with live state.
+            Start a booking, receive proposed times from a verified psychologist, then confirm with payment.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {flowCSteps.map((item) => (
             <div
               key={item.step}
@@ -276,7 +251,7 @@ export default function HomePage() {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[#C0D3C3] pb-4">
           <div>
             <p className="text-xs font-semibold text-[#5D8B69]">
-              Durations &amp; Scope Guardrails
+              Session lengths &amp; scope
             </p>
             <h2 className="font-heading text-3xl font-bold text-[#25372D]">
               Clinical &amp; Advisory Services Directory
@@ -320,7 +295,7 @@ export default function HomePage() {
 
                 <div className="p-3 rounded-lg bg-[#EBF2EC] border-l-3 border-[#5D8B69] text-xs text-[#25372D] space-y-1">
                   <p className="font-semibold text-[#25372D]">
-                    Guardrail: {srv.guardrailTitle}
+                    Good to know: {srv.guardrailTitle}
                   </p>
                   <p className="text-[#25372D]/80 leading-relaxed">
                     {srv.guardrailNotice}

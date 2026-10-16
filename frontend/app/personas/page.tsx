@@ -8,8 +8,6 @@ import { api } from '../../lib/api';
 import {
   bookingFormSchema,
   BookingFormValues,
-  personaSchema,
-  PersonaFormValues,
 } from '../../lib/schemas';
 import { useAppStore } from '../../stores/useAppStore';
 import { useRouter } from 'next/navigation';
@@ -40,7 +38,6 @@ export default function PersonasAndBookingPage() {
   const lastUsedPersonaId = usePersonaWizardStore((s) => s.lastUsedPersonaId);
   const setLastUsedPersonaId = usePersonaWizardStore((s) => s.setLastUsedPersonaId);
 
-  const [showLegacyPersonaForm, setShowLegacyPersonaForm] = useState(false);
   const [submittedBookingId, setSubmittedBookingId] = useState<string | null>(null);
   const autoOpenedWizard = useRef(false);
 
@@ -54,19 +51,7 @@ export default function PersonasAndBookingPage() {
     queryFn: () => api.getServices(),
   });
 
-  // React Hook Form for creating a new Persona (Self / Dependent)
-  const personaForm = useForm<PersonaFormValues>({
-    resolver: zodResolver(personaSchema),
-    defaultValues: {
-      type: 'dependent',
-      label: '',
-      ageGroup: 'Adolescent (13–17)',
-      relationshipToClient: 'Parent / Legal Guardian',
-      preferredLanguage: 'English / Taglish',
-    },
-  });
-
-  // React Hook Form for Flow C Step 1 Booking Form
+  // Booking details form (service, language, concerns)
   const bookingForm = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
@@ -109,23 +94,6 @@ export default function PersonasAndBookingPage() {
     setLastUsedPersonaId(personaId);
   };
 
-  const createPersonaMutation = useMutation({
-    mutationFn: (values: PersonaFormValues) => api.createPersona(values),
-    onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: ['personas'] });
-      updateBookingDraft({ personaId: created.id, preferredLanguage: created.preferredLanguage });
-      bookingForm.setValue('personaId', created.id);
-      bookingForm.setValue('preferredLanguage', created.preferredLanguage);
-      setLastUsedPersonaId(created.id);
-      personaForm.reset();
-      setShowLegacyPersonaForm(false);
-      publishFlowEvent(
-        'Client Persona Created',
-        `Added ${created.label} (${created.type.toUpperCase()}) and selected it for Flow C booking.`
-      );
-    },
-  });
-
   const submitBookingMutation = useMutation({
     mutationFn: (values: BookingFormValues) =>
       api.submitBookingRequest({
@@ -148,8 +116,8 @@ export default function PersonasAndBookingPage() {
       });
       setSubmittedBookingId(createdBooking.id);
       publishFlowEvent(
-        'Flow C Step 1 Complete — Booking Submitted',
-        `Request ${createdBooking.id} (${createdBooking.serviceTitle}) entered the Pending Queue. Verified psychologists notified.`
+        'Booking request sent',
+        `Request ${createdBooking.id} (${createdBooking.serviceTitle}) was sent. A verified psychologist will reply with 3 proposed times.`
       );
     },
   });
@@ -160,16 +128,16 @@ export default function PersonasAndBookingPage() {
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#C0D3C3] pb-6">
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-xs text-[#5D8B69] font-semibold">
-            <span>Flow C Step 1 of 5</span>
+            <span>Step 1 of 3</span>
             <span aria-hidden="true">·</span>
-            <span>Client Persona &amp; Clinical Booking</span>
+            <span>Who the session is for</span>
           </div>
           <h1 className="font-heading text-4xl font-bold text-[#25372D]">
-            Client Personas &amp; Clinical Booking Form
+            Who is the session for?
           </h1>
           <p className="text-sm text-[#25372D]/80 max-w-2xl">
-            Create a persona with signed consent through the 4-step wizard, pick who the booking is
-            for, then submit booking to the verified psychologist queue.
+            Add yourself or someone you care for, with consent handled up front — then describe
+            what you need. A verified psychologist replies with 3 proposed times.
           </p>
         </div>
 
@@ -193,15 +161,15 @@ export default function PersonasAndBookingPage() {
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
               <p className="text-xs font-bold text-[#5D8B69]">
-                FLOW C STEP 1 SUBMITTED · STATUS: PENDING
+                REQUEST SENT
               </p>
               <h2 className="font-heading text-2xl font-bold text-[#25372D]">
-                Booking Request #{submittedBookingId} Entered Pending Queue
+                Booking request #{submittedBookingId} sent
               </h2>
               <p className="text-sm text-[#25372D]/80">
-                PRC-verified psychologists have been notified. Your booking will move to{' '}
+                A verified psychologist has been notified. Your booking will move to{' '}
                 <strong className="font-semibold">proposed</strong> once a verified psychologist
-                picks up your request, sets the session fee, and proposes 3 schedule slots.
+                replies with a session fee and 3 proposed times.
               </p>
             </div>
           </div>
@@ -212,7 +180,7 @@ export default function PersonasAndBookingPage() {
               size="sm"
               onClick={() => router.push('/bookings')}
             >
-              View in My Bookings (Client)
+              View my bookings
             </Button>
             <Button
               variant="accent"
@@ -222,7 +190,7 @@ export default function PersonasAndBookingPage() {
                 router.push('/psych/queue');
               }}
             >
-              Switch to Psychologist Role &amp; Pick Up #{submittedBookingId} →
+              Preview psychologist view →
             </Button>
           </div>
         </div>
@@ -235,10 +203,10 @@ export default function PersonasAndBookingPage() {
             <div className="flex items-center justify-between border-b border-[#C0D3C3] pb-3">
               <div>
                 <h2 className="font-heading text-2xl font-bold text-[#25372D]">
-                  1. Manage Personas
+                  1. Who is this for
                 </h2>
                 <p className="text-xs text-[#25372D]/70">
-                  Who is the session for? Personas include signed consent.
+                  Choose who the session is for — consent is handled up front.
                 </p>
               </div>
               <Button
@@ -246,7 +214,7 @@ export default function PersonasAndBookingPage() {
                 size="sm"
                 onClick={() => openWizard('manage')}
               >
-                + New Persona
+                + Add a person
               </Button>
             </div>
 
@@ -265,15 +233,15 @@ export default function PersonasAndBookingPage() {
             {/* Existing Personas picker */}
             <div className="space-y-3">
               {personasLoading && (
-                <p className="text-xs text-[#25372D]/70">Loading personas…</p>
+                <p className="text-xs text-[#25372D]/70">Loading…</p>
               )}
               {!personasLoading && personas.length === 0 && (
                 <div className="p-4 rounded-xl bg-[#F6F9F6] border border-[#8FBE8F] space-y-3">
                   <p className="text-sm text-[#25372D]">
-                    No personas yet. Create one with signed consent to start booking.
+                    No one added yet. Add yourself or someone you care for to start booking.
                   </p>
                   <Button variant="primary" size="sm" onClick={() => openWizard('manage')}>
-                    Launch Persona Wizard
+                    Add a person
                   </Button>
                 </div>
               )}
@@ -292,7 +260,7 @@ export default function PersonasAndBookingPage() {
                   >
                     <div className="flex items-center justify-between text-xs text-[#25372D]/70 mb-1">
                       <span className="font-semibold text-[#5D8B69]">
-                        Persona Type: {persona.type === 'self' ? 'Self (Primary)' : 'Dependent Ward'}
+                        Booking for: {persona.type === 'self' ? 'Myself' : 'Someone I care for'}
                       </span>
                       <span className="font-mono tabular-nums">{persona.ageGroup}</span>
                     </div>
@@ -316,112 +284,7 @@ export default function PersonasAndBookingPage() {
               </Button>
             )}
 
-            {/* Legacy quick-add (temporary) — deprecated once POST /personas is real */}
-            <details className="rounded-xl bg-[#F6F9F6] border border-[#C0D3C3]">
-              <summary className="px-4 py-3 text-xs font-semibold text-[#25372D]/75 cursor-pointer list-none">
-                Legacy quick-add (temporary) — old label/age-group form, kept until backend POST
-                /personas supports persona + consent
-              </summary>
-              <div className="px-4 pb-4">
-                {!showLegacyPersonaForm ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowLegacyPersonaForm(true)}
-                  >
-                    Show legacy form
-                  </Button>
-                ) : (
-                <form
-                  onSubmit={personaForm.handleSubmit((vals) => createPersonaMutation.mutate(vals))}
-                  className="p-4 rounded-xl bg-white border border-[#8FBE8F] space-y-4"
-                >
-                  <p className="font-heading text-lg font-bold text-[#25372D]">
-                    Create New Anonymized Persona (Legacy)
-                  </p>
 
-                  <div>
-                    <Label htmlFor="persona-type">Persona Classification</Label>
-                    <Select id="persona-type" {...personaForm.register('type')}>
-                      <option value="self">Self (Primary Account)</option>
-                      <option value="dependent">Dependent (Child / Adolescent / Ward)</option>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="persona-label">Anonymized Profile Label (No Real Names)</Label>
-                    <Input
-                      id="persona-label"
-                      placeholder="e.g., Dependent Ward #D-02 (Young Adult)"
-                      {...personaForm.register('label')}
-                    />
-                    {personaForm.formState.errors.label && (
-                      <p className="text-xs text-red-700 mt-1">
-                        {personaForm.formState.errors.label.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="persona-age">Age Bracket</Label>
-                      <Select id="persona-age" {...personaForm.register('ageGroup')}>
-                        <option value="Child (7–12)">Child (7–12)</option>
-                        <option value="Adolescent (13–17)">Adolescent (13–17)</option>
-                        <option value="Young Adult (18–24)">Young Adult (18–24)</option>
-                        <option value="Adult (25–34)">Adult (25–34)</option>
-                        <option value="Adult (35–49)">Adult (35–49)</option>
-                        <option value="Senior (50+)">Senior (50+)</option>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="persona-lang">Preferred Language</Label>
-                      <Select id="persona-lang" {...personaForm.register('preferredLanguage')}>
-                        <option value="English / Taglish">English / Taglish</option>
-                        <option value="Filipino / Taglish">Filipino / Taglish</option>
-                        <option value="English">English</option>
-                        <option value="Cebuano / English">Cebuano / English</option>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="persona-rel">Relationship / Legal Authority</Label>
-                    <Input
-                      id="persona-rel"
-                      placeholder="e.g., Legal Guardian / Parent"
-                      {...personaForm.register('relationshipToClient')}
-                    />
-                    {personaForm.formState.errors.relationshipToClient && (
-                      <p className="text-xs text-red-700 mt-1">
-                        {personaForm.formState.errors.relationshipToClient.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="submit"
-                      variant="primary"
-                      size="sm"
-                      disabled={createPersonaMutation.isPending}
-                    >
-                      {createPersonaMutation.isPending ? 'Saving Persona...' : 'Save Persona Profile'}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowLegacyPersonaForm(false)}
-                    >
-                      Hide
-                    </Button>
-                  </div>
-                </form>
-                )}
-              </div>
-            </details>
           </Card>
         </div>
 
@@ -429,10 +292,10 @@ export default function PersonasAndBookingPage() {
         <Card className="lg:col-span-7 space-y-6">
           <div className="border-b border-[#C0D3C3] pb-4">
             <h2 className="font-heading text-2xl font-bold text-[#25372D]">
-              2. Complete Clinical Booking Form
+              2. Describe what you need
             </h2>
             <p className="text-xs text-[#25372D]/70">
-              Validated with React Hook Form + Zod · Enters Pending Queue for Verified Psychologists
+              A verified psychologist replies with 3 proposed times
             </p>
           </div>
 
@@ -442,7 +305,7 @@ export default function PersonasAndBookingPage() {
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="booking-service">Selected Service &amp; Duration</Label>
+                <Label htmlFor="booking-service">Service</Label>
                 <Select
                   id="booking-service"
                   {...bookingForm.register('serviceId', {
@@ -458,7 +321,7 @@ export default function PersonasAndBookingPage() {
               </div>
 
               <div>
-                <Label htmlFor="booking-language">Preferred Session Language</Label>
+                <Label htmlFor="booking-language">Preferred language</Label>
                 <Select
                   id="booking-language"
                   {...bookingForm.register('preferredLanguage', {
@@ -477,7 +340,7 @@ export default function PersonasAndBookingPage() {
             {activeService && (
               <div className="p-4 rounded-xl bg-[#EBF2EC] border-l-4 border-[#5D8B69] space-y-1.5">
                 <div className="flex items-center justify-between text-xs font-bold text-[#25372D]">
-                  <span>Active Guardrail: {activeService.guardrailTitle}</span>
+                  <span>Good to know: {activeService.guardrailTitle}</span>
                   <span className="font-mono tabular-nums text-[#5D8B69]">
                     Duration: {activeService.durationLabel}
                   </span>
@@ -490,7 +353,7 @@ export default function PersonasAndBookingPage() {
 
             <div>
               <Label htmlFor="booking-concerns">
-                Presenting Concerns, Context &amp; Goals (Min 20 chars)
+                What would you like help with? (a few sentences)
               </Label>
               <Textarea
                 id="booking-concerns"
@@ -509,7 +372,7 @@ export default function PersonasAndBookingPage() {
 
             <div>
               <Label htmlFor="booking-needs">
-                Scheduling Preferences, Breakout Setup &amp; Specific Needs
+                Scheduling preferences &amp; needs
               </Label>
               <Textarea
                 id="booking-needs"
@@ -534,10 +397,10 @@ export default function PersonasAndBookingPage() {
                   {...bookingForm.register('guardrailAcknowledged')}
                 />
                 <span className="leading-relaxed">
-                  I acknowledge the clinical guardrail for{' '}
-                  <strong>{activeService?.title}</strong> ({activeService?.durationLabel}) and
-                  understand that my request enters a pending queue until a verified psychologist
-                  proposes 3 schedule slots and payment is completed.
+                  I understand the scope of{' '}
+                  <strong>{activeService?.title}</strong> ({activeService?.durationLabel}):
+                  my request goes to verified psychologists, who reply with 3 proposed times.
+                  I&apos;ll choose one and pay to confirm.
                 </span>
               </label>
               {bookingForm.formState.errors.guardrailAcknowledged && (
@@ -549,7 +412,7 @@ export default function PersonasAndBookingPage() {
 
             <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
               <span className="text-xs text-[#25372D]/65">
-                Next Step: Enters Pending Queue → Verified Psychologist Proposes 3 Slots
+                What happens next: a verified psychologist proposes 3 times
               </span>
               <Button
                 type="submit"
@@ -558,8 +421,8 @@ export default function PersonasAndBookingPage() {
                 disabled={submitBookingMutation.isPending}
               >
                 {submitBookingMutation.isPending
-                  ? 'Submitting Booking to Queue...'
-                  : 'Submit Booking Request (Status: Pending)'}
+                  ? 'Sending…'
+                  : 'Send booking request'}
               </Button>
             </div>
           </form>

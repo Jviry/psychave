@@ -61,17 +61,16 @@ export default function ClientBookingsPage() {
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#C0D3C3] pb-6">
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-xs text-[#5D8B69] font-semibold">
-            <span>Client Role Dashboard</span>
+            <span>Your bookings</span>
             <span aria-hidden="true">·</span>
-            <span>Tiered Access: Own History Only (Client #C-01)</span>
+            <span>Only your own bookings are shown here</span>
           </div>
           <h1 className="font-heading text-4xl font-bold text-[#25372D]">
-            My Bookings &amp; Flow C Status Tracker
+            My bookings
           </h1>
           <p className="text-sm text-[#25372D]/80 max-w-2xl">
-            Track your submitted booking forms from <strong className="font-semibold">pending</strong>{' '}
-            to <strong className="font-semibold">proposed</strong> (3 psychologist slots) and{' '}
-            <strong className="font-semibold">paid-confirmed</strong> (contact unlocked + reminders).
+            Follow each request from sent to proposed — 3 times from your psychologist — to
+            confirmed, when contact details unlock.
           </p>
         </div>
 
@@ -80,7 +79,7 @@ export default function ClientBookingsPage() {
           size="md"
           onClick={() => router.push('/personas')}
         >
-          + New Persona Booking Request
+          + New booking request
         </Button>
       </header>
 
@@ -89,12 +88,12 @@ export default function ClientBookingsPage() {
         <div className="bg-[#D0E187]/45 border-2 border-[#5D8B69] rounded-xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="space-y-1">
             <p className="text-xs font-bold text-[#25372D]">
-              PROPOSAL ALERT · ACTION REQUIRED TO FINALIZE BOOKING
+              TIMES PROPOSED · CHOOSE ONE TO CONFIRM
             </p>
             <p className="text-sm text-[#25372D]/90">
-              You have <strong>{proposedBookings.length}</strong> booking request(s) where a
-              PRC-verified psychologist has proposed a session fee and{' '}
-              <strong>3 date/time slots</strong>. Select 1 slot and complete payment to finalize.
+              A verified psychologist has proposed a fee and 3 times for{' '}
+              <strong>{proposedBookings.length}</strong> request(s). Choose 1 time and pay to
+              confirm.
             </p>
           </div>
           <Button
@@ -102,7 +101,7 @@ export default function ClientBookingsPage() {
             size="md"
             onClick={() => router.push(`/proposal/${proposedBookings[0].id}`)}
           >
-            Review 3 Slots &amp; Pay ({proposedBookings[0].id}) →
+            Choose a time &amp; pay ({proposedBookings[0].id}) →
           </Button>
         </div>
       )}
@@ -111,7 +110,7 @@ export default function ClientBookingsPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div
           role="group"
-          aria-label="Filter bookings by Flow C status"
+          aria-label="Filter bookings by status"
           className="flex flex-wrap items-center gap-1 p-1 bg-[#EBF2EC] rounded-lg border border-[#C0D3C3]"
         >
           {(
@@ -119,15 +118,15 @@ export default function ClientBookingsPage() {
               { id: 'all', label: `All (${bookings.length})` },
               {
                 id: 'pending',
-                label: `pending (${bookings.filter((b) => b.status === 'pending').length})`,
+                label: `Sent (${bookings.filter((b) => b.status === 'pending').length})`,
               },
               {
                 id: 'proposed',
-                label: `proposed (${bookings.filter((b) => b.status === 'proposed').length})`,
+                label: `Replied (${bookings.filter((b) => b.status === 'proposed').length})`,
               },
               {
                 id: 'paid-confirmed',
-                label: `paid-confirmed (${
+                label: `Confirmed (${
                   bookings.filter((b) => b.status === 'paid-confirmed').length
                 })`,
               },
@@ -149,7 +148,7 @@ export default function ClientBookingsPage() {
         </div>
 
         <span className="text-xs text-[#25372D]/65">
-          Contact details unlock strictly upon <strong className="text-[#25372D]">paid-confirmed</strong> status.
+          Contact details unlock once your booking is <strong className="text-[#25372D]">confirmed</strong>.
         </span>
       </div>
 
@@ -166,18 +165,17 @@ export default function ClientBookingsPage() {
       ) : filteredBookings.length === 0 ? (
         <Card className="text-center py-12 space-y-4">
           <p className="font-heading text-2xl font-bold text-[#25372D]">
-            No Bookings Matching Selected Status
+            No bookings here yet
           </p>
           <p className="text-sm text-[#25372D]/75 max-w-md mx-auto">
-            Start a new Flow C booking under a Self or Dependent persona, or switch the filter above
-            to view all existing bookings.
+            Start a new booking request, or switch the filter above to see everything.
           </p>
           <div className="flex justify-center gap-3">
             <Button variant="outline" size="sm" onClick={() => setStatusFilter('all')}>
               Reset Filter
             </Button>
             <Button variant="primary" size="sm" onClick={() => router.push('/personas')}>
-              Start Flow C Booking
+              Start a booking
             </Button>
           </div>
         </Card>
@@ -197,7 +195,7 @@ export default function ClientBookingsPage() {
                       {booking.id}
                     </span>
                     <span aria-hidden="true">·</span>
-                    <span>Persona: {booking.personaLabel}</span>
+                    <span>For: {booking.personaLabel}</span>
                     <span aria-hidden="true">·</span>
                     <span>Submitted {booking.submittedAt}</span>
                   </div>
@@ -217,9 +215,9 @@ export default function ClientBookingsPage() {
                       </span>
                     </div>
 
-                    <p className="text-xs text-[#5D8B69] font-medium">
-                      Guardrail: {booking.serviceGuardrail}
-                    </p>
+                      <p className="text-xs text-[#5D8B69] font-medium">
+                        Good to know: {booking.serviceGuardrail}
+                      </p>
 
                     <p className="text-sm text-[#25372D]/85 leading-relaxed">
                       {booking.concernsSummary}
@@ -246,11 +244,11 @@ export default function ClientBookingsPage() {
                             <circle cx="12" cy="12" r="10" />
                             <polyline points="12 6 12 12 16 14" />
                           </svg>
-                          <span>No Pick-Up Yet · Waiting Psychologist Review</span>
+                          <span>Waiting for a psychologist to reply</span>
                         </div>
                         <p className="text-xs text-[#25372D]/80 leading-relaxed">
-                          Your booking is in the verified psychologist pending queue. No fee or date
-                          slots are assigned yet, and direct contact remains locked.
+                          No fee or times yet — a verified psychologist will reply with 3 proposed
+                          times. Contact stays locked until you confirm.
                         </p>
                         <Button
                           variant="outline"
@@ -260,7 +258,7 @@ export default function ClientBookingsPage() {
                             router.push('/psych/queue');
                           }}
                         >
-                          Test Pick-Up as Verified Psychologist →
+                          See psychologist view →
                         </Button>
                       </div>
                     )}
@@ -269,7 +267,7 @@ export default function ClientBookingsPage() {
                       <div className="p-4 rounded-xl bg-[#EBF2EC] border border-[#5D8B69] space-y-3">
                         <div className="flex items-center justify-between text-xs">
                           <span className="font-bold text-[#25372D]">
-                            Picked Up by {booking.psychologistCode}
+                            Replied by {booking.psychologistCode}
                           </span>
                           <span className="font-mono font-bold text-[#25372D] tabular-nums">
                             Fee: ₱{booking.pricePhp?.toLocaleString()}
@@ -285,7 +283,7 @@ export default function ClientBookingsPage() {
                           className="w-full"
                           onClick={() => router.push(`/proposal/${booking.id}`)}
                         >
-                          Review 3 Slots &amp; Complete Payment →
+                          Choose a time &amp; pay →
                         </Button>
                       </div>
                     )}
@@ -345,7 +343,7 @@ export default function ClientBookingsPage() {
                               }
                               className="underline text-[#5D8B69] hover:text-[#25372D] font-semibold cursor-pointer"
                             >
-                              Trigger 24h/1h Alert
+                              Resend reminders
                             </button>
                             <span>·</span>
                             <button
@@ -381,7 +379,7 @@ export default function ClientBookingsPage() {
                     {booking.status === 'cancelled' && (
                       <div className="p-4 rounded-xl bg-red-50/60 border border-red-200 text-xs text-red-900 space-y-1">
                         <p className="font-bold">Session Cancelled</p>
-                        <p>Real-time cancellation synced across Client and Psychologist schedules.</p>
+                        <p>Your psychologist has been notified.</p>
                       </div>
                     )}
                   </div>

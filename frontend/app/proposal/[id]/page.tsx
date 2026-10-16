@@ -59,8 +59,8 @@ export default function ProposalPickerPage() {
       queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       publishFlowEvent(
-        'Flow C Step 4 & 5 Complete — Payment Confirmed & Contact Unlocked',
-        `Booking ${updated.id} is now paid-confirmed. Direct session room unlocked and 24h/1h reminders scheduled.`
+        'Payment confirmed — contact unlocked',
+        `Booking ${updated.id} is confirmed. Your video link is unlocked and reminders are scheduled.`
       );
     },
     onError: (err: Error) => {
@@ -100,17 +100,16 @@ export default function ProposalPickerPage() {
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#C0D3C3] pb-6">
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-xs text-[#5D8B69] font-semibold">
-            <span>Flow C Step 4 of 5</span>
+            <span>Step 2 of 3</span>
             <span aria-hidden="true">·</span>
-            <span>3-Slot Proposal Review &amp; Payment-Gated Finalization</span>
+            <span>Choose a time &amp; confirm</span>
           </div>
           <h1 className="font-heading text-4xl font-bold text-[#25372D]">
-            Proposal Review &amp; Slot Selection ({booking.id})
+            Choose your session time
           </h1>
           <p className="text-sm text-[#25372D]/80 max-w-2xl">
-            Review the 3 date/time slots proposed by{' '}
-            <strong className="font-semibold">{booking.psychologistCode || 'Verified Psychologist'}</strong>,
-            select exactly 1 slot, and complete payment to unlock contact details.
+            Your psychologist proposed 3 times. Choose the one that works for you and pay to
+            confirm — contact details unlock after payment.
           </p>
         </div>
 
@@ -123,10 +122,10 @@ export default function ProposalPickerPage() {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#C0D3C3] pb-4">
             <div className="space-y-1">
               <p className="text-xs font-bold text-[#5D8B69]">
-                FLOW C FINALIZED · PAYMENT SUCCEEDED ({booking.paidAt})
+                CONFIRMED · PAYMENT SUCCEEDED ({booking.paidAt})
               </p>
               <h2 className="font-heading text-3xl font-bold text-[#25372D]">
-                Session Confirmed &amp; Contact Channels Unlocked
+                Session confirmed &amp; contact unlocked
               </h2>
             </div>
             <span className="font-mono text-xl font-bold text-[#25372D] tabular-nums">
@@ -146,7 +145,7 @@ export default function ProposalPickerPage() {
             </div>
 
             <div className="p-4 rounded-xl bg-white border border-[#C0D3C3] space-y-1">
-              <p className="text-[#25372D]/65">Unlocked Teletherapy Room &amp; Contact</p>
+              <p className="text-[#25372D]/65">Your video link &amp; contact</p>
               <p className="font-mono text-[#5D8B69] font-semibold break-all">
                 {booking.unlockedContact?.teletherapyUrl}
               </p>
@@ -156,7 +155,7 @@ export default function ProposalPickerPage() {
             </div>
 
             <div className="p-4 rounded-xl bg-white border border-[#C0D3C3] space-y-1">
-              <p className="text-[#25372D]/65">Automated Reminders &amp; Sync</p>
+              <p className="text-[#25372D]/65">Reminders</p>
               <p className="font-semibold text-[#25372D]">
                 24h Reminder: {booking.reminders.reminder24h.toUpperCase()}
               </p>
@@ -204,7 +203,7 @@ export default function ProposalPickerPage() {
                 setPaymentErrorMsg(null);
               }}
             >
-              Switch Gateway to &quot;Payment Succeeds&quot; &amp; Retry
+              Switch to &quot;Payment Succeeds&quot; &amp; retry
             </Button>
           </div>
         </div>
@@ -216,10 +215,10 @@ export default function ProposalPickerPage() {
         <Card className="lg:col-span-5 space-y-5">
           <div className="border-b border-[#C0D3C3] pb-3">
             <p className="text-xs font-semibold text-[#5D8B69]">
-              Assigned Verified Practitioner
+              Your psychologist
             </p>
             <h2 className="font-heading text-2xl font-bold text-[#25372D]">
-              {booking.psychologistCode || 'Awaiting Psychologist Pick-Up'}
+              {booking.psychologistCode || 'Waiting for a psychologist to reply'}
             </h2>
             <p className="text-xs text-[#25372D]/75 mt-0.5">
               {booking.psychologistSpecialization}
@@ -228,7 +227,7 @@ export default function ProposalPickerPage() {
 
           <div className="space-y-3 text-xs">
             <div className="flex justify-between py-1.5 border-b border-[#C0D3C3]/50">
-              <span className="text-[#25372D]/70">Persona</span>
+              <span className="text-[#25372D]/70">Booked for</span>
               <span className="font-semibold text-[#25372D]">{booking.personaLabel}</span>
             </div>
             <div className="flex justify-between py-1.5 border-b border-[#C0D3C3]/50">
@@ -236,13 +235,13 @@ export default function ProposalPickerPage() {
               <span className="font-semibold text-[#25372D]">{booking.serviceTitle}</span>
             </div>
             <div className="flex justify-between py-1.5 border-b border-[#C0D3C3]/50">
-              <span className="text-[#25372D]/70">Standard Duration</span>
+              <span className="text-[#25372D]/70">Session length</span>
               <span className="font-mono font-semibold text-[#5D8B69] tabular-nums">
                 {booking.serviceDuration}
               </span>
             </div>
             <div className="flex justify-between py-1.5 border-b border-[#C0D3C3]/50">
-              <span className="text-[#25372D]/70">Proposed Session Fee</span>
+              <span className="text-[#25372D]/70">Session fee</span>
               <span className="font-mono text-base font-bold text-[#25372D] tabular-nums">
                 {booking.pricePhp ? `₱${booking.pricePhp.toLocaleString()}` : 'Pending Proposal'}
               </span>
@@ -252,7 +251,7 @@ export default function ProposalPickerPage() {
           {booking.clinicalPrepNote && (
             <div className="p-3.5 rounded-lg bg-[#F1F6F2] border border-[#C0D3C3] space-y-1 text-xs">
               <p className="font-semibold text-[#25372D]">
-                Psychologist Preparation Note:
+                A note from your psychologist:
               </p>
               <p className="text-[#25372D]/80 leading-relaxed">
                 {booking.clinicalPrepNote}
@@ -272,8 +271,8 @@ export default function ProposalPickerPage() {
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
             <span>
-              <strong>Contact Lock Guardrail:</strong> Teletherapy link and direct coordination
-              channels are locked until 1 of the 3 proposed slots is selected and payment succeeds.
+              <strong>Why contact unlocks after payment:</strong> the video link and contact
+              details unlock after you choose 1 of the 3 proposed times and payment succeeds.
             </span>
           </div>
         </Card>
@@ -283,7 +282,7 @@ export default function ProposalPickerPage() {
           <div className="flex items-center justify-between border-b border-[#C0D3C3] pb-4">
             <div>
               <h2 className="font-heading text-2xl font-bold text-[#25372D]">
-                Select 1 of 3 Proposed Date/Time Slots
+                Choose 1 of 3 proposed times
               </h2>
               <p className="text-xs text-[#25372D]/70">
                 All times shown in Philippine Standard Time (PST · UTC+8)
@@ -297,10 +296,10 @@ export default function ProposalPickerPage() {
           {booking.proposedSlots.length === 0 ? (
             <div className="p-8 text-center bg-[#F6F9F6] rounded-xl border border-dashed border-[#8FBE8F] space-y-3">
               <p className="font-heading text-xl font-bold text-[#25372D]">
-                No Slots Proposed Yet (Status: Pending)
+                No times proposed yet
               </p>
               <p className="text-xs text-[#25372D]/75 max-w-md mx-auto">
-                This booking has not been picked up by a verified psychologist yet.
+                A verified psychologist hasn&apos;t replied yet — check back soon.
               </p>
             </div>
           ) : (
@@ -355,7 +354,7 @@ export default function ProposalPickerPage() {
               <div className="p-4 rounded-xl bg-[#F6F9F6] border border-[#C0D3C3] space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-xs font-bold text-[#25372D]">
-                    Stripe Checkout Method (Mock Gateway)
+                    Payment method (test mode)
                   </p>
                   <label className="inline-flex items-center gap-2 text-xs text-[#25372D] cursor-pointer">
                     <input
@@ -364,7 +363,7 @@ export default function ProposalPickerPage() {
                       onChange={(e) => setSimulatePaymentFailure(e.target.checked)}
                       className="rounded border-[#C0D3C3] text-red-600"
                     />
-                    <span>Simulate &quot;Payment Failed&quot; Error State</span>
+                    <span>Simulate a failed payment</span>
                   </label>
                 </div>
 
@@ -397,8 +396,8 @@ export default function ProposalPickerPage() {
                     {...form.register('acknowledgeFinalizationRule')}
                   />
                   <span>
-                    I confirm my selected slot and understand that the booking is finalized and
-                    session contact details unlock strictly upon successful payment.
+                    I confirm my chosen time. I understand contact details unlock once payment
+                    succeeds.
                   </span>
                 </label>
                 {form.formState.errors.acknowledgeFinalizationRule && (
@@ -419,8 +418,8 @@ export default function ProposalPickerPage() {
                   {payMutation.isPending
                     ? 'Processing Payment...'
                     : simulatePaymentFailure
-                    ? `Test Payment Failure (₱${booking.pricePhp?.toLocaleString()})`
-                    : `Pay ₱${booking.pricePhp?.toLocaleString()} & Finalize Booking`}
+                    ? `Try a failed payment (₱${booking.pricePhp?.toLocaleString()})`
+                    : `Pay ₱${booking.pricePhp?.toLocaleString()} & confirm booking`}
                 </Button>
               )}
             </form>
