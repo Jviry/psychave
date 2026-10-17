@@ -26,7 +26,6 @@ psycopg-binary==3.3.5
 psycopg2-binary==2.9.13
 pyasn1==0.6.4
 pycparser==3.0
-pytest==9.1.1
 pydantic==2.13.5
 pydantic-settings==2.15.0
 pydantic_core==2.46.5
