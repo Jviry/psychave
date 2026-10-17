@@ -150,7 +150,7 @@ All routes below require the `psychologist` Cognito group (`require_role(UserRol
 
 ### Lifecycle
 
-1. `POST /auth/create-user` (`role` defaults to `client`; `admin` cannot be self-assigned) → Cognito `sign_up` + `admin_add_user_to_group`. Lambda needs the `cognito_admin` IAM policy for these Admin APIs.
+1. `POST /auth/create-user` (`role` defaults to `client`; `admin` cannot be self-assigned; **`full_name` is required when `role = psychologist`**) → Cognito `sign_up` + `admin_add_user_to_group`, then the local `User` row (from the returned `UserSub`) and the role profile row are created immediately — the psychologist's `full_name` lands in `psychologist_profiles` at this point, not at confirm. Lambda needs the `cognito_admin` IAM policy for these Admin APIs.
 2. `POST /auth/confirm` → `confirm_sign_up`, then inserts `User(cognito_sub, email, role-from-groups)` **and the role's profile row** — `client_profiles`, `psychologist_profiles` (with `approval_status = "pending"`), or `admin_profiles` (idempotent; `full_name` falls back to the Cognito username since the pool stores no name attributes).
 3. `POST /auth/login` → returns tokens and lazily inserts the `User` row for users created before sync existed (best-effort; never fails login). Also heals a **missing role profile row** for existing users.
 4. Session endpoints (`/auth/me`, `/auth/logout`, `/auth/delete`) require `Depends(get_current_user)`; the pure auth flows (login/signup/confirm/refresh/password) stay public and are also exempt from the gateway authorizer.
