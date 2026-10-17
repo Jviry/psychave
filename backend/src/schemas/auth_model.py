@@ -13,6 +13,8 @@ class UserCreate(BaseModel):
     username: str
     password: str
     role: UserRole = UserRole.CLIENT
+    # required when role == psychologist (enforced in AuthUsecase)
+    full_name: str | None = None
 
 
 class ConfirmUserRequest(BaseModel):

@@ -6,6 +6,9 @@ from schemas.auth_model import (
     ConfirmUserRequest,
     ForgotPasswordConfirm
 )
+from models.admin_profile import AdminProfile
+from models.client_profile import ClientProfile
+from models.psychologist_profile import PsychologistProfile
 from models.user import User, UserRole
 from repo.user_repo import UserRepository
 from services.aws.cognito_service import CognitoService
@@ -21,6 +24,7 @@ class AuthUsecase:
 
     def __init__(self, service: CognitoService, db: Session):
         self.auth = service
+        self.db = db
         self.user_repo = UserRepository(db)
 
     def get_user(self, access_token: str):
@@ -43,9 +47,26 @@ class AuthUsecase:
         if credentials.role not in SELF_ASSIGNABLE_ROLES:
             raise ValidationError("Admin role cannot be self-assigned")
 
-        self.auth.create_user(credentials)
+        if credentials.role == UserRole.PSYCHOLOGIST and not credentials.full_name:
+            raise ValidationError("Full name is required for psychologists")
+
+        response = self.auth.create_user(credentials)
         self.auth.add_user_to_group(
             credentials.username, credentials.role.value)
+
+        # create the local rows right away — sign_up hands us the UserSub,
+        # so the profile (with the real full name) exists before confirm
+        cognito_sub = response.get("UserSub") if response else None
+        if cognito_sub:
+            user = self.user_repo.get_by_cognito_sub(cognito_sub)
+            if user is None:
+                user = self.user_repo.create(User(
+                    cognito_sub=cognito_sub,
+                    email=credentials.email,
+                    role=credentials.role.value,
+                ))
+            self._ensure_role_profile(
+                user, display_name=credentials.full_name or credentials.username)
 
         return {"message": "register successful, check email for code"}
 
@@ -81,17 +102,44 @@ class AuthUsecase:
         return {"message": "password change successful"}
 
     def _sync_user(self, username: str):
-        """Create the local User row from Cognito state. Idempotent."""
+        """Create the local User + role profile rows from Cognito state. Idempotent."""
         profile = self.auth.describe_user(username)
         groups = self.auth.list_user_groups(username)
         role = groups[0] if groups else UserRole.CLIENT.value
 
-        if self.user_repo.get_by_cognito_sub(profile["sub"]) is None:
-            self.user_repo.create(User(
+        user = self.user_repo.get_by_cognito_sub(profile["sub"])
+        if user is None:
+            user = self.user_repo.create(User(
                 cognito_sub=profile["sub"],
                 email=profile["email"],
                 role=role,
             ))
+        self._ensure_role_profile(user, display_name=username)
+
+    def _ensure_role_profile(self, user: User, display_name: str):
+        """Create the role's profile row when missing.
+
+        The profile rows are FK targets (persona -> client_profiles) and gate
+        psychologist dashboard access, so every user needs one. Idempotent.
+        """
+        name = display_name or user.email
+
+        if user.role == UserRole.CLIENT.value:
+            if self.db.get(ClientProfile, user.user_id) is None:
+                self.db.add(ClientProfile(client_id=user.user_id))
+        elif user.role == UserRole.PSYCHOLOGIST.value:
+            if self.db.get(PsychologistProfile, user.user_id) is None:
+                self.db.add(PsychologistProfile(
+                    psychologist_id=user.user_id,
+                    full_name=name,
+                    approval_status="pending",
+                ))
+        elif user.role == UserRole.ADMIN.value:
+            if self.db.get(AdminProfile, user.user_id) is None:
+                self.db.add(AdminProfile(
+                    admin_id=user.user_id, full_name=name))
+
+        self.db.commit()
 
     def _ensure_local_user(self, id_token: str | None):
         """Heal rows for users created before local sync existed.
@@ -108,18 +156,23 @@ class AuthUsecase:
 
         sub = claims.get("sub")
 
-        if not sub or self.user_repo.get_by_cognito_sub(sub) is not None:
+        if not sub:
             return
 
         try:
             username = claims.get("cognito:username") or claims.get(
                 "preferred_username", "")
-            groups = self.auth.list_user_groups(username) if username else []
-            role = groups[0] if groups else UserRole.CLIENT.value
-            self.user_repo.create(User(
-                cognito_sub=sub,
-                email=claims.get("email", ""),
-                role=role,
-            ))
+            user = self.user_repo.get_by_cognito_sub(sub)
+
+            if user is None:
+                groups = self.auth.list_user_groups(username) if username else []
+                role = groups[0] if groups else UserRole.CLIENT.value
+                user = self.user_repo.create(User(
+                    cognito_sub=sub,
+                    email=claims.get("email", ""),
+                    role=role,
+                ))
+
+            self._ensure_role_profile(user, display_name=username or user.email)
         except Exception:
             return
