@@ -8,6 +8,7 @@ from models.user import User, UserRole
 from models.appointment import AppointmentStatus
 from usecase.appointment_usecase import AppointmentUsecase
 from usecase.payment_usecase import PaymentUsecase
+from usecase.psychologist_usecase import PsychologistUsecase
 from dependencies.payments import get_payment_provider
 from services.payments.base import PaymentProvider
 from schemas.payment import PaymentInitiateRequest, PaymentRead
@@ -46,8 +47,10 @@ def list_appointments(
 def get_appointment(
     appointment_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.CLIENT))
+    current_user: User = Depends(require_role(UserRole.CLIENT, UserRole.PSYCHOLOGIST))
 ):
+    if current_user.role == UserRole.PSYCHOLOGIST.value:
+        return PsychologistUsecase(db).get_detail(appointment_id, current_user.user_id)
     uc = AppointmentUsecase(db)
     return uc.get_appointment(appointment_id, current_user.user_id)
 

@@ -8,6 +8,7 @@ from common.exceptions import (
     UserNotFoundError,
 )
 from common.security.cognito import verify_token
+from models.psychologist_profile import PsychologistProfile
 from models.user import User, UserRole
 from repo.user_repo import UserRepository
 
@@ -44,12 +45,37 @@ def get_current_user(
 def require_role(*allowed_roles: UserRole):
     allowed = {role.value for role in allowed_roles}
 
-    def role_checker(claims: dict = Depends(get_claims)) -> dict:
+    def role_checker(
+        claims: dict = Depends(get_claims),
+        user: User = Depends(get_current_user),
+    ) -> User:
         groups = set(claims.get("cognito:groups", []))
 
         if not allowed & groups:
             raise ForbiddenError()
 
-        return claims
+        return user
 
     return role_checker
+
+
+def get_current_psychologist(
+    user: User = Depends(require_role(UserRole.PSYCHOLOGIST)),
+    db: Session = Depends(get_db),
+) -> PsychologistProfile:
+    profile = db.get(PsychologistProfile, user.user_id)
+
+    if profile is None:
+        raise ForbiddenError("Psychologist profile not found")
+
+    return profile
+
+
+def require_approved_psychologist(
+    profile: PsychologistProfile = Depends(get_current_psychologist),
+) -> PsychologistProfile:
+    """App-level approval gate — independent of Cognito group membership."""
+    if profile.approval_status != "approved":
+        raise ForbiddenError("Psychologist profile is not approved")
+
+    return profile
