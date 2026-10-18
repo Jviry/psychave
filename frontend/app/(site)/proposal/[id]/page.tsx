@@ -11,10 +11,12 @@ import {
 } from '../../../../lib/schemas';
 import { useParams, useRouter } from 'next/navigation';
 import { useAppStore } from '../../../../stores/useAppStore';
+import { Lock } from 'lucide-react';
 import {
   BookingStatusTag,
   Button,
   Card,
+  Skeleton,
 } from '../../../../components/ui/primitives';
 
 export default function ProposalPickerPage() {
@@ -69,18 +71,16 @@ export default function ProposalPickerPage() {
   });
 
   if (isLoading) {
-    return (
-      <div className="h-64 rounded-xl bg-white border border-[#C0D3C3] p-8 animate-pulse" />
-    );
+    return <Skeleton className="h-64" />;
   }
 
   if (!booking) {
     return (
       <Card className="space-y-4 text-center py-12">
-        <h1 className="font-heading text-3xl font-bold text-[#25372D]">
+        <h1 className="font-heading text-3xl font-bold text-pine">
           Proposal Record Not Found
         </h1>
-        <p className="text-sm text-[#25372D]/75">
+        <p className="text-sm text-pine/75">
           Could not locate booking proposal #{bookingId}.
         </p>
         <Button variant="primary" onClick={() => router.push('/bookings')}>
@@ -97,17 +97,17 @@ export default function ProposalPickerPage() {
   return (
     <div className="space-y-10">
       {/* Header */}
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#C0D3C3] pb-6">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-mist pb-6">
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs text-[#5D8B69] font-semibold">
+          <div className="flex items-center gap-2 text-xs text-accent-ink font-semibold">
             <span>Flow C Step 4 of 5</span>
             <span aria-hidden="true">·</span>
             <span>3-Slot Proposal Review &amp; Payment-Gated Finalization</span>
           </div>
-          <h1 className="font-heading text-4xl font-bold text-[#25372D]">
+          <h1 className="font-heading text-4xl font-bold text-pine">
             Proposal Review &amp; Slot Selection ({booking.id})
           </h1>
-          <p className="text-sm text-[#25372D]/80 max-w-2xl">
+          <p className="text-sm text-pine/80 max-w-2xl">
             Review the 3 date/time slots proposed by{' '}
             <strong className="font-semibold">{booking.psychologistCode || 'Verified Psychologist'}</strong>,
             select exactly 1 slot, and complete payment to unlock contact details.
@@ -119,48 +119,48 @@ export default function ProposalPickerPage() {
 
       {/* Payment Success State (Flow C Step 5 Finalized) */}
       {booking.status === 'paid-confirmed' && (
-        <Card className="border-2 border-[#5D8B69] bg-[#F1F6F2] space-y-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#C0D3C3] pb-4">
+        <Card className="bg-surface-sunken space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-mist pb-4">
             <div className="space-y-1">
-              <p className="text-xs font-bold text-[#5D8B69]">
+              <p className="text-xs font-bold text-accent-ink">
                 FLOW C FINALIZED · PAYMENT SUCCEEDED ({booking.paidAt})
               </p>
-              <h2 className="font-heading text-3xl font-bold text-[#25372D]">
+              <h2 className="font-heading text-3xl font-bold text-pine">
                 Session Confirmed &amp; Contact Channels Unlocked
               </h2>
             </div>
-            <span className="font-mono text-xl font-bold text-[#25372D] tabular-nums">
+            <span className="font-mono text-xl font-bold text-pine tabular-nums">
               Paid: ₱{booking.pricePhp?.toLocaleString()}
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            <div className="p-4 rounded-xl bg-white border border-[#C0D3C3] space-y-1">
-              <p className="text-[#25372D]/65">Confirmed Date &amp; Time Slot</p>
-              <p className="font-heading text-lg font-bold text-[#25372D]">
+            <div className="p-4 rounded-lg bg-surface-raised border border-mist space-y-1">
+              <p className="text-pine/65">Confirmed Date &amp; Time Slot</p>
+              <p className="font-heading text-lg font-bold text-pine">
                 {confirmedSlot?.dateLabel}
               </p>
-              <p className="font-mono text-[#5D8B69] font-semibold tabular-nums">
+              <p className="font-mono text-accent-ink font-semibold tabular-nums">
                 {confirmedSlot?.timeLabel}
               </p>
             </div>
 
-            <div className="p-4 rounded-xl bg-white border border-[#C0D3C3] space-y-1">
-              <p className="text-[#25372D]/65">Unlocked Teletherapy Room &amp; Contact</p>
-              <p className="font-mono text-[#5D8B69] font-semibold break-all">
+            <div className="p-4 rounded-lg bg-surface-raised border border-mist space-y-1">
+              <p className="text-pine/65">Unlocked Teletherapy Room &amp; Contact</p>
+              <p className="font-mono text-accent-ink font-semibold break-all">
                 {booking.unlockedContact?.teletherapyUrl}
               </p>
-              <p className="text-[#25372D]/80">
+              <p className="text-pine/80">
                 Coord: {booking.unlockedContact?.coordinationEmail}
               </p>
             </div>
 
-            <div className="p-4 rounded-xl bg-white border border-[#C0D3C3] space-y-1">
-              <p className="text-[#25372D]/65">Automated Reminders &amp; Sync</p>
-              <p className="font-semibold text-[#25372D]">
+            <div className="p-4 rounded-lg bg-surface-raised border border-mist space-y-1">
+              <p className="text-pine/65">Automated Reminders &amp; Sync</p>
+              <p className="font-semibold text-pine">
                 24h Reminder: {booking.reminders.reminder24h.toUpperCase()}
               </p>
-              <p className="font-semibold text-[#25372D]">
+              <p className="font-semibold text-pine">
                 1h Reminder: {booking.reminders.reminder1h.toUpperCase()}
               </p>
             </div>
@@ -174,7 +174,7 @@ export default function ProposalPickerPage() {
               variant="outline"
               onClick={() => router.push('/psych/schedule')}
             >
-              Inspect Psychologist Schedule View →
+              Inspect Psychologist Schedule View
             </Button>
           </div>
         </Card>
@@ -184,7 +184,7 @@ export default function ProposalPickerPage() {
       {paymentErrorMsg && (
         <div
           role="alert"
-          className="bg-red-50 border-2 border-red-300 rounded-xl p-5 text-red-950 space-y-2"
+          className="bg-red-50 border-2 border-red-300 rounded-lg p-5 text-red-950 space-y-2"
         >
           <div className="flex items-center justify-between gap-4">
             <p className="font-heading text-xl font-bold text-red-900">
@@ -214,63 +214,54 @@ export default function ProposalPickerPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left: Booking & Psychologist Proposal Metadata */}
         <Card className="lg:col-span-5 space-y-5">
-          <div className="border-b border-[#C0D3C3] pb-3">
-            <p className="text-xs font-semibold text-[#5D8B69]">
+          <div className="border-b border-mist pb-3">
+            <p className="text-xs font-semibold text-accent-ink">
               Assigned Verified Practitioner
             </p>
-            <h2 className="font-heading text-2xl font-bold text-[#25372D]">
+            <h2 className="font-heading text-2xl font-bold text-pine">
               {booking.psychologistCode || 'Awaiting Psychologist Pick-Up'}
             </h2>
-            <p className="text-xs text-[#25372D]/75 mt-0.5">
+            <p className="text-xs text-pine/75 mt-0.5">
               {booking.psychologistSpecialization}
             </p>
           </div>
 
           <div className="space-y-3 text-xs">
-            <div className="flex justify-between py-1.5 border-b border-[#C0D3C3]/50">
-              <span className="text-[#25372D]/70">Persona</span>
-              <span className="font-semibold text-[#25372D]">{booking.personaLabel}</span>
+            <div className="flex justify-between py-1.5 border-b border-mist/50">
+              <span className="text-pine/70">Persona</span>
+              <span className="font-semibold text-pine">{booking.personaLabel}</span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-[#C0D3C3]/50">
-              <span className="text-[#25372D]/70">Service</span>
-              <span className="font-semibold text-[#25372D]">{booking.serviceTitle}</span>
+            <div className="flex justify-between py-1.5 border-b border-mist/50">
+              <span className="text-pine/70">Service</span>
+              <span className="font-semibold text-pine">{booking.serviceTitle}</span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-[#C0D3C3]/50">
-              <span className="text-[#25372D]/70">Standard Duration</span>
-              <span className="font-mono font-semibold text-[#5D8B69] tabular-nums">
+            <div className="flex justify-between py-1.5 border-b border-mist/50">
+              <span className="text-pine/70">Standard Duration</span>
+              <span className="font-mono font-semibold text-accent-ink tabular-nums">
                 {booking.serviceDuration}
               </span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-[#C0D3C3]/50">
-              <span className="text-[#25372D]/70">Proposed Session Fee</span>
-              <span className="font-mono text-base font-bold text-[#25372D] tabular-nums">
+            <div className="flex justify-between py-1.5 border-b border-mist/50">
+              <span className="text-pine/70">Proposed Session Fee</span>
+              <span className="font-mono text-base font-bold text-pine tabular-nums">
                 {booking.pricePhp ? `₱${booking.pricePhp.toLocaleString()}` : 'Pending Proposal'}
               </span>
             </div>
           </div>
 
           {booking.clinicalPrepNote && (
-            <div className="p-3.5 rounded-lg bg-[#F1F6F2] border border-[#C0D3C3] space-y-1 text-xs">
-              <p className="font-semibold text-[#25372D]">
+            <div className="p-3.5 rounded-lg bg-surface-sunken border border-mist space-y-1 text-xs">
+              <p className="font-semibold text-pine">
                 Psychologist Preparation Note:
               </p>
-              <p className="text-[#25372D]/80 leading-relaxed">
+              <p className="text-pine/80 leading-relaxed">
                 {booking.clinicalPrepNote}
               </p>
             </div>
           )}
 
-          <div className="p-3.5 rounded-lg bg-[#F6F9F6] border border-[#C0D3C3] text-xs text-[#25372D]/75 flex items-start gap-2.5">
-            <svg
-              className="w-4 h-4 text-[#5D8B69] shrink-0 mt-0.5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
+          <div className="p-3.5 rounded-lg bg-parchment border border-mist text-xs text-pine/75 flex items-start gap-2.5">
+            <Lock className="w-4 h-4 text-accent-ink shrink-0 mt-0.5" aria-hidden="true" />
             <span>
               <strong>Contact Lock Guardrail:</strong> Teletherapy link and direct coordination
               channels are locked until 1 of the 3 proposed slots is selected and payment succeeds.
@@ -280,26 +271,26 @@ export default function ProposalPickerPage() {
 
         {/* Right: 3 Radio Slots + Payment Form */}
         <Card className="lg:col-span-7 space-y-6">
-          <div className="flex items-center justify-between border-b border-[#C0D3C3] pb-4">
+          <div className="flex items-center justify-between border-b border-mist pb-4">
             <div>
-              <h2 className="font-heading text-2xl font-bold text-[#25372D]">
+              <h2 className="font-heading text-2xl font-bold text-pine">
                 Select 1 of 3 Proposed Date/Time Slots
               </h2>
-              <p className="text-xs text-[#25372D]/70">
+              <p className="text-xs text-pine/70">
                 All times shown in Philippine Standard Time (PST · UTC+8)
               </p>
             </div>
-            <span className="font-mono text-lg font-bold text-[#5D8B69] tabular-nums">
+            <span className="font-mono text-lg font-bold text-accent-ink tabular-nums">
               {booking.pricePhp ? `₱${booking.pricePhp.toLocaleString()}` : ''}
             </span>
           </div>
 
           {booking.proposedSlots.length === 0 ? (
-            <div className="p-8 text-center bg-[#F6F9F6] rounded-xl border border-dashed border-[#8FBE8F] space-y-3">
-              <p className="font-heading text-xl font-bold text-[#25372D]">
+            <div className="p-8 text-center bg-parchment rounded-lg border border-dashed border-mint/50 space-y-3">
+              <p className="font-heading text-xl font-bold text-pine">
                 No Slots Proposed Yet (Status: Pending)
               </p>
-              <p className="text-xs text-[#25372D]/75 max-w-md mx-auto">
+              <p className="text-xs text-pine/75 max-w-md mx-auto">
                 This booking has not been picked up by a verified psychologist yet.
               </p>
             </div>
@@ -315,10 +306,10 @@ export default function ProposalPickerPage() {
                   return (
                     <label
                       key={slot.id}
-                      className={`flex items-center justify-between p-4 rounded-xl border transition-colors cursor-pointer ${
+                      className={`flex items-center justify-between p-4 rounded-lg border transition-colors cursor-pointer ${
                         isChecked
-                          ? 'border-2 border-[#5D8B69] bg-[#F1F6F2]'
-                          : 'border-[#C0D3C3] bg-white hover:bg-[#F6F9F6]'
+                          ? 'border-sage bg-surface-sunken'
+                          : 'border-mist bg-surface-raised hover:bg-parchment'
                       }`}
                     >
                       <div className="flex items-center gap-3.5">
@@ -330,15 +321,15 @@ export default function ProposalPickerPage() {
                           {...form.register('selectedSlotId')}
                         />
                         <div>
-                          <p className="text-xs font-semibold text-[#5D8B69]">
+                          <p className="text-xs font-semibold text-accent-ink">
                             Option 0{slot.slotNumber}
                           </p>
-                          <p className="font-heading text-xl font-bold text-[#25372D]">
+                          <p className="font-heading text-xl font-bold text-pine">
                             {slot.dateLabel}
                           </p>
                         </div>
                       </div>
-                      <span className="font-mono text-sm font-semibold text-[#25372D] tabular-nums">
+                      <span className="font-mono text-sm font-semibold text-pine tabular-nums">
                         {slot.timeLabel}
                       </span>
                     </label>
@@ -352,12 +343,12 @@ export default function ProposalPickerPage() {
               </div>
 
               {/* Payment Method & Prototype Error State Simulator */}
-              <div className="p-4 rounded-xl bg-[#F6F9F6] border border-[#C0D3C3] space-y-4">
+              <div className="p-4 rounded-lg bg-parchment border border-mist space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs font-bold text-[#25372D]">
+                  <p className="text-xs font-bold text-pine">
                     Stripe Checkout Method (Mock Gateway)
                   </p>
-                  <label className="inline-flex items-center gap-2 text-xs text-[#25372D] cursor-pointer">
+                  <label className="inline-flex items-center gap-2 text-xs text-pine cursor-pointer">
                     <input
                       type="checkbox"
                       checked={simulatePaymentFailure}
@@ -376,7 +367,7 @@ export default function ProposalPickerPage() {
                   ].map((pm) => (
                     <label
                       key={pm.id}
-                      className="flex items-center gap-2 p-2.5 rounded-lg bg-white border border-[#C0D3C3] cursor-pointer"
+                      className="flex items-center gap-2 p-2.5 rounded-lg bg-surface-raised border border-mist cursor-pointer"
                     >
                       <input
                         type="radio"
@@ -385,12 +376,12 @@ export default function ProposalPickerPage() {
                         className="h-4 w-4 accent-sage cursor-pointer"
                         {...form.register('paymentMethodLabel')}
                       />
-                      <span className="font-medium text-[#25372D]">{pm.label}</span>
+                      <span className="font-medium text-pine">{pm.label}</span>
                     </label>
                   ))}
                 </div>
 
-                <label className="flex items-start gap-2.5 text-xs text-[#25372D]/85 cursor-pointer pt-1">
+                <label className="flex items-start gap-2.5 text-xs text-pine/85 cursor-pointer pt-1">
                   <input
                     type="checkbox"
                     disabled={booking.status === 'paid-confirmed'}

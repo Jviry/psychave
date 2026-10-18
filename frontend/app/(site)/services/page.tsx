@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/api';
 import { useAppStore } from '../../../stores/useAppStore';
+import { Info } from 'lucide-react';
 import { Button, Card } from '../../../components/ui/primitives';
 
 export default function ServicesPage() {
@@ -22,16 +23,16 @@ export default function ServicesPage() {
   return (
     <div className="space-y-12">
       {/* Page Header */}
-      <header className="space-y-3 border-b border-[#C0D3C3] pb-6">
-        <div className="flex items-center gap-2 text-xs text-[#5D8B69] font-semibold">
+      <header className="space-y-3 border-b border-mist pb-6">
+        <div className="flex items-center gap-2 text-xs text-accent-ink font-semibold">
           <span>PSYCHAVE PH Service Catalog</span>
           <span aria-hidden="true">·</span>
           <span>Mandatory Clinical Duration &amp; Scope Guardrails</span>
         </div>
-        <h1 className="font-heading text-4xl font-bold text-[#25372D]">
+        <h1 className="font-heading text-4xl font-bold text-pine">
           Services, Session Durations &amp; Ethical Guardrails
         </h1>
-        <p className="text-base text-[#25372D]/80 max-w-3xl">
+        <p className="text-base text-pine/80 max-w-3xl">
           Every service offered at PsychAvenuePH enforces explicit clinical scope boundaries and
           duration rules during Flow C booking and psychologist slot proposal.
         </p>
@@ -39,15 +40,15 @@ export default function ServicesPage() {
 
       {/* Standalone Consultation Highlight (45 mins — Screening Only) */}
       {standaloneConsultation && (
-        <section className="bg-white border-2 border-[#5D8B69] rounded-2xl p-6 lg:p-8 space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#C0D3C3] pb-4">
+        <section className="bg-surface-raised border border-sage/50 rounded-lg p-6 lg:p-8 space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-mist pb-4">
             <div className="space-y-1">
-              <div className="flex items-center gap-2 text-xs font-semibold text-[#5D8B69]">
+              <div className="flex items-center gap-2 text-xs font-semibold text-accent-ink">
                 <span>Standalone Entry Service</span>
                 <span aria-hidden="true">·</span>
                 <span className="font-mono tabular-nums">{standaloneConsultation.durationLabel}</span>
               </div>
-              <h2 className="font-heading text-3xl font-bold text-[#25372D]">
+              <h2 className="font-heading text-3xl font-bold text-pine">
                 {standaloneConsultation.indexNumber}. {standaloneConsultation.title}
               </h2>
             </div>
@@ -67,19 +68,19 @@ export default function ServicesPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             <div className="lg:col-span-7 space-y-2">
-              <p className="text-sm text-[#25372D]/85 leading-relaxed">
+              <p className="text-sm text-pine/85 leading-relaxed">
                 {standaloneConsultation.description}
               </p>
-              <p className="text-xs text-[#25372D]/65">
+              <p className="text-xs text-pine/65">
                 Format: {standaloneConsultation.clinicalFormat}
               </p>
             </div>
 
-            <div className="lg:col-span-5 bg-[#EBF2EC] border-l-4 border-[#25372D] p-4 rounded-r-lg space-y-1">
-              <p className="text-xs font-bold text-[#25372D]">
+            <div className="lg:col-span-5 bg-surface-sunken border-l-2 border-pine p-4 rounded-r-lg space-y-1">
+              <p className="text-xs font-bold text-pine">
                 Mandatory Clinical Guardrail — {standaloneConsultation.guardrailTitle}
               </p>
-              <p className="text-xs text-[#25372D]/85 leading-relaxed">
+              <p className="text-xs text-pine/85 leading-relaxed">
                 {standaloneConsultation.guardrailNotice}
               </p>
             </div>
@@ -90,10 +91,10 @@ export default function ServicesPage() {
       {/* Core Clinical, Coaching, Supervision & Academic Services */}
       <section className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="font-heading text-2xl font-bold text-[#25372D]">
+          <h2 className="font-heading text-2xl font-bold text-pine">
             Full Clinical, Coaching, Supervision &amp; Research Programs
           </h2>
-          <span className="text-xs text-[#25372D]/65 font-mono tabular-nums">
+          <span className="text-xs text-pine/65 font-mono tabular-nums">
             {services.length} Canonical Services
           </span>
         </div>
@@ -103,7 +104,7 @@ export default function ServicesPage() {
             {[1, 2, 3, 4].map((n) => (
               <div
                 key={n}
-                className="h-56 rounded-xl bg-white border border-[#C0D3C3] p-6 animate-pulse"
+                className="h-56 rounded-lg bg-surface-raised border border-mist p-6 animate-pulse"
               />
             ))}
           </div>
@@ -112,48 +113,38 @@ export default function ServicesPage() {
             {coreServices.map((srv) => (
               <Card key={srv.id} className="flex flex-col justify-between gap-6">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between text-xs border-b border-[#C0D3C3]/60 pb-3">
-                    <span className="font-semibold text-[#5D8B69]">
+                  <div className="flex items-center justify-between text-xs border-b border-mist/60 pb-3">
+                    <span className="font-semibold text-accent-ink">
                       {srv.indexNumber}. {srv.categoryGroup}
                     </span>
-                    <span className="font-mono font-bold text-[#25372D] tabular-nums">
+                    <span className="font-mono font-bold text-pine tabular-nums">
                       Duration: {srv.durationLabel}
                     </span>
                   </div>
 
                   <div className="space-y-2">
-                    <h3 className="font-heading text-2xl font-bold text-[#25372D]">
+                    <h3 className="font-heading text-2xl font-bold text-pine">
                       {srv.title}
                     </h3>
-                    <p className="text-sm text-[#25372D]/80 leading-relaxed">
+                    <p className="text-sm text-pine/80 leading-relaxed">
                       {srv.description}
                     </p>
                   </div>
 
                   {/* Mandatory Service Guardrail Box */}
-                  <div className="bg-[#F1F6F2] border-l-4 border-[#5D8B69] p-4 rounded-r-lg space-y-1">
-                    <div className="flex items-center gap-2 text-xs font-bold text-[#25372D]">
-                      <svg
-                        className="w-4 h-4 text-[#5D8B69] shrink-0"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="12" y1="8" x2="12" y2="12" />
-                        <line x1="12" y1="16" x2="12.01" y2="16" />
-                      </svg>
+                  <div className="bg-surface-sunken border-l-2 border-sage p-4 rounded-r-lg space-y-1">
+                    <div className="flex items-center gap-2 text-xs font-bold text-pine">
+                      <Info className="w-4 h-4 text-accent-ink shrink-0" aria-hidden="true" />
                       <span>{srv.guardrailTitle}</span>
                     </div>
-                    <p className="text-xs text-[#25372D]/80 leading-relaxed">
+                    <p className="text-xs text-pine/80 leading-relaxed">
                       {srv.guardrailNotice}
                     </p>
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-[#C0D3C3]/60 flex items-center justify-between gap-4">
-                  <span className="text-xs text-[#25372D]/70">{srv.clinicalFormat}</span>
+                <div className="pt-3 border-t border-mist/60 flex items-center justify-between gap-4">
+                  <span className="text-xs text-pine/70">{srv.clinicalFormat}</span>
                   <Button
                     variant="primary"
                     size="sm"
@@ -173,30 +164,30 @@ export default function ServicesPage() {
       </section>
 
       {/* Summary Guardrail Comparison Table */}
-      <section className="bg-white border border-[#C0D3C3] rounded-xl overflow-hidden">
-        <div className="px-6 py-4 bg-[#EBF2EC] border-b border-[#C0D3C3] flex items-center justify-between">
-          <h3 className="font-heading text-xl font-bold text-[#25372D]">
+      <section className="bg-surface-raised border border-mist rounded-lg overflow-hidden">
+        <div className="px-6 py-4 bg-surface-sunken border-b border-mist flex items-center justify-between">
+          <h3 className="font-heading text-xl font-bold text-pine">
             Canonical Service Duration &amp; Boundary Reference Matrix
           </h3>
-          <span className="text-xs text-[#25372D]/70">Enforced in Flow C Booking &amp; Proposals</span>
+          <span className="text-xs text-pine/70">Enforced in Flow C Booking &amp; Proposals</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-sm">
             <thead>
-              <tr className="border-b border-[#C0D3C3] text-xs text-[#25372D]/70 bg-[#F6F9F6]">
+              <tr className="border-b border-mist text-xs text-pine/70 bg-parchment">
                 <th className="py-3 px-4 font-semibold">Service</th>
                 <th className="py-3 px-4 font-semibold">Standard Duration</th>
                 <th className="py-3 px-4 font-semibold">Mandatory Scope Guardrail</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#C0D3C3]/60 text-xs">
+            <tbody className="divide-y divide-mist/60 text-xs">
               {services.map((s) => (
-                <tr key={s.id} className="hover:bg-[#F6F9F6]/80">
-                  <td className="py-3 px-4 font-semibold text-[#25372D]">{s.title}</td>
-                  <td className="py-3 px-4 font-mono tabular-nums text-[#5D8B69] font-semibold">
+                <tr key={s.id} className="hover:bg-parchment/80">
+                  <td className="py-3 px-4 font-semibold text-pine">{s.title}</td>
+                  <td className="py-3 px-4 font-mono tabular-nums text-accent-ink font-semibold">
                     {s.durationLabel}
                   </td>
-                  <td className="py-3 px-4 text-[#25372D]/80">{s.guardrailNotice}</td>
+                  <td className="py-3 px-4 text-pine/80">{s.guardrailNotice}</td>
                 </tr>
               ))}
             </tbody>
