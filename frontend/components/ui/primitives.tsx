@@ -11,8 +11,12 @@ import { BookingStatus } from '../../lib/types';
  *  - Colors come from @theme tokens in app/globals.css only.
  *  - Motion standard: crisp ease-out transitions ≤200ms (no springs/bounce).
  *    Directional hover moves only: −2px lift + shadow-lift, arrow slide.
- *  - Focus recipes: form fields use a focus ring (ring-mint/40 + border-sage);
- *    chrome (buttons, controls) uses a focus-visible outline (2px sage, offset).
+ *  - Focus recipes: form fields use a focus-visible ring (2px sage + offset-1,
+ *    border-sage); chrome (buttons, controls) uses the same 2px sage outline.
+ *  - Form fields rest on shadow-field: whisper elevation + crisp 1px border,
+ *    no drop shadow. Invalid fields come from `aria-invalid` (red border/ring).
+ *  - Labels: two-tier — field labels are muted micro-caps (Label default);
+ *    long document/consent scroller labels use <Label variant="doc">.
  *  - Radii: rounded-full for buttons/controls, rounded-2xl for cards, rounded-xl for modals.
  *  - Typography carries hierarchy; cards stay quiet (1px border or a solid tint).
  */
@@ -131,23 +135,31 @@ export function Label({
   className = '',
   children,
   htmlFor,
+  variant = 'field',
 }: {
   className?: string;
   children: React.ReactNode;
   htmlFor?: string;
+  /**
+   * 'field' — muted micro-caps for form field labels.
+   * 'doc'   — sentence case for long document/consent scroller labels,
+   *           where micro-caps would read noisy.
+   */
+  variant?: 'field' | 'doc';
 }) {
+  const styles =
+    variant === 'doc'
+      ? 'block text-sm font-medium text-pine mb-1.5'
+      : 'block text-xs font-medium uppercase tracking-wider text-pine/60 mb-1.5';
   return (
-    <label
-      htmlFor={htmlFor}
-      className={`block text-sm font-semibold text-pine mb-1.5 ${className}`}
-    >
+    <label htmlFor={htmlFor} className={`${styles} ${className}`}>
       {children}
     </label>
   );
 }
 
 const fieldClass =
-  'w-full rounded-lg border border-mist bg-surface-raised px-3.5 py-2 text-sm text-pine placeholder:text-pine/45 transition-colors duration-150 focus:border-sage focus:outline-none focus:ring-2 focus:ring-mint/40 disabled:bg-surface-sunken';
+  'w-full rounded-lg border border-mist bg-surface-raised px-3.5 py-2 text-sm text-pine shadow-field placeholder:text-pine/45 transition-colors duration-150 focus:border-sage focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-sage disabled:bg-surface-sunken aria-invalid:border-red-400 aria-invalid:focus-visible:ring-red-200';
 
 export const Input = React.forwardRef<
   HTMLInputElement,
