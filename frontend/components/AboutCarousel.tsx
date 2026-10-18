@@ -16,7 +16,7 @@ import { CmsContent, ResidentPsychologist } from '../lib/types';
  * Roster cards bookend the cycle; the institution blocks sit in the middle.
  */
 
-type Tint = 'sage' | 'mint' | 'lime' | 'sand';
+type Tint = 'sage' | 'mint' | 'lime' | 'mist';
 
 const SLIDE_MOTION =
   'transition-all duration-200 motion-safe:hover:-translate-y-0.5 hover:shadow-lift';
@@ -149,7 +149,7 @@ export function AboutCarousel({
       title="Vision Statement"
       body={cms?.vision || undefined}
       awaitingLabel="Vision"
-      tint="sand"
+      tint="mist"
     />,
     <ClinicSlide key="clinic" cms={cms} />,
     <StatementSlide
@@ -163,7 +163,7 @@ export function AboutCarousel({
       <RosterSlide
         key={resident.id}
         resident={resident}
-        tint={(['sage', 'mint', 'lime', 'sand'] as Tint[])[i % 4]}
+        tint={(['sage', 'mint', 'lime', 'mist'] as Tint[])[i % 4]}
       />
     )),
   ];

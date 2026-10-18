@@ -98,17 +98,20 @@ export function Card({
   children,
 }: {
   className?: string;
-  /** Optional solid bento tint; replaces the default raised-white surface. */
-  tint?: 'sage' | 'mint' | 'lime' | 'sand' | 'pine';
+  /**
+   * Optional solid brand-scheme tint (spec palette solids) replacing the
+   * default raised-white surface. Dark fills (sage/pine) carry white text.
+   */
+  tint?: 'sage' | 'mint' | 'lime' | 'mist' | 'pine';
   children: React.ReactNode;
 }) {
   const surface = tint
     ? {
-        sage: 'bg-sage-tint border-transparent',
-        mint: 'bg-mint-tint border-transparent',
-        lime: 'bg-lime-tint border-transparent',
-        sand: 'bg-sand-tint border-transparent',
-        pine: 'bg-pine border-transparent',
+        sage: 'bg-sage border-transparent text-white',
+        mint: 'bg-mint border-transparent text-pine',
+        lime: 'bg-lime-soft border-transparent text-pine',
+        mist: 'bg-mist border-transparent text-pine',
+        pine: 'bg-pine border-transparent text-white',
       }[tint]
     : 'bg-surface-raised border-mist';
   return (
@@ -120,11 +123,22 @@ export function Card({
 
 /* ─── CircleArrow (editorial affordance — expects a `group` parent) ───── */
 
-export function CircleArrow({ className = '' }: { className?: string }) {
+export function CircleArrow({
+  className = '',
+  tone = 'dark',
+}: {
+  className?: string;
+  /** 'dark' = quiet outline for light surfaces; 'light' = for sage/pine fills. */
+  tone?: 'dark' | 'light';
+}) {
+  const tones = {
+    dark: 'border-pine/25 text-pine group-hover:border-sage group-hover:bg-pine/5',
+    light: 'border-white/40 text-white group-hover:border-white/70 group-hover:bg-white/10',
+  };
   return (
     <span
       aria-hidden="true"
-      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-mint text-pine transition-colors duration-200 group-hover:border-sage group-hover:bg-surface-sunken ${className}`}
+      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors duration-200 ${tones[tone]} ${className}`}
     >
       <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
     </span>
