@@ -11,7 +11,7 @@ import { authApi } from '../../../authApi';
 import { useAuthStore } from '../../../authStore';
 import { ForgotPasswordModal } from '../../../components/auth/ForgotPasswordModal';
 import { Toast } from '../../../components/auth/Toast';
-import { Button } from '../../../components/ui/primitives';
+import { Button, Input, Label } from '../../../components/ui/primitives';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -117,10 +117,8 @@ export default function LoginPage() {
         <form id="login-form" onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
           {/* Username */}
           <div>
-            <label htmlFor="login-username" className="block text-sm font-semibold text-pine mb-1.5">
-              Username
-            </label>
-            <input
+            <Label htmlFor="login-username">Username</Label>
+            <Input
               id="login-username"
               type="text"
               autoComplete="username"
@@ -128,11 +126,6 @@ export default function LoginPage() {
               aria-invalid={!!errors.username}
               aria-describedby={errors.username ? 'login-username-error' : undefined}
               {...register('username')}
-              className={`w-full rounded-lg border px-3.5 py-2.5 text-sm text-pine placeholder:text-pine/40 focus:outline-none focus:ring-2 transition-colors ${
-                errors.username
-                  ? 'border-red-400 focus:border-red-400 focus:ring-red-200'
-                  : 'border-mist focus:border-sage focus:ring-mint/40'
-              }`}
             />
             {errors.username && (
               <p id="login-username-error" role="alert" className="mt-1.5 text-xs text-red-600">
@@ -143,21 +136,19 @@ export default function LoginPage() {
 
           {/* Password */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label htmlFor="login-password" className="text-sm font-semibold text-pine">
-                Password
-              </label>
+            <div className="flex items-start justify-between">
+              <Label htmlFor="login-password">Password</Label>
               <button
                 type="button"
                 id="forgot-password-trigger"
                 onClick={() => setShowForgotPassword(true)}
-                className="text-xs text-sage hover:text-pine font-medium transition-colors cursor-pointer"
+                className="text-xs text-sage hover:text-pine font-medium transition-colors cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
               >
                 Forgot password?
               </button>
             </div>
             <div className="relative">
-              <input
+              <Input
                 id="login-password"
                 type={showPassword ? 'text' : 'password'}
                 autoComplete="current-password"
@@ -165,18 +156,14 @@ export default function LoginPage() {
                 aria-invalid={!!errors.password}
                 aria-describedby={errors.password ? 'login-password-error' : undefined}
                 {...register('password')}
-                className={`w-full rounded-lg border px-3.5 py-2.5 pr-10 text-sm text-pine placeholder:text-pine/40 focus:outline-none focus:ring-2 transition-colors ${
-                  errors.password
-                    ? 'border-red-400 focus:border-red-400 focus:ring-red-200'
-                    : 'border-mist focus:border-sage focus:ring-mint/40'
-                }`}
+                className="pr-10"
               />
               <button
                 type="button"
                 id="login-toggle-password"
                 onClick={() => setShowPassword((v) => !v)}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-pine/40 hover:text-pine transition-colors cursor-pointer"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-pine/40 hover:text-pine transition-colors cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>

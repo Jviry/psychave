@@ -465,7 +465,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
           {currentStep === 1 && (
             <section className="space-y-5" aria-label="Informed consent and agreement">
               <div>
-                <Label htmlFor="wiz-consent-text">Informed consent text ({getConsentVersion()}) — scroll to read</Label>
+                <Label htmlFor="wiz-consent-text" variant="doc">Informed consent text ({getConsentVersion()}) — scroll to read</Label>
                 <div
                   id="wiz-consent-text"
                   tabIndex={0}
@@ -561,7 +561,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
                 </ul>
               </div>
               <div>
-                <Label htmlFor="wiz-scope-text">Scope &amp; limitations of services — scroll to read</Label>
+                <Label htmlFor="wiz-scope-text" variant="doc">Scope &amp; limitations of services — scroll to read</Label>
                 <div
                   id="wiz-scope-text"
                   tabIndex={0}
@@ -598,7 +598,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
               </label>
               {draft.is_overseas_or_foreign && (
                 <div className="space-y-2">
-                  <Label htmlFor="wiz-overseas-text">Limitations for overseas clients and foreign nationals — scroll to read</Label>
+                  <Label htmlFor="wiz-overseas-text" variant="doc">Limitations for overseas clients and foreign nationals — scroll to read</Label>
                   <div
                     id="wiz-overseas-text"
                     tabIndex={0}
