@@ -4,19 +4,19 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../../lib/api';
+import { api } from '../../../../lib/api';
 import {
   cmsOverviewSchema,
   CmsOverviewFormValues,
-} from '../../../lib/schemas';
-import { useAppStore } from '../../../stores/useAppStore';
+} from '../../../../lib/schemas';
+import { useAppStore } from '../../../../stores/useAppStore';
 import {
   Button,
   Card,
   Input,
   Label,
   Textarea,
-} from '../../../components/ui/primitives';
+} from '../../../../components/ui/primitives';
 
 export default function AdminCmsPage() {
   const queryClient = useQueryClient();

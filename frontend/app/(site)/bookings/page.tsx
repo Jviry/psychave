@@ -2,15 +2,15 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../lib/api';
-import { useAppStore } from '../../stores/useAppStore';
+import { api } from '../../../lib/api';
+import { useAppStore } from '../../../stores/useAppStore';
 import { useRouter } from 'next/navigation';
-import { BookingStatus } from '../../lib/types';
+import { BookingStatus } from '../../../lib/types';
 import {
   BookingStatusTag,
   Button,
   Card,
-} from '../../components/ui/primitives';
+} from '../../../components/ui/primitives';
 
 export default function ClientBookingsPage() {
   const queryClient = useQueryClient();

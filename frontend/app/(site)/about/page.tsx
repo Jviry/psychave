@@ -3,9 +3,9 @@
 import React from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../../lib/api';
-import { Card } from '../../components/ui/primitives';
-import { TestimonialsConsentSection } from '../../components/TestimonialsConsentSection';
+import { api } from '../../../lib/api';
+import { Card } from '../../../components/ui/primitives';
+import { TestimonialsConsentSection } from '../../../components/TestimonialsConsentSection';
 
 export default function AboutPage() {
   const { data: cms } = useQuery({

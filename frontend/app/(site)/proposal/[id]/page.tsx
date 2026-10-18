@@ -4,18 +4,18 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../../lib/api';
+import { api } from '../../../../lib/api';
 import {
   slotSelectionPaymentSchema,
   SlotSelectionPaymentValues,
-} from '../../../lib/schemas';
+} from '../../../../lib/schemas';
 import { useParams, useRouter } from 'next/navigation';
-import { useAppStore } from '../../../stores/useAppStore';
+import { useAppStore } from '../../../../stores/useAppStore';
 import {
   BookingStatusTag,
   Button,
   Card,
-} from '../../../components/ui/primitives';
+} from '../../../../components/ui/primitives';
 
 export default function ProposalPickerPage() {
   const queryClient = useQueryClient();

@@ -2,15 +2,15 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../../lib/api';
-import { useAppStore } from '../../../stores/useAppStore';
+import { api } from '../../../../lib/api';
+import { useAppStore } from '../../../../stores/useAppStore';
 import { useRouter } from 'next/navigation';
 import {
   BookingStatusTag,
   Button,
   Card,
   Textarea,
-} from '../../../components/ui/primitives';
+} from '../../../../components/ui/primitives';
 
 type ScheduleTab = 'upcoming' | 'past' | 'proposed' | 'all';
 

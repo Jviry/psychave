@@ -4,17 +4,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../lib/api';
+import { api } from '../../../lib/api';
 import {
   bookingFormSchema,
   BookingFormValues,
   personaSchema,
   PersonaFormValues,
-} from '../../lib/schemas';
-import { useAppStore } from '../../stores/useAppStore';
+} from '../../../lib/schemas';
+import { useAppStore } from '../../../stores/useAppStore';
 import { useRouter } from 'next/navigation';
-import { usePersonaWizardStore } from '../../stores/usePersonaWizardStore';
-import { PersonaWizardModal } from '../../components/PersonaWizardModal';
+import { usePersonaWizardStore } from '../../../stores/usePersonaWizardStore';
+import { PersonaWizardModal } from '../../../components/PersonaWizardModal';
 import {
   Button,
   Card,
@@ -22,7 +22,7 @@ import {
   Label,
   Select,
   Textarea,
-} from '../../components/ui/primitives';
+} from '../../../components/ui/primitives';
 
 export default function PersonasAndBookingPage() {
   const queryClient = useQueryClient();

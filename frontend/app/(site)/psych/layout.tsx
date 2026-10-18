@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAppStore } from '../../stores/useAppStore';
+import { useAppStore } from '../../../stores/useAppStore';
 
 export default function PsychologistDashboardLayout({
   children,

@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAppStore } from '../../stores/useAppStore';
-import { Button, Card } from '../../components/ui/primitives';
+import { useAppStore } from '../../../stores/useAppStore';
+import { Button, Card } from '../../../components/ui/primitives';
 
 export default function BookFallbackPage() {
   const router = useRouter();

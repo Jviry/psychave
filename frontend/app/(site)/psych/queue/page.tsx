@@ -4,12 +4,12 @@ import React, { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../../lib/api';
+import { api } from '../../../../lib/api';
 import {
   proposalFormSchema,
   ProposalFormValues,
-} from '../../../lib/schemas';
-import { useAppStore } from '../../../stores/useAppStore';
+} from '../../../../lib/schemas';
+import { useAppStore } from '../../../../stores/useAppStore';
 import { useRouter } from 'next/navigation';
 import {
   BookingStatusTag,
@@ -18,7 +18,7 @@ import {
   Input,
   Label,
   Textarea,
-} from '../../../components/ui/primitives';
+} from '../../../../components/ui/primitives';
 
 export default function PsychologistQueuePage() {
   const queryClient = useQueryClient();

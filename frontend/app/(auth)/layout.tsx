@@ -1,13 +1,13 @@
-'use client';
-
 import React from 'react';
 import Link from 'next/link';
 
+/**
+ * Split-screen auth chrome. This is NOT a root layout — html/body belong to
+ * app/layout.tsx. Renders inside the root layout's <body>, below <Providers>.
+ */
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>
-        <div className="min-h-screen flex bg-parchment">
+    <div className="min-h-screen flex bg-parchment">
           {/* ── Left: Brand Panel ────────────────────────────────── */}
           <div
             className="hidden lg:flex lg:w-[45%] xl:w-[40%] flex-col justify-between p-12 relative overflow-hidden"
@@ -118,7 +118,5 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             {children}
           </div>
         </div>
-      </body>
-    </html>
   );
 }

@@ -1,40 +1,21 @@
-'use client';
-
-import React, { useState } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import React from 'react';
 import './globals.css';
-import { SiteHeader } from '../components/SiteHeader';
-import { SiteFooter } from '../components/SiteFooter';
+import { Providers } from './providers';
 
+/**
+ * Root layout is a server component and the ONLY place that renders
+ * <html>/<body>. Route-group layouts ((site), (auth)) provide their own
+ * chrome below this — never nest html/body again.
+ */
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 10_000,
-            refetchOnWindowFocus: false,
-          },
-        },
-      })
-  );
-
   return (
     <html lang="en">
       <body>
-        <QueryClientProvider client={queryClient}>
-          <div className="min-h-screen flex flex-col bg-parchment text-pine font-body">
-            <SiteHeader />
-            <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-10">
-              {children}
-            </main>
-            <SiteFooter />
-          </div>
-        </QueryClientProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

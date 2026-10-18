@@ -4,12 +4,12 @@ import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../../lib/api';
+import { api } from '../../../../lib/api';
 import {
   psychologistProfileSchema,
   PsychologistProfileValues,
-} from '../../../lib/schemas';
-import { useAppStore } from '../../../stores/useAppStore';
+} from '../../../../lib/schemas';
+import { useAppStore } from '../../../../stores/useAppStore';
 import { useRouter } from 'next/navigation';
 import {
   Button,
@@ -17,7 +17,7 @@ import {
   Input,
   Label,
   Textarea,
-} from '../../../components/ui/primitives';
+} from '../../../../components/ui/primitives';
 
 export default function PsychologistProfilePage() {
   const queryClient = useQueryClient();

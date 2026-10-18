@@ -4,10 +4,10 @@ import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../lib/api';
-import { useAppStore } from '../stores/useAppStore';
-import { Button, Card } from '../components/ui/primitives';
-import { TestimonialsConsentSection } from '../components/TestimonialsConsentSection';
+import { api } from '../../lib/api';
+import { useAppStore } from '../../stores/useAppStore';
+import { Button, Card } from '../../components/ui/primitives';
+import { TestimonialsConsentSection } from '../../components/TestimonialsConsentSection';
 
 export default function HomePage() {
   const router = useRouter();

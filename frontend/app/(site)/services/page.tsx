@@ -3,9 +3,9 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../../lib/api';
-import { useAppStore } from '../../stores/useAppStore';
-import { Button, Card } from '../../components/ui/primitives';
+import { api } from '../../../lib/api';
+import { useAppStore } from '../../../stores/useAppStore';
+import { Button, Card } from '../../../components/ui/primitives';
 
 export default function ServicesPage() {
   const router = useRouter();
