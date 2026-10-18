@@ -1,12 +1,23 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useId, useRef } from 'react';
+import { X } from 'lucide-react';
 import { BookingStatus } from '../../lib/types';
 
 /**
- * Shadcn-style Button primitive tailored to PsychAvenuePH palette:
- * #25372D (primary dark), #5D8B69 (primary), #8FBE8F / #C0D3C3 (soft surfaces), #D0E187 (accent)
+ * PsychAvenuePH UI kit (de-vibe-coding foundation).
+ *
+ * Rules baked in here — never override with raw hex or inline styles:
+ *  - Colors come from @theme tokens in app/globals.css only.
+ *  - One motion standard: transition-colors duration-150 (no springs/bounce).
+ *  - Focus recipes: form fields use a focus ring (ring-mint/40 + border-sage);
+ *    chrome (buttons, controls) uses a focus-visible outline (2px sage, offset).
+ *  - Radii: rounded-lg for cards/surfaces, rounded-xl for modals. No 2xl/3xl.
+ *  - Typography carries hierarchy; cards stay quiet (1px border, flat white).
  */
+
+/* ─── Button ─────────────────────────────────────────────────────────── */
+
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'dark' | 'accent' | 'outline' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
@@ -15,15 +26,15 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className = '', variant = 'primary', size = 'md', children, ...props }, ref) => {
     const base =
-      'inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5D8B69] focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap shrink-0 cursor-pointer';
+      'inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap shrink-0 cursor-pointer';
 
     const variants: Record<NonNullable<ButtonProps['variant']>, string> = {
-      primary: 'bg-[#5D8B69] text-white hover:bg-[#4c7557]',
-      dark: 'bg-[#25372D] text-white hover:bg-[#1b2921]',
-      accent: 'bg-[#D0E187] text-[#25372D] hover:bg-[#c3d673] font-semibold',
+      primary: 'bg-sage text-white hover:bg-accent-ink',
+      dark: 'bg-pine text-white hover:bg-pine/90',
+      accent: 'bg-lime-soft text-pine hover:bg-lime-soft/90 font-semibold',
       outline:
-        'border border-[#C0D3C3] bg-white text-[#25372D] hover:bg-[#F1F6F2] hover:border-[#8FBE8F]',
-      ghost: 'text-[#25372D] hover:bg-[#E8F0EA]',
+        'border border-mist bg-surface-raised text-pine hover:bg-surface-sunken hover:border-mint',
+      ghost: 'text-pine hover:bg-surface-sunken',
       danger: 'border border-red-300 bg-red-50 text-red-800 hover:bg-red-100',
     };
 
@@ -46,6 +57,34 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 );
 Button.displayName = 'Button';
 
+/* ─── Native checkbox / radio (no @tailwindcss/forms in this repo) ────── */
+
+export const Checkbox = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
+  ({ className = '', ...props }, ref) => (
+    <input
+      ref={ref}
+      type="checkbox"
+      className={`h-4 w-4 shrink-0 rounded border-mist cursor-pointer accent-sage focus-visible:outline-2 focus-visible:outline-sage ${className}`}
+      {...props}
+    />
+  )
+);
+Checkbox.displayName = 'Checkbox';
+
+export const Radio = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
+  ({ className = '', ...props }, ref) => (
+    <input
+      ref={ref}
+      type="radio"
+      className={`h-4 w-4 shrink-0 cursor-pointer accent-sage focus-visible:outline-2 focus-visible:outline-sage ${className}`}
+      {...props}
+    />
+  )
+);
+Radio.displayName = 'Radio';
+
+/* ─── Card / Label / Inputs ───────────────────────────────────────────── */
+
 export function Card({
   className = '',
   children,
@@ -55,7 +94,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`bg-white border border-[#C0D3C3]/80 rounded-xl p-6 ${className}`}
+      className={`bg-surface-raised border border-mist rounded-lg p-6 ${className}`}
     >
       {children}
     </div>
@@ -74,12 +113,15 @@ export function Label({
   return (
     <label
       htmlFor={htmlFor}
-      className={`block text-sm font-semibold text-[#25372D] mb-1.5 ${className}`}
+      className={`block text-sm font-semibold text-pine mb-1.5 ${className}`}
     >
       {children}
     </label>
   );
 }
+
+const fieldClass =
+  'w-full rounded-lg border border-mist bg-surface-raised px-3.5 py-2 text-sm text-pine placeholder:text-pine/45 transition-colors duration-150 focus:border-sage focus:outline-none focus:ring-2 focus:ring-mint/40 disabled:bg-surface-sunken';
 
 export const Input = React.forwardRef<
   HTMLInputElement,
@@ -87,7 +129,7 @@ export const Input = React.forwardRef<
 >(({ className = '', ...props }, ref) => (
   <input
     ref={ref}
-    className={`w-full rounded-lg border border-[#C0D3C3] bg-white px-3.5 py-2 text-sm text-[#25372D] placeholder:text-[#25372D]/45 focus:border-[#5D8B69] focus:outline-none focus:ring-2 focus:ring-[#8FBE8F]/40 disabled:bg-[#F6F9F6] ${className}`}
+    className={`${fieldClass} ${className}`}
     {...props}
   />
 ));
@@ -99,7 +141,7 @@ export const Textarea = React.forwardRef<
 >(({ className = '', ...props }, ref) => (
   <textarea
     ref={ref}
-    className={`w-full rounded-lg border border-[#C0D3C3] bg-white px-3.5 py-2.5 text-sm text-[#25372D] placeholder:text-[#25372D]/45 focus:border-[#5D8B69] focus:outline-none focus:ring-2 focus:ring-[#8FBE8F]/40 disabled:bg-[#F6F9F6] ${className}`}
+    className={`${fieldClass} py-2.5 ${className}`}
     {...props}
   />
 ));
@@ -111,7 +153,7 @@ export const Select = React.forwardRef<
 >(({ className = '', children, ...props }, ref) => (
   <select
     ref={ref}
-    className={`w-full rounded-lg border border-[#C0D3C3] bg-white px-3.5 py-2 text-sm text-[#25372D] focus:border-[#5D8B69] focus:outline-none focus:ring-2 focus:ring-[#8FBE8F]/40 ${className}`}
+    className={`${fieldClass} ${className}`}
     {...props}
   >
     {children}
@@ -119,10 +161,210 @@ export const Select = React.forwardRef<
 ));
 Select.displayName = 'Select';
 
-/**
- * Accessible Flow C Status Indicator (pairs semantic label + icon + high-contrast text)
- * Statuses: pending / proposed / paid-confirmed (+ reschedule-requested / cancelled)
- */
+/* ─── Skeleton ────────────────────────────────────────────────────────── */
+
+export function Skeleton({ className = '' }: { className?: string }) {
+  return (
+    <div
+      aria-hidden="true"
+      className={`animate-pulse bg-surface-sunken rounded-lg ${className}`}
+    />
+  );
+}
+
+/* ─── SectionHeading ──────────────────────────────────────────────────── */
+
+export function SectionHeading({
+  eyebrow,
+  title,
+  description,
+  align = 'left',
+  className = '',
+}: {
+  eyebrow?: string;
+  title: string;
+  description?: string;
+  align?: 'left' | 'center';
+  className?: string;
+}) {
+  return (
+    <div className={align === 'center' ? `text-center mx-auto max-w-2xl ${className}` : className}>
+      {eyebrow ? (
+        <p className="text-xs font-semibold uppercase tracking-widest text-accent-ink">
+          {eyebrow}
+        </p>
+      ) : null}
+      <h2 className="font-heading text-2xl sm:text-3xl font-bold text-pine tracking-tight mt-1.5">
+        {title}
+      </h2>
+      {description ? (
+        <p className="text-sm sm:text-base text-pine/60 leading-relaxed mt-2">
+          {description}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/* ─── EmptyState ──────────────────────────────────────────────────────── */
+
+export function EmptyState({
+  icon,
+  title,
+  description,
+  action,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+}) {
+  const Icon = icon;
+  return (
+    <div className="flex flex-col items-center text-center py-16 px-6">
+      <div className="w-12 h-12 rounded-full bg-surface-sunken border border-mist flex items-center justify-center">
+        <Icon className="w-5 h-5 text-pine/70" aria-hidden="true" />
+      </div>
+      <p className="font-heading text-lg font-bold text-pine mt-4">{title}</p>
+      {description ? (
+        <p className="text-sm text-pine/60 leading-relaxed mt-1 max-w-sm">
+          {description}
+        </p>
+      ) : null}
+      {action ? <div className="mt-5">{action}</div> : null}
+    </div>
+  );
+}
+
+/* ─── Modal (shared base: Escape, backdrop, focus trap + restore) ─────── */
+
+export interface ModalProps {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  description?: string;
+  footer?: React.ReactNode;
+  children: React.ReactNode;
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+}
+
+const modalMaxWidth: Record<NonNullable<ModalProps['maxWidth']>, string> = {
+  sm: 'max-w-sm',
+  md: 'max-w-md',
+  lg: 'max-w-lg',
+  xl: 'max-w-xl',
+  '2xl': 'max-w-2xl',
+};
+
+export function Modal({
+  open,
+  onClose,
+  title,
+  description,
+  footer,
+  children,
+  maxWidth = 'md',
+}: ModalProps) {
+  const titleId = useId();
+  const descriptionId = useId();
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const previouslyFocused = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    previouslyFocused.current = document.activeElement as HTMLElement | null;
+
+    const panel = panelRef.current;
+    (panel?.querySelector<HTMLElement>('[data-autofocus]') ?? panel)?.focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab' || !panelRef.current) return;
+
+      // Simple focus trap: cycle Tab within the dialog.
+      const focusables = panelRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previouslyFocused.current?.focus?.();
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      // Functional overlay backdrop (blur here is the allowed use case).
+      className="fixed inset-0 z-50 overflow-y-auto bg-pine/50 backdrop-blur-sm p-4 sm:p-6 flex items-start sm:items-center justify-center"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
+        tabIndex={-1}
+        className={`w-full ${modalMaxWidth[maxWidth]} my-8 bg-surface-raised border border-mist rounded-xl shadow-lg animate-modal-in outline-none`}
+      >
+        <div className="flex items-start justify-between gap-4 p-6 pb-3">
+          <div>
+            <p id={titleId} className="font-heading text-base font-bold text-pine">
+              {title}
+            </p>
+            {description ? (
+              <p id={descriptionId} className="text-xs text-pine/60 leading-relaxed mt-1">
+                {description}
+              </p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close dialog"
+            className="rounded-lg p-1.5 -m-1.5 text-pine/50 hover:text-pine hover:bg-surface-sunken transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-sage shrink-0"
+          >
+            <X className="w-4 h-4" aria-hidden="true" />
+          </button>
+        </div>
+        <div className="px-6 pb-6">{children}</div>
+        {footer ? (
+          <div className="border-t border-mist px-6 py-4 flex flex-wrap items-center justify-end gap-2">
+            {footer}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/* ─── BookingStatusTag (single source of status labels — rule 6) ──────── */
+
 export function BookingStatusTag({ status }: { status: BookingStatus }) {
   const config: Record<
     BookingStatus,
@@ -135,13 +377,13 @@ export function BookingStatusTag({ status }: { status: BookingStatus }) {
     },
     proposed: {
       label: 'proposed · 3 slots ready for selection',
-      textClass: 'text-[#25372D] font-semibold underline decoration-[#5D8B69] underline-offset-4',
-      dotClass: 'bg-[#5D8B69]',
+      textClass: 'text-pine font-semibold underline decoration-sage underline-offset-4',
+      dotClass: 'bg-sage',
     },
     'paid-confirmed': {
       label: 'paid-confirmed · contact unlocked',
-      textClass: 'text-[#25372D] font-semibold',
-      dotClass: 'bg-[#5D8B69]',
+      textClass: 'text-pine font-semibold',
+      dotClass: 'bg-sage',
     },
     'reschedule-requested': {
       label: 'reschedule-requested · under review',

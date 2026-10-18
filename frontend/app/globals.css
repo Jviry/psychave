@@ -8,6 +8,12 @@
   --color-mist: #c0d3c3;
   --color-parchment: #f6f9f6;
 
+  /* Semantic surfaces (de-vibe coding pass) */
+  --color-surface-raised: #ffffff;
+  --color-surface-sunken: #ebf2ec;
+  /* Sage darkened so small text on parchment/white clears WCAG 4.5:1 (sage alone is ~3.9:1) */
+  --color-accent-ink: #47714f;
+
   /* toast surfaces — extracted from Toast.tsx inline styles (success / danger) */
   --color-success-soft: #f0f9f2;
   --color-success-border: #86efac;
@@ -24,6 +30,19 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  --animate-modal-in: modal-in 0.15s ease-out both;
+
+  @keyframes modal-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.99);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
     }
   }
 
