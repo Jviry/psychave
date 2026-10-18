@@ -133,6 +133,18 @@ export default function ClientBookingsPage() {
                   bookings.filter((b) => b.status === 'paid-confirmed').length
                 })`,
               },
+              {
+                id: 'reschedule-requested',
+                label: `reschedule-requested (${
+                  bookings.filter((b) => b.status === 'reschedule-requested').length
+                })`,
+              },
+              {
+                id: 'cancelled',
+                label: `cancelled (${
+                  bookings.filter((b) => b.status === 'cancelled').length
+                })`,
+              },
             ] as const
           ).map((tab) => (
             <button

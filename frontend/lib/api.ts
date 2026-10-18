@@ -439,6 +439,13 @@ let mockBookings: BookingRequest[] = [...INITIAL_BOOKINGS];
 let mockCms: CmsContent = JSON.parse(JSON.stringify(INITIAL_CMS));
 
 /**
+ * Monotonic mock booking sequence — continue past the seeded BK-2026-101..103
+ * so newly created bookings never collide with seed data (or each other).
+ * The random range previously reused ids on short sessions.
+ */
+let nextMockBookingSeq = 104;
+
+/**
  * Shared fetch helper with AbortController timeout to prevent hung requests.
  */
 async function fetchWithTimeout(
@@ -769,7 +776,7 @@ export const api = {
           mockServices.find((s) => s.id === input.serviceId) || mockServices[0];
 
         const newBooking: BookingRequest = {
-          id: `BK-2026-${Math.floor(104 + Math.random() * 890)}`,
+          id: `BK-2026-${nextMockBookingSeq++}`,
           clientId: 'client-01',
           personaId: persona.id,
           personaType: persona.type,

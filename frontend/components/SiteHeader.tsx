@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAppStore } from '../stores/useAppStore';
 import { useAuthStore } from '../authStore';
 import { CognitoRole } from '../lib/types';
-import { API_BASE_URL } from '../lib/api';
+import { API_BASE_URL, AUTH_MODE } from '../lib/api';
 import { LogOut, User, ChevronDown, Settings, Info, Bell, Lock } from 'lucide-react';
 
 export function SiteHeader() {
@@ -26,6 +26,10 @@ export function SiteHeader() {
   const { isAuthenticated, user, logout: authLogout } = useAuthStore();
   const [showDevTools, setShowDevTools] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Mock-mode-only widgets (role switcher, payment simulator, dev panel)
+  // must never appear when the app is pointed at the real backend.
+  const isMock = AUTH_MODE === 'mock';
 
   const handleRoleSwitch = (nextRole: CognitoRole) => {
     setCognitoRole(nextRole);
@@ -63,13 +67,15 @@ export function SiteHeader() {
           <div className="flex items-center gap-2">
             <Info className="w-3.5 h-3.5 text-lime-soft shrink-0" aria-hidden="true" />
             <span className="font-medium text-parchment">
-              Frontend prototype — mock mode, Flow C canonical, plugs into existing backend/ via NEXT_PUBLIC_API_URL ({API_BASE_URL}).
+              {isMock
+                ? 'Frontend prototype — mock mode (in-memory data, no backend calls), Flow C canonical.'
+                : `Frontend prototype — live mode (NEXT_PUBLIC_API_URL: ${API_BASE_URL}), Flow C canonical.`}
             </span>
           </div>
 
-          {/* Interactive State Simulation Controls for Prototype Evaluation */}
+          {/* Interactive State Simulation Controls — mock mode only (they are fake toggles) */}
           <div className="flex items-center gap-4 text-xs text-parchment/70">
-            {cognitoRole === 'psychologist' && (
+            {isMock && cognitoRole === 'psychologist' && (
               <div className="flex items-center gap-1.5">
                 <span>Psych Identity:</span>
                 <button
@@ -86,7 +92,7 @@ export function SiteHeader() {
               </div>
             )}
 
-            {cognitoRole === 'client' && (
+            {isMock && cognitoRole === 'client' && (
               <div className="flex items-center gap-1.5">
                 <span>Stripe Gateway Simulation:</span>
                 <button
@@ -100,7 +106,7 @@ export function SiteHeader() {
             )}
 
             <span className="hidden sm:inline text-parchment/60">
-              NEXT_PUBLIC_AUTH_MODE=mock
+              AUTH_MODE: {AUTH_MODE}
             </span>
           </div>
         </div>
@@ -146,18 +152,20 @@ export function SiteHeader() {
           {isAuthenticated && user ? (
             // ── Authenticated: avatar + user menu ──────────────────────
             <div className="flex items-center gap-2">
-              {/* Dev Tools toggle (collapsible mock switcher) */}
-              <button
-                type="button"
-                id="dev-tools-toggle"
-                onClick={() => setShowDevTools((v) => !v)}
-                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg text-pine/60 hover:text-pine hover:bg-mist/50 transition-colors cursor-pointer border border-mist/60"
-                title="Toggle Dev Tools (prototype mock switcher)"
-              >
-                <Settings className="w-3.5 h-3.5" />
-                Dev
-                <ChevronDown className={`w-3 h-3 transition-transform ${showDevTools ? 'rotate-180' : ''}`} />
-              </button>
+              {/* Dev Tools toggle (collapsible mock switcher) — mock mode only */}
+              {isMock && (
+                <button
+                  type="button"
+                  id="dev-tools-toggle"
+                  onClick={() => setShowDevTools((v) => !v)}
+                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg text-pine/60 hover:text-pine hover:bg-mist/50 transition-colors cursor-pointer border border-mist/60"
+                  title="Toggle Dev Tools (prototype mock switcher)"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  Dev
+                  <ChevronDown className={`w-3 h-3 transition-transform ${showDevTools ? 'rotate-180' : ''}`} />
+                </button>
+              )}
 
               {/* User avatar dropdown */}
               <div className="relative">
@@ -237,13 +245,13 @@ export function SiteHeader() {
         </div>
       </header>
 
-      {/* Secondary Contextual Workspace Sub-Bar for Role Dashboards & Mobile Nav */}
-      {/* When authenticated with Dev Tools collapsed, show role workspace nav normally */}
-      {/* When Dev Tools open (prototype mode), show the full mock switcher panel */}
-      <div className="bg-surface-sunken border-t border-mist/70 px-4 lg:px-8 py-2">
-        <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
-          {/* Dev Tools panel (only shown when toggled) */}
-          {isAuthenticated && showDevTools && (
+      {/* Contextual workspace sub-bar — authenticated users only (logged-out
+          visitors see the public nav; role nav is meaningless for them) */}
+      {isAuthenticated && (
+        <div className="bg-surface-sunken border-t border-mist/70 px-4 lg:px-8 py-2">
+          <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
+            {/* Dev Tools panel (only shown when toggled) — mock mode only */}
+            {isMock && showDevTools && (
             <div className="flex flex-wrap items-center gap-4 text-pine/70">
               <span className="font-semibold text-pine/50">Dev Tools (prototype mock switcher):</span>
               <div
@@ -274,11 +282,11 @@ export function SiteHeader() {
             </div>
           )}
 
-          {/* Role workspace nav (always shown when NOT in dev-tools-only collapsed mode) */}
-          {(!isAuthenticated || !showDevTools) && (
+          {/* Role workspace nav (shown when the dev-tools panel is collapsed) */}
+          {!showDevTools && (
             <div className="flex items-center gap-4 overflow-x-auto">
               <span className="text-pine/65 font-medium whitespace-nowrap">
-                Cognito Group ({cognitoRole}) Workspace:
+                {isMock ? `Cognito Group (${cognitoRole}) Workspace:` : 'Workspace:'}
               </span>
               <div className="flex items-center gap-4">
                 {roleNavItems[cognitoRole].map((item) => {
@@ -320,8 +328,9 @@ export function SiteHeader() {
               </span>
             )}
           </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Real-time Flow C Notification Banner when active */}
       {lastFlowEvent && (
@@ -348,3 +357,4 @@ export function SiteHeader() {
     </div>
   );
 }
+
