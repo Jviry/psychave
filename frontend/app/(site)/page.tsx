@@ -72,7 +72,7 @@ export default function HomePage() {
   };
 
   return (
-    <div id="top" className="space-y-28 overflow-x-clip lg:space-y-32">
+    <div id="top" className="space-y-28 lg:space-y-32">
       {/* Hero — fills the first screen (editorial, centered) */}
       <section className="relative flex min-h-[calc(100svh-9rem)] items-center justify-center">
         {/* Static concentric-circle decoration (pure CSS, aria-hidden) */}
@@ -124,11 +124,11 @@ export default function HomePage() {
 
         <ScrollCarousel
           ariaLabel="Clinical and advisory services cards"
-          /* Overflow breakout (Image 1): the strip is wider than the viewport
-             and centered, so edge cards bleed off both left and right screen
-             edges; the root's overflow-x-clip keeps that spill from becoming a
-             scrollbar. */
-          wrapperClassName="relative left-1/2 w-[115vw] -translate-x-1/2"
+          /* Overflow breakout like the reference (Image 1): the strip is wider
+             than the viewport and centered on it, so edge cards bleed off both
+             left and right screen edges; the root's overflow-x-clip absorbs
+             the spill so no horizontal scrollbar appears. */
+          wrapperClassName="relative left-[50vw] w-[130vw] -translate-x-1/2"
           trackClassName="gap-1.5 pb-3 pt-1 md:gap-2"
           loop
           onItemActivate={(index) => selectService(services[index])}

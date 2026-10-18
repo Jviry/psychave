@@ -13,7 +13,7 @@ export default function SiteLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex flex-col bg-parchment text-pine font-body">
+    <div className="min-h-screen flex flex-col overflow-x-clip bg-parchment text-pine font-body">
       <SiteHeader />
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 lg:px-8 py-10">
         {children}
