@@ -5,22 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { useAppStore } from '../../stores/useAppStore';
-import { Button, Card } from '../../components/ui/primitives';
-import { ArrowRight } from 'lucide-react';
+import { Button, Card, CircleArrow } from '../../components/ui/primitives';
 import { AboutCarousel } from '../../components/AboutCarousel';
+import { ScrollCarousel } from '../../components/ScrollCarousel';
 import { TestimonialsConsentSection } from '../../components/TestimonialsConsentSection';
 
-/** Bento rhythm across the 12-col grid: 6/6, 4/4/4, 6/6 (7 services). */
-const BENTO_SPANS = [
-  'lg:col-span-6',
-  'lg:col-span-6',
-  'lg:col-span-4',
-  'lg:col-span-4',
-  'lg:col-span-4',
-  'lg:col-span-6',
-  'lg:col-span-6',
-];
-
+/** Solid bento tints, rotated across the services carousel cards. */
 const BENTO_TINTS: Array<'sage' | 'mint' | 'lime' | 'sand'> = [
   'sage',
   'mint',
@@ -32,9 +22,24 @@ const BENTO_TINTS: Array<'sage' | 'mint' | 'lime' | 'sand'> = [
 ];
 
 /**
+ * One-line card subtexts — minimal editorial copy owned by the page, so the
+ * service records (and the future API payload) keep their full descriptions.
+ */
+const SERVICE_SUBTEXTS: Record<string, string> = {
+  'srv-consultation': 'Initial screening, booking clarity, and care navigation.',
+  'srv-individual': 'One-on-one therapy for anxiety, mood, and life transitions.',
+  'srv-couples': 'Structured therapy for communication, trust, and conflict repair.',
+  'srv-family-group': 'Systemic counseling for families and therapeutic groups.',
+  'srv-coaching': 'Goal-oriented coaching for career, habits, and milestones.',
+  'srv-supervision': 'Case conceptualization and skill-building for early-career practitioners.',
+  'srv-academic': 'Methodology, research design, and data analysis guidance.',
+};
+
+/**
  * Single public scroll page: Hero → #services → #about → consent governance.
  * Only /book, /login, and /register remain separate public routes; dashboards
- * and the booking flow are app routes.
+ * and the booking flow are app routes. The services carousel breaks out of the
+ * container (full-bleed), so the root clips stray horizontal overflow.
  */
 export default function HomePage() {
   const router = useRouter();
@@ -56,33 +61,29 @@ export default function HomePage() {
     queryFn: () => api.getRoster(false),
   });
 
-  const scrollToServices = () => {
-    document.getElementById('services')?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   return (
-    <div id="top" className="space-y-24">
-      {/* Hero — centered editorial */}
-      <section className="relative">
+    <div id="top" className="space-y-24 overflow-x-clip">
+      {/* Hero — fills the first screen (editorial, centered) */}
+      <section className="relative flex min-h-[calc(100svh-9rem)] items-center justify-center">
         {/* Static concentric-circle decoration (pure CSS, aria-hidden) */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 flex items-center justify-center"
         >
-          <div className="h-72 w-72 rounded-full border border-mint/40 sm:h-96 sm:w-96" />
-          <div className="absolute h-96 w-96 rounded-full border border-mint/25 sm:h-[34rem] sm:w-[34rem]" />
+          <div className="h-80 w-80 rounded-full border border-mint/40 sm:h-[26rem] sm:w-[26rem]" />
+          <div className="absolute h-[26rem] w-[26rem] rounded-full border border-mint/25 sm:h-[38rem] sm:w-[38rem]" />
         </div>
 
-        <div className="relative mx-auto max-w-4xl text-center space-y-6">
-          <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-medium text-pine leading-[1.05]">
+        <div className="relative mx-auto max-w-4xl space-y-8 text-center">
+          <h1 className="font-heading text-5xl font-medium leading-[1.05] text-pine sm:text-6xl lg:text-7xl">
             Care, done clearly.
           </h1>
 
-          <p className="text-base sm:text-lg text-pine/80 max-w-2xl mx-auto leading-relaxed">
+          <p className="mx-auto max-w-2xl text-base leading-relaxed text-pine/80 sm:text-lg">
             Verified psychologists, transparent fees, and three proposed time slots.
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 pt-2">
+          <div className="flex flex-wrap items-center justify-center pt-2">
             <Button
               variant="primary"
               size="lg"
@@ -93,56 +94,55 @@ export default function HomePage() {
             >
               Book a session
             </Button>
-            <button
-              type="button"
-              onClick={scrollToServices}
-              className="text-sm font-medium text-pine/80 hover:text-pine underline underline-offset-4 transition-colors duration-200 cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
-            >
-              Explore services
-            </button>
           </div>
         </div>
       </section>
 
-      {/* Services — pastel bento (single source of the directory; no duplicate page) */}
-      <section id="services" className="scroll-mt-24 space-y-10">
+      {/* Services — full-bleed coupled-card carousel (single source of the directory) */}
+      <section id="services" className="scroll-mt-24 space-y-8">
         <div className="text-center">
-          <h2 className="font-heading text-3xl sm:text-4xl font-medium text-pine">
+          <h2 className="font-heading text-3xl font-medium text-pine sm:text-4xl">
             Clinical &amp; Advisory Services Directory
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-12">
+        <ScrollCarousel
+          ariaLabel="Clinical and advisory services cards"
+          wrapperClassName="relative left-1/2 w-screen -translate-x-1/2"
+          trackClassName="gap-3 pb-3 pt-1"
+          deps={[services.length]}
+        >
           {services.map((srv, index) => (
             <Card
               key={srv.id}
               tint={BENTO_TINTS[index % BENTO_TINTS.length]}
-              className={`flex flex-col justify-between gap-8 transition-all duration-200 motion-safe:hover:-translate-y-0.5 hover:shadow-lift ${BENTO_SPANS[index % BENTO_SPANS.length]}`}
+              className="flex min-h-[22rem] w-[17rem] shrink-0 snap-start sm:w-[19rem] lg:w-[20rem] transition-all duration-200 motion-safe:hover:-translate-y-0.5 hover:shadow-lift"
             >
-              <h3 className="font-heading text-2xl font-medium text-pine">
-                {srv.title}
-              </h3>
+              {/* Whole card is the action — bigger title, one-line subtext, circle arrow */}
+              <button
+                type="button"
+                onClick={() => {
+                  updateBookingDraft({ serviceId: srv.id });
+                  setCognitoRole('client');
+                  router.push('/personas');
+                }}
+                className="group flex w-full flex-1 flex-col justify-between gap-10 rounded-lg text-left cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sage"
+              >
+                <h3 className="font-heading text-3xl font-medium text-pine">{srv.title}</h3>
 
-              <div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    updateBookingDraft({ serviceId: srv.id });
-                    setCognitoRole('client');
-                    router.push('/personas');
-                  }}
-                >
-                  Book
-                  <ArrowRight
-                    className="w-3.5 h-3.5 transition-transform duration-200 group-hover/btn:translate-x-0.5"
-                    aria-hidden="true"
-                  />
-                </Button>
-              </div>
+                <div className="space-y-3">
+                  <div className="border-t border-pine/15" />
+                  <div className="flex items-end justify-between gap-6">
+                    <p className="text-sm leading-relaxed text-pine/75">
+                      {SERVICE_SUBTEXTS[srv.id] ?? srv.description}
+                    </p>
+                    <CircleArrow />
+                  </div>
+                </div>
+              </button>
             </Card>
           ))}
-        </div>
+        </ScrollCarousel>
       </section>
 
       {/* About — carousel only (visually; the heading stays for screen readers) */}

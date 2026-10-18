@@ -1,16 +1,16 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Card } from './ui/primitives';
 import { AwaitingContent } from './AwaitingContent';
+import { ScrollCarousel } from './ScrollCarousel';
 import { CmsContent, ResidentPsychologist } from '../lib/types';
 
 /**
- * About carousel — August-Health-style card cycle, built dependency-free.
- * Native horizontal scroll-snap track (touch / trackpad / keyboard) with
- * centered prev/next controls. No autoplay, no looping — user-driven only.
+ * About carousel — card cycle built on the shared ScrollCarousel.
+ * Coupled cards: 3 side by side on desktop, 2 from sm, 1 (peeking) on mobile.
+ * No autoplay, no looping — user-driven only.
  *
  * Cycle order: RP-01, RP-02 → Vision → Clinic Overview → Mission → RP-03.
  * Roster cards bookend the cycle; the institution blocks sit in the middle.
@@ -133,31 +133,6 @@ export function AboutCarousel({
   cms?: CmsContent;
   roster: ResidentPsychologist[];
 }) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const [atStart, setAtStart] = useState(true);
-  const [atEnd, setAtEnd] = useState(false);
-
-  const updateEdges = useCallback(() => {
-    const el = trackRef.current;
-    if (!el) return;
-    setAtStart(el.scrollLeft <= 4);
-    setAtEnd(el.scrollLeft >= el.scrollWidth - el.clientWidth - 4);
-  }, []);
-
-  useEffect(() => {
-    updateEdges();
-    window.addEventListener('resize', updateEdges);
-    return () => window.removeEventListener('resize', updateEdges);
-  }, [updateEdges, roster.length]);
-
-  const scrollByCard = (direction: 1 | -1) => {
-    const el = trackRef.current;
-    if (!el) return;
-    const firstSlide = el.firstElementChild as HTMLElement | null;
-    const step = firstSlide ? firstSlide.offsetWidth + 24 : el.clientWidth * 0.85;
-    el.scrollBy({ left: direction * step, behavior: 'smooth' });
-  };
-
   const rosterHead = roster.slice(0, 2);
   const rosterTail = roster.slice(2);
 
@@ -194,45 +169,19 @@ export function AboutCarousel({
   ];
 
   return (
-    <div>
-      <div
-        ref={trackRef}
-        onScroll={updateEdges}
-        tabIndex={0}
-        role="region"
-        aria-label="About PsychAvenuePH cards"
-        className="scrollbar-none flex snap-x snap-mandatory gap-6 overflow-x-auto rounded-3xl py-3 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sage"
-      >
-        {slides.map((slide, index) => (
-          <div
-            key={index}
-            className="w-[85%] shrink-0 snap-start sm:w-[24rem] lg:w-[27rem]"
-          >
-            {slide}
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-5 flex items-center justify-center gap-3">
-        <button
-          type="button"
-          onClick={() => scrollByCard(-1)}
-          disabled={atStart}
-          aria-label="Previous cards"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-mint bg-surface-raised text-pine transition-colors duration-200 hover:border-sage hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+    <ScrollCarousel
+      ariaLabel="About PsychAvenuePH cards"
+      deps={[roster.length]}
+      trackClassName="gap-4 rounded-3xl py-3"
+    >
+      {slides.map((slide, index) => (
+        <div
+          key={index}
+          className="w-[85%] shrink-0 snap-start sm:w-[calc((100%_-_1rem)/2)] lg:w-[calc((100%_-_2rem)/3)]"
         >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          onClick={() => scrollByCard(1)}
-          disabled={atEnd}
-          aria-label="Next cards"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-mint bg-surface-raised text-pine transition-colors duration-200 hover:border-sage hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
-        >
-          <ArrowRight className="h-4 w-4" aria-hidden="true" />
-        </button>
-      </div>
-    </div>
+          {slide}
+        </div>
+      ))}
+    </ScrollCarousel>
   );
 }
