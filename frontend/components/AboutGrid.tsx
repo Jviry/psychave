@@ -8,16 +8,26 @@ import { AwaitingContent } from './AwaitingContent';
 import { CmsContent, ResidentPsychologist } from '../lib/types';
 
 /**
- * About Us — static "Get to know us"-style grid (the carousel is retired).
- * A centered eyebrow + serif heading, then two columns of brand-solid cards:
- * Vision, Clinic Overview (deep-pine anchor), Mission, and the three
- * anonymized resident cards. The cards are informational — no fake arrows or
- * links. Anonymized RP-0x codes only; no personal names anywhere.
+ * About Us — staggered mosaic, per the user's marked-up mockup.
+ * Headline block: "About PSYCHAVE PH" only (the redundant "about us" eyebrow
+ * is removed). Content order matches the mockup exactly: Clinic Overview
+ * (top, centered), the Vision ∥ Mission pair, the RP-01 ∥ RP-02 pair, and
+ * RP-03 centered underneath — a tight center band, flanked by decorative
+ * white breather cards in offset side rails (desktop only; they collapse
+ * away on smaller screens). Anonymized RP-0x codes only; no personal names.
  */
 
 type AboutTint = 'sage' | 'mint' | 'lime' | 'mist' | 'pine';
 
-const ROSTER_TINTS: Array<'mint' | 'sage' | 'mist'> = ['mint', 'sage', 'mist'];
+/** White breather card from the mockup — decorative, non-interactive. */
+function WhiteCard({ className = '' }: { className?: string }) {
+  return (
+    <div
+      aria-hidden="true"
+      className={`rounded-2xl border border-mist bg-surface-raised shadow-field ${className}`}
+    />
+  );
+}
 
 function CardHeading({
   icon: Icon,
@@ -134,38 +144,67 @@ export function AboutGrid({
   roster: ResidentPsychologist[];
 }) {
   return (
-    <div className="space-y-12 lg:space-y-16">
-      {/* Centered heading block (reference "Get to know us" rhythm) */}
+    <div className="space-y-10 lg:space-y-12">
+      {/* Centered heading — the redundant "about us" eyebrow above it is removed */}
       <div className="text-center">
-        <p className="text-xs font-medium uppercase tracking-wider text-pine/60">about us</p>
-        <h2 className="mt-3 font-heading text-4xl font-medium text-pine sm:text-5xl">
+        <h2 className="font-heading text-4xl font-medium text-pine sm:text-5xl">
           About PSYCHAVE PH
         </h2>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
-        <StatementCard
-          title="Vision Statement"
-          icon={Telescope}
-          body={cms?.vision || undefined}
-          awaitingLabel="Vision"
-          tint="mist"
-        />
-        <ClinicCard cms={cms} />
-        <StatementCard
-          title="Mission Statement"
-          icon={Target}
-          body={cms?.mission || undefined}
-          awaitingLabel="Mission"
-          tint="lime"
-        />
-        {roster.map((resident, i) => (
-          <RosterCard
-            key={resident.id}
-            resident={resident}
-            tint={ROSTER_TINTS[i % ROSTER_TINTS.length]}
-          />
-        ))}
+      {/* Staggered mosaic — tight center band, offset white rails (per mockup) */}
+      <div className="mx-auto grid max-w-[88rem] grid-cols-1 gap-10 lg:grid-cols-[1fr_auto_1fr] lg:items-start lg:gap-12">
+        {/* Left rail — two white breathers, offset down */}
+        <div aria-hidden="true" className="hidden lg:flex lg:justify-end">
+          <div className="w-full max-w-96">
+            <WhiteCard className="h-44 mt-24" />
+            <WhiteCard className="h-32 mt-8" />
+          </div>
+        </div>
+
+        {/* Center band — Clinic → (Vision ∥ Mission) → (RP-01 ∥ RP-02) → RP-03 */}
+        <div className="min-w-0 w-full max-w-3xl space-y-2">
+          <div className="mx-auto w-full max-w-[23rem]">
+            <ClinicCard cms={cms} />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[55fr_45fr] sm:gap-1">
+            <StatementCard
+              title="Vision Statement"
+              icon={Telescope}
+              body={cms?.vision || undefined}
+              awaitingLabel="Vision"
+              tint="mist"
+            />
+            <StatementCard
+              title="Mission Statement"
+              icon={Target}
+              body={cms?.mission || undefined}
+              awaitingLabel="Mission"
+              tint="lime"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[55fr_45fr] sm:gap-1">
+            {roster[0] && <RosterCard resident={roster[0]} tint="mint" />}
+            {roster[1] && <RosterCard resident={roster[1]} tint="sage" />}
+          </div>
+
+          {roster[2] && (
+            <div className="mx-auto w-full max-w-[23rem]">
+              <RosterCard resident={roster[2]} tint="mist" />
+            </div>
+          )}
+        </div>
+
+        {/* Right rail — three white breathers, staggered */}
+        <div aria-hidden="true" className="hidden lg:flex lg:justify-start">
+          <div className="w-full max-w-96">
+            <WhiteCard className="h-44" />
+            <WhiteCard className="h-32 mt-32" />
+            <WhiteCard className="h-28 mt-20" />
+          </div>
+        </div>
       </div>
     </div>
   );
