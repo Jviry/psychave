@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { useAppStore } from '../../stores/useAppStore';
 import { Button, Card, CircleArrow } from '../../components/ui/primitives';
-import { AboutCarousel } from '../../components/AboutCarousel';
+import { AboutGrid } from '../../components/AboutGrid';
 import { ScrollCarousel } from '../../components/ScrollCarousel';
 import { TestimonialsConsentSection } from '../../components/TestimonialsConsentSection';
 import { ServiceItem } from '../../lib/types';
@@ -161,10 +161,9 @@ export default function HomePage() {
         </ScrollCarousel>
       </section>
 
-      {/* About — carousel (replaced by the static grid in the next commit) */}
+      {/* About — static "Get to know us"-style card grid */}
       <section id="about" className="scroll-mt-24">
-        <h2 className="sr-only">About PSYCHAVE PH (PsychAvenuePH)</h2>
-        <AboutCarousel cms={cms} roster={publicRoster} />
+        <AboutGrid cms={cms} roster={publicRoster} />
       </section>
 
       {/* Consent governance — keeps the ra-10173-consent anchor used by /register */}
