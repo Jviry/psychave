@@ -15,6 +15,7 @@ import { useAppStore } from '../../../stores/useAppStore';
 import { useRouter } from 'next/navigation';
 import { usePersonaWizardStore } from '../../../stores/usePersonaWizardStore';
 import { PersonaWizardModal } from '../../../components/PersonaWizardModal';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import {
   Button,
   Card,
@@ -44,6 +45,10 @@ export default function PersonasAndBookingPage() {
   const [submittedBookingId, setSubmittedBookingId] = useState<string | null>(null);
   const autoOpenedWizard = useRef(false);
 
+  // Two-step booking form inside one card: 1. Session -> 2. Clinical context
+  const [step, setStep] = useState<1 | 2>(1);
+  const stepFocus = useRef(false);
+
   const { data: personas = [], isLoading: personasLoading } = useQuery({
     queryKey: ['personas'],
     queryFn: () => api.getPersonas(),
@@ -66,7 +71,7 @@ export default function PersonasAndBookingPage() {
     },
   });
 
-  // React Hook Form for Flow C Step 1 Booking Form
+  // Booking request form — two steps: Session -> Clinical context
   const bookingForm = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
@@ -89,6 +94,16 @@ export default function PersonasAndBookingPage() {
     }
   }, [bookingDraft.serviceId, bookingDraft.personaId, bookingForm]);
 
+  // Move focus to the first field of the active step (skip the first mount)
+  useEffect(() => {
+    if (!stepFocus.current) {
+      stepFocus.current = true;
+      return;
+    }
+    if (step === 2) document.getElementById('booking-concerns')?.focus();
+    else document.getElementById('booking-service')?.focus();
+  }, [step]);
+
   // Booking-flow persona step: no personas -> launch wizard once data loads.
   useEffect(() => {
     if (!personasLoading && personas.length === 0 && !autoOpenedWizard.current && !wizardOpen) {
@@ -107,6 +122,15 @@ export default function PersonasAndBookingPage() {
     if (preferredLanguage) bookingForm.setValue('preferredLanguage', preferredLanguage);
     updateBookingDraft({ personaId, ...(preferredLanguage ? { preferredLanguage } : {}) });
     setLastUsedPersonaId(personaId);
+  };
+
+  // Step navigation: validate the visible Step 1 fields before advancing
+  const goToStep = async (next: 1 | 2) => {
+    if (next === 2) {
+      const valid = await bookingForm.trigger(['serviceId', 'preferredLanguage']);
+      if (!valid) return;
+    }
+    setStep(next);
   };
 
   const createPersonaMutation = useMutation({
@@ -147,6 +171,7 @@ export default function PersonasAndBookingPage() {
         guardrailAcknowledged: false,
       });
       setSubmittedBookingId(createdBooking.id);
+      setStep(1);
       publishFlowEvent(
         'Booking Submitted',
         `Request ${createdBooking.id} (${createdBooking.serviceTitle}) entered the Pending Queue. Verified psychologists notified.`
@@ -162,14 +187,12 @@ export default function PersonasAndBookingPage() {
           <div className="flex items-center gap-2 text-xs text-accent-ink font-semibold">
             <span>Booking Step 1 of 5</span>
             <span aria-hidden="true">·</span>
-            <span>Client Persona &amp; Clinical Booking</span>
+            <span>Persona &amp; booking</span>
           </div>
-          <h1 className="font-heading text-4xl font-medium text-pine">
-            Client Personas &amp; Clinical Booking Form
-          </h1>
+          <h1 className="font-heading text-4xl font-medium text-pine">Book a session</h1>
           <p className="text-sm text-pine/80 max-w-2xl">
-            Create a persona with signed consent through the 4-step wizard, pick who the booking is
-            for, then submit booking to the verified psychologist queue.
+            Two short steps — then a verified psychologist reviews your request and proposes three
+            time slots.
           </p>
         </div>
 
@@ -187,23 +210,18 @@ export default function PersonasAndBookingPage() {
         )}
       </header>
 
-      {/* Submission Confirmation Banner (Flow C Step 1 -> Step 2 transition) */}
+      {/* Submission confirmation — the request is now pending */}
       {submittedBookingId && (
         <div className="bg-surface-sunken border border-sage/50 rounded-lg p-6 space-y-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-accent-ink">
-                FLOW C STEP 1 SUBMITTED · STATUS: PENDING
-              </p>
-              <h2 className="font-heading text-2xl font-medium text-pine">
-                Booking Request #{submittedBookingId} Entered Pending Queue
-              </h2>
-              <p className="text-sm text-pine/80">
-                PRC-verified psychologists have been notified. Your booking will move to{' '}
-                <strong className="font-semibold">proposed</strong> once a verified psychologist
-                picks up your request, sets the session fee, and proposes 3 schedule slots.
-              </p>
-            </div>
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-accent-ink">Booking submitted · Pending</p>
+            <h2 className="font-heading text-2xl font-medium text-pine">
+              Request #{submittedBookingId} is pending
+            </h2>
+            <p className="text-sm text-pine/80">
+              A verified psychologist reviews your request and proposes 3 time slots, with the
+              session fee. Your contact details unlock after payment.
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -212,7 +230,7 @@ export default function PersonasAndBookingPage() {
               size="sm"
               onClick={() => router.push('/bookings')}
             >
-              View in My Bookings (Client)
+              View my bookings
             </Button>
             <Button
               variant="accent"
@@ -222,31 +240,29 @@ export default function PersonasAndBookingPage() {
                 router.push('/psych/queue');
               }}
             >
-              Switch to Psychologist Role &amp; Pick Up #{submittedBookingId}
+              Switch to psychologist
             </Button>
           </div>
         </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Manage Personas + wizard launcher */}
+        {/* Left column: who the session is for */}
         <div className="lg:col-span-5 space-y-6">
           <Card className="space-y-5">
             <div className="flex items-center justify-between border-b border-mist pb-3">
               <div>
                 <h2 className="font-heading text-2xl font-medium text-pine">
-                  1. Manage Personas
+                  Who is this for?
                 </h2>
-                <p className="text-xs text-pine/70">
-                  Who is the session for? Personas include signed consent.
-                </p>
+                <p className="text-xs text-pine/70">Personas include signed consent.</p>
               </div>
               <Button
                 variant="primary"
                 size="sm"
                 onClick={() => openWizard('manage')}
               >
-                + New Persona
+                New persona
               </Button>
             </div>
 
@@ -257,7 +273,7 @@ export default function PersonasAndBookingPage() {
                   Booking for: <strong className="font-semibold">{selectedPersona.label}</strong>
                 </p>
                 <Button variant="outline" size="sm" onClick={() => openWizard('manage')}>
-                  Change / Add someone else
+                  Change or add someone else
                 </Button>
               </div>
             )}
@@ -273,7 +289,7 @@ export default function PersonasAndBookingPage() {
                     No personas yet. Create one with signed consent to start booking.
                   </p>
                   <Button variant="primary" size="sm" onClick={() => openWizard('manage')}>
-                    Launch Persona Wizard
+                    Create a persona
                   </Button>
                 </div>
               )}
@@ -292,9 +308,9 @@ export default function PersonasAndBookingPage() {
                   >
                     <div className="flex items-center justify-between text-xs text-pine/70 mb-1">
                       <span className="font-semibold text-accent-ink">
-                        Persona Type: {persona.type === 'self' ? 'Self (Primary)' : 'Dependent Ward'}
+                        Persona Type: {persona.type === 'self' ? 'Self (Primary)' : 'Dependent'}
                       </span>
-                      <span className="font-mono tabular-nums">{persona.ageGroup}</span>
+                      <span className="tabular-nums">{persona.ageGroup}</span>
                     </div>
                     <p className="font-heading text-lg font-medium text-pine">
                       {persona.label}
@@ -312,7 +328,7 @@ export default function PersonasAndBookingPage() {
 
             {personas.length > 1 && (
               <Button variant="outline" size="sm" onClick={() => openWizard('manage')}>
-                + Add someone else
+                Add someone else
               </Button>
             )}
 
@@ -425,145 +441,166 @@ export default function PersonasAndBookingPage() {
           </Card>
         </div>
 
-        {/* Right Column: Canonical Flow C Booking Form (RHF + Zod) */}
+        {/* Right column: booking details — two short steps in one card */}
         <Card className="lg:col-span-7 space-y-6">
           <div className="border-b border-mist pb-4">
-            <h2 className="font-heading text-2xl font-medium text-pine">
-              2. Complete Clinical Booking Form
-            </h2>
-            <p className="text-xs text-pine/70">
-              Validated with React Hook Form + Zod · Enters Pending Queue for Verified Psychologists
-            </p>
+            <h2 className="font-heading text-2xl font-medium text-pine">Booking details</h2>
           </div>
 
           <form
             onSubmit={bookingForm.handleSubmit((vals) => submitBookingMutation.mutate(vals))}
             className="space-y-5"
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="booking-service">Selected Service &amp; Duration</Label>
-                <Select
-                  id="booking-service"
-                  {...bookingForm.register('serviceId', {
-                    onChange: (e) => updateBookingDraft({ serviceId: e.target.value }),
-                  })}
-                >
-                  {services.map((srv) => (
-                    <option key={srv.id} value={srv.id}>
-                      {srv.title} ({srv.durationLabel})
-                    </option>
-                  ))}
-                </Select>
+            {/* Segmented progress across the two steps */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2" aria-hidden="true">
+                <span
+                  className={`h-1.5 flex-1 rounded-full transition-colors duration-150 ${
+                    step >= 1 ? 'bg-sage' : 'bg-mist'
+                  }`}
+                />
+                <span
+                  className={`h-1.5 flex-1 rounded-full transition-colors duration-150 ${
+                    step >= 2 ? 'bg-sage' : 'bg-mist'
+                  }`}
+                />
               </div>
-
-              <div>
-                <Label htmlFor="booking-language">Preferred Session Language</Label>
-                <Select
-                  id="booking-language"
-                  {...bookingForm.register('preferredLanguage', {
-                    onChange: (e) => updateBookingDraft({ preferredLanguage: e.target.value }),
-                  })}
-                >
-                  <option value="English / Taglish">English / Taglish</option>
-                  <option value="Filipino / Taglish">Filipino / Taglish</option>
-                  <option value="English">English</option>
-                  <option value="Cebuano / English">Cebuano / English</option>
-                </Select>
+              <div className="flex items-center justify-between text-xs font-medium">
+                <span className={step === 1 ? 'text-pine' : 'text-pine/55'}>1. Session</span>
+                <span className={step === 2 ? 'text-pine' : 'text-pine/55'}>
+                  2. Clinical context
+                </span>
               </div>
+              <p className="sr-only" aria-live="polite">
+                Step {step} of 2: {step === 1 ? 'Session' : 'Clinical context'}
+              </p>
             </div>
 
-            {/* Dynamic Service Duration & Scope Guardrail Notice */}
-            {activeService && (
-              <div className="space-y-1 text-xs">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-semibold text-pine">
-                    Active Guardrail: {activeService.guardrailTitle}
-                  </p>
-                  <span className="font-mono tabular-nums text-accent-ink shrink-0">
-                    Duration: {activeService.durationLabel}
-                  </span>
+            {step === 1 && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="booking-service">Selected Service &amp; Duration</Label>
+                    <Select
+                      id="booking-service"
+                      {...bookingForm.register('serviceId', {
+                        onChange: (e) => updateBookingDraft({ serviceId: e.target.value }),
+                      })}
+                    >
+                      {services.map((srv) => (
+                        <option key={srv.id} value={srv.id}>
+                          {srv.title} ({srv.durationLabel})
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="booking-language">Preferred Session Language</Label>
+                    <Select
+                      id="booking-language"
+                      {...bookingForm.register('preferredLanguage', {
+                        onChange: (e) => updateBookingDraft({ preferredLanguage: e.target.value }),
+                      })}
+                    >
+                      <option value="English / Taglish">English / Taglish</option>
+                      <option value="Filipino / Taglish">Filipino / Taglish</option>
+                      <option value="English">English</option>
+                      <option value="Cebuano / English">Cebuano / English</option>
+                    </Select>
+                  </div>
                 </div>
-                <p className="text-pine/70 leading-relaxed">
-                  {activeService.guardrailNotice}
-                </p>
-              </div>
+
+                {activeService && (
+                  <p className="text-xs text-pine/60 leading-relaxed">
+                    {activeService.guardrailNotice}
+                  </p>
+                )}
+
+                <div className="flex items-center justify-end pt-2">
+                  <Button type="button" variant="primary" onClick={() => goToStep(2)}>
+                    Continue
+                    <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                  </Button>
+                </div>
+              </>
             )}
 
-            <div>
-              <Label htmlFor="booking-concerns">
-                Presenting Concerns, Context &amp; Goals (Min 20 chars)
-              </Label>
-              <Textarea
-                id="booking-concerns"
-                rows={4}
-                placeholder="Describe primary concerns, goals for this service, and relevant context (do not include real full names)..."
-                {...bookingForm.register('concernsSummary', {
-                  onChange: (e) => updateBookingDraft({ concernsSummary: e.target.value }),
-                })}
-              />
-              {bookingForm.formState.errors.concernsSummary && (
-                <p className="text-xs text-red-700 mt-1">
-                  {bookingForm.formState.errors.concernsSummary.message}
-                </p>
-              )}
-            </div>
+            {step === 2 && (
+              <>
+                <div>
+                  <Label htmlFor="booking-concerns">Presenting concerns &amp; goals</Label>
+                  <Textarea
+                    id="booking-concerns"
+                    rows={4}
+                    placeholder="What's going on, and what you hope to get from the session — please avoid full real names."
+                    {...bookingForm.register('concernsSummary', {
+                      onChange: (e) => updateBookingDraft({ concernsSummary: e.target.value }),
+                    })}
+                  />
+                  {bookingForm.formState.errors.concernsSummary && (
+                    <p className="text-xs text-red-700 mt-1">
+                      {bookingForm.formState.errors.concernsSummary.message}
+                    </p>
+                  )}
+                </div>
 
-            <div>
-              <Label htmlFor="booking-needs">
-                Scheduling Preferences, Breakout Setup &amp; Specific Needs
-              </Label>
-              <Textarea
-                id="booking-needs"
-                rows={2}
-                placeholder="e.g., Prefer weekday evenings after 6 PM PST; separate devices ready if Couples 15-min breakout applies..."
-                {...bookingForm.register('specificNeeds', {
-                  onChange: (e) => updateBookingDraft({ specificNeeds: e.target.value }),
-                })}
-              />
-              {bookingForm.formState.errors.specificNeeds && (
-                <p className="text-xs text-red-700 mt-1">
-                  {bookingForm.formState.errors.specificNeeds.message}
-                </p>
-              )}
-            </div>
+                <div>
+                  <Label htmlFor="booking-needs">Scheduling preferences &amp; needs</Label>
+                  <Textarea
+                    id="booking-needs"
+                    rows={2}
+                    placeholder="e.g., weekday evenings after 6 PM; separate devices ready for the couples breakout"
+                    {...bookingForm.register('specificNeeds', {
+                      onChange: (e) => updateBookingDraft({ specificNeeds: e.target.value }),
+                    })}
+                  />
+                  {bookingForm.formState.errors.specificNeeds && (
+                    <p className="text-xs text-red-700 mt-1">
+                      {bookingForm.formState.errors.specificNeeds.message}
+                    </p>
+                  )}
+                </div>
 
-            <div className="p-4 rounded-lg bg-parchment border border-mist space-y-2">
-              <label className="flex items-start gap-3 text-xs text-pine cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-4 w-4 rounded border-mist accent-sage cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
-                  {...bookingForm.register('guardrailAcknowledged')}
-                />
-                <span className="leading-relaxed">
-                  I acknowledge the clinical guardrail for{' '}
-                  <strong>{activeService?.title}</strong> ({activeService?.durationLabel}) and
-                  understand that my request enters a pending queue until a verified psychologist
-                  proposes 3 schedule slots and payment is completed.
-                </span>
-              </label>
-              {bookingForm.formState.errors.guardrailAcknowledged && (
-                <p className="text-xs text-red-700">
-                  {bookingForm.formState.errors.guardrailAcknowledged.message}
-                </p>
-              )}
-            </div>
+                <div className="space-y-2">
+                  <label className="flex items-start gap-3 text-xs text-pine cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 rounded border-mist accent-sage cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
+                      {...bookingForm.register('guardrailAcknowledged')}
+                    />
+                    <span className="leading-relaxed">
+                      I understand {activeService?.title} follows its clinical scope guardrail, and
+                      this request stays pending until a verified psychologist proposes 3 time
+                      slots and payment is completed.
+                    </span>
+                  </label>
+                  {bookingForm.formState.errors.guardrailAcknowledged && (
+                    <p className="text-xs text-red-700">
+                      {bookingForm.formState.errors.guardrailAcknowledged.message}
+                    </p>
+                  )}
+                </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
-              <span className="text-xs text-pine/65">
-                Next Step: Enters Pending Queue; verified psychologist proposes 3 slots
-              </span>
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                disabled={submitBookingMutation.isPending}
-              >
-                {submitBookingMutation.isPending
-                  ? 'Submitting Booking to Queue...'
-                  : 'Submit Booking Request (Status: Pending)'}
-              </Button>
-            </div>
+                <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
+                  <Button type="button" variant="ghost" onClick={() => goToStep(1)}>
+                    <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+                    Back
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="lg"
+                    disabled={submitBookingMutation.isPending}
+                  >
+                    {submitBookingMutation.isPending ? 'Submitting…' : 'Submit booking request'}
+                  </Button>
+                </div>
+                <p className="text-xs text-pine/60">
+                  A verified psychologist reviews your request and proposes 3 time slots.
+                </p>
+              </>
+            )}
           </form>
         </Card>
       </div>

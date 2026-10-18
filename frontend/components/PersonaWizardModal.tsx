@@ -548,7 +548,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
                   {(services.length > 0 ? services : []).map((s) => (
                     <li key={s.id} className="p-3.5 rounded-lg bg-parchment border border-mist">
                       <p className="text-sm font-semibold text-pine">
-                        {s.title} <span className="font-mono font-normal text-accent-ink">· {s.durationLabel}</span>
+                        {s.title} <span className="font-normal text-accent-ink">· {s.durationLabel}</span>
                       </p>
                       <p className="text-xs text-pine/75 mt-0.5">{s.guardrailNotice}</p>
                     </li>

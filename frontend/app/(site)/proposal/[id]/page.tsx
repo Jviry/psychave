@@ -127,7 +127,7 @@ export default function ProposalPickerPage() {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-mist pb-4">
             <div className="space-y-1">
               <p className="text-xs font-medium text-accent-ink">
-                FLOW C FINALIZED · PAYMENT SUCCEEDED ({booking.paidAt})
+                Payment confirmed · Contact unlocked ({booking.paidAt})
               </p>
               <h2 className="font-heading text-3xl font-medium text-pine">
                 Session Confirmed &amp; Contact Channels Unlocked
