@@ -1,6 +1,16 @@
 import React from 'react';
+import type { Metadata } from 'next';
 import './globals.css';
 import { Providers } from './providers';
+
+export const metadata: Metadata = {
+  title: {
+    default: 'PsychAvenuePH — PRC-Verified Mental Health Care in the Philippines',
+    template: '%s — PsychAvenuePH',
+  },
+  description:
+    'Structured scheduling with PRC-registered psychologists — transparent pricing, guided intake, and consent-first data handling.',
+};
 
 /**
  * Root layout is a server component and the ONLY place that renders
