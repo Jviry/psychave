@@ -34,7 +34,7 @@ export default function ServicesPage() {
         </h1>
         <p className="text-base text-pine/80 max-w-3xl">
           Every service offered at PsychAvenuePH enforces explicit clinical scope boundaries and
-          duration rules during Flow C booking and psychologist slot proposal.
+          duration rules during booking and psychologist slot proposal.
         </p>
       </header>
 
@@ -168,7 +168,7 @@ export default function ServicesPage() {
           <h3 className="font-heading text-xl font-bold text-pine">
             Canonical Service Duration &amp; Boundary Reference Matrix
           </h3>
-          <span className="text-xs text-pine/70">Enforced in Flow C Booking &amp; Proposals</span>
+          <span className="text-xs text-pine/70">Enforced in Booking &amp; Proposals</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-sm">

@@ -62,7 +62,7 @@ export default function ProposalPickerPage() {
       queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       publishFlowEvent(
-        'Flow C Step 4 & 5 Complete — Payment Confirmed & Contact Unlocked',
+        'Payment Confirmed & Contact Unlocked',
         `Booking ${updated.id} is now paid-confirmed. Direct session room unlocked and 24h/1h reminders scheduled.`
       );
     },
@@ -101,7 +101,7 @@ export default function ProposalPickerPage() {
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-mist pb-6">
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-xs text-accent-ink font-semibold">
-            <span>Flow C Step 4 of 5</span>
+            <span>Booking Step 4 of 5</span>
             <span aria-hidden="true">·</span>
             <span>3-Slot Proposal Review &amp; Payment-Gated Finalization</span>
           </div>

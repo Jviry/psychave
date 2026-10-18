@@ -134,7 +134,7 @@ export default function PsychologistQueuePage() {
       setRecentProposedId(updated.id);
       setActiveModalBookingId(null);
       publishFlowEvent(
-        'Flow C Step 3 Complete — 3 Slots & Fee Proposed',
+        '3 Slots & Fee Proposed',
         `${activePsych?.anonymizedTitle} picked up ${updated.id}, set fee to ₱${updated.pricePhp?.toLocaleString()}, and proposed 3 schedule slots. Client alerted.`
       );
     },
@@ -391,7 +391,7 @@ export default function PsychologistQueuePage() {
         >
           <div className="space-y-5">
             <p className="text-xs font-semibold uppercase tracking-widest text-accent-ink">
-              Flow C Step 3 · Claim &amp; Propose Slots
+              Booking Step 3 · Claim &amp; Propose Slots
             </p>
             {/* Race Condition / Error Banner */}
             {proposeMutation.isError && (

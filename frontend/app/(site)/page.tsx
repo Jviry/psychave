@@ -24,69 +24,6 @@ export default function HomePage() {
     queryFn: () => api.getCmsContent(),
   });
 
-  const flowCSteps = [
-    {
-      step: '01',
-      title: 'Persona & Clinical Booking',
-      roleLabel: 'Client Action',
-      description:
-        'Select a Persona (Self or Dependent) and complete the structured clinical booking form with presenting concerns and service choice.',
-      actionLabel: 'Open Booking Form',
-      onAction: () => {
-        setCognitoRole('client');
-        router.push('/personas');
-      },
-    },
-    {
-      step: '02',
-      title: 'Pending Queue & Notification',
-      roleLabel: 'System + Queue',
-      description:
-        'Submitted booking enters the pending queue visible to PRC-verified psychologists (and preliminary admin audit view).',
-      actionLabel: 'Inspect Queue',
-      onAction: () => {
-        setCognitoRole('psychologist');
-        router.push('/psych/queue');
-      },
-    },
-    {
-      step: '03',
-      title: 'Verified Pick-Up + 3 Slots + Fee',
-      roleLabel: 'Verified Psychologist',
-      description:
-        'Only verified psychologists can pick up a request, set the session price, and propose exactly 3 distinct date/time slots.',
-      actionLabel: 'Test Proposal Creator',
-      onAction: () => {
-        setCognitoRole('psychologist');
-        router.push('/psych/queue');
-      },
-    },
-    {
-      step: '04',
-      title: 'Slot Selection & Payment Finalization',
-      roleLabel: 'Client Action',
-      description:
-        'Client receives a proposal alert, reviews the 3 proposed slots, selects 1, and pays. Finalized ONLY on payment success.',
-      actionLabel: 'Review Proposal #102',
-      onAction: () => {
-        setCognitoRole('client');
-        router.push('/proposal/BK-2026-102');
-      },
-    },
-    {
-      step: '05',
-      title: 'Contact Unlock & 24h / 1h Reminders',
-      roleLabel: 'Automated Lifecycle',
-      description:
-        'Payment confirmation unlocks direct session contact for both parties, dispatches 24h/1h reminders, and enables real-time status updates.',
-      actionLabel: 'View Confirmed Booking',
-      onAction: () => {
-        setCognitoRole('client');
-        router.push('/bookings');
-      },
-    },
-  ];
-
   return (
     <div className="space-y-16">
       {/* Hero Section */}
@@ -96,8 +33,6 @@ export default function HomePage() {
             <span>Philippine Mental-Health Care Navigation</span>
             <span aria-hidden="true">·</span>
             <span>PRC-Verified Clinical Roster</span>
-            <span aria-hidden="true">·</span>
-            <span>Canonical Flow C Architecture</span>
           </div>
 
           <h1 className="font-heading text-4xl sm:text-5xl font-bold text-pine leading-[1.08]">
@@ -118,14 +53,14 @@ export default function HomePage() {
                 router.push('/personas');
               }}
             >
-              Start Flow C Booking
+              Start Booking
             </Button>
             <Button
               variant="outline"
               size="lg"
               onClick={() => router.push('/services')}
             >
-              Explore 7 Services & Guardrails
+              Explore Services
             </Button>
             <Link
               href="/book"
@@ -142,7 +77,7 @@ export default function HomePage() {
             <div className="flex items-center justify-between border-b border-mist pb-3">
               <div>
                 <p className="font-heading text-lg font-bold text-pine">
-                  Flow C Clinical Safeguards
+                  Clinical Booking Safeguards
                 </p>
                 <p className="text-xs text-pine/70">
                   Real-time state synchronization across 3 Cognito roles
@@ -195,57 +130,6 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Interactive Canonical Flow C Walkthrough */}
-      <section className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-mist pb-4">
-          <div>
-            <p className="text-xs font-semibold text-accent-ink">
-              Official Booking Architecture
-            </p>
-            <h2 className="font-heading text-3xl font-bold text-pine">
-              Flow C End-to-End Interactive Prototype
-            </h2>
-          </div>
-          <p className="text-sm text-pine/75 max-w-md">
-            Click any stage below to automatically switch the mock AWS Cognito role and test that screen with live state.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          {flowCSteps.map((item) => (
-            <div
-              key={item.step}
-              className="bg-surface-raised border border-mist rounded-lg p-5 flex flex-col justify-between gap-4 hover:border-sage/60 transition-colors"
-            >
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between text-xs text-pine/65">
-                  <span className="font-mono font-bold text-accent-ink tabular-nums">
-                    {item.step}
-                  </span>
-                  <span>{item.roleLabel}</span>
-                </div>
-                <h3 className="font-heading text-xl font-bold text-pine">
-                  {item.title}
-                </h3>
-                <p className="text-xs text-pine/75 leading-relaxed">
-                  {item.description}
-                </p>
-              </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={item.onAction}
-                className="w-full justify-between"
-              >
-                <span>{item.actionLabel}</span>
-                <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
-              </Button>
-            </div>
-          ))}
         </div>
       </section>
 

@@ -68,8 +68,8 @@ export function SiteHeader() {
             <Info className="w-3.5 h-3.5 text-lime-soft shrink-0" aria-hidden="true" />
             <span className="font-medium text-parchment">
               {isMock
-                ? 'Frontend prototype — mock mode (in-memory data, no backend calls), Flow C canonical.'
-                : `Frontend prototype — live mode (NEXT_PUBLIC_API_URL: ${API_BASE_URL}), Flow C canonical.`}
+                ? 'Frontend prototype — mock mode (in-memory data, no backend calls).'
+                : `Frontend prototype — live mode (NEXT_PUBLIC_API_URL: ${API_BASE_URL}).`}
             </span>
           </div>
 
@@ -277,7 +277,7 @@ export function SiteHeader() {
                 })}
               </div>
               <Link href="/personas" className="hidden sm:inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-lg bg-sage text-white hover:bg-accent-ink transition-colors focus-visible:outline-2 focus-visible:outline-sage focus-visible:outline-offset-2">
-                Start Flow C Intake
+                Start Booking
               </Link>
             </div>
           )}

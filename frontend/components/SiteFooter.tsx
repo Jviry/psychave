@@ -13,8 +13,8 @@ export function SiteFooter() {
               PSYCHAVE PH
             </p>
             <p className="text-sm text-mist max-w-md leading-relaxed">
-              PsychAvenuePH is a structured Philippine mental-health booking platform built around
-              canonical Flow C booking, PRC-verified resident psychologists, explicit clinical duration
+              PsychAvenuePH is a Philippine mental-health booking platform built around
+              structured booking, PRC-verified resident psychologists, explicit clinical duration
               guardrails, and strict confidentiality governance.
             </p>
             <p className="text-xs text-mint pt-1">
@@ -52,7 +52,7 @@ export function SiteFooter() {
 
           <div className="space-y-2.5 text-sm">
             <p className="font-heading text-base font-semibold text-lime-soft">
-              Flow C Role Dashboards
+              Role Dashboards
             </p>
             <ul className="space-y-2 text-mist">
               <li>
@@ -94,7 +94,7 @@ export function SiteFooter() {
             © {new Date().getFullYear()} PSYCHAVE PH (PsychAvenuePH). All clinical services adhere to PAP Ethical Guidelines &amp; RA 10173 Data Privacy standards.
           </p>
           <p className="text-mint">
-            No personal quotes · No identifiable resident names · Canonical Flow C
+            No personal quotes · No identifiable resident names · Structured Booking
           </p>
         </div>
       </div>

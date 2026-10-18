@@ -33,13 +33,13 @@ General Availability Window: [Days & Times]`;
         <div className="flex items-center gap-2 text-xs text-accent-ink font-semibold">
           <span>Book a Session</span>
           <span aria-hidden="true">·</span>
-          <span>Canonical Flow C Booking + Official External Fallback</span>
+          <span>Structured Platform Booking + Official External Fallback</span>
         </div>
         <h1 className="font-heading text-4xl font-bold text-pine">
           Book a Session with PSYCHAVE PH
         </h1>
         <p className="text-base text-pine/80 max-w-3xl">
-          Initiate your booking through our structured Flow C platform booking, or reach our clinical
+          Initiate your booking through our structured platform booking, or reach our clinical
           coordination desk directly via our official Facebook page or email fallback.
         </p>
       </header>
@@ -50,7 +50,7 @@ General Availability Window: [Days & Times]`;
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs font-semibold text-accent-ink">
               <span>Recommended Primary Path</span>
-              <span>Flow C Canonical Workflow</span>
+              <span>Platform Booking Workflow</span>
             </div>
             <h2 className="font-heading text-3xl font-bold text-pine">
               Complete Persona &amp; Clinical Booking Online
@@ -86,7 +86,7 @@ General Availability Window: [Days & Times]`;
                 router.push('/personas');
               }}
             >
-              Launch Flow C Booking Form
+              Launch Booking Form
             </Button>
             <Button
               variant="outline"

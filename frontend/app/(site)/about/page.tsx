@@ -148,7 +148,7 @@ export default function AboutPage() {
           </div>
           <p className="text-xs text-pine/70 max-w-md">
             Individual personal names and photographs are intentionally excluded from public display.
-            Cases are matched via verified PRC credentials and specialization fit in Flow C.
+            Cases are matched via verified PRC credentials and specialization fit during booking.
           </p>
         </div>
 
@@ -179,7 +179,7 @@ export default function AboutPage() {
 
                 <div className="space-y-1.5 pt-2">
                   <p className="text-xs font-semibold text-pine">
-                    Authorized Flow C Service Scope:
+                    Authorized Service Scope:
                   </p>
                   <p className="text-xs text-pine/75 leading-relaxed">
                     {resident.serviceEligibility.join(' · ')}

@@ -62,7 +62,7 @@ export default function AdminVerificationsPage() {
           Psychologist Credential Verifications &amp; Roster Control
         </h1>
         <p className="text-sm text-pine/80 max-w-3xl">
-          Approve PRC credentials so psychologists can pick up Flow C booking requests, toggle
+          Approve PRC credentials so psychologists can pick up pending booking requests, toggle
           anonymized public roster visibility on <code>/about</code>, and audit preliminary queue
           statuses without access to private clinical session notes.
         </p>
@@ -76,7 +76,7 @@ export default function AdminVerificationsPage() {
               1. Resident Psychologist Credential Verification Queue
             </h2>
             <p className="text-xs text-pine/70">
-              Only verified psychologists can pick up pending requests in Flow C Step 3.
+              Only verified psychologists can pick up pending requests.
             </p>
           </div>
           <span className="text-xs font-mono text-accent-ink font-semibold tabular-nums">
@@ -200,7 +200,7 @@ export default function AdminVerificationsPage() {
               <tr className="border-b border-mist text-pine/70 bg-parchment">
                 <th className="py-3 px-4 font-semibold">Booking ID</th>
                 <th className="py-3 px-4 font-semibold">Persona &amp; Service</th>
-                <th className="py-3 px-4 font-semibold">Flow C Status</th>
+                <th className="py-3 px-4 font-semibold">Booking Status</th>
                 <th className="py-3 px-4 font-semibold">Assigned Practitioner</th>
                 <th className="py-3 px-4 font-semibold">Private Clinical Notes</th>
               </tr>

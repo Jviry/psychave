@@ -69,7 +69,7 @@ export default function ClientBookingsPage() {
             <span>Tiered Access: Own History Only (Client #C-01)</span>
           </div>
           <h1 className="font-heading text-4xl font-bold text-pine">
-            My Bookings &amp; Flow C Status Tracker
+            My Bookings
           </h1>
           <p className="text-sm text-pine/80 max-w-2xl">
             Track your submitted booking forms from <strong className="font-semibold">pending</strong>{' '}
@@ -114,7 +114,7 @@ export default function ClientBookingsPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div
           role="group"
-          aria-label="Filter bookings by Flow C status"
+          aria-label="Filter bookings by status"
           className="flex flex-wrap items-center gap-1 p-1 bg-surface-sunken rounded-lg border border-mist"
         >
           {(
@@ -181,7 +181,7 @@ export default function ClientBookingsPage() {
             No Bookings Matching Selected Status
           </p>
           <p className="text-sm text-pine/75 max-w-md mx-auto">
-            Start a new Flow C booking under a Self or Dependent persona, or switch the filter above
+            Start a new booking under a Self or Dependent persona, or switch the filter above
             to view all existing bookings.
           </p>
           <div className="flex justify-center gap-3">
@@ -189,7 +189,7 @@ export default function ClientBookingsPage() {
               Reset Filter
             </Button>
             <Button variant="primary" size="sm" onClick={() => router.push('/personas')}>
-              Start Flow C Booking
+              Start Booking
             </Button>
           </div>
         </Card>

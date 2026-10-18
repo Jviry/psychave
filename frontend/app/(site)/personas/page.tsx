@@ -121,7 +121,7 @@ export default function PersonasAndBookingPage() {
       setShowLegacyPersonaForm(false);
       publishFlowEvent(
         'Client Persona Created',
-        `Added ${created.label} (${created.type.toUpperCase()}) and selected it for Flow C booking.`
+        `Added ${created.label} (${created.type.toUpperCase()}) and selected it for booking.`
       );
     },
   });
@@ -148,7 +148,7 @@ export default function PersonasAndBookingPage() {
       });
       setSubmittedBookingId(createdBooking.id);
       publishFlowEvent(
-        'Flow C Step 1 Complete — Booking Submitted',
+        'Booking Submitted',
         `Request ${createdBooking.id} (${createdBooking.serviceTitle}) entered the Pending Queue. Verified psychologists notified.`
       );
     },
@@ -160,7 +160,7 @@ export default function PersonasAndBookingPage() {
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-mist pb-6">
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-xs text-accent-ink font-semibold">
-            <span>Flow C Step 1 of 5</span>
+            <span>Booking Step 1 of 5</span>
             <span aria-hidden="true">·</span>
             <span>Client Persona &amp; Clinical Booking</span>
           </div>
