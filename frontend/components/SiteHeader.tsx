@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAppStore } from '../stores/useAppStore';
@@ -26,6 +26,38 @@ export function SiteHeader() {
   const { isAuthenticated, user, logout: authLogout } = useAuthStore();
   const [showDevTools, setShowDevTools] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Home scroll-spy: the nav underline follows Home → Services → About as the
+  // single-scroll home page moves. Other routes light up nothing (all three
+  // links point back into the home page).
+  const isHome = pathname === '/';
+  const [activeSection, setActiveSection] = useState<'home' | 'services' | 'about'>('home');
+
+  useEffect(() => {
+    if (!isHome) return;
+    let raf = 0;
+    const compute = () => {
+      raf = 0;
+      const threshold = 160; // just below the sticky banner + header
+      const servicesTop =
+        document.getElementById('services')?.getBoundingClientRect().top ?? Infinity;
+      const aboutTop = document.getElementById('about')?.getBoundingClientRect().top ?? Infinity;
+      if (aboutTop <= threshold) setActiveSection('about');
+      else if (servicesTop <= threshold) setActiveSection('services');
+      else setActiveSection('home');
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(compute);
+    };
+    compute();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [isHome]);
 
   // Mock-mode-only widgets (role switcher, payment simulator, dev panel)
   // must never appear when the app is pointed at the real backend.
@@ -122,17 +154,15 @@ export function SiteHeader() {
           PSYCHAVE PH
         </Link>
 
-        {/* Zone 2: Primary Public Site Map Navigation Links */}
+        {/* Zone 2: Primary Public Site Map Navigation Links + Booking CTA */}
         <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-pine/80">
           {[
             // Single public scroll page: Home / Services / About are in-page anchors.
-            { label: 'Home', href: '/#top' },
-            { label: 'Services', href: '/#services' },
-            { label: 'About Us', href: '/#about' },
-            { label: 'Book a session', href: '/book' },
+            { label: 'Home', section: 'home', href: '/#top' },
+            { label: 'Services', section: 'services', href: '/#services' },
+            { label: 'About Us', section: 'about', href: '/#about' },
           ].map((item) => {
-            const isActive =
-              item.href === '/#top' ? pathname === '/' : pathname === item.href;
+            const isActive = isHome && activeSection === item.section;
             return (
               <Link
                 key={item.href}
@@ -147,6 +177,16 @@ export function SiteHeader() {
               </Link>
             );
           })}
+
+          {/* Booking CTA — an action, not a home-section link, so it reads as a
+              pill button instead of a nav item with the underline treatment. */}
+          <Link
+            id="nav-book-cta"
+            href="/book"
+            className="rounded-full bg-sage px-4 py-2 text-xs font-semibold text-white hover:bg-accent-ink transition-colors whitespace-nowrap focus-visible:outline-2 focus-visible:outline-sage focus-visible:outline-offset-2"
+          >
+            Book a session
+          </Link>
         </nav>
 
         {/* Zone 3: Auth Actions */}
