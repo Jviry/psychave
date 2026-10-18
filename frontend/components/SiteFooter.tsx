@@ -26,7 +26,7 @@ function FooterLink({ href, children }: { href: string; children: React.ReactNod
 }
 
 /**
- * Tall editorial footer: the big wordmark anchors the left half, the link
+ * Tall editorial footer: the brand logo anchors the left half, the link
  * columns sit smaller on the right, and a slim small-print row closes it out.
  */
 export function SiteFooter() {
@@ -34,11 +34,15 @@ export function SiteFooter() {
     <footer className="bg-pine text-parchment border-t border-sage/40 mt-20">
       <div className="max-w-6xl mx-auto px-4 lg:px-8 py-16 lg:py-24">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-start lg:items-center">
-          {/* Left: oversized wordmark + platform note */}
+          {/* Left: brand logo + platform note */}
           <div className="space-y-6">
-            <p className="font-heading text-5xl sm:text-6xl lg:text-7xl font-medium tracking-tight leading-none text-white">
-              PSYCHAVE PH
-            </p>
+            <img
+              src="/psychave-logo.png"
+              alt="PSYCHAVE PH — PsychAvenuePH logo"
+              width={1024}
+              height={720}
+              className="h-auto w-64 sm:w-72 lg:w-80"
+            />
             <p className="text-sm text-mist max-w-md leading-relaxed">
               PsychAvenuePH is a Philippine mental-health booking platform built around
               structured booking, PRC-verified resident psychologists, explicit clinical duration
