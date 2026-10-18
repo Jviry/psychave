@@ -125,12 +125,14 @@ export function SiteHeader() {
         {/* Zone 2: Primary Public Site Map Navigation Links */}
         <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-pine/80">
           {[
-            { label: 'Home', href: '/' },
-            { label: 'Services', href: '/services' },
-            { label: 'About Us', href: '/about' },
+            // Single public scroll page: Home / Services / About are in-page anchors.
+            { label: 'Home', href: '/#top' },
+            { label: 'Services', href: '/#services' },
+            { label: 'About Us', href: '/#about' },
             { label: 'Book a session', href: '/book' },
           ].map((item) => {
-            const isActive = pathname === item.href;
+            const isActive =
+              item.href === '/#top' ? pathname === '/' : pathname === item.href;
             return (
               <Link
                 key={item.href}

@@ -6,8 +6,9 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { useAppStore } from '../../stores/useAppStore';
-import { Button, Card, CircleArrow } from '../../components/ui/primitives';
+import { Button, Card } from '../../components/ui/primitives';
 import { ArrowRight } from 'lucide-react';
+import { AboutCarousel } from '../../components/AboutCarousel';
 import { TestimonialsConsentSection } from '../../components/TestimonialsConsentSection';
 
 /** Booking safeguards staged as one editorial pine slab (design refresh). */
@@ -53,6 +54,11 @@ const BENTO_TINTS: Array<'sage' | 'mint' | 'lime' | 'sand'> = [
   'lime',
 ];
 
+/**
+ * Single public scroll page: Hero → Booking safeguards → #services → #about
+ * → consent governance. Only /book, /login, and /register remain separate
+ * public routes; dashboards and the booking flow are app routes.
+ */
 export default function HomePage() {
   const router = useRouter();
   const { setCognitoRole, updateBookingDraft } = useAppStore();
@@ -67,8 +73,18 @@ export default function HomePage() {
     queryFn: () => api.getCmsContent(),
   });
 
+  // Public verified roster only (anonymized role identifiers, no personal names)
+  const { data: publicRoster = [] } = useQuery({
+    queryKey: ['roster', 'public'],
+    queryFn: () => api.getRoster(false),
+  });
+
+  const scrollToServices = () => {
+    document.getElementById('services')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
-    <div className="space-y-24">
+    <div id="top" className="space-y-24">
       {/* Hero — centered editorial */}
       <section className="relative">
         {/* Static concentric-circle decoration (pure CSS, aria-hidden) */}
@@ -111,11 +127,7 @@ export default function HomePage() {
             >
               Start Booking
             </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() => router.push('/services')}
-            >
+            <Button variant="outline" size="lg" onClick={scrollToServices}>
               Explore Services
             </Button>
           </div>
@@ -163,8 +175,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Services — pastel bento */}
-      <section className="space-y-10">
+      {/* Services — pastel bento (single source of the directory; no duplicate page) */}
+      <section id="services" className="scroll-mt-24 space-y-10">
         <div className="text-center space-y-4">
           <span className="inline-flex items-center rounded-full border border-mint px-3 py-1 text-xs font-semibold uppercase tracking-widest text-accent-ink">
             Durations &amp; Scope Guardrails
@@ -172,15 +184,6 @@ export default function HomePage() {
           <h2 className="font-heading text-3xl sm:text-4xl font-medium text-pine">
             Clinical &amp; Advisory Services Directory
           </h2>
-          <p>
-            <Link
-              href="/services"
-              className="group inline-flex items-center gap-2 text-sm font-semibold text-accent-ink hover:text-pine transition-colors duration-200"
-            >
-              View full services specification
-              <CircleArrow />
-            </Link>
-          </p>
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-12">
@@ -241,7 +244,31 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Testimonials as Empty Cards with Consent-Flag Note */}
+      {/* About — institutional card cycle (Vision / Clinic / Mission + anonymized roster) */}
+      <section id="about" className="scroll-mt-24 space-y-10">
+        <div className="text-center space-y-4">
+          <span className="inline-flex items-center rounded-full border border-mint px-3 py-1 text-xs font-semibold uppercase tracking-widest text-accent-ink">
+            Institutional Governance
+          </span>
+          <h2 className="font-heading text-3xl sm:text-4xl font-medium text-pine">
+            About PSYCHAVE PH (PsychAvenuePH)
+          </h2>
+          <p className="mx-auto max-w-2xl text-sm sm:text-base text-pine/70 leading-relaxed">
+            Structured ethical mental-health practice built around verified clinical
+            credentials, transparent scope boundaries, and privacy-first care navigation.
+          </p>
+        </div>
+
+        <AboutCarousel cms={cms} roster={publicRoster} />
+
+        <p className="text-center text-xs text-pine/65 max-w-3xl mx-auto leading-relaxed">
+          Individual personal names and photographs are intentionally excluded from public
+          display. Cases are matched via verified PRC credentials and specialization fit
+          during booking.
+        </p>
+      </section>
+
+      {/* Consent governance — keeps the ra-10173-consent anchor used by /register */}
       {cms && <TestimonialsConsentSection cms={cms} />}
     </div>
   );

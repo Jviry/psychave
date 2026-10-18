@@ -53,10 +53,10 @@ export function SiteFooter() {
                 <FooterLink href="/">Home</FooterLink>
               </li>
               <li>
-                <FooterLink href="/services">Services &amp; Guardrails</FooterLink>
+                <FooterLink href="/#services">Services &amp; Guardrails</FooterLink>
               </li>
               <li>
-                <FooterLink href="/about">About Us &amp; Anonymized Roster</FooterLink>
+                <FooterLink href="/#about">About Us &amp; Anonymized Roster</FooterLink>
               </li>
               <li>
                 <FooterLink href="/book">Book a Session (Fallback &amp; Booking)</FooterLink>

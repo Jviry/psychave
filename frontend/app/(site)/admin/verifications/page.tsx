@@ -95,7 +95,7 @@ export default function AdminVerificationsPage() {
                   <th className="py-3 px-4 font-semibold">Anonymized ID &amp; PRC License</th>
                   <th className="py-3 px-4 font-semibold">Clinical Specialization</th>
                   <th className="py-3 px-4 font-semibold">Verification State</th>
-                  <th className="py-3 px-4 font-semibold">Public Roster (/about)</th>
+                  <th className="py-3 px-4 font-semibold">Public Roster (/#about)</th>
                   <th className="py-3 px-4 font-semibold text-right">Admin Actions</th>
                 </tr>
               </thead>
