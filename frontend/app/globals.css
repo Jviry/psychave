@@ -68,3 +68,16 @@ body {
   color: var(--color-pine);
   font-family: var(--font-body);
 }
+
+/*
+ * Functional utility: hides the scroll track on snap-scroll carousels.
+ * Content stays fully scrollable by touch, wheel, keyboard, and buttons.
+ */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

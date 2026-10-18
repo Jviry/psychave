@@ -95,7 +95,7 @@ export function Card({
 }: {
   className?: string;
   /** Optional solid bento tint; replaces the default raised-white surface. */
-  tint?: 'sage' | 'mint' | 'lime' | 'sand';
+  tint?: 'sage' | 'mint' | 'lime' | 'sand' | 'pine';
   children: React.ReactNode;
 }) {
   const surface = tint
@@ -104,6 +104,7 @@ export function Card({
         mint: 'bg-mint-tint border-transparent',
         lime: 'bg-lime-tint border-transparent',
         sand: 'bg-sand-tint border-transparent',
+        pine: 'bg-pine border-transparent',
       }[tint]
     : 'bg-surface-raised border-mist';
   return (
