@@ -31,13 +31,6 @@ function RosterSlide({
   return (
     <Card tint={tint} className={`h-full flex flex-col justify-between gap-5 ${SLIDE_MOTION}`}>
       <div className="space-y-3">
-        <div className="flex items-center justify-between text-xs text-pine/70 border-b border-pine/10 pb-2.5">
-          <span className="font-mono font-semibold text-accent-ink">
-            {resident.prcCredentialCode}
-          </span>
-          <span className="text-pine font-medium">Verified Credential</span>
-        </div>
-
         {/* Anonymized role identifier — strictly no personal name; no badge/avatar box */}
         <div>
           <h3 className="font-heading text-xl font-medium text-pine">
@@ -66,15 +59,11 @@ function RosterSlide({
 }
 
 function StatementSlide({
-  meta,
-  eyebrow,
   title,
   body,
   awaitingLabel,
   tint,
 }: {
-  meta: string;
-  eyebrow: string;
   title: string;
   body?: string;
   awaitingLabel: string;
@@ -82,10 +71,6 @@ function StatementSlide({
 }) {
   return (
     <Card tint={tint} className={`h-full flex flex-col gap-3 ${SLIDE_MOTION}`}>
-      <div className="flex items-center justify-between text-xs font-semibold">
-        <span className="text-accent-ink">{eyebrow}</span>
-        <span className="text-pine/55">{meta}</span>
-      </div>
       <h3 className="font-heading text-2xl font-medium text-pine">{title}</h3>
       {body ? (
         <p className="text-sm text-pine/85 leading-relaxed">{body}</p>
@@ -100,12 +85,8 @@ function ClinicSlide({ cms }: { cms?: CmsContent }) {
   return (
     <Card tint="pine" className={`h-full flex flex-col justify-between gap-6 ${SLIDE_MOTION}`}>
       <div className="space-y-3">
-        <div className="flex items-center justify-between text-xs font-semibold">
-          <span className="text-lime-soft">Clinical Impact</span>
-          <span className="text-white/55">CMS Block · Clinic Overview</span>
-        </div>
         <h3 className="font-heading text-2xl font-medium text-white">
-          Clinic Overview &amp; Ethical Impact Architecture
+          Clinic Overview
         </h3>
         {cms?.clinicOverview ? (
           <p className="text-sm text-white/75 leading-relaxed">{cms.clinicOverview}</p>
@@ -190,8 +171,6 @@ export function AboutCarousel({
     )),
     <StatementSlide
       key="vision"
-      meta="CMS Block · Vision"
-      eyebrow="Institutional Direction"
       title="Vision Statement"
       body={cms?.vision || undefined}
       awaitingLabel="Vision"
@@ -200,8 +179,6 @@ export function AboutCarousel({
     <ClinicSlide key="clinic" cms={cms} />,
     <StatementSlide
       key="mission"
-      meta="CMS Block · Mission"
-      eyebrow="Clinical Mandate"
       title="Mission Statement"
       body={cms?.mission || undefined}
       awaitingLabel="Mission"
