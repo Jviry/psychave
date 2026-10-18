@@ -326,7 +326,7 @@ export default function ProposalPickerPage() {
                           type="radio"
                           value={slot.id}
                           disabled={booking.status === 'paid-confirmed'}
-                          className="h-4 w-4 text-[#5D8B69] focus:ring-[#5D8B69]"
+                          className="h-4 w-4 accent-sage cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
                           {...form.register('selectedSlotId')}
                         />
                         <div>
@@ -362,7 +362,7 @@ export default function ProposalPickerPage() {
                       type="checkbox"
                       checked={simulatePaymentFailure}
                       onChange={(e) => setSimulatePaymentFailure(e.target.checked)}
-                      className="rounded border-[#C0D3C3] text-red-600"
+                      className="rounded border-mist accent-sage cursor-pointer"
                     />
                     <span>Simulate &quot;Payment Failed&quot; Error State</span>
                   </label>
@@ -382,6 +382,7 @@ export default function ProposalPickerPage() {
                         type="radio"
                         value={pm.id}
                         disabled={booking.status === 'paid-confirmed'}
+                        className="h-4 w-4 accent-sage cursor-pointer"
                         {...form.register('paymentMethodLabel')}
                       />
                       <span className="font-medium text-[#25372D]">{pm.label}</span>
@@ -393,7 +394,7 @@ export default function ProposalPickerPage() {
                   <input
                     type="checkbox"
                     disabled={booking.status === 'paid-confirmed'}
-                    className="mt-0.5 h-4 w-4 rounded border-[#5D8B69] text-[#5D8B69]"
+                    className="mt-0.5 h-4 w-4 rounded border-mist accent-sage cursor-pointer"
                     {...form.register('acknowledgeFinalizationRule')}
                   />
                   <span>

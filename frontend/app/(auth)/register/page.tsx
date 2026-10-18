@@ -507,7 +507,7 @@ export default function RegisterPage() {
                 aria-invalid={!!errors.privacyConsent}
                 aria-describedby={errors.privacyConsent ? 'register-consent-error' : undefined}
                 {...register('privacyConsent')}
-                className="mt-0.5 h-4 w-4 rounded border-mist text-sage focus:ring-mint/40 cursor-pointer shrink-0"
+                className="mt-0.5 h-4 w-4 rounded border-mist accent-sage cursor-pointer shrink-0"
               />
               <span className="text-xs text-pine/70 leading-relaxed">
                 I have read and agree to the{' '}

@@ -8,6 +8,25 @@
   --color-mist: #c0d3c3;
   --color-parchment: #f6f9f6;
 
+  /* toast surfaces — extracted from Toast.tsx inline styles (success / danger) */
+  --color-success-soft: #f0f9f2;
+  --color-success-border: #86efac;
+  --color-danger-soft: #fef2f2;
+  --color-danger-border: #fca5a5;
+
+  --animate-toast-in: toast-in 0.22s ease-out both;
+
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   --font-heading: var(--font-archivo-narrow), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }

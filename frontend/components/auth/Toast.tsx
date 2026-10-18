@@ -20,11 +20,11 @@ export function Toast({ message, type, onClose, duration = 4000 }: ToastProps) {
     <div
       role="status"
       aria-live="polite"
-      className="fixed top-5 right-5 z-50 flex items-start gap-3 px-4 py-3.5 rounded-xl shadow-lg border max-w-sm animate-in fade-in slide-in-from-top-2"
-      style={{
-        background: type === 'success' ? '#f0f9f2' : '#fef2f2',
-        borderColor: type === 'success' ? '#86efac' : '#fca5a5',
-      }}
+      className={`fixed top-5 right-5 z-50 flex items-start gap-3 px-4 py-3.5 rounded-xl shadow-lg border max-w-sm animate-toast-in ${
+        type === 'success'
+          ? 'bg-success-soft border-success-border'
+          : 'bg-danger-soft border-danger-border'
+      }`}
     >
       {type === 'success' ? (
         <CheckCircle2 className="w-4 h-4 text-green-700 shrink-0 mt-0.5" />

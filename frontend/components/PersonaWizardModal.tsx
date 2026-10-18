@@ -549,7 +549,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
               <label className="flex items-start gap-3 text-sm text-[#25372D] cursor-pointer p-4 rounded-lg bg-[#F6F9F6] border border-[#C0D3C3]">
                 <input
                   type="checkbox"
-                  className="mt-0.5 h-4 w-4 rounded border-[#5D8B69] text-[#5D8B69] focus:ring-[#5D8B69]"
+                  className="mt-0.5 h-4 w-4 rounded border-mist accent-sage cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
                   checked={draft.scope_acknowledged}
                   onChange={(e) => updateDraft({ scope_acknowledged: e.target.checked })}
                   aria-invalid={!!shownErrors['scope_acknowledged']}
@@ -561,7 +561,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
               <label className="flex items-start gap-3 text-sm text-[#25372D] cursor-pointer">
                 <input
                   type="checkbox"
-                  className="mt-0.5 h-4 w-4 rounded border-[#5D8B69] text-[#5D8B69] focus:ring-[#5D8B69]"
+                  className="mt-0.5 h-4 w-4 rounded border-mist accent-sage cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
                   checked={draft.is_overseas_or_foreign}
                   onChange={(e) =>
                     updateDraft({
@@ -585,7 +585,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
                   <label className="flex items-start gap-3 text-sm text-[#25372D] cursor-pointer p-4 rounded-lg bg-[#EBF2EC] border-l-4 border-[#5D8B69]">
                     <input
                       type="checkbox"
-                      className="mt-0.5 h-4 w-4 rounded border-[#5D8B69] text-[#5D8B69] focus:ring-[#5D8B69]"
+                      className="mt-0.5 h-4 w-4 rounded border-mist accent-sage cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
                       checked={draft.overseas_acknowledged}
                       onChange={(e) => updateDraft({ overseas_acknowledged: e.target.checked })}
                       aria-invalid={!!shownErrors['overseas_acknowledged']}
@@ -681,7 +681,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
               <label className="flex items-center gap-2.5 text-xs text-[#25372D] cursor-pointer">
                 <input
                   type="checkbox"
-                  className="h-4 w-4 rounded border-[#5D8B69] text-[#5D8B69] focus:ring-[#5D8B69]"
+                  className="h-4 w-4 rounded border-mist accent-sage cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
                   checked={draft.sameAsPermanent}
                   onChange={(e) => updateDraft({ sameAsPermanent: e.target.checked })}
                 />
@@ -840,7 +840,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
               <label className="flex items-start gap-3 text-xs text-[#25372D] cursor-pointer p-4 rounded-lg bg-[#F6F9F6] border border-[#C0D3C3]">
                 <input
                   type="checkbox"
-                  className="mt-0.5 h-4 w-4 rounded border-[#5D8B69] text-[#5D8B69] focus:ring-[#5D8B69]"
+                  className="mt-0.5 h-4 w-4 rounded border-mist accent-sage cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
                   checked={draft.information_confirmed}
                   onChange={(e) => updateDraft({ information_confirmed: e.target.checked })}
                   aria-invalid={!!shownErrors['information_confirmed']}

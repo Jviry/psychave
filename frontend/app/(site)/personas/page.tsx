@@ -530,7 +530,7 @@ export default function PersonasAndBookingPage() {
               <label className="flex items-start gap-3 text-xs text-[#25372D] cursor-pointer">
                 <input
                   type="checkbox"
-                  className="mt-0.5 h-4 w-4 rounded border-[#5D8B69] text-[#5D8B69] focus:ring-[#5D8B69]"
+                  className="mt-0.5 h-4 w-4 rounded border-mist accent-sage cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
                   {...bookingForm.register('guardrailAcknowledged')}
                 />
                 <span className="leading-relaxed">
