@@ -8,8 +8,8 @@
   --color-mist: #c0d3c3;
   --color-parchment: #f6f9f6;
 
-  --font-heading: "Proxima Nova Condensed", "Aileron", ui-sans-serif, system-ui, sans-serif;
-  --font-body: "Aileron", "Proxima Nova Condensed", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-archivo-narrow), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
 html {
