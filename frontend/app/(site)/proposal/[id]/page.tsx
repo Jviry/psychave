@@ -184,7 +184,7 @@ export default function ProposalPickerPage() {
       {paymentErrorMsg && (
         <div
           role="alert"
-          className="bg-red-50 border-2 border-red-300 rounded-lg p-5 text-red-950 space-y-2"
+          className="bg-red-50 border-l-2 border-red-400 rounded-r-lg p-5 text-red-950 space-y-2"
         >
           <div className="flex items-center justify-between gap-4">
             <p className="font-heading text-xl font-bold text-red-900">

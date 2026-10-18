@@ -11,6 +11,7 @@ import {
   BookingStatusTag,
   Button,
   Card,
+  Skeleton,
 } from '../../../components/ui/primitives';
 
 export default function ClientBookingsPage() {
@@ -158,10 +159,7 @@ export default function ClientBookingsPage() {
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2, 3].map((n) => (
-            <div
-              key={n}
-              className="h-44 rounded-lg bg-surface-raised border border-mist p-6 animate-pulse"
-            />
+            <Skeleton key={n} className="h-44" />
           ))}
         </div>
       ) : filteredBookings.length === 0 ? (

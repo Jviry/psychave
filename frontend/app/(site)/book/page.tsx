@@ -122,17 +122,14 @@ General Availability Window: [Days & Times]`;
               1. Official Facebook Page
             </p>
             <div className="flex flex-wrap items-center gap-2">
-              <a
-                href={facebookFallbackUrl}
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleCopy('fb', facebookFallbackUrl);
-                }}
-                className="flex-1 inline-flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-lg bg-pine text-white text-sm font-medium hover:bg-pine/90 transition-colors duration-150"
+              <Button
+                variant="dark"
+                className="flex-1"
+                onClick={() => handleCopy('fb', facebookFallbackUrl)}
               >
                 <Facebook className="w-4 h-4 text-lime-soft shrink-0" aria-hidden="true" />
                 <span>Message PSYCHAVE PH on Facebook</span>
-              </a>
+              </Button>
             </div>
             {copiedField === 'fb' && (
               <p className="text-xs text-accent-ink font-medium">

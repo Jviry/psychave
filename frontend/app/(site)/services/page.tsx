@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/api';
 import { useAppStore } from '../../../stores/useAppStore';
 import { Info } from 'lucide-react';
-import { Button, Card } from '../../../components/ui/primitives';
+import { Button, Card, Skeleton } from '../../../components/ui/primitives';
 
 export default function ServicesPage() {
   const router = useRouter();
@@ -102,10 +102,7 @@ export default function ServicesPage() {
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[1, 2, 3, 4].map((n) => (
-              <div
-                key={n}
-                className="h-56 rounded-lg bg-surface-raised border border-mist p-6 animate-pulse"
-              />
+              <Skeleton key={n} className="h-56" />
             ))}
           </div>
         ) : (

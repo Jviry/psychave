@@ -9,7 +9,7 @@ export function TestimonialsConsentSection({ cms }: { cms: CmsContent }) {
     cms.testimonialsConfig;
 
   return (
-    <section className="py-12 border-t border-mist">
+    <section id="ra-10173-consent" className="py-12 border-t border-mist scroll-mt-20">
       <div className="space-y-4 max-w-3xl mb-8">
         <div className="flex items-center gap-2 text-xs text-accent-ink font-medium">
           <span>Ethical Confidentiality Architecture</span>

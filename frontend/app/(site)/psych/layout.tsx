@@ -43,7 +43,7 @@ export default function PsychologistDashboardLayout({
                 className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                   isActive
                     ? 'bg-pine text-white shadow-xs'
-                    : 'bg-white border border-mist text-pine hover:bg-[#F1F6F2]'
+                    : 'bg-surface-raised border border-mist text-pine hover:bg-surface-sunken'
                 }`}
               >
                 {link.label}

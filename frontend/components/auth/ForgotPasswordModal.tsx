@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { X, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { X, Loader2, AlertCircle, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import {
   forgotPasswordRequestSchema,
   forgotPasswordConfirmSchema,
@@ -11,6 +11,7 @@ import {
   type ForgotPasswordConfirmValues,
 } from '../../lib/authSchemas';
 import { authApi } from '../../authApi';
+import { Button } from '../ui/primitives';
 
 type Step = 'request' | 'confirm';
 
@@ -97,7 +98,7 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
       />
 
       {/* Modal Card */}
-      <div className="relative z-10 w-full max-w-md bg-white rounded-2xl shadow-xl border border-mist/60 p-8">
+      <div className="relative z-10 w-full max-w-md bg-surface-raised rounded-lg shadow-lg border border-mist p-8">
         {/* Close */}
         <button
           type="button"
@@ -126,8 +127,9 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
           {(['request', 'confirm'] as Step[]).map((s, i) => (
             <div
               key={s}
-              className="h-1 flex-1 rounded-full transition-colors"
-              style={{ background: step === 'confirm' || (i === 0) ? '#25372d' : '#C0D3C3' }}
+              className={`h-1 flex-1 rounded-full transition-colors duration-150 ${
+                step === 'confirm' || i === 0 ? 'bg-pine' : 'bg-mist/60'
+              }`}
             />
           ))}
         </div>
@@ -170,15 +172,15 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
               )}
             </div>
 
-            <button
+            <Button
               id="fp-request-submit"
               type="submit"
+              variant="dark"
+              className="w-full"
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white cursor-pointer disabled:opacity-60"
-              style={{ background: '#25372d' }}
             >
               {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" />Sending…</> : 'Send Code'}
-            </button>
+            </Button>
           </form>
         ) : (
           <form
@@ -283,22 +285,23 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
               )}
             </div>
 
-            <button
+            <Button
               id="fp-confirm-submit"
               type="submit"
+              variant="dark"
+              className="w-full"
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white cursor-pointer disabled:opacity-60"
-              style={{ background: '#25372d' }}
             >
               {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" />Resetting…</> : 'Reset Password'}
-            </button>
+            </Button>
 
             <button
               type="button"
               onClick={() => { setStep('request'); setApiError(null); }}
-              className="w-full text-center text-xs text-pine/50 hover:text-pine transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center gap-1.5 text-xs text-pine/50 hover:text-pine transition-colors duration-150 cursor-pointer py-1 focus-visible:outline-2 focus-visible:outline-sage focus-visible:outline-offset-2"
             >
-              ← Back
+              <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
+              Back
             </button>
           </form>
         )}

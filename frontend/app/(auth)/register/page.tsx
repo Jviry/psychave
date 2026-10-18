@@ -514,7 +514,10 @@ export default function RegisterPage() {
               />
               <span className="text-xs text-pine/70 leading-relaxed">
                 I have read and agree to the{' '}
-                <a href="#" className="text-sage hover:text-pine underline font-medium">
+                <a
+                  href="/#ra-10173-consent"
+                  className="text-sage hover:text-pine underline font-medium focus-visible:outline-2 focus-visible:outline-sage focus-visible:outline-offset-2"
+                >
                   Data Privacy Policy
                 </a>{' '}
                 in accordance with{' '}
