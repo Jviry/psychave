@@ -74,9 +74,15 @@ export default function HomePage() {
         </div>
 
         <div className="relative mx-auto max-w-4xl space-y-8 text-center">
-          <h1 className="font-heading text-5xl font-medium leading-[1.05] text-pine sm:text-6xl lg:text-7xl">
-            Care, done clearly.
-          </h1>
+          {/* Big brand logo replaces the headline (user mockup); sr-only h1 keeps an accessible document title */}
+          <h1 className="sr-only">PSYCHAVE PH — PRC-verified mental health care in the Philippines</h1>
+          <img
+            src="/psychave-logo.png"
+            alt="PSYCHAVE PH"
+            width={1024}
+            height={720}
+            className="mx-auto h-auto w-[22rem] sm:w-[28rem] lg:w-[32rem]"
+          />
 
           <p className="mx-auto max-w-2xl text-base leading-relaxed text-pine/80 sm:text-lg">
             Verified psychologists, transparent fees, and three proposed time slots.
