@@ -102,7 +102,7 @@ export function Card({
    * Optional solid brand-scheme tint (spec palette solids) replacing the
    * default raised-white surface. Dark fills (sage/pine) carry white text.
    */
-  tint?: 'sage' | 'mint' | 'lime' | 'mist' | 'pine' | 'leaf';
+  tint?: 'sage' | 'mint' | 'lime' | 'mist' | 'pine';
   children: React.ReactNode;
 }) {
   const surface = tint
@@ -112,7 +112,6 @@ export function Card({
         lime: 'bg-lime-soft border-transparent text-pine',
         mist: 'bg-mist border-transparent text-pine',
         pine: 'bg-pine border-transparent text-white',
-        leaf: 'bg-leaf border-[3px] border-pine text-pine',
       }[tint]
     : 'bg-surface-raised border-mist';
   return (
