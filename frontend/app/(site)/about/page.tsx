@@ -165,17 +165,12 @@ export default function AboutPage() {
                   </span>
                 </div>
 
-                {/* Anonymized Role Identifier — Strictly NO personal name */}
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-surface-sunken border border-mint flex items-center justify-center font-heading font-bold text-pine">
-                    {resident.id}
-                  </div>
-                  <div>
-                    <h3 className="font-heading text-xl font-bold text-pine">
-                      {resident.anonymizedTitle}
-                    </h3>
-                    <p className="text-xs text-pine/65">{resident.yearsPractice}</p>
-                  </div>
+                {/* Anonymized Role Identifier — strictly no personal name; no badge/avatar box */}
+                <div>
+                  <h3 className="font-heading text-xl font-bold text-pine">
+                    {resident.anonymizedTitle}
+                  </h3>
+                  <p className="text-xs text-pine/65">{resident.yearsPractice}</p>
                 </div>
 
                 <p className="text-sm text-pine/85 leading-relaxed">

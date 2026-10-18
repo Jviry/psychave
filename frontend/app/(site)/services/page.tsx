@@ -76,11 +76,11 @@ export default function ServicesPage() {
               </p>
             </div>
 
-            <div className="lg:col-span-5 bg-surface-sunken border-l-2 border-pine p-4 rounded-r-lg space-y-1">
-              <p className="text-xs font-bold text-pine">
+            <div className="lg:col-span-5 space-y-1">
+              <p className="text-xs font-semibold text-pine">
                 Mandatory Clinical Guardrail — {standaloneConsultation.guardrailTitle}
               </p>
-              <p className="text-xs text-pine/85 leading-relaxed">
+              <p className="text-xs text-pine/75 leading-relaxed">
                 {standaloneConsultation.guardrailNotice}
               </p>
             </div>
@@ -128,12 +128,12 @@ export default function ServicesPage() {
                     </p>
                   </div>
 
-                  {/* Mandatory Service Guardrail Callout */}
-                  <div className="bg-surface-sunken border-l-2 border-sage p-4 rounded-r-lg space-y-1 text-xs">
+                  {/* Mandatory Service Guardrail */}
+                  <div className="space-y-1 text-xs">
                     <p className="font-semibold text-pine">
                       Guardrail: {srv.guardrailTitle}
                     </p>
-                    <p className="text-pine/80 leading-relaxed">
+                    <p className="text-pine/70 leading-relaxed">
                       {srv.guardrailNotice}
                     </p>
                   </div>
@@ -164,7 +164,7 @@ export default function ServicesPage() {
 
       {/* Summary Guardrail Comparison Table */}
       <section className="bg-surface-raised border border-mist rounded-lg overflow-hidden">
-        <div className="px-6 py-4 bg-surface-sunken border-b border-mist flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-mist flex items-center justify-between">
           <h3 className="font-heading text-xl font-bold text-pine">
             Canonical Service Duration &amp; Boundary Reference Matrix
           </h3>

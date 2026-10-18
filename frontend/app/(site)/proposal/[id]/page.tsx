@@ -254,21 +254,22 @@ export default function ProposalPickerPage() {
           </div>
 
           {booking.clinicalPrepNote && (
-            <div className="p-3.5 rounded-lg bg-surface-sunken border border-mist space-y-1 text-xs">
+            <div className="space-y-1 text-xs">
               <p className="font-semibold text-pine">
                 Psychologist Preparation Note:
               </p>
-              <p className="text-pine/80 leading-relaxed">
+              <p className="text-pine/70 leading-relaxed">
                 {booking.clinicalPrepNote}
               </p>
             </div>
           )}
 
-          <div className="p-3.5 rounded-lg bg-parchment border border-mist text-xs text-pine/75 flex items-start gap-2.5">
+          <div className="text-xs text-pine/75 flex items-start gap-2.5">
             <Lock className="w-4 h-4 text-accent-ink shrink-0 mt-0.5" aria-hidden="true" />
             <span>
-              <strong>Contact Lock Guardrail:</strong> Teletherapy link and direct coordination
-              channels are locked until 1 of the 3 proposed slots is selected and payment succeeds.
+              <strong className="font-semibold text-pine">Contact Lock Guardrail:</strong>{' '}
+              Teletherapy link and direct coordination channels are locked until 1 of the 3
+              proposed slots is selected and payment succeeds.
             </span>
           </div>
         </Card>

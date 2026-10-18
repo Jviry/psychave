@@ -425,10 +425,10 @@ export default function PsychologistQueuePage() {
             )}
 
             {/* Scope Guardrail Reminder */}
-            <div className="p-3 rounded-lg bg-surface-sunken border border-mist text-xs space-y-1">
-              <span className="font-semibold text-pine">Clinical Scope Guardrail:</span>
-              <p className="text-pine/80">{targetBooking.serviceGuardrail}</p>
-            </div>
+            <p className="text-xs text-pine/85 leading-relaxed">
+              <span className="font-semibold text-pine">Clinical Scope Guardrail:</span>{' '}
+              {targetBooking.serviceGuardrail}
+            </p>
 
             {/* Proposal Form */}
             <form

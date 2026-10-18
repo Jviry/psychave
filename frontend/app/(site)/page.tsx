@@ -180,16 +180,16 @@ export default function HomePage() {
                 </span>
               </div>
 
-              <div className="p-3.5 rounded-lg bg-lime-soft/25 border border-lime-soft/50 flex items-start justify-between gap-3">
+              <div className="p-3.5 rounded-lg bg-surface-raised border border-mist/80 flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold text-pine">
                     3. Payment-Gated Finalization &amp; Contact Unlock
                   </p>
-                  <p className="text-pine/80 mt-0.5">
+                  <p className="text-pine/70 mt-0.5">
                     Contact unlocks ONLY after payment succeeds. Automated 24h &amp; 1h reminders follow.
                   </p>
                 </div>
-                <span className="font-mono text-xs text-pine font-semibold tabular-nums">
+                <span className="font-mono text-xs text-accent-ink font-semibold tabular-nums">
                   STEP 04–05
                 </span>
               </div>
@@ -277,7 +277,7 @@ export default function HomePage() {
               key={srv.id}
               className={`flex flex-col justify-between gap-5 ${
                 srv.isStandaloneConsultation
-                  ? 'border-sage bg-surface-sunken/70'
+                  ? 'border-sage'
                   : ''
               }`}
             >
@@ -299,11 +299,11 @@ export default function HomePage() {
                   {srv.description}
                 </p>
 
-                <div className="p-3 rounded-r-lg bg-surface-sunken border-l-2 border-sage text-xs text-pine space-y-1">
+                <div className="space-y-1 text-xs">
                   <p className="font-semibold text-pine">
                     Guardrail: {srv.guardrailTitle}
                   </p>
-                  <p className="text-pine/80 leading-relaxed">
+                  <p className="text-pine/70 leading-relaxed">
                     {srv.guardrailNotice}
                   </p>
                 </div>

@@ -252,7 +252,7 @@ export default function PersonasAndBookingPage() {
 
             {/* Booking-for indicator (single persona preselected) */}
             {selectedPersona && personas.length === 1 && (
-              <div className="p-4 rounded-lg bg-surface-sunken border-l-2 border-sage flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-3">
                 <p className="text-sm text-pine">
                   Booking for: <strong className="font-semibold">{selectedPersona.label}</strong>
                 </p>
@@ -475,14 +475,16 @@ export default function PersonasAndBookingPage() {
 
             {/* Dynamic Service Duration & Scope Guardrail Notice */}
             {activeService && (
-              <div className="p-4 rounded-lg bg-surface-sunken border-l-2 border-sage space-y-1.5">
-                <div className="flex items-center justify-between text-xs font-bold text-pine">
-                  <span>Active Guardrail: {activeService.guardrailTitle}</span>
-                  <span className="font-mono tabular-nums text-accent-ink">
+              <div className="space-y-1 text-xs">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-semibold text-pine">
+                    Active Guardrail: {activeService.guardrailTitle}
+                  </p>
+                  <span className="font-mono tabular-nums text-accent-ink shrink-0">
                     Duration: {activeService.durationLabel}
                   </span>
                 </div>
-                <p className="text-xs text-pine/85 leading-relaxed">
+                <p className="text-pine/70 leading-relaxed">
                   {activeService.guardrailNotice}
                 </p>
               </div>

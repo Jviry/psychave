@@ -63,13 +63,13 @@ General Availability Window: [Days & Times]`;
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="p-4 rounded-lg bg-surface-sunken border border-mist space-y-1">
+            <div className="space-y-1">
               <p className="font-semibold text-pine">1. Select Persona &amp; Service</p>
               <p className="text-pine/75">
                 Choose from all 7 services with built-in duration and clinical scope guardrails.
               </p>
             </div>
-            <div className="p-4 rounded-lg bg-surface-sunken border border-mist space-y-1">
+            <div className="space-y-1">
               <p className="font-semibold text-pine">2. Review 3 Proposed Slots</p>
               <p className="text-pine/75">
                 Pick 1 of 3 psychologist-proposed times and finalize via payment to unlock contact.
@@ -102,7 +102,7 @@ General Availability Window: [Days & Times]`;
         </Card>
 
         {/* Secondary Option: Official External Fallback (Facebook Button + Email) */}
-        <Card className="lg:col-span-5 space-y-6 bg-surface-sunken/60">
+        <Card className="lg:col-span-5 space-y-6">
           <div className="space-y-2 border-b border-mist pb-4">
             <p className="text-xs font-semibold text-accent-ink">
               Direct Coordination Channels
