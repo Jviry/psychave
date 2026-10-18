@@ -169,7 +169,7 @@ export default function PsychologistQueuePage() {
             <span aria-hidden="true">·</span>
             <span>Pending Requests Queue</span>
           </div>
-          <h1 className="font-heading text-4xl font-bold text-pine">
+          <h1 className="font-heading text-4xl font-medium text-pine">
             Pending Booking Requests
           </h1>
           <p className="text-sm text-pine/80 max-w-2xl">
@@ -205,7 +205,7 @@ export default function PsychologistQueuePage() {
               <Check className="w-4 h-4" strokeWidth={3} aria-hidden="true" />
             </div>
             <div>
-              <p className="text-xs font-bold text-pine">
+              <p className="text-xs font-medium text-pine">
                 Proposal Successfully Dispatched for {recentProposedId}
               </p>
               <p className="text-xs text-pine/80">
@@ -236,7 +236,7 @@ export default function PsychologistQueuePage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h2 className="font-heading text-2xl font-bold text-pine">
+            <h2 className="font-heading text-2xl font-medium text-pine">
               Open Booking Queue
             </h2>
             <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-sage/15 text-pine">
@@ -298,7 +298,7 @@ export default function PsychologistQueuePage() {
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-mist/70 pb-4">
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-sm font-bold text-pine">
+                      <span className="font-mono text-sm font-medium text-pine">
                         {item.id}
                       </span>
                       <span className="text-xs px-2 py-0.5 rounded-sm font-semibold bg-surface-sunken text-accent-ink">
@@ -306,7 +306,7 @@ export default function PsychologistQueuePage() {
                       </span>
                       <BookingStatusTag status={item.status} />
                     </div>
-                    <h3 className="font-heading text-xl font-bold text-pine">
+                    <h3 className="font-heading text-xl font-medium text-pine">
                       {item.serviceTitle}
                     </h3>
                   </div>
@@ -337,7 +337,7 @@ export default function PsychologistQueuePage() {
                     <p className="font-semibold text-accent-ink uppercase tracking-wide text-xs">
                       Client &amp; Persona Information
                     </p>
-                    <p className="font-bold text-pine text-sm">{item.personaLabel}</p>
+                    <p className="font-medium text-pine text-sm">{item.personaLabel}</p>
                     <p className="text-pine/75">
                       Language: <span className="font-medium text-pine">{item.preferredLanguage}</span>
                     </p>
@@ -352,7 +352,7 @@ export default function PsychologistQueuePage() {
                       Service Duration &amp; Clinical Scope
                     </p>
                     <p className="font-semibold text-pine">
-                      Duration: <span className="font-mono text-accent-ink font-bold">{item.serviceDuration}</span>
+                      Duration: <span className="font-mono text-accent-ink font-medium">{item.serviceDuration}</span>
                     </p>
                     <p className="text-pine/80 leading-relaxed text-xs">
                       {item.serviceGuardrail}
@@ -401,7 +401,7 @@ export default function PsychologistQueuePage() {
               >
                 <div className="flex items-center gap-2">
                   <AlertCircle className="w-5 h-5 text-red-600 shrink-0" aria-hidden="true" />
-                  <p className="font-heading text-base font-bold text-red-950">
+                  <p className="font-heading text-base font-medium text-red-950">
                     Failed to Claim Request (Race Condition Detected)
                   </p>
                 </div>

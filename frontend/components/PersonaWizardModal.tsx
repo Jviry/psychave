@@ -422,7 +422,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
         {confirmingClose ? (
           /* Unsaved-draft confirm replaces the wizard body */
           <section className="py-10 text-center space-y-5" role="alertdialog" aria-label="Confirm leaving wizard">
-            <p className="font-heading text-xl font-bold text-pine">Leave the wizard?</p>
+            <p className="font-heading text-xl font-medium text-pine">Leave the wizard?</p>
             <p className="text-sm text-pine/70 max-w-md mx-auto leading-relaxed">
               Your progress is saved and will restore when you reopen.
             </p>
@@ -543,7 +543,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
           {currentStep === 2 && (
             <section className="space-y-5" aria-label="Services offered and acknowledgements">
               <div className="space-y-3">
-                <h3 className="font-heading text-lg font-bold text-pine">Services offered (read-only)</h3>
+                <h3 className="font-heading text-lg font-medium text-pine">Services offered (read-only)</h3>
                 <ul className="space-y-2">
                   {(services.length > 0 ? services : []).map((s) => (
                     <li key={s.id} className="p-3.5 rounded-lg bg-parchment border border-mist">

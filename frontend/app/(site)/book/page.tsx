@@ -35,7 +35,7 @@ General Availability Window: [Days & Times]`;
           <span aria-hidden="true">·</span>
           <span>Structured Platform Booking + Official External Fallback</span>
         </div>
-        <h1 className="font-heading text-4xl font-bold text-pine">
+        <h1 className="font-heading text-4xl font-medium text-pine">
           Book a Session with PSYCHAVE PH
         </h1>
         <p className="text-base text-pine/80 max-w-3xl">
@@ -52,7 +52,7 @@ General Availability Window: [Days & Times]`;
               <span>Recommended Primary Path</span>
               <span>Platform Booking Workflow</span>
             </div>
-            <h2 className="font-heading text-3xl font-bold text-pine">
+            <h2 className="font-heading text-3xl font-medium text-pine">
               Complete Persona &amp; Clinical Booking Online
             </h2>
             <p className="text-sm text-pine/80 leading-relaxed">
@@ -107,7 +107,7 @@ General Availability Window: [Days & Times]`;
             <p className="text-xs font-semibold text-accent-ink">
               Direct Coordination Channels
             </p>
-            <h2 className="font-heading text-2xl font-bold text-pine">
+            <h2 className="font-heading text-2xl font-medium text-pine">
               External Booking Fallback
             </h2>
             <p className="text-xs text-pine/75 leading-relaxed">
@@ -184,7 +184,7 @@ General Availability Window: [Days & Times]`;
       {/* Philippine Emergency / Crisis Protocol Guardrail */}
       <section className="bg-surface-sunken border border-mist rounded-lg p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="space-y-1">
-          <p className="font-heading text-lg font-bold text-pine">
+          <p className="font-heading text-lg font-medium text-pine">
             Important Clinical Safety Notice (Non-Emergency Platform)
           </p>
           <p className="text-xs text-pine/80 max-w-3xl">

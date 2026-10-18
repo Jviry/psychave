@@ -164,7 +164,7 @@ export default function PersonasAndBookingPage() {
             <span aria-hidden="true">·</span>
             <span>Client Persona &amp; Clinical Booking</span>
           </div>
-          <h1 className="font-heading text-4xl font-bold text-pine">
+          <h1 className="font-heading text-4xl font-medium text-pine">
             Client Personas &amp; Clinical Booking Form
           </h1>
           <p className="text-sm text-pine/80 max-w-2xl">
@@ -192,10 +192,10 @@ export default function PersonasAndBookingPage() {
         <div className="bg-surface-sunken border border-sage/50 rounded-lg p-6 space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
-              <p className="text-xs font-bold text-accent-ink">
+              <p className="text-xs font-medium text-accent-ink">
                 FLOW C STEP 1 SUBMITTED · STATUS: PENDING
               </p>
-              <h2 className="font-heading text-2xl font-bold text-pine">
+              <h2 className="font-heading text-2xl font-medium text-pine">
                 Booking Request #{submittedBookingId} Entered Pending Queue
               </h2>
               <p className="text-sm text-pine/80">
@@ -234,7 +234,7 @@ export default function PersonasAndBookingPage() {
           <Card className="space-y-5">
             <div className="flex items-center justify-between border-b border-mist pb-3">
               <div>
-                <h2 className="font-heading text-2xl font-bold text-pine">
+                <h2 className="font-heading text-2xl font-medium text-pine">
                   1. Manage Personas
                 </h2>
                 <p className="text-xs text-pine/70">
@@ -296,7 +296,7 @@ export default function PersonasAndBookingPage() {
                       </span>
                       <span className="font-mono tabular-nums">{persona.ageGroup}</span>
                     </div>
-                    <p className="font-heading text-lg font-bold text-pine">
+                    <p className="font-heading text-lg font-medium text-pine">
                       {persona.label}
                     </p>
                     <p className="text-xs text-pine/70 mt-1">
@@ -336,7 +336,7 @@ export default function PersonasAndBookingPage() {
                   onSubmit={personaForm.handleSubmit((vals) => createPersonaMutation.mutate(vals))}
                   className="p-4 rounded-lg bg-surface-raised border border-mist space-y-4"
                 >
-                  <p className="font-heading text-lg font-bold text-pine">
+                  <p className="font-heading text-lg font-medium text-pine">
                     Create New Anonymized Persona (Legacy)
                   </p>
 
@@ -428,7 +428,7 @@ export default function PersonasAndBookingPage() {
         {/* Right Column: Canonical Flow C Booking Form (RHF + Zod) */}
         <Card className="lg:col-span-7 space-y-6">
           <div className="border-b border-mist pb-4">
-            <h2 className="font-heading text-2xl font-bold text-pine">
+            <h2 className="font-heading text-2xl font-medium text-pine">
               2. Complete Clinical Booking Form
             </h2>
             <p className="text-xs text-pine/70">

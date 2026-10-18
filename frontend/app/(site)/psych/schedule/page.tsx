@@ -143,7 +143,7 @@ export default function PsychologistSchedulePage() {
             <span aria-hidden="true">·</span>
             <span>My Schedule &amp; Clinical Management</span>
           </div>
-          <h1 className="font-heading text-4xl font-bold text-pine">
+          <h1 className="font-heading text-4xl font-medium text-pine">
             My Practice Schedule
           </h1>
           <p className="text-sm text-pine/80 max-w-2xl">
@@ -245,7 +245,7 @@ export default function PsychologistSchedulePage() {
         </div>
 
         <div className="text-xs text-pine/70">
-          Psychologist Roster ID: <span className="font-mono font-bold text-accent-ink">{activePsychologistId}</span>
+          Psychologist Roster ID: <span className="font-mono font-medium text-accent-ink">{activePsychologistId}</span>
         </div>
       </div>
 
@@ -299,7 +299,7 @@ export default function PsychologistSchedulePage() {
                 {/* Card Top Bar */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-mist/70 pb-4">
                   <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className="font-mono font-bold text-pine text-sm">
+                    <span className="font-mono font-medium text-pine text-sm">
                       {session.id}
                     </span>
                     {session.demoSeed && <DemoDataTag />}
@@ -323,7 +323,7 @@ export default function PsychologistSchedulePage() {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                   <div className="lg:col-span-8 space-y-3">
                     <div>
-                      <h2 className="font-heading text-2xl font-bold text-pine">
+                      <h2 className="font-heading text-2xl font-medium text-pine">
                         {session.serviceTitle} ({session.serviceDuration})
                       </h2>
                       <p className="text-xs text-pine/70 mt-0.5">
@@ -338,7 +338,7 @@ export default function PsychologistSchedulePage() {
                           <p className="font-semibold text-accent-ink uppercase tracking-wide text-xs">
                             Confirmed Session Appointment
                           </p>
-                          <p className="font-bold text-pine text-sm">
+                          <p className="font-medium text-pine text-sm">
                             {confirmedSlot.dateLabel}
                           </p>
                           <p className="font-mono text-accent-ink font-medium">
@@ -404,7 +404,7 @@ export default function PsychologistSchedulePage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
                       {/* Left Sub-card: Client / Persona & Payment Status */}
                       <div className="space-y-4 p-4 rounded-lg bg-parchment border border-mist">
-                        <h3 className="font-heading text-lg font-bold text-pine">
+                        <h3 className="font-heading text-lg font-medium text-pine">
                           Client &amp; Persona Profile
                         </h3>
 
@@ -454,7 +454,7 @@ export default function PsychologistSchedulePage() {
 
                       {/* Right Sub-card: Unlocked Teletherapy & Lifecycle Actions */}
                       <div className="space-y-4 p-4 rounded-lg bg-parchment border border-mist">
-                        <h3 className="font-heading text-lg font-bold text-pine">
+                        <h3 className="font-heading text-lg font-medium text-pine">
                           Session Channel &amp; Coordination
                         </h3>
 
@@ -481,7 +481,7 @@ export default function PsychologistSchedulePage() {
 
                             <div className="space-y-1">
                               <p className="text-pine/70">Session Reference Code:</p>
-                              <p className="font-mono font-bold text-accent-ink">
+                              <p className="font-mono font-medium text-accent-ink">
                                 {session.unlockedContact.sessionReferenceCode}
                               </p>
                             </div>
@@ -537,7 +537,7 @@ export default function PsychologistSchedulePage() {
                     {/* Private Clinical Session Notes (Confidential: Hidden from Admin & Client) */}
                     <div className="p-4 rounded-lg bg-surface-raised border border-sage/40 space-y-3 text-xs">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 font-bold text-pine">
+                        <div className="flex items-center gap-2 font-medium text-pine">
                           <ShieldCheck className="w-4 h-4 text-accent-ink shrink-0" aria-hidden="true" />
                           <span className="font-heading text-base">Private Clinical Notes (Psychologist Only)</span>
                         </div>

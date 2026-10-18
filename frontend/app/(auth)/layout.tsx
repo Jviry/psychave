@@ -20,7 +20,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <span className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-lime-soft/15 border border-lime-soft/30">
             <Heart className="w-5 h-5 text-lime-soft" aria-hidden="true" />
           </span>
-          <span className="font-heading text-xl font-bold tracking-tight text-parchment">
+          <span className="font-heading text-xl font-medium tracking-tight text-parchment">
             PSYCHAVE PH
           </span>
         </Link>
@@ -30,7 +30,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <p className="text-xs font-semibold uppercase tracking-widest text-lime-soft">
             PRC-Licensed Resident Psychologists
           </p>
-          <h1 className="font-heading text-4xl xl:text-5xl font-bold leading-tight tracking-tight text-parchment">
+          <h1 className="font-heading text-4xl xl:text-5xl font-medium leading-tight tracking-tight text-parchment">
             Your mental health
             <br />
             journey starts
@@ -68,7 +68,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="flex-1 flex flex-col justify-center items-center px-6 py-12 lg:px-12 overflow-y-auto">
         {/* Mobile-only logo */}
         <Link href="/" className="lg:hidden mb-8">
-          <span className="font-heading text-xl font-bold tracking-tight text-pine">
+          <span className="font-heading text-xl font-medium tracking-tight text-pine">
             PSYCHAVE PH
           </span>
         </Link>

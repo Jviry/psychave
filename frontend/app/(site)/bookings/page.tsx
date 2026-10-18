@@ -68,7 +68,7 @@ export default function ClientBookingsPage() {
             <span aria-hidden="true">·</span>
             <span>Tiered Access: Own History Only (Client #C-01)</span>
           </div>
-          <h1 className="font-heading text-4xl font-bold text-pine">
+          <h1 className="font-heading text-4xl font-medium text-pine">
             My Bookings
           </h1>
           <p className="text-sm text-pine/80 max-w-2xl">
@@ -91,7 +91,7 @@ export default function ClientBookingsPage() {
       {proposedBookings.length > 0 && (
         <div className="bg-lime-soft/25 border border-lime-soft/60 rounded-lg p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="space-y-1">
-            <p className="text-xs font-bold text-pine">
+            <p className="text-xs font-medium text-pine">
               PROPOSAL ALERT · ACTION REQUIRED TO FINALIZE BOOKING
             </p>
             <p className="text-sm text-pine/90">
@@ -177,7 +177,7 @@ export default function ClientBookingsPage() {
         </div>
       ) : filteredBookings.length === 0 ? (
         <Card className="text-center py-12 space-y-4">
-          <p className="font-heading text-2xl font-bold text-pine">
+          <p className="font-heading text-2xl font-medium text-pine">
             No Bookings Matching Selected Status
           </p>
           <p className="text-sm text-pine/75 max-w-md mx-auto">
@@ -205,7 +205,7 @@ export default function ClientBookingsPage() {
                 {/* Top Metadata Row */}
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-mist/70 pb-3">
                   <div className="flex flex-wrap items-center gap-2 text-xs text-pine/75">
-                    <span className="font-mono font-bold text-pine tabular-nums">
+                    <span className="font-mono font-medium text-pine tabular-nums">
                       {booking.id}
                     </span>
                     {booking.demoSeed && <DemoDataTag />}
@@ -222,7 +222,7 @@ export default function ClientBookingsPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                   <div className="lg:col-span-7 space-y-3">
                     <div className="flex items-baseline justify-between gap-4">
-                      <h2 className="font-heading text-2xl font-bold text-pine">
+                      <h2 className="font-heading text-2xl font-medium text-pine">
                         {booking.serviceTitle}
                       </h2>
                       <span className="font-mono text-xs font-semibold text-accent-ink tabular-nums shrink-0">
@@ -248,7 +248,7 @@ export default function ClientBookingsPage() {
                   <div className="lg:col-span-5">
                     {booking.status === 'pending' && (
                       <div className="p-4 rounded-lg bg-parchment border border-dashed border-mint/50 space-y-3">
-                        <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
+                        <div className="flex items-center gap-2 text-xs font-medium text-amber-900">
                           <Clock className="w-4 h-4 text-amber-700 shrink-0" aria-hidden="true" />
                           <span>No Pick-Up Yet · Waiting Psychologist Review</span>
                         </div>
@@ -272,10 +272,10 @@ export default function ClientBookingsPage() {
                     {booking.status === 'proposed' && (
                       <div className="p-4 rounded-lg bg-surface-raised border border-mist space-y-3">
                         <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-pine">
+                          <span className="font-medium text-pine">
                             Picked Up by {booking.psychologistCode}
                           </span>
-                          <span className="font-mono font-bold text-pine tabular-nums">
+                          <span className="font-mono font-medium text-pine tabular-nums">
                             Fee: ₱{booking.pricePhp?.toLocaleString()}
                           </span>
                         </div>

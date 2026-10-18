@@ -30,7 +30,7 @@ export function TestimonialsConsentSection({ cms }: { cms: CmsContent }) {
           <span>{ethicalStandardRef || DEFAULT_STANDARD_REF}</span>
         </div>
 
-        <h2 className="font-heading text-3xl font-bold text-pine tracking-tight">
+        <h2 className="font-heading text-3xl font-medium text-pine tracking-tight">
           {sectionTitle || DEFAULT_SECTION_TITLE}
         </h2>
 

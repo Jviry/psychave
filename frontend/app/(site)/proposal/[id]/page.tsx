@@ -78,7 +78,7 @@ export default function ProposalPickerPage() {
   if (!booking) {
     return (
       <Card className="space-y-4 text-center py-12">
-        <h1 className="font-heading text-3xl font-bold text-pine">
+        <h1 className="font-heading text-3xl font-medium text-pine">
           Proposal Record Not Found
         </h1>
         <p className="text-sm text-pine/75">
@@ -105,7 +105,7 @@ export default function ProposalPickerPage() {
             <span aria-hidden="true">·</span>
             <span>3-Slot Proposal Review &amp; Payment-Gated Finalization</span>
           </div>
-          <h1 className="font-heading text-4xl font-bold text-pine">
+          <h1 className="font-heading text-4xl font-medium text-pine">
             Proposal Review &amp; Slot Selection ({booking.id})
           </h1>
           <p className="text-sm text-pine/80 max-w-2xl">
@@ -126,14 +126,14 @@ export default function ProposalPickerPage() {
         <Card className="bg-surface-sunken space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-mist pb-4">
             <div className="space-y-1">
-              <p className="text-xs font-bold text-accent-ink">
+              <p className="text-xs font-medium text-accent-ink">
                 FLOW C FINALIZED · PAYMENT SUCCEEDED ({booking.paidAt})
               </p>
-              <h2 className="font-heading text-3xl font-bold text-pine">
+              <h2 className="font-heading text-3xl font-medium text-pine">
                 Session Confirmed &amp; Contact Channels Unlocked
               </h2>
             </div>
-            <span className="font-mono text-xl font-bold text-pine tabular-nums">
+            <span className="font-mono text-xl font-medium text-pine tabular-nums">
               Paid: ₱{booking.pricePhp?.toLocaleString()}
             </span>
           </div>
@@ -141,7 +141,7 @@ export default function ProposalPickerPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
             <div className="p-4 rounded-lg bg-surface-raised border border-mist space-y-1">
               <p className="text-pine/65">Confirmed Date &amp; Time Slot</p>
-              <p className="font-heading text-lg font-bold text-pine">
+              <p className="font-heading text-lg font-medium text-pine">
                 {confirmedSlot?.dateLabel}
               </p>
               <p className="font-mono text-accent-ink font-semibold tabular-nums">
@@ -191,7 +191,7 @@ export default function ProposalPickerPage() {
           className="bg-red-50 border-l-2 border-red-400 rounded-r-lg p-5 text-red-950 space-y-2"
         >
           <div className="flex items-center justify-between gap-4">
-            <p className="font-heading text-xl font-bold text-red-900">
+            <p className="font-heading text-xl font-medium text-red-900">
               Payment Failed — Booking Not Finalized
             </p>
             <span className="text-xs font-mono font-semibold text-red-800">
@@ -222,7 +222,7 @@ export default function ProposalPickerPage() {
             <p className="text-xs font-semibold text-accent-ink">
               Assigned Verified Practitioner
             </p>
-            <h2 className="font-heading text-2xl font-bold text-pine">
+            <h2 className="font-heading text-2xl font-medium text-pine">
               {booking.psychologistCode || 'Awaiting Psychologist Pick-Up'}
             </h2>
             <p className="text-xs text-pine/75 mt-0.5">
@@ -247,7 +247,7 @@ export default function ProposalPickerPage() {
             </div>
             <div className="flex justify-between py-1.5 border-b border-mist/50">
               <span className="text-pine/70">Proposed Session Fee</span>
-              <span className="font-mono text-base font-bold text-pine tabular-nums">
+              <span className="font-mono text-base font-medium text-pine tabular-nums">
                 {booking.pricePhp ? `₱${booking.pricePhp.toLocaleString()}` : 'Pending Proposal'}
               </span>
             </div>
@@ -278,21 +278,21 @@ export default function ProposalPickerPage() {
         <Card className="lg:col-span-7 space-y-6">
           <div className="flex items-center justify-between border-b border-mist pb-4">
             <div>
-              <h2 className="font-heading text-2xl font-bold text-pine">
+              <h2 className="font-heading text-2xl font-medium text-pine">
                 Select 1 of 3 Proposed Date/Time Slots
               </h2>
               <p className="text-xs text-pine/70">
                 All times shown in Philippine Standard Time (PST · UTC+8)
               </p>
             </div>
-            <span className="font-mono text-lg font-bold text-accent-ink tabular-nums">
+            <span className="font-mono text-lg font-medium text-accent-ink tabular-nums">
               {booking.pricePhp ? `₱${booking.pricePhp.toLocaleString()}` : ''}
             </span>
           </div>
 
           {booking.proposedSlots.length === 0 ? (
             <div className="p-8 text-center bg-parchment rounded-lg border border-dashed border-mint/50 space-y-3">
-              <p className="font-heading text-xl font-bold text-pine">
+              <p className="font-heading text-xl font-medium text-pine">
                 No Slots Proposed Yet (Status: Pending)
               </p>
               <p className="text-xs text-pine/75 max-w-md mx-auto">
@@ -329,7 +329,7 @@ export default function ProposalPickerPage() {
                           <p className="text-xs font-semibold text-accent-ink">
                             Option 0{slot.slotNumber}
                           </p>
-                          <p className="font-heading text-xl font-bold text-pine">
+                          <p className="font-heading text-xl font-medium text-pine">
                             {slot.dateLabel}
                           </p>
                         </div>
@@ -350,7 +350,7 @@ export default function ProposalPickerPage() {
               {/* Payment Method & Prototype Error State Simulator */}
               <div className="p-4 rounded-lg bg-parchment border border-mist space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs font-bold text-pine">
+                  <p className="text-xs font-medium text-pine">
                     Stripe Checkout Method (Mock Gateway)
                   </p>
                   <label className="inline-flex items-center gap-2 text-xs text-pine cursor-pointer">

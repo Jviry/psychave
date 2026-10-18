@@ -140,7 +140,7 @@ function ConfirmStep({
           <CheckCircle2 className="w-7 h-7 text-sage" />
         </div>
         <div>
-          <h3 className="font-heading text-lg font-bold text-pine">Check your email</h3>
+          <h3 className="font-heading text-lg font-medium text-pine">Check your email</h3>
           <p className="text-sm text-pine/60 mt-1">
             We sent a 6-digit verification code to the email you registered with.
           </p>
@@ -307,7 +307,7 @@ export default function RegisterPage() {
       <div className="bg-surface-raised rounded-lg border border-mist p-8 sm:p-10">
         {/* Header */}
         <div className="mb-8">
-          <h2 className="font-heading text-2xl font-bold text-pine mb-1.5">Create your account</h2>
+          <h2 className="font-heading text-2xl font-medium text-pine mb-1.5">Create your account</h2>
           <p className="text-sm text-pine/60">Join PsychAve PH to get started</p>
         </div>
 

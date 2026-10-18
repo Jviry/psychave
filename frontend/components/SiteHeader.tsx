@@ -117,7 +117,7 @@ export function SiteHeader() {
         {/* Zone 1: Brand Title, single text element in Proxima Nova Condensed */}
         <Link
           href="/"
-          className="font-heading text-2xl font-bold tracking-tight text-pine whitespace-nowrap shrink-0"
+          className="font-heading text-2xl font-medium tracking-tight text-pine whitespace-nowrap shrink-0"
         >
           PSYCHAVE PH
         </Link>
@@ -229,14 +229,14 @@ export function SiteHeader() {
               <Link
                 id="header-login-link"
                 href="/login"
-                className="px-3.5 py-2 text-xs font-semibold rounded-lg text-pine border border-mist hover:bg-mist/40 transition-colors whitespace-nowrap focus-visible:outline-2 focus-visible:outline-sage focus-visible:outline-offset-2"
+                className="px-3.5 py-2 text-xs font-semibold rounded-full text-pine border border-mist hover:bg-mist/40 transition-colors whitespace-nowrap focus-visible:outline-2 focus-visible:outline-sage focus-visible:outline-offset-2"
               >
                 Log In
               </Link>
               <Link
                 id="header-register-link"
                 href="/register"
-                className="px-3.5 py-2 text-xs font-semibold rounded-lg text-white transition-colors whitespace-nowrap bg-pine hover:bg-pine/90 focus-visible:outline-2 focus-visible:outline-sage focus-visible:outline-offset-2"
+                className="px-3.5 py-2 text-xs font-semibold rounded-full text-white transition-colors whitespace-nowrap bg-pine hover:bg-pine/90 focus-visible:outline-2 focus-visible:outline-sage focus-visible:outline-offset-2"
               >
                 Register
               </Link>
@@ -276,7 +276,7 @@ export function SiteHeader() {
                   );
                 })}
               </div>
-              <Link href="/personas" className="hidden sm:inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-lg bg-sage text-white hover:bg-accent-ink transition-colors focus-visible:outline-2 focus-visible:outline-sage focus-visible:outline-offset-2">
+              <Link href="/personas" className="hidden sm:inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-sage text-white hover:bg-accent-ink transition-colors focus-visible:outline-2 focus-visible:outline-sage focus-visible:outline-offset-2">
                 Start Booking
               </Link>
             </div>

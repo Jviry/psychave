@@ -98,7 +98,7 @@ export default function LoginPage() {
       <div className="bg-surface-raised rounded-lg border border-mist p-8 sm:p-10">
         {/* Header */}
         <div className="mb-8">
-          <h2 className="font-heading text-2xl font-bold text-pine mb-1.5">Welcome back</h2>
+          <h2 className="font-heading text-2xl font-medium text-pine mb-1.5">Welcome back</h2>
           <p className="text-sm text-pine/60">Sign in to your PsychAve PH account</p>
         </div>
 

@@ -97,7 +97,7 @@ export default function PsychologistProfilePage() {
             <span aria-hidden="true">·</span>
             <span>Practitioner Profile &amp; Governance</span>
           </div>
-          <h1 className="font-heading text-4xl font-bold text-pine">
+          <h1 className="font-heading text-4xl font-medium text-pine">
             Practitioner Profile
           </h1>
           <p className="text-sm text-pine/80 max-w-2xl">
@@ -130,7 +130,7 @@ export default function PsychologistProfilePage() {
               <Check className="w-4 h-4" strokeWidth={3} aria-hidden="true" />
             </div>
             <div>
-              <p className="font-bold text-pine">
+              <p className="font-medium text-pine">
                 Credential Status: Verified &amp; Active
               </p>
               <p className="text-pine/75">
@@ -138,7 +138,7 @@ export default function PsychologistProfilePage() {
               </p>
             </div>
           </div>
-          <span className="font-mono px-2.5 py-1 bg-surface-raised rounded-md text-accent-ink font-bold border border-mist">
+          <span className="font-mono px-2.5 py-1 bg-surface-raised rounded-md text-accent-ink font-medium border border-mist">
             {activePsych?.prcCredentialCode}
           </span>
         </div>
@@ -149,7 +149,7 @@ export default function PsychologistProfilePage() {
         {/* Left Column: Editable Profile Form */}
         <Card className="lg:col-span-8 space-y-6">
           <div className="border-b border-mist pb-4">
-            <h2 className="font-heading text-2xl font-bold text-pine">
+            <h2 className="font-heading text-2xl font-medium text-pine">
               Edit Profile Information
             </h2>
             <p className="text-xs text-pine/70 mt-0.5">
@@ -260,14 +260,14 @@ export default function PsychologistProfilePage() {
         {/* Right Column: Read-Only Roster & Service Scope Governance */}
         <div className="lg:col-span-4 space-y-6">
           <Card className="space-y-4">
-            <h3 className="font-heading text-xl font-bold text-pine border-b border-mist pb-2">
+            <h3 className="font-heading text-xl font-medium text-pine border-b border-mist pb-2">
               Practitioner Identity
             </h3>
 
             <div className="space-y-3 text-xs">
               <div>
                 <p className="text-pine/70">Anonymized Identifier:</p>
-                <p className="font-mono font-bold text-pine text-sm">
+                <p className="font-mono font-medium text-pine text-sm">
                   {activePsych?.anonymizedTitle}
                 </p>
               </div>
@@ -297,7 +297,7 @@ export default function PsychologistProfilePage() {
           </Card>
 
           <Card className="space-y-4">
-            <h3 className="font-heading text-xl font-bold text-pine border-b border-mist pb-2">
+            <h3 className="font-heading text-xl font-medium text-pine border-b border-mist pb-2">
               Certified Service Eligibility
             </h3>
             <p className="text-xs text-pine/70">

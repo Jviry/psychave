@@ -43,7 +43,7 @@ export function UnverifiedBanner({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <TriangleAlert className="w-5 h-5 text-amber-700 shrink-0" aria-hidden="true" />
-          <h2 className="font-heading text-xl font-bold text-amber-950">{title}</h2>
+          <h2 className="font-heading text-xl font-medium text-amber-950">{title}</h2>
         </div>
         <span className="font-mono text-xs font-semibold px-2.5 py-1 bg-amber-200/70 text-amber-900 rounded-md">
           {note}

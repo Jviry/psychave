@@ -250,7 +250,7 @@ export function EmptyState({
       <div className="w-12 h-12 rounded-full bg-surface-sunken border border-mist flex items-center justify-center">
         <Icon className="w-5 h-5 text-pine/70" aria-hidden="true" />
       </div>
-      <p className="font-heading text-lg font-bold text-pine mt-4">{title}</p>
+      <p className="font-heading text-lg font-medium text-pine mt-4">{title}</p>
       {description ? (
         <p className="text-sm text-pine/60 leading-relaxed mt-1 max-w-sm">
           {description}
@@ -372,7 +372,7 @@ export function Modal({
       >
         <div className="flex items-start justify-between gap-4 p-6 pb-3">
           <div>
-            <p id={titleId} className="font-heading text-base font-bold text-pine">
+            <p id={titleId} className="font-heading text-base font-medium text-pine">
               {title}
             </p>
             {description ? (

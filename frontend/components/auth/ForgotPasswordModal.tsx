@@ -112,7 +112,7 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
 
         {/* Title */}
         <div className="mb-6">
-          <h3 id="forgot-password-title" className="font-heading text-xl font-bold text-pine mb-1">
+          <h3 id="forgot-password-title" className="font-heading text-xl font-medium text-pine mb-1">
             {step === 'request' ? 'Reset your password' : 'Enter new password'}
           </h3>
           <p className="text-sm text-pine/60">

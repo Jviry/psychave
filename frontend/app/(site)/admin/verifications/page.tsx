@@ -58,7 +58,7 @@ export default function AdminVerificationsPage() {
           <span aria-hidden="true">·</span>
           <span>Credential Verification Queue &amp; Tiered Privacy Enforcement</span>
         </div>
-        <h1 className="font-heading text-4xl font-bold text-pine">
+        <h1 className="font-heading text-4xl font-medium text-pine">
           Psychologist Credential Verifications &amp; Roster Control
         </h1>
         <p className="text-sm text-pine/80 max-w-3xl">
@@ -72,7 +72,7 @@ export default function AdminVerificationsPage() {
       <Card className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-mist pb-4">
           <div>
-            <h2 className="font-heading text-2xl font-bold text-pine">
+            <h2 className="font-heading text-2xl font-medium text-pine">
               1. Resident Psychologist Credential Verification Queue
             </h2>
             <p className="text-xs text-pine/70">
@@ -105,7 +105,7 @@ export default function AdminVerificationsPage() {
                   return (
                     <tr key={psych.id} className="hover:bg-parchment">
                       <td className="py-3.5 px-4 align-top space-y-1">
-                        <p className="font-heading text-base font-bold text-pine">
+                        <p className="font-heading text-base font-medium text-pine">
                           {psych.anonymizedTitle}
                         </p>
                         <p className="font-mono text-accent-ink tabular-nums">
@@ -180,7 +180,7 @@ export default function AdminVerificationsPage() {
       <Card className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-mist pb-4">
           <div>
-            <h2 className="font-heading text-2xl font-bold text-pine">
+            <h2 className="font-heading text-2xl font-medium text-pine">
               2. Preliminary Booking Queue Audit (No Session Notes Visible)
             </h2>
             <p className="text-xs text-pine/70">
@@ -208,7 +208,7 @@ export default function AdminVerificationsPage() {
             <tbody className="divide-y divide-mist/60">
               {adminBookings.map((b) => (
                 <tr key={b.id} className="hover:bg-parchment">
-                  <td className="py-3 px-4 font-mono font-bold text-pine tabular-nums">
+                  <td className="py-3 px-4 font-mono font-medium text-pine tabular-nums">
                     {b.id}
                   </td>
                   <td className="py-3 px-4">

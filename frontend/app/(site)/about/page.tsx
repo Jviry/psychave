@@ -31,7 +31,7 @@ export default function AboutPage() {
           <span aria-hidden="true">·</span>
           <span>Payload CMS Managed</span>
         </div>
-        <h1 className="font-heading text-4xl font-bold text-pine">
+        <h1 className="font-heading text-4xl font-medium text-pine">
           About PSYCHAVE PH (PsychAvenuePH)
         </h1>
         <p className="text-base text-pine/80 max-w-3xl">
@@ -47,7 +47,7 @@ export default function AboutPage() {
             <span>Institutional Direction</span>
             <span>CMS Block · Vision</span>
           </div>
-          <h2 className="font-heading text-2xl font-bold text-pine">
+          <h2 className="font-heading text-2xl font-medium text-pine">
             Vision Statement
           </h2>
           {cms?.vision ? (
@@ -64,7 +64,7 @@ export default function AboutPage() {
             <span>Clinical Mandate</span>
             <span>CMS Block · Mission</span>
           </div>
-          <h2 className="font-heading text-2xl font-bold text-pine">
+          <h2 className="font-heading text-2xl font-medium text-pine">
             Mission Statement
           </h2>
           {cms?.mission ? (
@@ -84,7 +84,7 @@ export default function AboutPage() {
             <p className="text-xs font-semibold text-accent-ink">
               CMS Block · Clinic Overview &amp; Impact
             </p>
-            <h2 className="font-heading text-3xl font-bold text-pine">
+            <h2 className="font-heading text-3xl font-medium text-pine">
               Clinic Overview &amp; Ethical Impact Architecture
             </h2>
           </div>
@@ -123,7 +123,7 @@ export default function AboutPage() {
                     </p>
                     <p className="text-xs text-pine/65">{metric.timeframeContext}</p>
                   </div>
-                  <span className="font-heading text-2xl font-bold text-accent-ink tabular-nums shrink-0">
+                  <span className="font-heading text-2xl font-medium text-accent-ink tabular-nums shrink-0">
                     {metric.metricValue}
                   </span>
                 </div>
@@ -142,7 +142,7 @@ export default function AboutPage() {
               <span aria-hidden="true">·</span>
               <span>Strict No-Personal-Names Governance</span>
             </div>
-            <h2 className="font-heading text-3xl font-bold text-pine">
+            <h2 className="font-heading text-3xl font-medium text-pine">
               Verified Resident Psychologist Roster (Structure Only)
             </h2>
           </div>
@@ -167,7 +167,7 @@ export default function AboutPage() {
 
                 {/* Anonymized Role Identifier — strictly no personal name; no badge/avatar box */}
                 <div>
-                  <h3 className="font-heading text-xl font-bold text-pine">
+                  <h3 className="font-heading text-xl font-medium text-pine">
                     {resident.anonymizedTitle}
                   </h3>
                   <p className="text-xs text-pine/65">{resident.yearsPractice}</p>

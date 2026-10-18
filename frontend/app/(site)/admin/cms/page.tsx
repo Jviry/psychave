@@ -127,7 +127,7 @@ export default function AdminCmsPage() {
           <span aria-hidden="true">·</span>
           <span>Payload CMS Content &amp; Guardrail Editors</span>
         </div>
-        <h1 className="font-heading text-4xl font-bold text-pine">
+        <h1 className="font-heading text-4xl font-medium text-pine">
           CMS Editors: Services, Roster Structure, Testimonials &amp; Vision/Mission
         </h1>
         <p className="text-sm text-pine/80 max-w-3xl">
@@ -175,7 +175,7 @@ export default function AdminCmsPage() {
       {activeTab === 'overview' && (
         <Card className="space-y-6">
           <div className="border-b border-mist pb-3">
-            <h2 className="font-heading text-2xl font-bold text-pine">
+            <h2 className="font-heading text-2xl font-medium text-pine">
               Vision, Mission, Clinic Overview &amp; Consent-Flag Governance
             </h2>
             <p className="text-xs text-pine/70">
@@ -266,7 +266,7 @@ export default function AdminCmsPage() {
       {activeTab === 'services' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <Card className="lg:col-span-5 space-y-3">
-            <h2 className="font-heading text-2xl font-bold text-pine border-b border-mist pb-2">
+            <h2 className="font-heading text-2xl font-medium text-pine border-b border-mist pb-2">
               Select Canonical Service
             </h2>
             <div className="space-y-2">
@@ -285,7 +285,7 @@ export default function AdminCmsPage() {
                     <span>{srv.indexNumber}</span>
                     <span>{srv.durationLabel}</span>
                   </div>
-                  <p className="font-heading text-lg font-bold text-pine mt-0.5">
+                  <p className="font-heading text-lg font-medium text-pine mt-0.5">
                     {srv.title}
                   </p>
                   <p className="text-pine/70 truncate">{srv.guardrailTitle}</p>
@@ -299,7 +299,7 @@ export default function AdminCmsPage() {
               <p className="text-xs font-semibold text-accent-ink">
                 Editing Service Specification
               </p>
-              <h2 className="font-heading text-2xl font-bold text-pine">
+              <h2 className="font-heading text-2xl font-medium text-pine">
                 {currentService?.title}
               </h2>
             </div>
@@ -362,7 +362,7 @@ export default function AdminCmsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <Card className="space-y-4">
             <div className="border-b border-mist pb-3">
-              <h2 className="font-heading text-2xl font-bold text-pine">
+              <h2 className="font-heading text-2xl font-medium text-pine">
                 Resident Roster Structure (Anonymized Policy)
               </h2>
               <p className="text-xs text-pine/70">
@@ -378,7 +378,7 @@ export default function AdminCmsPage() {
                   className="p-3.5 rounded-lg bg-parchment border border-mist flex items-center justify-between gap-3"
                 >
                   <div>
-                    <p className="font-bold text-pine">{r.anonymizedTitle}</p>
+                    <p className="font-medium text-pine">{r.anonymizedTitle}</p>
                     <p className="text-pine/75">{r.specialization}</p>
                   </div>
                   <span className="font-mono text-xs text-accent-ink font-semibold shrink-0">
@@ -391,7 +391,7 @@ export default function AdminCmsPage() {
 
           <Card className="space-y-4">
             <div className="border-b border-mist pb-3">
-              <h2 className="font-heading text-2xl font-bold text-pine">
+              <h2 className="font-heading text-2xl font-medium text-pine">
                 Testimonials Structure (Consent Governance)
               </h2>
               <p className="text-xs text-pine/70">
