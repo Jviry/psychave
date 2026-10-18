@@ -124,12 +124,11 @@ export default function HomePage() {
 
         <ScrollCarousel
           ariaLabel="Clinical and advisory services cards"
-          /* Full-bleed breakout via negative margins (robust): with auto width,
-             margin-inline calc(50% - 50vw) stretches the wrapper to exactly the
-             viewport width, centered — no transform/translate dependency, and
-             symmetric around the classic scrollbar (the root's overflow-x-clip
-             absorbs the half-scrollbar spill; never overflow-hidden). */
-          wrapperClassName="relative mx-[calc(50%_-_50vw)]"
+          /* Overflow breakout (Image 1): the strip is wider than the viewport
+             and centered, so edge cards bleed off both left and right screen
+             edges; the root's overflow-x-clip keeps that spill from becoming a
+             scrollbar. */
+          wrapperClassName="relative left-1/2 w-[115vw] -translate-x-1/2"
           trackClassName="gap-1.5 pb-3 pt-1 md:gap-2"
           loop
           onItemActivate={(index) => selectService(services[index])}

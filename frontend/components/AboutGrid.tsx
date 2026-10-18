@@ -149,7 +149,7 @@ export function AboutGrid({
           <ClinicCard cms={cms} />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[55fr_45fr] sm:gap-1">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_1fr] sm:gap-1">
           <StatementCard
             title="Vision Statement"
             icon={Telescope}
@@ -166,7 +166,7 @@ export function AboutGrid({
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[55fr_45fr] sm:gap-1">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_1fr] sm:gap-1">
           {roster[0] && <RosterCard resident={roster[0]} tint="mint" />}
           {roster[1] && <RosterCard resident={roster[1]} tint="sage" />}
         </div>
