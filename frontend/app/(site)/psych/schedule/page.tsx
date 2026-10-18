@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronDown, Video, ShieldCheck, CalendarDays } from 'lucide-react';
 import { PractitionerSwitcher } from '../../../../components/dashboard/PractitionerSwitcher';
 import { UnverifiedBanner } from '../../../../components/dashboard/UnverifiedBanner';
+import { DemoDataTag } from '../../../../components/DemoDataTag';
 import {
   BookingStatusTag,
   Button,
@@ -301,6 +302,7 @@ export default function PsychologistSchedulePage() {
                     <span className="font-mono font-bold text-pine text-sm">
                       {session.id}
                     </span>
+                    {session.demoSeed && <DemoDataTag />}
                     <span className="text-mist">·</span>
                     <span className="font-semibold text-accent-ink">
                       {session.personaLabel} ({session.personaType})

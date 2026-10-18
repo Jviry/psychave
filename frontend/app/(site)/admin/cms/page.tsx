@@ -187,9 +187,16 @@ export default function AdminCmsPage() {
             onSubmit={overviewForm.handleSubmit((vals) => saveCmsMutation.mutate(vals))}
             className="space-y-5"
           >
+            {cms &&
+              (!cms.vision || !cms.mission || !cms.clinicOverview || !cms.impactNarrative) && (
+                <div className="p-4 rounded-lg bg-parchment border border-dashed border-mint/50 text-xs text-pine/70">
+                  Some CMS blocks are empty — public pages show awaiting-copy notes until copy is
+                  published here. Minimum lengths apply per block.
+                </div>
+              )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <Label htmlFor="cms-vision">Vision Placeholder Copy</Label>
+                <Label htmlFor="cms-vision">Vision Statement</Label>
                 <Textarea id="cms-vision" rows={4} {...overviewForm.register('vision')} />
                 {overviewForm.formState.errors.vision && (
                   <p className="text-xs text-red-700 mt-1">
@@ -199,7 +206,7 @@ export default function AdminCmsPage() {
               </div>
 
               <div>
-                <Label htmlFor="cms-mission">Mission Placeholder Copy</Label>
+                <Label htmlFor="cms-mission">Mission Statement</Label>
                 <Textarea id="cms-mission" rows={4} {...overviewForm.register('mission')} />
                 {overviewForm.formState.errors.mission && (
                   <p className="text-xs text-red-700 mt-1">
@@ -210,7 +217,7 @@ export default function AdminCmsPage() {
             </div>
 
             <div>
-              <Label htmlFor="cms-overview">Clinic Overview Placeholder</Label>
+              <Label htmlFor="cms-overview">Clinic Overview</Label>
               <Textarea
                 id="cms-overview"
                 rows={3}
@@ -224,7 +231,7 @@ export default function AdminCmsPage() {
             </div>
 
             <div>
-              <Label htmlFor="cms-impact">Impact Placeholder Narrative</Label>
+              <Label htmlFor="cms-impact">Impact Narrative</Label>
               <Textarea
                 id="cms-impact"
                 rows={2}
@@ -385,28 +392,36 @@ export default function AdminCmsPage() {
           <Card className="space-y-4">
             <div className="border-b border-mist pb-3">
               <h2 className="font-heading text-2xl font-bold text-pine">
-                Testimonials Structure (Consent-Flag Empty Cards)
+                Testimonials Structure (Consent Governance)
               </h2>
               <p className="text-xs text-pine/70">
                 Enforces zero personal quotes across all public pages.
               </p>
             </div>
 
-            <div className="space-y-3 text-xs">
-              {cms?.testimonialsConfig.emptyCards.map((card) => (
-                <div
-                  key={card.id}
-                  className="p-3.5 rounded-lg bg-parchment border border-dashed border-mint/50 space-y-1"
-                >
-                  <div className="flex justify-between font-mono text-accent-ink">
-                    <span>{card.slotCode}</span>
-                    <span>Quote: Intentionally Empty</span>
+            {cms && cms.testimonialsConfig.emptyCards.length === 0 ? (
+              <p className="p-4 rounded-lg bg-parchment border border-dashed border-mint/50 text-xs text-pine/70 leading-relaxed">
+                No testimonial slot structures seeded. Public pages render the consent governance
+                banner only; the emptyCards contract field stays reserved for structured slots when
+                the backend CMS lands.
+              </p>
+            ) : (
+              <div className="space-y-3 text-xs">
+                {cms?.testimonialsConfig.emptyCards.map((card) => (
+                  <div
+                    key={card.id}
+                    className="p-3.5 rounded-lg bg-parchment border border-dashed border-mint/50 space-y-1"
+                  >
+                    <div className="flex justify-between font-mono text-accent-ink">
+                      <span>{card.slotCode}</span>
+                      <span>Quote: Intentionally Empty</span>
+                    </div>
+                    <p className="font-bold text-pine">{card.serviceCategory}</p>
+                    <p className="text-pine/75">{card.governanceNote}</p>
                   </div>
-                  <p className="font-bold text-pine">{card.serviceCategory}</p>
-                  <p className="text-pine/75">{card.governanceNote}</p>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </Card>
         </div>
       )}

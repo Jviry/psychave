@@ -81,6 +81,13 @@ export interface BookingRequest {
    * Redacted in Admin and Client payloads.
    */
   privateClinicalNote?: string;
+  /**
+   * UI-only mock flag: marks the clearly-labeled demo seed bookings kept in
+   * lib/api.ts (INITIAL_BOOKINGS) so cards render a "Demo data" tag. Never
+   * sent to, or stored by, the backend — contract §2 flags UI-only fields and
+   * they must NOT become backend columns.
+   */
+  demoSeed?: boolean;
 }
 
 export interface ResidentPsychologist {

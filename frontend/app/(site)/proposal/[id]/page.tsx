@@ -12,6 +12,7 @@ import {
 import { useParams, useRouter } from 'next/navigation';
 import { useAppStore } from '../../../../stores/useAppStore';
 import { Lock } from 'lucide-react';
+import { DemoDataTag } from '../../../../components/DemoDataTag';
 import {
   BookingStatusTag,
   Button,
@@ -114,7 +115,10 @@ export default function ProposalPickerPage() {
           </p>
         </div>
 
-        <BookingStatusTag status={booking.status} />
+        <div className="flex items-center gap-3">
+          {booking.demoSeed && <DemoDataTag />}
+          <BookingStatusTag status={booking.status} />
+        </div>
       </header>
 
       {/* Payment Success State (Flow C Step 5 Finalized) */}

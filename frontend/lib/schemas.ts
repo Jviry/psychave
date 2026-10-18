@@ -132,7 +132,7 @@ export const cmsOverviewSchema = z.object({
   vision: z.string().min(20, 'Vision statement must be at least 20 characters.'),
   mission: z.string().min(20, 'Mission statement must be at least 20 characters.'),
   clinicOverview: z.string().min(30, 'Clinic overview must be at least 30 characters.'),
-  impactNarrative: z.string().min(20, 'Impact placeholder description must be at least 20 characters.'),
+  impactNarrative: z.string().min(20, 'Impact narrative must be at least 20 characters.'),
   consentFlagBanner: z.string().min(20, 'Consent-flag governance notice is required.'),
 });
 

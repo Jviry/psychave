@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/api';
 import { Card } from '../../../components/ui/primitives';
+import { AwaitingContent } from '../../../components/AwaitingContent';
 import { TestimonialsConsentSection } from '../../../components/TestimonialsConsentSection';
 
 export default function AboutPage() {
@@ -39,7 +40,7 @@ export default function AboutPage() {
         </p>
       </header>
 
-      {/* Vision & Mission Placeholders (Live-synced with Admin CMS) */}
+      {/* Vision & Mission (Live-synced with Admin CMS) */}
       <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="space-y-3">
           <div className="flex items-center justify-between text-xs text-accent-ink font-semibold">
@@ -47,11 +48,15 @@ export default function AboutPage() {
             <span>CMS Block · Vision</span>
           </div>
           <h2 className="font-heading text-2xl font-bold text-pine">
-            Vision Statement Placeholder
+            Vision Statement
           </h2>
-          <p className="text-sm text-pine/85 leading-relaxed">
-            {cms?.vision}
-          </p>
+          {cms?.vision ? (
+            <p className="text-sm text-pine/85 leading-relaxed">
+              {cms.vision}
+            </p>
+          ) : (
+            <AwaitingContent label="Vision" />
+          )}
         </Card>
 
         <Card className="space-y-3">
@@ -60,20 +65,24 @@ export default function AboutPage() {
             <span>CMS Block · Mission</span>
           </div>
           <h2 className="font-heading text-2xl font-bold text-pine">
-            Mission Statement Placeholder
+            Mission Statement
           </h2>
-          <p className="text-sm text-pine/85 leading-relaxed">
-            {cms?.mission}
-          </p>
+          {cms?.mission ? (
+            <p className="text-sm text-pine/85 leading-relaxed">
+              {cms.mission}
+            </p>
+          ) : (
+            <AwaitingContent label="Mission" />
+          )}
         </Card>
       </section>
 
-      {/* Clinic Overview and Impact Placeholder */}
+      {/* Clinic Overview and Impact (Live-synced with Admin CMS) */}
       <section className="bg-surface-raised border border-mist rounded-lg p-8 space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-mist pb-4">
           <div>
             <p className="text-xs font-semibold text-accent-ink">
-              CMS Block · Clinic Overview &amp; Impact Placeholder
+              CMS Block · Clinic Overview &amp; Impact
             </p>
             <h2 className="font-heading text-3xl font-bold text-pine">
               Clinic Overview &amp; Ethical Impact Architecture
@@ -83,36 +92,44 @@ export default function AboutPage() {
             href="/admin/cms"
             className="text-xs font-semibold text-accent-ink hover:text-pine underline underline-offset-4"
           >
-            Edit Placeholders in Admin CMS
+            Edit in Admin CMS
           </Link>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-7 space-y-4 text-sm text-pine/85 leading-relaxed">
-            <p>{cms?.clinicOverview}</p>
-            <p className="p-4 rounded-lg bg-surface-sunken border border-mist text-xs text-pine/80">
-              {cms?.impactNarrative}
-            </p>
+            {cms?.clinicOverview ? (
+              <p>{cms.clinicOverview}</p>
+            ) : (
+              <AwaitingContent label="Clinic Overview" />
+            )}
+            {cms?.impactNarrative && (
+              <p className="p-4 rounded-lg bg-surface-sunken border border-mist text-xs text-pine/80">
+                {cms.impactNarrative}
+              </p>
+            )}
           </div>
 
-          <div className="lg:col-span-5 grid grid-cols-1 gap-3">
-            {cms?.impactMetrics.map((metric) => (
-              <div
-                key={metric.id}
-                className="p-4 rounded-lg bg-parchment border border-mist flex items-center justify-between gap-4"
-              >
-                <div className="space-y-0.5">
-                  <p className="text-sm font-semibold text-pine">
-                    {metric.metricLabel}
-                  </p>
-                  <p className="text-xs text-pine/65">{metric.timeframeContext}</p>
+          {cms && cms.impactMetrics.length > 0 && (
+            <div className="lg:col-span-5 grid grid-cols-1 gap-3">
+              {cms.impactMetrics.map((metric) => (
+                <div
+                  key={metric.id}
+                  className="p-4 rounded-lg bg-parchment border border-mist flex items-center justify-between gap-4"
+                >
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-semibold text-pine">
+                      {metric.metricLabel}
+                    </p>
+                    <p className="text-xs text-pine/65">{metric.timeframeContext}</p>
+                  </div>
+                  <span className="font-heading text-2xl font-bold text-accent-ink tabular-nums shrink-0">
+                    {metric.metricValue}
+                  </span>
                 </div>
-                <span className="font-heading text-2xl font-bold text-accent-ink tabular-nums shrink-0">
-                  {metric.metricValue}
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

@@ -225,31 +225,16 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
   },
 ];
 
+/**
+ * Clearly-labeled demo seeds. Only two bookings are kept and each is flagged
+ * with `demoSeed: true` (UI-only, see BookingRequest) so cards render a
+ * "Demo data" tag instead of passing invented narratives off as real content:
+ *  - BK-2026-102 (proposed): demos Flow C step 4 — 3-slot proposal review.
+ *  - BK-2026-103 (paid-confirmed): demos step 5 — pay-gated contact unlock.
+ * All seeded copy is neutral synthetic filler; pending-state Flow C step 1 is
+ * demoed by submitting the intake form, not by fake queue data.
+ */
 const INITIAL_BOOKINGS: BookingRequest[] = [
-  {
-    id: 'BK-2026-101',
-    clientId: 'client-01',
-    personaId: 'persona-dep-02',
-    personaType: 'dependent',
-    personaLabel: 'Dependent Ward #D-01 (Adolescent)',
-    serviceId: 'srv-consultation',
-    serviceTitle: 'Standalone Clinical Consultation',
-    serviceDuration: '45 mins',
-    serviceGuardrail: 'Screening-only, not full therapy.',
-    concernsSummary:
-      'Seeking initial 45-minute screening for adolescent dependent experiencing academic transition stress and sleep schedule disruption after moving schools.',
-    specificNeeds:
-      'Prefer late afternoon weekday or Saturday morning slots; guardian will attend first 10 minutes for consent orientation.',
-    preferredLanguage: 'Filipino / Taglish',
-    submittedAt: '2026-09-26 14:20 PST',
-    status: 'pending',
-    proposedSlots: [],
-    contactUnlocked: false,
-    reminders: {
-      reminder24h: 'pending',
-      reminder1h: 'pending',
-    },
-  },
   {
     id: 'BK-2026-102',
     clientId: 'client-01',
@@ -260,10 +245,11 @@ const INITIAL_BOOKINGS: BookingRequest[] = [
     serviceTitle: 'Couples Counseling',
     serviceDuration: '1.5 hrs (90 mins)',
     serviceGuardrail: '1.5 hr session with two 15-min individual breakouts.',
+    demoSeed: true,
     concernsSummary:
-      'Looking for structured relational communication support around work-life boundaries and shared financial planning.',
+      'Demo booking — synthetic content for prototype preview. Real submissions arrive via POST /api/v1/bookings/intake.',
     specificNeeds:
-      'Both partners will join from separate devices to facilitate the 15-minute individual breakout rooms.',
+      'Synthetic demo text — replaced by live client scheduling preferences.',
     preferredLanguage: 'English / Taglish',
     submittedAt: '2026-09-25 09:45 PST',
     status: 'proposed',
@@ -272,7 +258,7 @@ const INITIAL_BOOKINGS: BookingRequest[] = [
     psychologistSpecialization: 'Adult Psychotherapy, Anxiety Disorders & Trauma-Informed CBT',
     pricePhp: 3200,
     clinicalPrepNote:
-      'We will begin with a 30-minute joint booking, followed by two 15-minute individual breakout check-ins, and reconvene for 30 minutes of goal alignment.',
+      'Demo booking — synthetic preparation note; replaced by the assigned psychologist’s clinical instructions.',
     proposedSlots: [
       {
         id: 'slot-102-a',
@@ -302,7 +288,7 @@ const INITIAL_BOOKINGS: BookingRequest[] = [
       reminder1h: 'pending',
     },
     privateClinicalNote:
-      'CONFIDENTIAL PSYCHOLOGIST NOTE: Prepare Gottman-informed relational booking protocol and separate breakout room links prior to session start.',
+      'CONFIDENTIAL PSYCHOLOGIST NOTE: Demo seed — synthetic content; replaced by real private notes from the psychologist dashboard.',
   },
   {
     id: 'BK-2026-103',
@@ -314,9 +300,10 @@ const INITIAL_BOOKINGS: BookingRequest[] = [
     serviceTitle: 'Individual Counseling & Psychotherapy',
     serviceDuration: '1 hr (60 mins)',
     serviceGuardrail: 'Standard 1-hour evidence-based psychotherapy.',
+    demoSeed: true,
     concernsSummary:
-      'Ongoing occupational burnout, cognitive fatigue, and difficulty detaching from high-pressure engineering deadlines.',
-    specificNeeds: 'Quiet evening slot preferred; open to structured CBT homework between sessions.',
+      'Demo booking — synthetic content for prototype preview. Real submissions arrive via POST /api/v1/bookings/intake.',
+    specificNeeds: 'Synthetic demo text — replaced by live client scheduling preferences.',
     preferredLanguage: 'English',
     submittedAt: '2026-09-20 11:10 PST',
     status: 'paid-confirmed',
@@ -325,7 +312,7 @@ const INITIAL_BOOKINGS: BookingRequest[] = [
     psychologistSpecialization: 'Adult Psychotherapy, Anxiety Disorders & Trauma-Informed CBT',
     pricePhp: 2200,
     clinicalPrepNote:
-      'Please complete the digital informed consent signature 15 minutes before our scheduled hour.',
+      'Demo booking — synthetic preparation note; replaced by the assigned psychologist’s clinical instructions.',
     proposedSlots: [
       {
         id: 'slot-103-a',
@@ -364,70 +351,29 @@ const INITIAL_BOOKINGS: BookingRequest[] = [
       reminder1h: 'scheduled',
     },
     privateClinicalNote:
-      'CONFIDENTIAL PSYCHOLOGIST NOTE: Session #1 focus on occupational boundary inventory and somatic grounding exercises. Hidden from Admin tier.',
+      'CONFIDENTIAL PSYCHOLOGIST NOTE: Demo seed — synthetic content; replaced by real private notes from the psychologist dashboard. Hidden from Admin tier.',
   },
 ];
 
+/**
+ * CMS content starts empty — public pages render quiet "awaiting copy" notes
+ * instead of invented institutional claims. Admin CMS edits re-populate these
+ * in memory (PATCH /api/v1/cms owner edits land with the backend). The consent
+ * governance banner keys stay populated: that notice is a privacy rule, not
+ * placeholder content (RA 10173).
+ */
 const INITIAL_CMS: CmsContent = {
-  vision:
-    'Placeholder — Vision Statement: To establish a trusted, ethically governed Philippine mental-health ecosystem where every client and family accesses credential-verified psychological care with full clinical transparency.',
-  mission:
-    'Placeholder — Mission Statement: We bridge individuals, couples, families, and early-career practitioners with PRC-verified psychologists through structured clinical booking, clear therapeutic guardrails, and privacy-first care navigation.',
-  clinicOverview:
-    'Placeholder — Clinic Overview: PsychAvenuePH (PSYCHAVE PH) operates a structured, multi-disciplinary psychological practice delivering consultation, psychotherapy, relational systems counseling, non-clinical coaching, clinical supervision, and ethical research advisory.',
-  impactNarrative:
-    'Placeholder — Impact Framework: All clinical outcomes and community access metrics are tracked in aggregate without exposing identifiable client records or session transcripts.',
-  impactMetrics: [
-    {
-      id: 'imp-1',
-      metricValue: '100%',
-      metricLabel: 'PRC-Verified Clinical Roster',
-      timeframeContext: 'Mandatory credential check prior to queue pick-up access',
-    },
-    {
-      id: 'imp-2',
-      metricValue: '3-Slot',
-      metricLabel: 'Canonical Flow C Proposal Standard',
-      timeframeContext: 'Every picked-up booking receives 3 curated schedule options',
-    },
-    {
-      id: 'imp-3',
-      metricValue: '24h & 1h',
-      metricLabel: 'Automated Session Reminders',
-      timeframeContext: 'Dispatched automatically after payment confirmation',
-    },
-  ],
+  vision: '',
+  mission: '',
+  clinicOverview: '',
+  impactNarrative: '',
+  impactMetrics: [],
   testimonialsConfig: {
     sectionTitle: 'Client Reflections & Consent Governance',
     consentFlagBanner:
-      'Consent-Flag Governance Active — No personal quotes, client names, or identifiable narratives are displayed. Empty placeholder cards reflect strict adherence to clinical confidentiality and Philippine Data Privacy Act (RA 10173) standards.',
+      'Consent-Flag Governance Active — No personal quotes, client names, or identifiable narratives are displayed. Public pages render no testimonial content, in line with clinical confidentiality rules and Philippine Data Privacy Act (RA 10173) standards.',
     ethicalStandardRef: 'PAP Code of Ethics · RA 10173 Privacy Baseline',
-    emptyCards: [
-      {
-        id: 't-slot-01',
-        slotCode: 'CONSENT-SLOT-01',
-        serviceCategory: 'Individual Counseling & Psychotherapy (1 hr)',
-        consentFlagStatus: 'withheld_by_default',
-        governanceNote:
-          'Personal quote intentionally omitted. Client feedback is stored solely for internal clinical quality assurance.',
-      },
-      {
-        id: 't-slot-02',
-        slotCode: 'CONSENT-SLOT-02',
-        serviceCategory: 'Couples Counseling (1.5 hr w/ 15-min Breakouts)',
-        consentFlagStatus: 'withheld_by_default',
-        governanceNote:
-          'Personal quote intentionally omitted. Relational session feedback remains strictly confidential.',
-      },
-      {
-        id: 't-slot-03',
-        slotCode: 'CONSENT-SLOT-03',
-        serviceCategory: 'Clinical Supervision & Academic Advisory',
-        consentFlagStatus: 'anonymized_structure_only',
-        governanceNote:
-          'Personal quote intentionally omitted. Supervision and thesis advisory records exclude personal attribution.',
-      },
-    ],
+    emptyCards: [],
   },
 };
 
@@ -439,7 +385,7 @@ let mockBookings: BookingRequest[] = [...INITIAL_BOOKINGS];
 let mockCms: CmsContent = JSON.parse(JSON.stringify(INITIAL_CMS));
 
 /**
- * Monotonic mock booking sequence — continue past the seeded BK-2026-101..103
+ * Monotonic mock booking sequence — continue past the seeded BK-2026-102..103
  * so newly created bookings never collide with seed data (or each other).
  * The random range previously reused ids on short sessions.
  */

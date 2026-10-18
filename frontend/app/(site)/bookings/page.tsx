@@ -7,6 +7,7 @@ import { useAppStore } from '../../../stores/useAppStore';
 import { useRouter } from 'next/navigation';
 import { BookingStatus } from '../../../lib/types';
 import { Clock } from 'lucide-react';
+import { DemoDataTag } from '../../../components/DemoDataTag';
 import {
   BookingStatusTag,
   Button,
@@ -207,6 +208,7 @@ export default function ClientBookingsPage() {
                     <span className="font-mono font-bold text-pine tabular-nums">
                       {booking.id}
                     </span>
+                    {booking.demoSeed && <DemoDataTag />}
                     <span aria-hidden="true">·</span>
                     <span>Persona: {booking.personaLabel}</span>
                     <span aria-hidden="true">·</span>
