@@ -59,7 +59,7 @@
     }
   }
 
-  --font-heading: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-heading: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -71,6 +71,15 @@ body {
   background-color: var(--color-parchment);
   color: var(--color-pine);
   font-family: var(--font-body);
+}
+
+/*
+ * Expanded display width for headings (Archivo variable `wdth` axis).
+ * The Modern-Dentist-inspired call: titles only, body stays Inter.
+ * Archivo's wdth axis tops out at 125% — font-stretch clamps to it.
+ */
+.font-heading {
+  font-stretch: 125%;
 }
 
 /*
