@@ -1,18 +1,19 @@
 import React from 'react';
 import type { Metadata } from 'next';
-import { Archivo_Narrow, Inter } from 'next/font/google';
+import { Fraunces, Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 
 /**
  * Fonts are self-hosted at build time via next/font (no runtime CDN, no FOUT
- * without swap). Brand never-shipped faces: "Proxima Nova Condensed" ->
- * Archivo Narrow (condensed, OFL); "Aileron" -> Inter (body, OFL).
+ * without swap). Display face: Fraunces — a soft serif used at regular/medium
+ * weight for editorial headings (design refresh). Body: Inter (OFL).
+ * Brand never-shipped faces: "Proxima Nova Condensed" -> retired in the
+ * serif refresh; "Aileron" -> Inter (body, OFL).
  */
-const headingFont = Archivo_Narrow({
+const headingFont = Fraunces({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-archivo-narrow',
+  variable: '--font-fraunces',
   display: 'swap',
 });
 

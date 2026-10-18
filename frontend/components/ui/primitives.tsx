@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useId, useRef } from 'react';
-import { X } from 'lucide-react';
+import { ArrowRight, X } from 'lucide-react';
 import { BookingStatus } from '../../lib/types';
 
 /**
@@ -9,11 +9,12 @@ import { BookingStatus } from '../../lib/types';
  *
  * Rules baked in here — never override with raw hex or inline styles:
  *  - Colors come from @theme tokens in app/globals.css only.
- *  - One motion standard: transition-colors duration-150 (no springs/bounce).
+ *  - Motion standard: crisp ease-out transitions ≤200ms (no springs/bounce).
+ *    Directional hover moves only: −2px lift + shadow-lift, arrow slide.
  *  - Focus recipes: form fields use a focus ring (ring-mint/40 + border-sage);
  *    chrome (buttons, controls) uses a focus-visible outline (2px sage, offset).
- *  - Radii: rounded-lg for cards/surfaces, rounded-xl for modals. No 2xl/3xl.
- *  - Typography carries hierarchy; cards stay quiet (1px border, flat white).
+ *  - Radii: rounded-full for buttons/controls, rounded-2xl for cards, rounded-xl for modals.
+ *  - Typography carries hierarchy; cards stay quiet (1px border or a solid tint).
  */
 
 /* ─── Button ─────────────────────────────────────────────────────────── */
@@ -26,22 +27,24 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className = '', variant = 'primary', size = 'md', children, ...props }, ref) => {
     const base =
-      'inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap shrink-0 cursor-pointer';
+      'inline-flex items-center justify-center gap-2 font-medium rounded-full transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap shrink-0 cursor-pointer group/btn';
+
+    // Directional hover lift shared by filled/outline variants (ghost stays flat).
+    const lift = 'motion-safe:hover:-translate-y-0.5 hover:shadow-lift';
 
     const variants: Record<NonNullable<ButtonProps['variant']>, string> = {
-      primary: 'bg-sage text-white hover:bg-accent-ink',
-      dark: 'bg-pine text-white hover:bg-pine/90',
-      accent: 'bg-lime-soft text-pine hover:bg-lime-soft/90 font-semibold',
-      outline:
-        'border border-mist bg-surface-raised text-pine hover:bg-surface-sunken hover:border-mint',
+      primary: `bg-sage text-white hover:bg-accent-ink ${lift}`,
+      dark: `bg-pine text-white hover:bg-pine/90 ${lift}`,
+      accent: `bg-lime-soft text-pine hover:bg-lime-soft/90 font-semibold ${lift}`,
+      outline: `border border-mist bg-surface-raised text-pine hover:bg-surface-sunken hover:border-mint ${lift}`,
       ghost: 'text-pine hover:bg-surface-sunken',
-      danger: 'border border-red-300 bg-red-50 text-red-800 hover:bg-red-100',
+      danger: `border border-red-300 bg-red-50 text-red-800 hover:bg-red-100 ${lift}`,
     };
 
     const sizes: Record<NonNullable<ButtonProps['size']>, string> = {
-      sm: 'px-3 py-1.5 text-xs',
-      md: 'px-4 py-2 text-sm',
-      lg: 'px-5 py-2.5 text-base',
+      sm: 'px-3.5 py-1.5 text-xs',
+      md: 'px-5 py-2 text-sm',
+      lg: 'px-6 py-3 text-base',
     };
 
     return (
@@ -87,17 +90,39 @@ Radio.displayName = 'Radio';
 
 export function Card({
   className = '',
+  tint,
   children,
 }: {
   className?: string;
+  /** Optional solid bento tint; replaces the default raised-white surface. */
+  tint?: 'sage' | 'mint' | 'lime' | 'sand';
   children: React.ReactNode;
 }) {
+  const surface = tint
+    ? {
+        sage: 'bg-sage-tint border-transparent',
+        mint: 'bg-mint-tint border-transparent',
+        lime: 'bg-lime-tint border-transparent',
+        sand: 'bg-sand-tint border-transparent',
+      }[tint]
+    : 'bg-surface-raised border-mist';
   return (
-    <div
-      className={`bg-surface-raised border border-mist rounded-lg p-6 ${className}`}
-    >
+    <div className={`border rounded-2xl p-6 ${surface} ${className}`}>
       {children}
     </div>
+  );
+}
+
+/* ─── CircleArrow (editorial affordance — expects a `group` parent) ───── */
+
+export function CircleArrow({ className = '' }: { className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-mint text-pine transition-colors duration-200 group-hover:border-sage group-hover:bg-surface-sunken ${className}`}
+    >
+      <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+    </span>
   );
 }
 
@@ -190,11 +215,11 @@ export function SectionHeading({
   return (
     <div className={align === 'center' ? `text-center mx-auto max-w-2xl ${className}` : className}>
       {eyebrow ? (
-        <p className="text-xs font-semibold uppercase tracking-widest text-accent-ink">
+        <span className="inline-flex items-center rounded-full border border-mint px-3 py-1 text-xs font-semibold uppercase tracking-widest text-accent-ink">
           {eyebrow}
-        </p>
+        </span>
       ) : null}
-      <h2 className="font-heading text-2xl sm:text-3xl font-bold text-pine tracking-tight mt-1.5">
+      <h2 className="font-heading text-2xl sm:text-3xl font-medium text-pine mt-3">
         {title}
       </h2>
       {description ? (

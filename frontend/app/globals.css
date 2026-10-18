@@ -6,13 +6,22 @@
   --color-sage: #5d8b69;
   --color-mint: #8fbe8f;
   --color-mist: #c0d3c3;
-  --color-parchment: #f6f9f6;
+  --color-parchment: #f6f8f1;
 
   /* Semantic surfaces (de-vibe coding pass) */
   --color-surface-raised: #ffffff;
   --color-surface-sunken: #ebf2ec;
   /* Sage darkened so small text on parchment/white clears WCAG 4.5:1 (sage alone is ~3.9:1) */
   --color-accent-ink: #47714f;
+
+  /* Bento tints (design refresh — solid pastel surfaces, no gradients) */
+  --color-sage-tint: #e6efe3;
+  --color-mint-tint: #e0f0e3;
+  --color-lime-tint: #f0f5d9;
+  --color-sand-tint: #f2efe3;
+
+  /* Sage-tinted hover-lift elevation (functional, not a glow) */
+  --shadow-lift: 0 6px 16px rgba(37, 55, 45, 0.12);
 
   /* toast surfaces — extracted from Toast.tsx inline styles (success / danger) */
   --color-success-soft: #f0f9f2;
@@ -46,7 +55,7 @@
     }
   }
 
-  --font-heading: var(--font-archivo-narrow), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-fraunces), ui-serif, Georgia, serif;
   --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 

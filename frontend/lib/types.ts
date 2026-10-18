@@ -9,6 +9,7 @@ export type BookingStatus =
 
 export interface ServiceItem {
   id: string;
+  indexNumber: string;
   title: string;
   categoryGroup: string;
   durationLabel: string;
