@@ -25,13 +25,18 @@ function FooterLink({ href, children }: { href: string; children: React.ReactNod
   );
 }
 
+/**
+ * Tall editorial footer: the big wordmark anchors the left half, the link
+ * columns sit smaller on the right, and a slim small-print row closes it out.
+ */
 export function SiteFooter() {
   return (
     <footer className="bg-pine text-parchment border-t border-sage/40 mt-20">
-      <div className="max-w-6xl mx-auto px-4 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-10 border-b border-sage/30">
-          <div className="md:col-span-2 space-y-3">
-            <p className="font-heading text-2xl font-medium tracking-tight text-white">
+      <div className="max-w-6xl mx-auto px-4 lg:px-8 py-16 lg:py-24">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-start lg:items-center">
+          {/* Left: oversized wordmark + platform note */}
+          <div className="space-y-6">
+            <p className="font-heading text-5xl sm:text-6xl lg:text-7xl font-medium tracking-tight leading-none text-white">
               PSYCHAVE PH
             </p>
             <p className="text-sm text-mist max-w-md leading-relaxed">
@@ -39,59 +44,62 @@ export function SiteFooter() {
               structured booking, PRC-verified resident psychologists, explicit clinical duration
               guardrails, and strict confidentiality governance.
             </p>
-            <p className="text-xs text-mint pt-1">
+            <p className="text-xs text-mint">
               Direct Clinic Coordination: psychaveph.info@gmail.com
             </p>
           </div>
 
-          <div className="space-y-2.5 text-sm">
-            <p className="font-heading text-base font-semibold text-lime-soft">
-              Public Site Map
-            </p>
-            <ul className="space-y-2 text-mist">
-              <li>
-                <FooterLink href="/">Home</FooterLink>
-              </li>
-              <li>
-                <FooterLink href="/#services">Services &amp; Guardrails</FooterLink>
-              </li>
-              <li>
-                <FooterLink href="/#about">About Us &amp; Anonymized Roster</FooterLink>
-              </li>
-              <li>
-                <FooterLink href="/book">Book a Session (Fallback &amp; Booking)</FooterLink>
-              </li>
-            </ul>
-          </div>
+          {/* Right: smaller link columns */}
+          <div className="grid grid-cols-2 gap-8 lg:gap-12">
+            <div className="space-y-3 text-sm">
+              <p className="text-xs font-medium uppercase tracking-wider text-lime-soft">
+                Public Site Map
+              </p>
+              <ul className="space-y-2 text-mist">
+                <li>
+                  <FooterLink href="/">Home</FooterLink>
+                </li>
+                <li>
+                  <FooterLink href="/#services">Services &amp; Guardrails</FooterLink>
+                </li>
+                <li>
+                  <FooterLink href="/#about">About Us &amp; Anonymized Roster</FooterLink>
+                </li>
+                <li>
+                  <FooterLink href="/book">Book a Session (Fallback &amp; Booking)</FooterLink>
+                </li>
+              </ul>
+            </div>
 
-          <div className="space-y-2.5 text-sm">
-            <p className="font-heading text-base font-semibold text-lime-soft">
-              Role Dashboards
-            </p>
-            <ul className="space-y-2 text-mist">
-              <li>
-                <FooterLink href="/personas">Client Personas &amp; Booking Form</FooterLink>
-              </li>
-              <li>
-                <FooterLink href="/bookings">Client Bookings &amp; Proposal Picker</FooterLink>
-              </li>
-              <li>
-                <FooterLink href="/psych/queue">Psychologist Pending Queue</FooterLink>
-              </li>
-              <li>
-                <FooterLink href="/psych/schedule">Psychologist My Schedules</FooterLink>
-              </li>
-              <li>
-                <FooterLink href="/admin/verifications">Admin Credential Verification</FooterLink>
-              </li>
-              <li>
-                <FooterLink href="/admin/cms">Admin Payload CMS Editors</FooterLink>
-              </li>
-            </ul>
+            <div className="space-y-3 text-sm">
+              <p className="text-xs font-medium uppercase tracking-wider text-lime-soft">
+                Role Dashboards
+              </p>
+              <ul className="space-y-2 text-mist">
+                <li>
+                  <FooterLink href="/personas">Client Personas &amp; Booking Form</FooterLink>
+                </li>
+                <li>
+                  <FooterLink href="/bookings">Client Bookings &amp; Proposal Picker</FooterLink>
+                </li>
+                <li>
+                  <FooterLink href="/psych/queue">Psychologist Pending Queue</FooterLink>
+                </li>
+                <li>
+                  <FooterLink href="/psych/schedule">Psychologist My Schedules</FooterLink>
+                </li>
+                <li>
+                  <FooterLink href="/admin/verifications">Admin Credential Verification</FooterLink>
+                </li>
+                <li>
+                  <FooterLink href="/admin/cms">Admin Payload CMS Editors</FooterLink>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
 
-        <div className="pt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-mist/80">
+        <div className="mt-12 lg:mt-16 pt-6 border-t border-sage/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-mist/80">
           <p>
             © {new Date().getFullYear()} PSYCHAVE PH (PsychAvenuePH). All clinical services adhere to PAP Ethical Guidelines &amp; RA 10173 Data Privacy standards.
           </p>
