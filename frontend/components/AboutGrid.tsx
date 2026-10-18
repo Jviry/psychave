@@ -12,22 +12,12 @@ import { CmsContent, ResidentPsychologist } from '../lib/types';
  * Headline block: "About PSYCHAVE PH" only (the redundant "about us" eyebrow
  * is removed). Content order matches the mockup exactly: Clinic Overview
  * (top, centered), the Vision ∥ Mission pair, the RP-01 ∥ RP-02 pair, and
- * RP-03 centered underneath — a tight center band, flanked by decorative
- * white breather cards in offset side rails (desktop only; they collapse
- * away on smaller screens). Anonymized RP-0x codes only; no personal names.
+ * RP-03 centered underneath — a tight center band (the decorative white
+ * breather rail cards were removed after user review). Anonymized RP-0x
+ * codes only; no personal names.
  */
 
 type AboutTint = 'sage' | 'mint' | 'lime' | 'mist' | 'pine';
-
-/** White breather card from the mockup — decorative, non-interactive. */
-function WhiteCard({ className = '' }: { className?: string }) {
-  return (
-    <div
-      aria-hidden="true"
-      className={`rounded-2xl border border-mist bg-surface-raised shadow-field ${className}`}
-    />
-  );
-}
 
 function CardHeading({
   icon: Icon,
@@ -152,59 +142,40 @@ export function AboutGrid({
         </h2>
       </div>
 
-      {/* Staggered mosaic — tight center band, offset white rails (per mockup) */}
-      <div className="mx-auto grid max-w-[88rem] grid-cols-1 gap-10 lg:grid-cols-[1fr_auto_1fr] lg:items-start lg:gap-12">
-        {/* Left rail — two white breathers, offset down */}
-        <div aria-hidden="true" className="hidden lg:flex lg:justify-end">
-          <div className="w-full max-w-96">
-            <WhiteCard className="h-44 mt-24" />
-            <WhiteCard className="h-32 mt-8" />
-          </div>
+      {/* Center band — Clinic → (Vision ∥ Mission) → (RP-01 ∥ RP-02) → RP-03
+          (the decorative white rail cards from the mockup are removed) */}
+      <div className="mx-auto w-full max-w-3xl space-y-2">
+        <div className="mx-auto w-full max-w-[23rem]">
+          <ClinicCard cms={cms} />
         </div>
 
-        {/* Center band — Clinic → (Vision ∥ Mission) → (RP-01 ∥ RP-02) → RP-03 */}
-        <div className="min-w-0 w-full max-w-3xl space-y-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[55fr_45fr] sm:gap-1">
+          <StatementCard
+            title="Vision Statement"
+            icon={Telescope}
+            body={cms?.vision || undefined}
+            awaitingLabel="Vision"
+            tint="mist"
+          />
+          <StatementCard
+            title="Mission Statement"
+            icon={Target}
+            body={cms?.mission || undefined}
+            awaitingLabel="Mission"
+            tint="lime"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[55fr_45fr] sm:gap-1">
+          {roster[0] && <RosterCard resident={roster[0]} tint="mint" />}
+          {roster[1] && <RosterCard resident={roster[1]} tint="sage" />}
+        </div>
+
+        {roster[2] && (
           <div className="mx-auto w-full max-w-[23rem]">
-            <ClinicCard cms={cms} />
+            <RosterCard resident={roster[2]} tint="mist" />
           </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[55fr_45fr] sm:gap-1">
-            <StatementCard
-              title="Vision Statement"
-              icon={Telescope}
-              body={cms?.vision || undefined}
-              awaitingLabel="Vision"
-              tint="mist"
-            />
-            <StatementCard
-              title="Mission Statement"
-              icon={Target}
-              body={cms?.mission || undefined}
-              awaitingLabel="Mission"
-              tint="lime"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[55fr_45fr] sm:gap-1">
-            {roster[0] && <RosterCard resident={roster[0]} tint="mint" />}
-            {roster[1] && <RosterCard resident={roster[1]} tint="sage" />}
-          </div>
-
-          {roster[2] && (
-            <div className="mx-auto w-full max-w-[23rem]">
-              <RosterCard resident={roster[2]} tint="mist" />
-            </div>
-          )}
-        </div>
-
-        {/* Right rail — three white breathers, staggered */}
-        <div aria-hidden="true" className="hidden lg:flex lg:justify-start">
-          <div className="w-full max-w-96">
-            <WhiteCard className="h-44" />
-            <WhiteCard className="h-32 mt-32" />
-            <WhiteCard className="h-28 mt-20" />
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
