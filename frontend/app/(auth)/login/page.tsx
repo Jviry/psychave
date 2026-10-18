@@ -11,6 +11,7 @@ import { authApi } from '../../../authApi';
 import { useAuthStore } from '../../../authStore';
 import { ForgotPasswordModal } from '../../../components/auth/ForgotPasswordModal';
 import { Toast } from '../../../components/auth/Toast';
+import { Button } from '../../../components/ui/primitives';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -94,7 +95,7 @@ export default function LoginPage() {
       )}
 
       {/* Card */}
-      <div className="bg-white rounded-2xl shadow-sm border border-mist/60 p-8 sm:p-10">
+      <div className="bg-surface-raised rounded-lg border border-mist p-8 sm:p-10">
         {/* Header */}
         <div className="mb-8">
           <h2 className="font-heading text-2xl font-bold text-pine mb-1.5">Welcome back</h2>
@@ -130,7 +131,7 @@ export default function LoginPage() {
               className={`w-full rounded-lg border px-3.5 py-2.5 text-sm text-pine placeholder:text-pine/40 focus:outline-none focus:ring-2 transition-colors ${
                 errors.username
                   ? 'border-red-400 focus:border-red-400 focus:ring-red-200'
-                  : 'border-mist focus:border-sage focus:ring-mint/30'
+                  : 'border-mist focus:border-sage focus:ring-mint/40'
               }`}
             />
             {errors.username && (
@@ -167,7 +168,7 @@ export default function LoginPage() {
                 className={`w-full rounded-lg border px-3.5 py-2.5 pr-10 text-sm text-pine placeholder:text-pine/40 focus:outline-none focus:ring-2 transition-colors ${
                   errors.password
                     ? 'border-red-400 focus:border-red-400 focus:ring-red-200'
-                    : 'border-mist focus:border-sage focus:ring-mint/30'
+                    : 'border-mist focus:border-sage focus:ring-mint/40'
                 }`}
               />
               <button
@@ -188,14 +189,13 @@ export default function LoginPage() {
           </div>
 
           {/* Submit */}
-          <button
+          <Button
             id="login-submit"
             type="submit"
+            variant="dark"
+            size="lg"
+            className="w-full"
             disabled={isLoading}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-            style={{ background: isLoading ? '#5d8b69' : '#25372d' }}
-            onMouseEnter={(e) => { if (!isLoading) (e.currentTarget as HTMLButtonElement).style.background = '#1b2921'; }}
-            onMouseLeave={(e) => { if (!isLoading) (e.currentTarget as HTMLButtonElement).style.background = '#25372d'; }}
           >
             {isLoading ? (
               <>
@@ -205,7 +205,7 @@ export default function LoginPage() {
             ) : (
               'Sign In'
             )}
-          </button>
+          </Button>
         </form>
 
         {/* Footer */}

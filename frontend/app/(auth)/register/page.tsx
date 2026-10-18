@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, RefreshCcw } from 'lucide-react';
+import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, RefreshCcw, Check } from 'lucide-react';
 import {
   registerSchema,
   confirmSchema,
@@ -16,13 +16,17 @@ import {
 } from '../../../lib/authSchemas';
 import { authApi } from '../../../authApi';
 import { Toast } from '../../../components/auth/Toast';
+import { Button } from '../../../components/ui/primitives';
 
 // ─── Password Strength Indicator ─────────────────────────────────────────────
-const STRENGTH_CONFIG: Record<PasswordStrength, { label: string; color: string; width: string }> = {
-  weak: { label: 'Weak', color: '#ef4444', width: '25%' },
-  fair: { label: 'Fair', color: '#f59e0b', width: '50%' },
-  good: { label: 'Good', color: '#5d8b69', width: '75%' },
-  strong: { label: 'Strong', color: '#25372d', width: '100%' },
+const STRENGTH_CONFIG: Record<
+  PasswordStrength,
+  { label: string; trackClass: string; textClass: string; width: string }
+> = {
+  weak: { label: 'Weak', trackClass: 'bg-red-500', textClass: 'text-red-600', width: '25%' },
+  fair: { label: 'Fair', trackClass: 'bg-amber-500', textClass: 'text-amber-600', width: '50%' },
+  good: { label: 'Good', trackClass: 'bg-sage', textClass: 'text-accent-ink', width: '75%' },
+  strong: { label: 'Strong', trackClass: 'bg-pine', textClass: 'text-pine', width: '100%' },
 };
 
 function PasswordStrengthBar({ password }: { password: string }) {
@@ -33,11 +37,11 @@ function PasswordStrengthBar({ password }: { password: string }) {
     <div className="mt-2 space-y-1">
       <div className="h-1 rounded-full bg-mist overflow-hidden">
         <div
-          className="h-full rounded-full transition-all duration-300"
-          style={{ width: config.width, background: config.color }}
+          className={`h-full rounded-full transition-[width] duration-300 ${config.trackClass}`}
+          style={{ width: config.width }}
         />
       </div>
-      <p className="text-xs" style={{ color: config.color }}>
+      <p className={`text-xs ${config.textClass}`}>
         {config.label} password
       </p>
     </div>
@@ -132,10 +136,7 @@ function ConfirmStep({
     <div className="space-y-6">
       {/* Success icon */}
       <div className="flex flex-col items-center gap-3 text-center">
-        <div
-          className="w-14 h-14 rounded-full flex items-center justify-center"
-          style={{ background: 'rgba(93, 139, 105, 0.1)' }}
-        >
+        <div className="w-14 h-14 rounded-full flex items-center justify-center bg-sage/10">
           <CheckCircle2 className="w-7 h-7 text-sage" />
         </div>
         <div>
@@ -179,7 +180,7 @@ function ConfirmStep({
             className={`w-full rounded-lg border px-3.5 py-2.5 text-sm text-pine text-center tracking-[0.5em] font-mono placeholder:text-pine/40 focus:outline-none focus:ring-2 transition-colors ${
               errors.code
                 ? 'border-red-400 focus:border-red-400 focus:ring-red-200'
-                : 'border-mist focus:border-sage focus:ring-mint/30'
+                : 'border-mist focus:border-sage focus:ring-mint/40'
             }`}
           />
           {errors.code && (
@@ -189,12 +190,13 @@ function ConfirmStep({
           )}
         </div>
 
-        <button
+        <Button
           id="confirm-submit"
           type="submit"
+          variant="dark"
+          size="lg"
+          className="w-full"
           disabled={isLoading}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors cursor-pointer disabled:opacity-60"
-          style={{ background: '#25372d' }}
         >
           {isLoading ? (
             <>
@@ -204,11 +206,14 @@ function ConfirmStep({
           ) : (
             'Verify Email'
           )}
-        </button>
+        </Button>
       </form>
 
       {resendToast && (
-        <p className="text-xs text-sage text-center font-medium">✓ New code sent to your email</p>
+        <p className="flex items-center justify-center gap-1.5 text-xs text-accent-ink font-medium">
+          <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
+          New code sent to your email
+        </p>
       )}
       <ResendCodeButton
         username={username}
@@ -284,7 +289,7 @@ export default function RegisterPage() {
     return (
       <div className="w-full max-w-md">
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-        <div className="bg-white rounded-2xl shadow-sm border border-mist/60 p-8 sm:p-10">
+        <div className="bg-surface-raised rounded-lg border border-mist p-8 sm:p-10">
           <ConfirmStep
             username={registeredUsername}
             role={registeredRole}
@@ -299,7 +304,7 @@ export default function RegisterPage() {
     <div className="w-full max-w-md">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      <div className="bg-white rounded-2xl shadow-sm border border-mist/60 p-8 sm:p-10">
+      <div className="bg-surface-raised rounded-lg border border-mist p-8 sm:p-10">
         {/* Header */}
         <div className="mb-8">
           <h2 className="font-heading text-2xl font-bold text-pine mb-1.5">Create your account</h2>
@@ -332,10 +337,10 @@ export default function RegisterPage() {
                 return (
                   <label
                     key={value}
-                    className={`relative flex flex-col gap-0.5 p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
+                    className={`relative flex flex-col gap-0.5 p-3.5 rounded-lg border cursor-pointer transition-colors duration-150 ${
                       isSelected
                         ? 'border-sage bg-sage/5'
-                        : 'border-mist hover:border-mint bg-white'
+                        : 'border-mist hover:border-mint bg-surface-raised'
                     }`}
                   >
                     <input
@@ -349,9 +354,7 @@ export default function RegisterPage() {
                     <span className="text-xs text-pine/55">{desc}</span>
                     {isSelected && (
                       <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-sage flex items-center justify-center">
-                        <svg viewBox="0 0 24 24" className="w-2.5 h-2.5" fill="none" stroke="white" strokeWidth="3">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
+                        <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} aria-hidden="true" />
                       </div>
                     )}
                   </label>
@@ -379,7 +382,7 @@ export default function RegisterPage() {
               className={`w-full rounded-lg border px-3.5 py-2.5 text-sm text-pine placeholder:text-pine/40 focus:outline-none focus:ring-2 transition-colors ${
                 errors.email
                   ? 'border-red-400 focus:border-red-400 focus:ring-red-200'
-                  : 'border-mist focus:border-sage focus:ring-mint/30'
+                  : 'border-mist focus:border-sage focus:ring-mint/40'
               }`}
             />
             {errors.email && (
@@ -405,7 +408,7 @@ export default function RegisterPage() {
               className={`w-full rounded-lg border px-3.5 py-2.5 text-sm text-pine placeholder:text-pine/40 focus:outline-none focus:ring-2 transition-colors ${
                 errors.username
                   ? 'border-red-400 focus:border-red-400 focus:ring-red-200'
-                  : 'border-mist focus:border-sage focus:ring-mint/30'
+                  : 'border-mist focus:border-sage focus:ring-mint/40'
               }`}
             />
             {errors.username ? (
@@ -436,7 +439,7 @@ export default function RegisterPage() {
                 className={`w-full rounded-lg border px-3.5 py-2.5 pr-10 text-sm text-pine placeholder:text-pine/40 focus:outline-none focus:ring-2 transition-colors ${
                   errors.password
                     ? 'border-red-400 focus:border-red-400 focus:ring-red-200'
-                    : 'border-mist focus:border-sage focus:ring-mint/30'
+                    : 'border-mist focus:border-sage focus:ring-mint/40'
                 }`}
               />
               <button
@@ -475,7 +478,7 @@ export default function RegisterPage() {
                 className={`w-full rounded-lg border px-3.5 py-2.5 pr-10 text-sm text-pine placeholder:text-pine/40 focus:outline-none focus:ring-2 transition-colors ${
                   errors.confirmPassword
                     ? 'border-red-400 focus:border-red-400 focus:ring-red-200'
-                    : 'border-mist focus:border-sage focus:ring-mint/30'
+                    : 'border-mist focus:border-sage focus:ring-mint/40'
                 }`}
               />
               <button
@@ -527,12 +530,13 @@ export default function RegisterPage() {
           </div>
 
           {/* Submit */}
-          <button
+          <Button
             id="register-submit"
             type="submit"
+            variant="dark"
+            size="lg"
+            className="w-full"
             disabled={isLoading}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-            style={{ background: '#25372d' }}
           >
             {isLoading ? (
               <>
@@ -542,7 +546,7 @@ export default function RegisterPage() {
             ) : (
               'Create Account'
             )}
-          </button>
+          </Button>
         </form>
 
         {/* Footer */}
