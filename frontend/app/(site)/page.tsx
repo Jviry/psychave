@@ -128,7 +128,7 @@ export default function HomePage() {
              than the viewport and centered on it, so edge cards bleed off both
              left and right screen edges; the root's overflow-x-clip absorbs
              the spill so no horizontal scrollbar appears. */
-          wrapperClassName="relative left-[50vw] w-[130vw] -translate-x-1/2"
+          wrapperClassName="relative left-1/2 transform w-[130vw] -translate-x-1/2"
           trackClassName="gap-1.5 pb-3 pt-1 md:gap-2"
           loop
           onItemActivate={(index) => selectService(services[index])}

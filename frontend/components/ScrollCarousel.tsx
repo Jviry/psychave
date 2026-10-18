@@ -124,7 +124,7 @@ export function ScrollCarousel({
     const delta = firstClone ? firstClone.offsetLeft - first.offsetLeft : 0;
     const max = el.scrollWidth - el.clientWidth;
 
-    if (delta > 0 && max >= delta + 300) {
+    if (delta > 0 && max >= delta) {
       el.scrollLeft = delta; // start one set in: both directions can repeat
       setLoopReady(true);
     } else {
