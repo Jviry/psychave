@@ -114,7 +114,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Services — full-bleed infinite carousel of user-painted color blocks */}
+      {/* Services — full-bleed infinite carousel (single source of the directory) */}
       <section id="services" className="scroll-mt-24 space-y-6 lg:space-y-8">
         <div className="text-center">
           <h2 className="font-heading text-4xl font-medium text-pine sm:text-5xl">
@@ -124,7 +124,12 @@ export default function HomePage() {
 
         <ScrollCarousel
           ariaLabel="Clinical and advisory services cards"
-          wrapperClassName="relative left-1/2 w-screen -translate-x-1/2"
+          /* Full-bleed breakout via negative margins (robust): with auto width,
+             margin-inline calc(50% - 50vw) stretches the wrapper to exactly the
+             viewport width, centered — no transform/translate dependency, and
+             symmetric around the classic scrollbar (the root's overflow-x-clip
+             absorbs the half-scrollbar spill; never overflow-hidden). */
+          wrapperClassName="relative mx-[calc(50%_-_50vw)]"
           trackClassName="gap-1.5 pb-3 pt-1 md:gap-2"
           loop
           onItemActivate={(index) => selectService(services[index])}
