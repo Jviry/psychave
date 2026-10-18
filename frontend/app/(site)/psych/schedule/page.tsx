@@ -5,10 +5,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../../lib/api';
 import { useAppStore } from '../../../../stores/useAppStore';
 import { useRouter } from 'next/navigation';
+import { ChevronDown, Video, ShieldCheck, CalendarDays } from 'lucide-react';
+import { PractitionerSwitcher } from '../../../../components/dashboard/PractitionerSwitcher';
+import { UnverifiedBanner } from '../../../../components/dashboard/UnverifiedBanner';
 import {
   BookingStatusTag,
   Button,
   Card,
+  EmptyState,
+  Skeleton,
   Textarea,
 } from '../../../../components/ui/primitives';
 
@@ -19,8 +24,6 @@ export default function PsychologistSchedulePage() {
   const router = useRouter();
   const {
     activePsychologistId,
-    setActivePsychologistId,
-    setCognitoRole,
     publishFlowEvent,
   } = useAppStore();
 
@@ -134,7 +137,7 @@ export default function PsychologistSchedulePage() {
       {/* Header */}
       <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 border-b border-mist pb-6">
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs text-sage font-semibold">
+          <div className="flex items-center gap-2 text-xs text-accent-ink font-semibold">
             <span>Psychologist Dashboard</span>
             <span aria-hidden="true">·</span>
             <span>My Schedule &amp; Clinical Management</span>
@@ -149,72 +152,16 @@ export default function PsychologistSchedulePage() {
         </div>
 
         {/* Practitioner State Switcher */}
-        <div className="bg-white border border-mist rounded-xl p-3 flex flex-wrap items-center gap-2 text-xs shadow-xs">
-          <span className="font-semibold text-pine">Viewing Practitioner:</span>
-          {roster.map((r) => (
-            <button
-              key={r.id}
-              type="button"
-              onClick={() => setActivePsychologistId(r.id)}
-              className={`px-2.5 py-1.5 rounded-lg font-medium transition-colors cursor-pointer whitespace-nowrap ${
-                activePsychologistId === r.id
-                  ? 'bg-pine text-white'
-                  : 'bg-[#F1F6F2] text-pine hover:bg-[#E2ECE4]'
-              }`}
-            >
-              {r.id} ({r.verificationStatus === 'verified' ? 'Verified' : 'Unverified'})
-            </button>
-          ))}
-        </div>
+        <PractitionerSwitcher />
       </header>
 
       {/* Non-Approved Psychologist Banner */}
       {!isVerified && (
-        <div
-          role="alert"
-          className="bg-amber-50 border-2 border-amber-400 rounded-xl p-6 text-amber-950 space-y-3 shadow-xs"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-amber-700" viewBox="0 0 20 20" fill="currentColor">
-                <path
-                  fillRule="evenodd"
-                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <h2 className="font-heading text-xl font-bold text-amber-950">
-                Pending Approval Notice
-              </h2>
-            </div>
-            <span className="font-mono text-xs font-semibold px-2.5 py-1 bg-amber-200/70 text-amber-900 rounded-md">
-              {activePsych?.prcCredentialCode} · WAITING_APPROVAL
-            </span>
-          </div>
-          <p className="text-xs text-amber-900/90 leading-relaxed max-w-3xl">
-            You are currently operating in unverified status. You cannot accept new bookings or claim requests
-            until your clinical credentials are fully approved by clinic administration.
-          </p>
-          <div className="flex flex-wrap items-center gap-3 pt-1">
-            <Button
-              variant="dark"
-              size="sm"
-              onClick={() => setActivePsychologistId('RP-01')}
-            >
-              Switch to Verified Resident #RP-01
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setCognitoRole('admin');
-                router.push('/admin/verifications');
-              }}
-            >
-              Approve Credentials in Admin →
-            </Button>
-          </div>
-        </div>
+        <UnverifiedBanner
+          title="Pending Approval Notice"
+          note={`${activePsych?.prcCredentialCode} · WAITING_APPROVAL`}
+          body="You are currently operating in unverified status. You cannot accept new bookings or claim requests until your clinical credentials are fully approved by clinic administration."
+        />
       )}
 
       {/* Tabs Navigation for Schedule Separation */}
@@ -226,15 +173,15 @@ export default function PsychologistSchedulePage() {
             className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'upcoming'
                 ? 'bg-pine text-white shadow-xs'
-                : 'bg-white border border-mist text-pine hover:bg-[#F1F6F2]'
+                : 'bg-surface-raised border border-mist text-pine hover:bg-surface-sunken'
             }`}
           >
             <span>Upcoming Confirmed</span>
             <span
-              className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+              className={`px-1.5 py-0.5 rounded-full text-xs ${
                 activeTab === 'upcoming'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-[#EBF2EC] text-sage'
+                  ? 'bg-surface-raised/20 text-white'
+                  : 'bg-surface-sunken text-accent-ink'
               }`}
             >
               {categorizedSessions.upcoming.length}
@@ -247,15 +194,15 @@ export default function PsychologistSchedulePage() {
             className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'past'
                 ? 'bg-pine text-white shadow-xs'
-                : 'bg-white border border-mist text-pine hover:bg-[#F1F6F2]'
+                : 'bg-surface-raised border border-mist text-pine hover:bg-surface-sunken'
             }`}
           >
             <span>Past Confirmed</span>
             <span
-              className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+              className={`px-1.5 py-0.5 rounded-full text-xs ${
                 activeTab === 'past'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-[#EBF2EC] text-sage'
+                  ? 'bg-surface-raised/20 text-white'
+                  : 'bg-surface-sunken text-accent-ink'
               }`}
             >
               {categorizedSessions.past.length}
@@ -268,15 +215,15 @@ export default function PsychologistSchedulePage() {
             className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'proposed'
                 ? 'bg-pine text-white shadow-xs'
-                : 'bg-white border border-mist text-pine hover:bg-[#F1F6F2]'
+                : 'bg-surface-raised border border-mist text-pine hover:bg-surface-sunken'
             }`}
           >
             <span>Proposals Awaiting Payment</span>
             <span
-              className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+              className={`px-1.5 py-0.5 rounded-full text-xs ${
                 activeTab === 'proposed'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-[#EBF2EC] text-sage'
+                  ? 'bg-surface-raised/20 text-white'
+                  : 'bg-surface-sunken text-accent-ink'
               }`}
             >
               {categorizedSessions.proposed.length}
@@ -289,7 +236,7 @@ export default function PsychologistSchedulePage() {
             className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
               activeTab === 'all'
                 ? 'bg-pine text-white shadow-xs'
-                : 'bg-white border border-mist text-pine hover:bg-[#F1F6F2]'
+                : 'bg-surface-raised border border-mist text-pine hover:bg-surface-sunken'
             }`}
           >
             All Assigned ({categorizedSessions.all.length})
@@ -297,7 +244,7 @@ export default function PsychologistSchedulePage() {
         </div>
 
         <div className="text-xs text-pine/70">
-          Psychologist Roster ID: <span className="font-mono font-bold text-sage">{activePsychologistId}</span>
+          Psychologist Roster ID: <span className="font-mono font-bold text-accent-ink">{activePsychologistId}</span>
         </div>
       </div>
 
@@ -305,52 +252,34 @@ export default function PsychologistSchedulePage() {
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2].map((i) => (
-            <div
-              key={i}
-              className="h-44 rounded-xl bg-white border border-mist animate-pulse p-6 space-y-4"
-            >
-              <div className="h-4 bg-[#EBF2EC] rounded-sm w-1/4" />
-              <div className="h-6 bg-[#EBF2EC] rounded-sm w-1/2" />
-              <div className="h-4 bg-[#EBF2EC] rounded-sm w-3/4" />
-            </div>
+            <Skeleton key={i} className="h-44" />
           ))}
         </div>
       ) : displayedSessions.length === 0 ? (
         /* Empty State */
-        <Card className="text-center py-16 space-y-4 border-dashed border-2 border-mint">
-          <div className="w-12 h-12 rounded-full bg-[#EBF2EC] text-sage flex items-center justify-center mx-auto">
-            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <div className="space-y-1">
-            <h3 className="font-heading text-xl font-bold text-pine">
-              {activeTab === 'upcoming' && 'No Upcoming Confirmed Sessions'}
-              {activeTab === 'past' && 'No Past Sessions Recorded'}
-              {activeTab === 'proposed' && 'No Active Proposals Pending Payment'}
-              {activeTab === 'all' && 'No Sessions Assigned to this Account Yet'}
-            </h3>
-            <p className="text-xs text-pine/75 max-w-md mx-auto">
-              {activeTab === 'upcoming' &&
-                'When clients accept one of your 3 proposed slots and finalize payment, confirmed sessions appear here.'}
-              {activeTab === 'past' &&
-                'Completed or past appointments will be cataloged in this archive view.'}
-              {activeTab === 'proposed' &&
-                'You have no proposed slot packages currently waiting for client slot selection.'}
-              {activeTab === 'all' &&
-                'Visit the Pending Requests queue to pick up new bookings and schedule appointments.'}
-            </p>
-          </div>
-          <div className="pt-2">
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => router.push('/psych/queue')}
-            >
-              Open Pending Requests Queue →
+        <EmptyState
+          icon={CalendarDays}
+          title={
+            activeTab === 'upcoming' && 'No Upcoming Confirmed Sessions'
+            || activeTab === 'past' && 'No Past Sessions Recorded'
+            || activeTab === 'proposed' && 'No Active Proposals Pending Payment'
+            || 'No Sessions Assigned to this Account Yet'
+          }
+          description={
+            activeTab === 'upcoming' &&
+              'When clients accept one of your 3 proposed slots and finalize payment, confirmed sessions appear here.'
+            || activeTab === 'past' &&
+              'Completed or past appointments will be cataloged in this archive view.'
+            || activeTab === 'proposed' &&
+              'You have no proposed slot packages currently waiting for client slot selection.'
+            || 'Visit the Pending Requests queue to pick up new bookings and schedule appointments.'
+          }
+          action={
+            <Button variant="primary" size="sm" onClick={() => router.push('/psych/queue')}>
+              Open Pending Requests Queue
             </Button>
-          </div>
-        </Card>
+          }
+        />
       ) : (
         /* Sessions List */
         <div className="space-y-6">
@@ -373,7 +302,7 @@ export default function PsychologistSchedulePage() {
                       {session.id}
                     </span>
                     <span className="text-mist">·</span>
-                    <span className="font-semibold text-sage">
+                    <span className="font-semibold text-accent-ink">
                       {session.personaLabel} ({session.personaType})
                     </span>
                     <span className="text-mist">·</span>
@@ -383,19 +312,7 @@ export default function PsychologistSchedulePage() {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    {/* Payment status badge */}
-                    {isConfirmed ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                        Paid &amp; Finalized
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
-                        Awaiting Payment
-                      </span>
-                    )}
-
+                    {/* Payment status — single label source (BookingStatusTag only) */}
                     <BookingStatusTag status={session.status} />
                   </div>
                 </div>
@@ -414,33 +331,33 @@ export default function PsychologistSchedulePage() {
 
                     {/* Selected Slot or Proposed Slots Preview */}
                     {isConfirmed && confirmedSlot ? (
-                      <div className="p-3.5 rounded-xl bg-[#EBF2EC] border border-sage flex flex-wrap items-center justify-between gap-3 text-xs">
+                      <div className="p-3.5 rounded-lg bg-surface-sunken border border-sage flex flex-wrap items-center justify-between gap-3 text-xs">
                         <div className="space-y-0.5">
-                          <p className="font-semibold text-sage uppercase tracking-wide text-[10px]">
+                          <p className="font-semibold text-accent-ink uppercase tracking-wide text-xs">
                             Confirmed Session Appointment
                           </p>
                           <p className="font-bold text-pine text-sm">
                             {confirmedSlot.dateLabel}
                           </p>
-                          <p className="font-mono text-sage font-medium">
+                          <p className="font-mono text-accent-ink font-medium">
                             {confirmedSlot.timeLabel}
                           </p>
                         </div>
-                        <span className="px-2.5 py-1 bg-white rounded-md font-mono text-[11px] font-semibold text-pine border border-mist">
+                        <span className="px-2.5 py-1 bg-surface-raised rounded-md font-mono text-xs font-semibold text-pine border border-mist">
                           Slot 0{confirmedSlot.slotNumber} Selected
                         </span>
                       </div>
                     ) : (
-                      <div className="p-3.5 rounded-xl bg-parchment border border-mist text-xs space-y-2">
+                      <div className="p-3.5 rounded-lg bg-parchment border border-mist text-xs space-y-2">
                         <p className="font-semibold text-pine">
                           3 Proposed Slots (Client Has Not Finalized Payment Yet):
                         </p>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                           {session.proposedSlots.map((s) => (
-                            <div key={s.id} className="p-2 bg-white rounded-md border border-mist/70">
-                              <p className="font-semibold text-[11px] text-pine">Slot 0{s.slotNumber}</p>
-                              <p className="text-pine/80 text-[11px]">{s.dateLabel}</p>
-                              <p className="font-mono text-[10px] text-sage">{s.timeLabel}</p>
+                            <div key={s.id} className="p-2 bg-surface-raised rounded-md border border-mist/70">
+                              <p className="font-semibold text-xs text-pine">Slot 0{s.slotNumber}</p>
+                              <p className="text-pine/80 text-xs">{s.dateLabel}</p>
+                              <p className="font-mono text-xs text-accent-ink">{s.timeLabel}</p>
                             </div>
                           ))}
                         </div>
@@ -456,7 +373,11 @@ export default function PsychologistSchedulePage() {
                       onClick={() => toggleExpand(session.id)}
                       className="w-full sm:w-auto"
                     >
-                      {isExpanded ? 'Hide Appointment Details ▲' : 'View Appointment Details ▼'}
+                      {isExpanded ? 'Hide Appointment Details' : 'View Appointment Details'}
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`}
+                        aria-hidden="true"
+                      />
                     </Button>
 
                     {isConfirmed && session.unlockedContact && (
@@ -465,11 +386,9 @@ export default function PsychologistSchedulePage() {
                           href={session.unlockedContact.teletherapyUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sage text-white rounded-lg font-semibold hover:bg-[#4c7557] transition-colors"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sage text-white rounded-lg font-semibold hover:bg-accent-ink transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-sage focus-visible:outline-offset-2"
                         >
-                          <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
-                          </svg>
+                          <Video className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                           Open Teletherapy Room
                         </a>
                       </div>
@@ -482,7 +401,7 @@ export default function PsychologistSchedulePage() {
                   <div className="border-t border-mist pt-5 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
                       {/* Left Sub-card: Client / Persona & Payment Status */}
-                      <div className="space-y-4 p-4 rounded-xl bg-parchment border border-mist">
+                      <div className="space-y-4 p-4 rounded-lg bg-parchment border border-mist">
                         <h3 className="font-heading text-lg font-bold text-pine">
                           Client &amp; Persona Profile
                         </h3>
@@ -516,7 +435,7 @@ export default function PsychologistSchedulePage() {
 
                         <div>
                           <p className="font-semibold text-pine mb-1">Presenting Concerns:</p>
-                          <p className="p-2.5 rounded-lg bg-white border border-mist/70 text-pine/85 leading-relaxed">
+                          <p className="p-2.5 rounded-lg bg-surface-raised border border-mist/70 text-pine/85 leading-relaxed">
                             {session.concernsSummary}
                           </p>
                         </div>
@@ -524,7 +443,7 @@ export default function PsychologistSchedulePage() {
                         {session.specificNeeds && (
                           <div>
                             <p className="font-semibold text-pine mb-1">Specific Needs / Scheduling Preferences:</p>
-                            <p className="p-2.5 rounded-lg bg-white border border-mist/70 text-pine/80 italic">
+                            <p className="p-2.5 rounded-lg bg-surface-raised border border-mist/70 text-pine/80 italic">
                               {session.specificNeeds}
                             </p>
                           </div>
@@ -532,20 +451,20 @@ export default function PsychologistSchedulePage() {
                       </div>
 
                       {/* Right Sub-card: Unlocked Teletherapy & Lifecycle Actions */}
-                      <div className="space-y-4 p-4 rounded-xl bg-parchment border border-mist">
+                      <div className="space-y-4 p-4 rounded-lg bg-parchment border border-mist">
                         <h3 className="font-heading text-lg font-bold text-pine">
                           Session Channel &amp; Coordination
                         </h3>
 
                         {isConfirmed && session.unlockedContact ? (
                           <div className="space-y-3">
-                            <div className="p-3 bg-white rounded-lg border border-sage space-y-1">
+                            <div className="p-3 bg-surface-raised rounded-lg border border-sage space-y-1">
                               <p className="font-semibold text-pine">Direct Teletherapy URL:</p>
                               <a
                                 href={session.unlockedContact.teletherapyUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="font-mono text-sage hover:underline break-all block"
+                                className="font-mono text-accent-ink hover:underline break-all block"
                               >
                                 {session.unlockedContact.teletherapyUrl}
                               </a>
@@ -560,12 +479,12 @@ export default function PsychologistSchedulePage() {
 
                             <div className="space-y-1">
                               <p className="text-pine/70">Session Reference Code:</p>
-                              <p className="font-mono font-bold text-sage">
+                              <p className="font-mono font-bold text-accent-ink">
                                 {session.unlockedContact.sessionReferenceCode}
                               </p>
                             </div>
 
-                            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-mist/60 text-[11px]">
+                            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-mist/60 text-xs">
                               <span>
                                 24h Reminder: <strong>{session.reminders.reminder24h}</strong> · 1h Reminder:{' '}
                                 <strong>{session.reminders.reminder1h}</strong>
@@ -579,7 +498,7 @@ export default function PsychologistSchedulePage() {
                                       action: 'dispatch-reminders',
                                     })
                                   }
-                                  className="underline text-sage font-semibold cursor-pointer"
+                                  className="underline text-accent-ink font-semibold cursor-pointer"
                                 >
                                   Dispatch Reminders
                                 </button>
@@ -600,7 +519,7 @@ export default function PsychologistSchedulePage() {
                             </div>
                           </div>
                         ) : (
-                          <div className="p-4 rounded-lg bg-white border border-dashed border-mist space-y-2">
+                          <div className="p-4 rounded-lg bg-surface-raised border border-dashed border-mist space-y-2">
                             <p className="font-semibold text-amber-900">
                               Direct Teletherapy Link Locked
                             </p>
@@ -614,15 +533,13 @@ export default function PsychologistSchedulePage() {
                     </div>
 
                     {/* Private Clinical Session Notes (Confidential: Hidden from Admin & Client) */}
-                    <div className="p-4 rounded-xl bg-white border-2 border-sage/30 space-y-3 text-xs">
+                    <div className="p-4 rounded-lg bg-surface-raised border border-sage/40 space-y-3 text-xs">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 font-bold text-pine">
-                          <svg className="w-4 h-4 text-sage" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                          </svg>
+                          <ShieldCheck className="w-4 h-4 text-accent-ink shrink-0" aria-hidden="true" />
                           <span className="font-heading text-base">Private Clinical Notes (Psychologist Only)</span>
                         </div>
-                        <span className="px-2 py-0.5 rounded-sm bg-[#EBF2EC] text-sage font-semibold text-[10px]">
+                        <span className="px-2 py-0.5 rounded-sm bg-surface-sunken text-accent-ink font-semibold text-xs">
                           Confidential · Hidden from Admin &amp; Client
                         </span>
                       </div>
@@ -660,7 +577,7 @@ export default function PsychologistSchedulePage() {
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          <p className="p-3 rounded-lg bg-parchment border border-mist text-pine/90 leading-relaxed font-mono text-[11px]">
+                          <p className="p-3 rounded-lg bg-parchment border border-mist text-pine/90 leading-relaxed font-mono text-xs">
                             {session.privateClinicalNote ||
                               'No confidential clinical notes recorded for this case yet.'}
                           </p>

@@ -11,12 +11,18 @@ import {
 } from '../../../../lib/schemas';
 import { useAppStore } from '../../../../stores/useAppStore';
 import { useRouter } from 'next/navigation';
+import { Lock, Check, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { PractitionerSwitcher } from '../../../../components/dashboard/PractitionerSwitcher';
+import { UnverifiedBanner } from '../../../../components/dashboard/UnverifiedBanner';
 import {
   BookingStatusTag,
   Button,
   Card,
+  EmptyState,
   Input,
   Label,
+  Modal,
+  Skeleton,
   Textarea,
 } from '../../../../components/ui/primitives';
 
@@ -25,7 +31,6 @@ export default function PsychologistQueuePage() {
   const router = useRouter();
   const {
     activePsychologistId,
-    setActivePsychologistId,
     setCognitoRole,
     publishFlowEvent,
   } = useAppStore();
@@ -159,7 +164,7 @@ export default function PsychologistQueuePage() {
       {/* Header & Verification Identity Switcher */}
       <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 border-b border-mist pb-6">
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs text-sage font-semibold">
+          <div className="flex items-center gap-2 text-xs text-accent-ink font-semibold">
             <span>Psychologist Dashboard</span>
             <span aria-hidden="true">·</span>
             <span>Pending Requests Queue</span>
@@ -174,90 +179,30 @@ export default function PsychologistQueuePage() {
         </div>
 
         {/* Practitioner State Switcher for Prototype Evaluation */}
-        <div className="bg-white border border-mist rounded-xl p-3 flex flex-wrap items-center gap-2 text-xs shadow-xs">
-          <span className="font-semibold text-pine">Test Practitioner:</span>
-          {roster.map((r) => (
-            <button
-              key={r.id}
-              type="button"
-              onClick={() => {
-                setActivePsychologistId(r.id);
-                setActiveModalBookingId(null);
-              }}
-              className={`px-2.5 py-1.5 rounded-lg font-medium transition-colors cursor-pointer whitespace-nowrap ${
-                activePsychologistId === r.id
-                  ? 'bg-pine text-white'
-                  : 'bg-[#F1F6F2] text-pine hover:bg-[#E2ECE4]'
-              }`}
-            >
-              {r.id} ({r.verificationStatus === 'verified' ? 'Verified' : 'Unverified'})
-            </button>
-          ))}
-        </div>
+        <PractitionerSwitcher />
       </header>
 
       {/* Non-Approved Psychologist Blocked Banner (Defense-in-depth) */}
       {!isVerified && (
-        <div
-          role="alert"
-          className="bg-amber-50 border-2 border-amber-400 rounded-xl p-6 text-amber-950 space-y-3 shadow-xs"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-amber-700" viewBox="0 0 20 20" fill="currentColor">
-                <path
-                  fillRule="evenodd"
-                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <h2 className="font-heading text-xl font-bold text-amber-950">
-                Pending Administrative Approval — Pick-Up Actions Disabled
-              </h2>
-            </div>
-            <span className="font-mono text-xs font-semibold px-2.5 py-1 bg-amber-200/70 text-amber-900 rounded-md">
-              {activePsych?.prcCredentialCode} · STATUS: WAITING_APPROVAL
-            </span>
-          </div>
-          <p className="text-xs text-amber-900/90 leading-relaxed max-w-3xl">
-            You are logged in as <strong>{activePsych?.anonymizedTitle}</strong>. In accordance with
-            clinical governance standards, psychologists cannot pick up client booking requests or propose
-            session slots until their PRC license credentials are authenticated and approved by clinic administrators.
-          </p>
-          <div className="flex flex-wrap items-center gap-3 pt-1">
-            <Button
-              variant="dark"
-              size="sm"
-              onClick={() => setActivePsychologistId('RP-01')}
-            >
-              Switch to Verified Resident #RP-01
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setCognitoRole('admin');
-                router.push('/admin/verifications');
-              }}
-            >
-              Approve in Admin Verifications →
-            </Button>
-          </div>
-        </div>
+        <UnverifiedBanner
+          title="Pending Administrative Approval — Pick-Up Actions Disabled"
+          note={`${activePsych?.prcCredentialCode} · STATUS: WAITING_APPROVAL`}
+          body={
+            <>
+              You are logged in as <strong>{activePsych?.anonymizedTitle}</strong>. In accordance with
+              clinical governance standards, psychologists cannot pick up client booking requests or propose
+              session slots until their PRC license credentials are authenticated and approved by clinic administrators.
+            </>
+          }
+        />
       )}
 
       {/* Success Notification if proposal was just submitted */}
       {recentProposedId && (
-        <div className="bg-lime-soft/40 border border-sage rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="bg-lime-soft/30 border border-sage/50 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-full bg-sage text-white flex items-center justify-center shrink-0">
-              <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                <path
-                  fillRule="evenodd"
-                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                  clipRule="evenodd"
-                />
-              </svg>
+              <Check className="w-4 h-4" strokeWidth={3} aria-hidden="true" />
             </div>
             <div>
               <p className="text-xs font-bold text-pine">
@@ -274,7 +219,7 @@ export default function PsychologistQueuePage() {
               size="sm"
               onClick={() => router.push('/psych/schedule')}
             >
-              View in My Schedule →
+              View in My Schedule
             </Button>
             <Button
               variant="ghost"
@@ -311,53 +256,37 @@ export default function PsychologistQueuePage() {
         {isLoading ? (
           <div className="space-y-4">
             {[1, 2].map((i) => (
-              <div
-                key={i}
-                className="h-44 rounded-xl bg-white border border-mist animate-pulse p-6 space-y-4"
-              >
-                <div className="h-4 bg-[#EBF2EC] rounded-sm w-1/4" />
-                <div className="h-6 bg-[#EBF2EC] rounded-sm w-1/2" />
-                <div className="h-4 bg-[#EBF2EC] rounded-sm w-3/4" />
-              </div>
+              <Skeleton key={i} className="h-44" />
             ))}
           </div>
         ) : pendingQueue.length === 0 ? (
           /* Empty State */
-          <Card className="text-center py-16 space-y-4 border-dashed border-2 border-mint">
-            <div className="w-12 h-12 rounded-full bg-[#EBF2EC] text-sage flex items-center justify-center mx-auto">
-              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div className="space-y-1">
-              <h3 className="font-heading text-xl font-bold text-pine">
-                Pending Queue is All Clear
-              </h3>
-              <p className="text-xs text-pine/75 max-w-md mx-auto">
-                All submitted client booking requests have been claimed and scheduled.
-                Switch to the Client role to submit a new booking form or manage confirmed appointments in My Schedule.
-              </p>
-            </div>
-            <div className="flex justify-center gap-3 pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setCognitoRole('client');
-                  router.push('/personas');
-                }}
-              >
-                + Submit Test Booking (Client Role)
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => router.push('/psych/schedule')}
-              >
-                Go to My Schedule
-              </Button>
-            </div>
-          </Card>
+          <EmptyState
+            icon={CheckCircle2}
+            title="Pending Queue is All Clear"
+            description="All submitted client booking requests have been claimed and scheduled. Switch to the Client role to submit a new booking form or manage confirmed appointments in My Schedule."
+            action={
+              <div className="flex flex-wrap justify-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setCognitoRole('client');
+                    router.push('/personas');
+                  }}
+                >
+                  Submit Test Booking (Client Role)
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => router.push('/psych/schedule')}
+                >
+                  Go to My Schedule
+                </Button>
+              </div>
+            }
+          />
         ) : (
           /* Pending Requests Cards */
           <div className="grid grid-cols-1 gap-5">
@@ -372,7 +301,7 @@ export default function PsychologistQueuePage() {
                       <span className="font-mono text-sm font-bold text-pine">
                         {item.id}
                       </span>
-                      <span className="text-xs px-2 py-0.5 rounded-sm font-semibold bg-[#EBF2EC] text-sage">
+                      <span className="text-xs px-2 py-0.5 rounded-sm font-semibold bg-surface-sunken text-accent-ink">
                         {item.personaType.toUpperCase()}
                       </span>
                       <BookingStatusTag status={item.status} />
@@ -393,14 +322,8 @@ export default function PsychologistQueuePage() {
                         Pick Up &amp; Propose 3 Slots
                       </Button>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 text-gray-500 border border-gray-200">
-                        <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-                          <path
-                            fillRule="evenodd"
-                            d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-sunken text-pine/50 border border-mist">
+                        <Lock className="w-3.5 h-3.5" aria-hidden="true" />
                         Pick-Up Locked (Approval Pending)
                       </span>
                     )}
@@ -411,41 +334,41 @@ export default function PsychologistQueuePage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs">
                   {/* Persona Info */}
                   <div className="p-3.5 rounded-lg bg-parchment border border-mist/60 space-y-1.5">
-                    <p className="font-semibold text-sage uppercase tracking-wide text-[10px]">
+                    <p className="font-semibold text-accent-ink uppercase tracking-wide text-xs">
                       Client &amp; Persona Information
                     </p>
                     <p className="font-bold text-pine text-sm">{item.personaLabel}</p>
                     <p className="text-pine/75">
                       Language: <span className="font-medium text-pine">{item.preferredLanguage}</span>
                     </p>
-                    <p className="text-[11px] text-pine/60 pt-1">
+                    <p className="text-xs text-pine/60 pt-1">
                       Submitted: {item.submittedAt}
                     </p>
                   </div>
 
                   {/* Service & Guardrail */}
                   <div className="p-3.5 rounded-lg bg-parchment border border-mist/60 space-y-1.5">
-                    <p className="font-semibold text-sage uppercase tracking-wide text-[10px]">
+                    <p className="font-semibold text-accent-ink uppercase tracking-wide text-xs">
                       Service Duration &amp; Clinical Scope
                     </p>
                     <p className="font-semibold text-pine">
-                      Duration: <span className="font-mono text-sage font-bold">{item.serviceDuration}</span>
+                      Duration: <span className="font-mono text-accent-ink font-bold">{item.serviceDuration}</span>
                     </p>
-                    <p className="text-pine/80 leading-relaxed text-[11px]">
+                    <p className="text-pine/80 leading-relaxed text-xs">
                       {item.serviceGuardrail}
                     </p>
                   </div>
 
                   {/* Booking Notes */}
                   <div className="p-3.5 rounded-lg bg-parchment border border-mist/60 space-y-1.5">
-                    <p className="font-semibold text-sage uppercase tracking-wide text-[10px]">
+                    <p className="font-semibold text-accent-ink uppercase tracking-wide text-xs">
                       Presenting Concerns &amp; Needs
                     </p>
                     <p className="text-pine/90 line-clamp-3 leading-relaxed">
                       {item.concernsSummary}
                     </p>
                     {item.specificNeeds && (
-                      <p className="text-[11px] text-pine/70 italic pt-1">
+                      <p className="text-xs text-pine/70 italic pt-1">
                         Specifics: {item.specificNeeds}
                       </p>
                     )}
@@ -457,58 +380,27 @@ export default function PsychologistQueuePage() {
         )}
       </div>
 
-      {/* Pick-Up Proposal Modal Overlay */}
+      {/* Pick-Up Proposal Modal — shared base (Escape close, backdrop click, focus trap) */}
       {targetBooking && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="modal-title"
-          className="fixed inset-0 z-50 overflow-y-auto bg-pine/60 backdrop-blur-xs flex items-center justify-center p-4"
+        <Modal
+          open
+          onClose={handleCloseModal}
+          title={`Pick Up Booking #${targetBooking.id}`}
+          description={`${targetBooking.serviceTitle} (${targetBooking.serviceDuration}) · ${targetBooking.personaLabel}`}
+          maxWidth="2xl"
         >
-          <div className="bg-white rounded-2xl border-2 border-sage shadow-2xl max-w-2xl w-full p-6 sm:p-8 space-y-6 relative my-8">
-            {/* Modal Header */}
-            <div className="flex items-start justify-between border-b border-mist pb-4">
-              <div>
-                <p className="text-xs font-semibold text-sage uppercase tracking-wider">
-                  Flow C Step 3 · Claim &amp; Propose Slots
-                </p>
-                <h2 id="modal-title" className="font-heading text-2xl font-bold text-pine">
-                  Pick Up Booking #{targetBooking.id}
-                </h2>
-                <p className="text-xs text-pine/75 mt-0.5">
-                  {targetBooking.serviceTitle} ({targetBooking.serviceDuration}) · {targetBooking.personaLabel}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleCloseModal}
-                className="text-pine/50 hover:text-pine p-1.5 rounded-lg hover:bg-gray-100 cursor-pointer"
-                aria-label="Close modal"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path
-                    fillRule="evenodd"
-                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
-            </div>
-
+          <div className="space-y-5">
+            <p className="text-xs font-semibold uppercase tracking-widest text-accent-ink">
+              Flow C Step 3 · Claim &amp; Propose Slots
+            </p>
             {/* Race Condition / Error Banner */}
             {proposeMutation.isError && (
               <div
                 role="alert"
-                className="bg-red-50 border-2 border-red-400 rounded-xl p-4 text-red-950 space-y-2"
+                className="bg-red-50 border-l-2 border-red-400 rounded-r-lg p-4 text-red-950 space-y-2"
               >
                 <div className="flex items-center gap-2">
-                  <svg className="w-5 h-5 text-red-600 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
+                  <AlertCircle className="w-5 h-5 text-red-600 shrink-0" aria-hidden="true" />
                   <p className="font-heading text-base font-bold text-red-950">
                     Failed to Claim Request (Race Condition Detected)
                   </p>
@@ -533,7 +425,7 @@ export default function PsychologistQueuePage() {
             )}
 
             {/* Scope Guardrail Reminder */}
-            <div className="p-3 rounded-lg bg-[#F1F6F2] border border-mist text-xs space-y-1">
+            <div className="p-3 rounded-lg bg-surface-sunken border border-mist text-xs space-y-1">
               <span className="font-semibold text-pine">Clinical Scope Guardrail:</span>
               <p className="text-pine/80">{targetBooking.serviceGuardrail}</p>
             </div>
@@ -569,7 +461,7 @@ export default function PsychologistQueuePage() {
                   <p className="text-xs font-bold text-pine uppercase tracking-wide">
                     Propose Exactly 3 Schedule Slots (PST) <span className="text-red-600">*</span>
                   </p>
-                  <span className="text-[11px] text-sage font-medium">
+                  <span className="text-xs text-accent-ink font-medium">
                     Must be distinct &amp; in the future
                   </span>
                 </div>
@@ -668,7 +560,7 @@ export default function PsychologistQueuePage() {
               </div>
             </form>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

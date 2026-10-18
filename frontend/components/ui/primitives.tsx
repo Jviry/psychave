@@ -245,7 +245,7 @@ export interface ModalProps {
   description?: string;
   footer?: React.ReactNode;
   children: React.ReactNode;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
 }
 
 const modalMaxWidth: Record<NonNullable<ModalProps['maxWidth']>, string> = {
@@ -254,6 +254,7 @@ const modalMaxWidth: Record<NonNullable<ModalProps['maxWidth']>, string> = {
   lg: 'max-w-lg',
   xl: 'max-w-xl',
   '2xl': 'max-w-2xl',
+  '3xl': 'max-w-3xl',
 };
 
 export function Modal({
@@ -270,13 +271,30 @@ export function Modal({
   const panelRef = useRef<HTMLDivElement | null>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
+  // Mount-on-open: remember focus, focus the panel, lock body scroll.
+  // Runs ONLY on open/close transitions — NOT on every re-render of content
+  // (dialogs may re-render per keystroke; re-running this would steal focus).
   useEffect(() => {
     if (!open) return;
 
     previouslyFocused.current = document.activeElement as HTMLElement | null;
-
     const panel = panelRef.current;
     (panel?.querySelector<HTMLElement>('[data-autofocus]') ?? panel)?.focus();
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      previouslyFocused.current?.focus?.();
+    };
+  }, [open]);
+
+  // Key handling: Escape closes; Tab cycles inside the dialog (focus trap).
+  // Re-subscribing per render is intentional and cheap — it keeps `onClose`
+  // fresh for stateful callers (e.g. dirty-check close confirmations).
+  useEffect(() => {
+    if (!open) return;
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -303,13 +321,8 @@ export function Modal({
     };
 
     document.addEventListener('keydown', onKeyDown);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
     return () => {
       document.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = previousOverflow;
-      previouslyFocused.current?.focus?.();
     };
   }, [open, onClose]);
 

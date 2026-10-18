@@ -11,11 +11,15 @@ import {
 } from '../../../../lib/schemas';
 import { useAppStore } from '../../../../stores/useAppStore';
 import { useRouter } from 'next/navigation';
+import { Check } from 'lucide-react';
+import { PractitionerSwitcher } from '../../../../components/dashboard/PractitionerSwitcher';
+import { UnverifiedBanner } from '../../../../components/dashboard/UnverifiedBanner';
 import {
   Button,
   Card,
   Input,
   Label,
+  Skeleton,
   Textarea,
 } from '../../../../components/ui/primitives';
 
@@ -24,8 +28,6 @@ export default function PsychologistProfilePage() {
   const router = useRouter();
   const {
     activePsychologistId,
-    setActivePsychologistId,
-    setCognitoRole,
     publishFlowEvent,
   } = useAppStore();
 
@@ -90,7 +92,7 @@ export default function PsychologistProfilePage() {
       {/* Header */}
       <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 border-b border-mist pb-6">
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs text-sage font-semibold">
+          <div className="flex items-center gap-2 text-xs text-accent-ink font-semibold">
             <span>Psychologist Dashboard</span>
             <span aria-hidden="true">·</span>
             <span>Practitioner Profile &amp; Governance</span>
@@ -105,84 +107,27 @@ export default function PsychologistProfilePage() {
         </div>
 
         {/* Practitioner State Switcher */}
-        <div className="bg-white border border-mist rounded-xl p-3 flex flex-wrap items-center gap-2 text-xs shadow-xs">
-          <span className="font-semibold text-pine">Active Practitioner:</span>
-          {roster.map((r) => (
-            <button
-              key={r.id}
-              type="button"
-              onClick={() => setActivePsychologistId(r.id)}
-              className={`px-2.5 py-1.5 rounded-lg font-medium transition-colors cursor-pointer whitespace-nowrap ${
-                activePsychologistId === r.id
-                  ? 'bg-pine text-white'
-                  : 'bg-[#F1F6F2] text-pine hover:bg-[#E2ECE4]'
-              }`}
-            >
-              {r.id} ({r.verificationStatus === 'verified' ? 'Verified' : 'Unverified'})
-            </button>
-          ))}
-        </div>
+        <PractitionerSwitcher />
       </header>
 
       {/* Approval Status Banner */}
       {!isVerified ? (
-        <div
-          role="alert"
-          className="bg-amber-50 border-2 border-amber-400 rounded-xl p-6 text-amber-950 space-y-3 shadow-xs"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-amber-700" viewBox="0 0 20 20" fill="currentColor">
-                <path
-                  fillRule="evenodd"
-                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <h2 className="font-heading text-xl font-bold text-amber-950">
-                Read-Only Approval Status: WAITING_APPROVAL
-              </h2>
-            </div>
-            <span className="font-mono text-xs font-semibold px-2.5 py-1 bg-amber-200 text-amber-900 rounded-md">
-              STATUS: PENDING CLINIC APPROVAL
-            </span>
-          </div>
-          <p className="text-xs text-amber-900/90 leading-relaxed max-w-3xl">
-            Your clinical account is currently <strong>awaiting administrator verification</strong>.
-            While pending approval, your profile is hidden from the public roster and booking pick-up actions
-            remain blocked app-wide to maintain patient safety and clinical regulatory standards.
-          </p>
-          <div className="flex flex-wrap items-center gap-3 pt-1">
-            <Button
-              variant="dark"
-              size="sm"
-              onClick={() => setActivePsychologistId('RP-01')}
-            >
-              Switch to Verified Resident #RP-01
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setCognitoRole('admin');
-                router.push('/admin/verifications');
-              }}
-            >
-              Authorize Credentials in Admin Portal →
-            </Button>
-          </div>
-        </div>
+        <UnverifiedBanner
+          title="Read-Only Approval Status: WAITING_APPROVAL"
+          note="STATUS: PENDING CLINIC APPROVAL"
+          body={
+            <>
+              Your clinical account is currently <strong>awaiting administrator verification</strong>.
+              While pending approval, your profile is hidden from the public roster and booking pick-up actions
+              remain blocked app-wide to maintain patient safety and clinical regulatory standards.
+            </>
+          }
+        />
       ) : (
-        <div className="bg-[#EBF2EC] border border-sage rounded-xl p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="bg-surface-sunken border border-mist rounded-lg p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2.5">
             <div className="w-6 h-6 rounded-full bg-sage text-white flex items-center justify-center shrink-0">
-              <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                <path
-                  fillRule="evenodd"
-                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                  clipRule="evenodd"
-                />
-              </svg>
+              <Check className="w-4 h-4" strokeWidth={3} aria-hidden="true" />
             </div>
             <div>
               <p className="font-bold text-pine">
@@ -193,7 +138,7 @@ export default function PsychologistProfilePage() {
               </p>
             </div>
           </div>
-          <span className="font-mono px-2.5 py-1 bg-white rounded-md text-sage font-bold border border-mist">
+          <span className="font-mono px-2.5 py-1 bg-surface-raised rounded-md text-accent-ink font-bold border border-mist">
             {activePsych?.prcCredentialCode}
           </span>
         </div>
@@ -213,7 +158,7 @@ export default function PsychologistProfilePage() {
           </div>
 
           {isLoading ? (
-            <div className="h-64 rounded-lg bg-parchment animate-pulse" />
+            <Skeleton className="h-64" />
           ) : (
             <form
               onSubmit={profileForm.handleSubmit((values) => updateMutation.mutate(values))}
@@ -330,7 +275,7 @@ export default function PsychologistProfilePage() {
               <div>
                 <p className="text-pine/70">Public Roster Visibility:</p>
                 <span
-                  className={`inline-block mt-1 px-2 py-0.5 rounded-sm font-semibold text-[11px] ${
+                  className={`inline-block mt-1 px-2 py-0.5 rounded-sm font-semibold text-xs ${
                     activePsych?.visibleOnPublicRoster
                       ? 'bg-emerald-100 text-emerald-800'
                       : 'bg-amber-100 text-amber-800'

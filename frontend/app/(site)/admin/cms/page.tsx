@@ -121,16 +121,16 @@ export default function AdminCmsPage() {
 
   return (
     <div className="space-y-10">
-      <header className="space-y-2 border-b border-[#C0D3C3] pb-6">
-        <div className="flex items-center gap-2 text-xs text-[#5D8B69] font-semibold">
+      <header className="space-y-2 border-b border-mist pb-6">
+        <div className="flex items-center gap-2 text-xs text-accent-ink font-semibold">
           <span>Admin Role Dashboard</span>
           <span aria-hidden="true">·</span>
           <span>Payload CMS Content &amp; Guardrail Editors</span>
         </div>
-        <h1 className="font-heading text-4xl font-bold text-[#25372D]">
+        <h1 className="font-heading text-4xl font-bold text-pine">
           CMS Editors: Services, Roster Structure, Testimonials &amp; Vision/Mission
         </h1>
-        <p className="text-sm text-[#25372D]/80 max-w-3xl">
+        <p className="text-sm text-pine/80 max-w-3xl">
           Manage public institutional copy, service duration guardrails, anonymized resident roster
           structure, and consent-flagged testimonial cards. No private session notes are accessible.
         </p>
@@ -140,7 +140,7 @@ export default function AdminCmsPage() {
       <div
         role="group"
         aria-label="Payload CMS Editor Sections"
-        className="flex flex-wrap items-center gap-1 p-1 bg-[#EBF2EC] rounded-lg border border-[#C0D3C3] w-fit"
+        className="flex flex-wrap items-center gap-1 p-1 bg-surface-sunken rounded-lg border border-mist w-fit"
       >
         {[
           {
@@ -162,8 +162,8 @@ export default function AdminCmsPage() {
             onClick={() => setActiveTab(tab.id as typeof activeTab)}
             className={`px-3.5 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
               activeTab === tab.id
-                ? 'bg-white text-[#25372D] font-semibold shadow-xs'
-                : 'text-[#25372D]/70 hover:text-[#25372D]'
+                ? 'bg-surface-raised text-pine font-semibold shadow-xs'
+                : 'text-pine/70 hover:text-pine'
             }`}
           >
             {tab.label}
@@ -174,11 +174,11 @@ export default function AdminCmsPage() {
       {/* Tab 1: Vision, Mission, Clinic Overview & Consent Banner */}
       {activeTab === 'overview' && (
         <Card className="space-y-6">
-          <div className="border-b border-[#C0D3C3] pb-3">
-            <h2 className="font-heading text-2xl font-bold text-[#25372D]">
+          <div className="border-b border-mist pb-3">
+            <h2 className="font-heading text-2xl font-bold text-pine">
               Vision, Mission, Clinic Overview &amp; Consent-Flag Governance
             </h2>
-            <p className="text-xs text-[#25372D]/70">
+            <p className="text-xs text-pine/70">
               Changes made here update the <code>/about</code> and <code>/</code> public pages immediately.
             </p>
           </div>
@@ -259,7 +259,7 @@ export default function AdminCmsPage() {
       {activeTab === 'services' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <Card className="lg:col-span-5 space-y-3">
-            <h2 className="font-heading text-2xl font-bold text-[#25372D] border-b border-[#C0D3C3] pb-2">
+            <h2 className="font-heading text-2xl font-bold text-pine border-b border-mist pb-2">
               Select Canonical Service
             </h2>
             <div className="space-y-2">
@@ -268,31 +268,31 @@ export default function AdminCmsPage() {
                   key={srv.id}
                   type="button"
                   onClick={() => setEditingServiceId(srv.id)}
-                  className={`w-full text-left p-3.5 rounded-xl border text-xs transition-colors cursor-pointer ${
+                  className={`w-full text-left p-3.5 rounded-lg border text-xs transition-colors cursor-pointer ${
                     editingServiceId === srv.id
-                      ? 'border-2 border-[#5D8B69] bg-[#F1F6F2]'
-                      : 'border-[#C0D3C3] bg-white hover:bg-[#F6F9F6]'
+                      ? 'border-sage bg-surface-sunken'
+                      : 'border-mist bg-surface-raised hover:bg-parchment'
                   }`}
                 >
-                  <div className="flex justify-between font-mono text-[#5D8B69] font-semibold">
+                  <div className="flex justify-between font-mono text-accent-ink font-semibold">
                     <span>{srv.indexNumber}</span>
                     <span>{srv.durationLabel}</span>
                   </div>
-                  <p className="font-heading text-lg font-bold text-[#25372D] mt-0.5">
+                  <p className="font-heading text-lg font-bold text-pine mt-0.5">
                     {srv.title}
                   </p>
-                  <p className="text-[#25372D]/70 truncate">{srv.guardrailTitle}</p>
+                  <p className="text-pine/70 truncate">{srv.guardrailTitle}</p>
                 </button>
               ))}
             </div>
           </Card>
 
           <Card className="lg:col-span-7 space-y-5">
-            <div className="border-b border-[#C0D3C3] pb-3">
-              <p className="text-xs font-semibold text-[#5D8B69]">
+            <div className="border-b border-mist pb-3">
+              <p className="text-xs font-semibold text-accent-ink">
                 Editing Service Specification
               </p>
-              <h2 className="font-heading text-2xl font-bold text-[#25372D]">
+              <h2 className="font-heading text-2xl font-bold text-pine">
                 {currentService?.title}
               </h2>
             </div>
@@ -354,11 +354,11 @@ export default function AdminCmsPage() {
       {activeTab === 'structures' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <Card className="space-y-4">
-            <div className="border-b border-[#C0D3C3] pb-3">
-              <h2 className="font-heading text-2xl font-bold text-[#25372D]">
+            <div className="border-b border-mist pb-3">
+              <h2 className="font-heading text-2xl font-bold text-pine">
                 Resident Roster Structure (Anonymized Policy)
               </h2>
-              <p className="text-xs text-[#25372D]/70">
+              <p className="text-xs text-pine/70">
                 Strictly excludes personal names and photos. Public cards show PRC credential code
                 and clinical specialization only.
               </p>
@@ -368,13 +368,13 @@ export default function AdminCmsPage() {
               {roster.map((r) => (
                 <div
                   key={r.id}
-                  className="p-3.5 rounded-lg bg-[#F6F9F6] border border-[#C0D3C3] flex items-center justify-between gap-3"
+                  className="p-3.5 rounded-lg bg-parchment border border-mist flex items-center justify-between gap-3"
                 >
                   <div>
-                    <p className="font-bold text-[#25372D]">{r.anonymizedTitle}</p>
-                    <p className="text-[#25372D]/75">{r.specialization}</p>
+                    <p className="font-bold text-pine">{r.anonymizedTitle}</p>
+                    <p className="text-pine/75">{r.specialization}</p>
                   </div>
-                  <span className="font-mono text-[11px] text-[#5D8B69] font-semibold shrink-0">
+                  <span className="font-mono text-xs text-accent-ink font-semibold shrink-0">
                     {r.visibleOnPublicRoster ? 'Public' : 'Hidden'}
                   </span>
                 </div>
@@ -383,11 +383,11 @@ export default function AdminCmsPage() {
           </Card>
 
           <Card className="space-y-4">
-            <div className="border-b border-[#C0D3C3] pb-3">
-              <h2 className="font-heading text-2xl font-bold text-[#25372D]">
+            <div className="border-b border-mist pb-3">
+              <h2 className="font-heading text-2xl font-bold text-pine">
                 Testimonials Structure (Consent-Flag Empty Cards)
               </h2>
-              <p className="text-xs text-[#25372D]/70">
+              <p className="text-xs text-pine/70">
                 Enforces zero personal quotes across all public pages.
               </p>
             </div>
@@ -396,14 +396,14 @@ export default function AdminCmsPage() {
               {cms?.testimonialsConfig.emptyCards.map((card) => (
                 <div
                   key={card.id}
-                  className="p-3.5 rounded-lg bg-[#F6F9F6] border border-dashed border-[#8FBE8F] space-y-1"
+                  className="p-3.5 rounded-lg bg-parchment border border-dashed border-mint/50 space-y-1"
                 >
-                  <div className="flex justify-between font-mono text-[#5D8B69]">
+                  <div className="flex justify-between font-mono text-accent-ink">
                     <span>{card.slotCode}</span>
                     <span>Quote: Intentionally Empty</span>
                   </div>
-                  <p className="font-bold text-[#25372D]">{card.serviceCategory}</p>
-                  <p className="text-[#25372D]/75">{card.governanceNote}</p>
+                  <p className="font-bold text-pine">{card.serviceCategory}</p>
+                  <p className="text-pine/75">{card.governanceNote}</p>
                 </div>
               ))}
             </div>

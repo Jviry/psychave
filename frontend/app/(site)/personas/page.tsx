@@ -157,24 +157,24 @@ export default function PersonasAndBookingPage() {
   return (
     <div className="space-y-10">
       {/* Header */}
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#C0D3C3] pb-6">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-mist pb-6">
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs text-[#5D8B69] font-semibold">
+          <div className="flex items-center gap-2 text-xs text-accent-ink font-semibold">
             <span>Flow C Step 1 of 5</span>
             <span aria-hidden="true">·</span>
             <span>Client Persona &amp; Clinical Booking</span>
           </div>
-          <h1 className="font-heading text-4xl font-bold text-[#25372D]">
+          <h1 className="font-heading text-4xl font-bold text-pine">
             Client Personas &amp; Clinical Booking Form
           </h1>
-          <p className="text-sm text-[#25372D]/80 max-w-2xl">
+          <p className="text-sm text-pine/80 max-w-2xl">
             Create a persona with signed consent through the 4-step wizard, pick who the booking is
             for, then submit booking to the verified psychologist queue.
           </p>
         </div>
 
         {cognitoRole !== 'client' && (
-          <div className="bg-[#D0E187]/45 border border-[#8FBE8F] px-4 py-2.5 rounded-lg text-xs text-[#25372D] flex items-center gap-3">
+          <div className="bg-lime-soft/30 border border-lime-soft/60 px-4 py-2.5 rounded-lg text-xs text-pine flex items-center gap-3">
             <span>Currently viewing as {cognitoRole.toUpperCase()}.</span>
             <Button
               variant="dark"
@@ -189,16 +189,16 @@ export default function PersonasAndBookingPage() {
 
       {/* Submission Confirmation Banner (Flow C Step 1 -> Step 2 transition) */}
       {submittedBookingId && (
-        <div className="bg-[#EBF2EC] border-2 border-[#5D8B69] rounded-xl p-6 space-y-4">
+        <div className="bg-surface-sunken border border-sage/50 rounded-lg p-6 space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
-              <p className="text-xs font-bold text-[#5D8B69]">
+              <p className="text-xs font-bold text-accent-ink">
                 FLOW C STEP 1 SUBMITTED · STATUS: PENDING
               </p>
-              <h2 className="font-heading text-2xl font-bold text-[#25372D]">
+              <h2 className="font-heading text-2xl font-bold text-pine">
                 Booking Request #{submittedBookingId} Entered Pending Queue
               </h2>
-              <p className="text-sm text-[#25372D]/80">
+              <p className="text-sm text-pine/80">
                 PRC-verified psychologists have been notified. Your booking will move to{' '}
                 <strong className="font-semibold">proposed</strong> once a verified psychologist
                 picks up your request, sets the session fee, and proposes 3 schedule slots.
@@ -222,7 +222,7 @@ export default function PersonasAndBookingPage() {
                 router.push('/psych/queue');
               }}
             >
-              Switch to Psychologist Role &amp; Pick Up #{submittedBookingId} →
+              Switch to Psychologist Role &amp; Pick Up #{submittedBookingId}
             </Button>
           </div>
         </div>
@@ -232,12 +232,12 @@ export default function PersonasAndBookingPage() {
         {/* Left Column: Manage Personas + wizard launcher */}
         <div className="lg:col-span-5 space-y-6">
           <Card className="space-y-5">
-            <div className="flex items-center justify-between border-b border-[#C0D3C3] pb-3">
+            <div className="flex items-center justify-between border-b border-mist pb-3">
               <div>
-                <h2 className="font-heading text-2xl font-bold text-[#25372D]">
+                <h2 className="font-heading text-2xl font-bold text-pine">
                   1. Manage Personas
                 </h2>
-                <p className="text-xs text-[#25372D]/70">
+                <p className="text-xs text-pine/70">
                   Who is the session for? Personas include signed consent.
                 </p>
               </div>
@@ -252,8 +252,8 @@ export default function PersonasAndBookingPage() {
 
             {/* Booking-for indicator (single persona preselected) */}
             {selectedPersona && personas.length === 1 && (
-              <div className="p-4 rounded-xl bg-[#EBF2EC] border-l-4 border-[#5D8B69] flex items-center justify-between gap-3">
-                <p className="text-sm text-[#25372D]">
+              <div className="p-4 rounded-lg bg-surface-sunken border-l-2 border-sage flex items-center justify-between gap-3">
+                <p className="text-sm text-pine">
                   Booking for: <strong className="font-semibold">{selectedPersona.label}</strong>
                 </p>
                 <Button variant="outline" size="sm" onClick={() => openWizard('manage')}>
@@ -265,11 +265,11 @@ export default function PersonasAndBookingPage() {
             {/* Existing Personas picker */}
             <div className="space-y-3">
               {personasLoading && (
-                <p className="text-xs text-[#25372D]/70">Loading personas…</p>
+                <p className="text-xs text-pine/70">Loading personas…</p>
               )}
               {!personasLoading && personas.length === 0 && (
-                <div className="p-4 rounded-xl bg-[#F6F9F6] border border-[#8FBE8F] space-y-3">
-                  <p className="text-sm text-[#25372D]">
+                <div className="p-4 rounded-lg bg-parchment border border-mint/50 space-y-3">
+                  <p className="text-sm text-pine">
                     No personas yet. Create one with signed consent to start booking.
                   </p>
                   <Button variant="primary" size="sm" onClick={() => openWizard('manage')}>
@@ -284,26 +284,26 @@ export default function PersonasAndBookingPage() {
                     key={persona.id}
                     type="button"
                     onClick={() => selectPersona(persona.id, persona.preferredLanguage)}
-                    className={`w-full text-left p-4 rounded-xl border transition-colors cursor-pointer ${
+                    className={`w-full text-left p-4 rounded-lg border transition-colors duration-150 cursor-pointer ${
                       isSelected
-                        ? 'border-2 border-[#5D8B69] bg-[#F1F6F2]'
-                        : 'border-[#C0D3C3] bg-white hover:bg-[#F6F9F6]'
+                        ? 'border-sage bg-surface-sunken'
+                        : 'border-mist bg-surface-raised hover:bg-parchment'
                     }`}
                   >
-                    <div className="flex items-center justify-between text-xs text-[#25372D]/70 mb-1">
-                      <span className="font-semibold text-[#5D8B69]">
+                    <div className="flex items-center justify-between text-xs text-pine/70 mb-1">
+                      <span className="font-semibold text-accent-ink">
                         Persona Type: {persona.type === 'self' ? 'Self (Primary)' : 'Dependent Ward'}
                       </span>
                       <span className="font-mono tabular-nums">{persona.ageGroup}</span>
                     </div>
-                    <p className="font-heading text-lg font-bold text-[#25372D]">
+                    <p className="font-heading text-lg font-bold text-pine">
                       {persona.label}
                     </p>
-                    <p className="text-xs text-[#25372D]/70 mt-1">
+                    <p className="text-xs text-pine/70 mt-1">
                       Relationship: {persona.relationshipToClient} · Language: {persona.preferredLanguage}
                     </p>
                     {lastUsedPersonaId === persona.id && (
-                      <p className="text-[11px] text-[#5D8B69] font-semibold mt-1">Last used</p>
+                      <p className="text-xs text-accent-ink font-semibold mt-1">Last used</p>
                     )}
                   </button>
                 );
@@ -317,8 +317,8 @@ export default function PersonasAndBookingPage() {
             )}
 
             {/* Legacy quick-add (temporary) — deprecated once POST /personas is real */}
-            <details className="rounded-xl bg-[#F6F9F6] border border-[#C0D3C3]">
-              <summary className="px-4 py-3 text-xs font-semibold text-[#25372D]/75 cursor-pointer list-none">
+            <details className="rounded-lg bg-parchment border border-mist">
+              <summary className="px-4 py-3 text-xs font-semibold text-pine/75 cursor-pointer list-none">
                 Legacy quick-add (temporary) — old label/age-group form, kept until backend POST
                 /personas supports persona + consent
               </summary>
@@ -334,9 +334,9 @@ export default function PersonasAndBookingPage() {
                 ) : (
                 <form
                   onSubmit={personaForm.handleSubmit((vals) => createPersonaMutation.mutate(vals))}
-                  className="p-4 rounded-xl bg-white border border-[#8FBE8F] space-y-4"
+                  className="p-4 rounded-lg bg-surface-raised border border-mist space-y-4"
                 >
-                  <p className="font-heading text-lg font-bold text-[#25372D]">
+                  <p className="font-heading text-lg font-bold text-pine">
                     Create New Anonymized Persona (Legacy)
                   </p>
 
@@ -427,11 +427,11 @@ export default function PersonasAndBookingPage() {
 
         {/* Right Column: Canonical Flow C Booking Form (RHF + Zod) */}
         <Card className="lg:col-span-7 space-y-6">
-          <div className="border-b border-[#C0D3C3] pb-4">
-            <h2 className="font-heading text-2xl font-bold text-[#25372D]">
+          <div className="border-b border-mist pb-4">
+            <h2 className="font-heading text-2xl font-bold text-pine">
               2. Complete Clinical Booking Form
             </h2>
-            <p className="text-xs text-[#25372D]/70">
+            <p className="text-xs text-pine/70">
               Validated with React Hook Form + Zod · Enters Pending Queue for Verified Psychologists
             </p>
           </div>
@@ -475,14 +475,14 @@ export default function PersonasAndBookingPage() {
 
             {/* Dynamic Service Duration & Scope Guardrail Notice */}
             {activeService && (
-              <div className="p-4 rounded-xl bg-[#EBF2EC] border-l-4 border-[#5D8B69] space-y-1.5">
-                <div className="flex items-center justify-between text-xs font-bold text-[#25372D]">
+              <div className="p-4 rounded-lg bg-surface-sunken border-l-2 border-sage space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-bold text-pine">
                   <span>Active Guardrail: {activeService.guardrailTitle}</span>
-                  <span className="font-mono tabular-nums text-[#5D8B69]">
+                  <span className="font-mono tabular-nums text-accent-ink">
                     Duration: {activeService.durationLabel}
                   </span>
                 </div>
-                <p className="text-xs text-[#25372D]/85 leading-relaxed">
+                <p className="text-xs text-pine/85 leading-relaxed">
                   {activeService.guardrailNotice}
                 </p>
               </div>
@@ -526,8 +526,8 @@ export default function PersonasAndBookingPage() {
               )}
             </div>
 
-            <div className="p-4 rounded-lg bg-[#F6F9F6] border border-[#C0D3C3] space-y-2">
-              <label className="flex items-start gap-3 text-xs text-[#25372D] cursor-pointer">
+            <div className="p-4 rounded-lg bg-parchment border border-mist space-y-2">
+              <label className="flex items-start gap-3 text-xs text-pine cursor-pointer">
                 <input
                   type="checkbox"
                   className="mt-0.5 h-4 w-4 rounded border-mist accent-sage cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
@@ -548,8 +548,8 @@ export default function PersonasAndBookingPage() {
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
-              <span className="text-xs text-[#25372D]/65">
-                Next Step: Enters Pending Queue → Verified Psychologist Proposes 3 Slots
+              <span className="text-xs text-pine/65">
+                Next Step: Enters Pending Queue; verified psychologist proposes 3 slots
               </span>
               <Button
                 type="submit"
