@@ -268,7 +268,7 @@ export default function ClientBookingsPage() {
                     )}
 
                     {booking.status === 'proposed' && (
-                      <div className="p-4 rounded-lg bg-surface-sunken border border-mist space-y-3">
+                      <div className="p-4 rounded-lg bg-surface-raised border border-mist space-y-3">
                         <div className="flex items-center justify-between text-xs">
                           <span className="font-bold text-pine">
                             Picked Up by {booking.psychologistCode}
@@ -294,7 +294,7 @@ export default function ClientBookingsPage() {
 
                     {(booking.status === 'paid-confirmed' ||
                       booking.status === 'reschedule-requested') && (
-                      <div className="p-4 rounded-lg bg-surface-sunken border border-mist space-y-3">
+                      <div className="p-4 rounded-lg bg-surface-raised border border-mist space-y-3">
                         <div className="flex items-center justify-between text-xs">
                           <span className="font-bold text-pine">
                             Confirmed with {booking.psychologistCode}
@@ -316,7 +316,7 @@ export default function ClientBookingsPage() {
                         )}
 
                         {booking.contactUnlocked && booking.unlockedContact && (
-                          <div className="space-y-1 text-xs bg-surface-raised p-3 rounded-lg border border-mint/50">
+                          <div className="space-y-1 text-xs bg-surface-raised p-3 rounded-lg border border-mist">
                             <p className="font-bold text-pine">
                               Unlocked Session Contact &amp; Room:
                             </p>
@@ -345,7 +345,7 @@ export default function ClientBookingsPage() {
                                   action: 'dispatch-reminders',
                                 })
                               }
-                              className="underline text-accent-ink hover:text-pine font-semibold cursor-pointer"
+                              className="underline text-accent-ink hover:text-pine font-semibold cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
                             >
                               Trigger 24h/1h Alert
                             </button>
@@ -358,7 +358,7 @@ export default function ClientBookingsPage() {
                                   action: 'request-reschedule',
                                 })
                               }
-                              className="underline text-pine/80 hover:text-pine cursor-pointer"
+                              className="underline text-pine/80 hover:text-pine cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
                             >
                               Reschedule
                             </button>
@@ -371,7 +371,7 @@ export default function ClientBookingsPage() {
                                   action: 'cancel',
                                 })
                               }
-                              className="underline text-red-700 hover:text-red-900 cursor-pointer"
+                              className="underline text-red-700 hover:text-red-900 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
                             >
                               Cancel
                             </button>

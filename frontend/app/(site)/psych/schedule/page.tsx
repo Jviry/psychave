@@ -331,7 +331,7 @@ export default function PsychologistSchedulePage() {
 
                     {/* Selected Slot or Proposed Slots Preview */}
                     {isConfirmed && confirmedSlot ? (
-                      <div className="p-3.5 rounded-lg bg-surface-sunken border border-sage flex flex-wrap items-center justify-between gap-3 text-xs">
+                      <div className="p-3.5 rounded-lg bg-surface-raised border border-mist flex flex-wrap items-center justify-between gap-3 text-xs">
                         <div className="space-y-0.5">
                           <p className="font-semibold text-accent-ink uppercase tracking-wide text-xs">
                             Confirmed Session Appointment
@@ -348,7 +348,7 @@ export default function PsychologistSchedulePage() {
                         </span>
                       </div>
                     ) : (
-                      <div className="p-3.5 rounded-lg bg-parchment border border-mist text-xs space-y-2">
+                      <div className="p-3.5 rounded-lg bg-surface-raised border border-mist text-xs space-y-2">
                         <p className="font-semibold text-pine">
                           3 Proposed Slots (Client Has Not Finalized Payment Yet):
                         </p>

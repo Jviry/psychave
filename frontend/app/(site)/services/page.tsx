@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../lib/api';
 import { useAppStore } from '../../../stores/useAppStore';
-import { Info } from 'lucide-react';
 import { Button, Card, Skeleton } from '../../../components/ui/primitives';
+import { ArrowRight } from 'lucide-react';
 
 export default function ServicesPage() {
   const router = useRouter();
@@ -111,11 +111,11 @@ export default function ServicesPage() {
               <Card key={srv.id} className="flex flex-col justify-between gap-6">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between text-xs border-b border-mist/60 pb-3">
-                    <span className="font-semibold text-accent-ink">
+                    <span className="font-mono font-semibold text-accent-ink tabular-nums">
                       {srv.indexNumber}. {srv.categoryGroup}
                     </span>
-                    <span className="font-mono font-bold text-pine tabular-nums">
-                      Duration: {srv.durationLabel}
+                    <span className="font-mono font-semibold text-pine/65 tabular-nums">
+                      {srv.durationLabel}
                     </span>
                   </div>
 
@@ -128,22 +128,21 @@ export default function ServicesPage() {
                     </p>
                   </div>
 
-                  {/* Mandatory Service Guardrail Box */}
-                  <div className="bg-surface-sunken border-l-2 border-sage p-4 rounded-r-lg space-y-1">
-                    <div className="flex items-center gap-2 text-xs font-bold text-pine">
-                      <Info className="w-4 h-4 text-accent-ink shrink-0" aria-hidden="true" />
-                      <span>{srv.guardrailTitle}</span>
-                    </div>
-                    <p className="text-xs text-pine/80 leading-relaxed">
+                  {/* Mandatory Service Guardrail Callout */}
+                  <div className="bg-surface-sunken border-l-2 border-sage p-4 rounded-r-lg space-y-1 text-xs">
+                    <p className="font-semibold text-pine">
+                      Guardrail: {srv.guardrailTitle}
+                    </p>
+                    <p className="text-pine/80 leading-relaxed">
                       {srv.guardrailNotice}
                     </p>
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-mist/60 flex items-center justify-between gap-4">
+                <div className="pt-3 border-t border-mist flex items-center justify-between gap-4">
                   <span className="text-xs text-pine/70">{srv.clinicalFormat}</span>
                   <Button
-                    variant="primary"
+                    variant="outline"
                     size="sm"
                     onClick={() => {
                       updateBookingDraft({ serviceId: srv.id });
@@ -151,7 +150,10 @@ export default function ServicesPage() {
                       router.push('/personas');
                     }}
                   >
-                    Select &amp; Complete Booking
+                    <span className="inline-flex items-center gap-1">
+                      Select &amp; Complete Booking
+                      <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+                    </span>
                   </Button>
                 </div>
               </Card>

@@ -286,7 +286,7 @@ export default function HomePage() {
                   <span className="font-mono font-semibold text-accent-ink tabular-nums">
                     {srv.indexNumber}. {srv.categoryGroup}
                   </span>
-                  <span className="font-mono font-semibold text-pine tabular-nums">
+                  <span className="font-mono font-semibold text-pine/65 tabular-nums">
                     {srv.durationLabel}
                   </span>
                 </div>
@@ -299,7 +299,7 @@ export default function HomePage() {
                   {srv.description}
                 </p>
 
-                <div className="p-3 rounded-lg bg-surface-sunken border-l-2 border-sage text-xs text-pine space-y-1">
+                <div className="p-3 rounded-r-lg bg-surface-sunken border-l-2 border-sage text-xs text-pine space-y-1">
                   <p className="font-semibold text-pine">
                     Guardrail: {srv.guardrailTitle}
                   </p>
@@ -309,10 +309,10 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-mist/60 flex items-center justify-between">
+              <div className="pt-2 border-t border-mist flex items-center justify-between">
                 <span className="text-xs text-pine/65">{srv.clinicalFormat}</span>
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   onClick={() => {
                     updateBookingDraft({ serviceId: srv.id });
