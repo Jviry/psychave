@@ -12,16 +12,6 @@ import { TestimonialsConsentSection } from '../../components/TestimonialsConsent
 import { ServiceItem } from '../../lib/types';
 
 /** Brand-scheme solids (spec palette), rotated across the services cards. */
-const SERVICE_TINTS: Array<'sage' | 'mint' | 'lime' | 'mist'> = [
-  'sage',
-  'mint',
-  'lime',
-  'mist',
-  'sage',
-  'mint',
-  'lime',
-];
-
 /**
  * One-line card subtexts — minimal editorial copy owned by the page, so the
  * service records (and the future API payload) keep their full descriptions.
@@ -107,8 +97,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Services — full-bleed infinite carousel (single source of the directory) */}
-      <section id="services" className="scroll-mt-24 space-y-10 lg:space-y-12">
+      {/* Services — full-bleed infinite carousel of user-painted color blocks */}
+      <section id="services" className="scroll-mt-24 space-y-6 lg:space-y-8">
         <div className="text-center">
           <h2 className="font-heading text-4xl font-medium text-pine sm:text-5xl">
             Clinical &amp; Advisory Services Directory
@@ -118,46 +108,43 @@ export default function HomePage() {
         <ScrollCarousel
           ariaLabel="Clinical and advisory services cards"
           wrapperClassName="relative left-1/2 w-screen -translate-x-1/2"
-          trackClassName="gap-3 pb-3 pt-1 md:gap-8"
+          trackClassName="gap-1.5 pb-3 pt-1 md:gap-2"
           loop
           onItemActivate={(index) => selectService(services[index])}
           deps={[services.length]}
         >
-          {services.map((srv, index) => {
-            const tint = SERVICE_TINTS[index % SERVICE_TINTS.length];
-            return (
-              <div
-                key={srv.id}
-                className="flex min-h-[26rem] w-[19rem] shrink-0 snap-start sm:min-h-[28rem] sm:w-[21rem] lg:min-h-[30rem] lg:w-[23rem]"
+          {services.map((srv) => (
+            <div
+              key={srv.id}
+              className="flex min-h-[28rem] w-[19rem] shrink-0 snap-start sm:min-h-[30rem] sm:w-[21rem] lg:min-h-[32rem] lg:w-[23rem]"
+            >
+              <Card
+                tint="leaf"
+                className="flex h-full w-full flex-col p-8 transition-all duration-200 motion-safe:hover:-translate-y-0.5 hover:shadow-lift"
               >
-                <Card
-                  tint={tint}
-                  className="flex h-full w-full flex-col p-8 transition-all duration-200 motion-safe:hover:-translate-y-0.5 hover:shadow-lift"
+                {/* Whole card is the action — tall green block, pine outline, tight gaps */}
+                <button
+                  type="button"
+                  onClick={() => selectService(srv)}
+                  className="group flex h-full w-full flex-col justify-between gap-12 rounded-lg text-left cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sage"
                 >
-                  {/* Whole card is the action — bigger title, one-line subtext, circle arrow */}
-                  <button
-                    type="button"
-                    onClick={() => selectService(srv)}
-                    className="group flex h-full w-full flex-col justify-between gap-12 rounded-lg text-left cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sage"
-                  >
-                    <h3 className="font-heading text-3xl font-medium leading-tight sm:text-4xl">
-                      {srv.title}
-                    </h3>
+                  <h3 className="font-heading text-3xl font-medium leading-tight sm:text-4xl">
+                    {srv.title}
+                  </h3>
 
-                    <div className="space-y-4">
-                      <div aria-hidden="true" className="h-px w-full bg-current opacity-20" />
-                      <div className="flex items-end justify-between gap-6">
-                        <p className="text-base leading-relaxed opacity-80">
-                          {SERVICE_SUBTEXTS[srv.id] ?? srv.description}
-                        </p>
-                        <CircleArrow tone={tint === 'sage' ? 'light' : 'dark'} />
-                      </div>
+                  <div className="space-y-4">
+                    <div aria-hidden="true" className="h-px w-full bg-current opacity-20" />
+                    <div className="flex items-end justify-between gap-6">
+                      <p className="text-base leading-relaxed opacity-80">
+                        {SERVICE_SUBTEXTS[srv.id] ?? srv.description}
+                      </p>
+                      <CircleArrow tone="light" />
                     </div>
-                  </button>
-                </Card>
-              </div>
-            );
-          })}
+                  </div>
+                </button>
+              </Card>
+            </div>
+          ))}
         </ScrollCarousel>
       </section>
 

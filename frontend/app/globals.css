@@ -8,6 +8,10 @@
   --color-mist: #c0d3c3;
   --color-parchment: #f6f8f1;
 
+  /* Services "color block" carousel — vivid green sampled from the user's
+     painted reference blocks (not on the original brand sheet). */
+  --color-leaf: #2ea24e;
+
   /* Semantic surfaces (de-vibe coding pass) */
   --color-surface-raised: #ffffff;
   --color-surface-sunken: #ebf2ec;
