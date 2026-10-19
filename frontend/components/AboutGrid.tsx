@@ -87,7 +87,7 @@ function RosterCard({ resident, tint }: { resident: ResidentPsychologist; tint: 
 
 function ClinicCard({ cms }: { cms?: CmsContent }) {
   return (
-    <Card tint="pine" className="flex h-full flex-col gap-5 p-8 lg:p-10">
+    <Card tint="pine" className="flex h-full flex-col gap-5 p-8 lg:p-10 max-w-[35rem]">
       <CardHeading icon={Stethoscope} title="Clinic Overview" />
 
       {cms?.clinicOverview ? (
