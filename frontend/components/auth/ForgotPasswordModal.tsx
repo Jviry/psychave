@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { X, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { X, Loader2, AlertCircle, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import {
   forgotPasswordRequestSchema,
   forgotPasswordConfirmSchema,
@@ -11,6 +11,7 @@ import {
   type ForgotPasswordConfirmValues,
 } from '../../lib/authSchemas';
 import { authApi } from '../../authApi';
+import { Button, Input, Label } from '../ui/primitives';
 
 type Step = 'request' | 'confirm';
 
@@ -97,21 +98,21 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
       />
 
       {/* Modal Card */}
-      <div className="relative z-10 w-full max-w-md bg-white rounded-2xl shadow-xl border border-mist/60 p-8">
+      <div className="relative z-10 w-full max-w-md bg-surface-raised rounded-lg shadow-lg border border-mist p-8">
         {/* Close */}
         <button
           type="button"
           id="forgot-password-close"
           onClick={onClose}
           aria-label="Close dialog"
-          className="absolute top-4 right-4 text-pine/40 hover:text-pine transition-colors cursor-pointer"
+          className="absolute top-4 right-4 text-pine/40 hover:text-pine transition-colors cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Title */}
         <div className="mb-6">
-          <h3 id="forgot-password-title" className="font-heading text-xl font-bold text-pine mb-1">
+          <h3 id="forgot-password-title" className="font-heading text-xl font-medium text-pine mb-1">
             {step === 'request' ? 'Reset your password' : 'Enter new password'}
           </h3>
           <p className="text-sm text-pine/60">
@@ -126,8 +127,9 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
           {(['request', 'confirm'] as Step[]).map((s, i) => (
             <div
               key={s}
-              className="h-1 flex-1 rounded-full transition-colors"
-              style={{ background: step === 'confirm' || (i === 0) ? '#25372d' : '#C0D3C3' }}
+              className={`h-1 flex-1 rounded-full transition-colors duration-150 ${
+                step === 'confirm' || i === 0 ? 'bg-pine' : 'bg-mist/60'
+              }`}
             />
           ))}
         </div>
@@ -147,21 +149,14 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
             className="space-y-4"
           >
             <div>
-              <label htmlFor="fp-username" className="block text-sm font-semibold text-pine mb-1.5">
-                Username
-              </label>
-              <input
+              <Label htmlFor="fp-username">Username</Label>
+              <Input
                 id="fp-username"
                 type="text"
                 autoComplete="username"
                 placeholder="your_username"
                 aria-invalid={!!requestForm.formState.errors.username}
                 {...requestForm.register('username')}
-                className={`w-full rounded-lg border px-3.5 py-2.5 text-sm text-pine placeholder:text-pine/40 focus:outline-none focus:ring-2 transition-colors ${
-                  requestForm.formState.errors.username
-                    ? 'border-red-400 focus:border-red-400 focus:ring-red-200'
-                    : 'border-mist focus:border-sage focus:ring-mint/30'
-                }`}
               />
               {requestForm.formState.errors.username && (
                 <p role="alert" className="mt-1.5 text-xs text-red-600">
@@ -170,15 +165,15 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
               )}
             </div>
 
-            <button
+            <Button
               id="fp-request-submit"
               type="submit"
+              variant="dark"
+              className="w-full"
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white cursor-pointer disabled:opacity-60"
-              style={{ background: '#25372d' }}
             >
               {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" />Sending…</> : 'Send Code'}
-            </button>
+            </Button>
           </form>
         ) : (
           <form
@@ -190,10 +185,8 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
             <input type="hidden" {...confirmForm.register('username')} />
 
             <div>
-              <label htmlFor="fp-code" className="block text-sm font-semibold text-pine mb-1.5">
-                Verification code
-              </label>
-              <input
+              <Label htmlFor="fp-code">Verification code</Label>
+              <Input
                 id="fp-code"
                 type="text"
                 inputMode="numeric"
@@ -202,11 +195,7 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
                 autoComplete="one-time-code"
                 aria-invalid={!!confirmForm.formState.errors.confirmationCode}
                 {...confirmForm.register('confirmationCode')}
-                className={`w-full rounded-lg border px-3.5 py-2.5 text-sm text-pine text-center tracking-[0.5em] font-mono placeholder:text-pine/40 focus:outline-none focus:ring-2 transition-colors ${
-                  confirmForm.formState.errors.confirmationCode
-                    ? 'border-red-400 focus:border-red-400 focus:ring-red-200'
-                    : 'border-mist focus:border-sage focus:ring-mint/30'
-                }`}
+                className="text-center tracking-[0.5em] font-mono"
               />
               {confirmForm.formState.errors.confirmationCode && (
                 <p role="alert" className="mt-1.5 text-xs text-red-600">
@@ -216,28 +205,22 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
             </div>
 
             <div>
-              <label htmlFor="fp-new-password" className="block text-sm font-semibold text-pine mb-1.5">
-                New password
-              </label>
+              <Label htmlFor="fp-new-password">New password</Label>
               <div className="relative">
-                <input
+                <Input
                   id="fp-new-password"
                   type={showNewPassword ? 'text' : 'password'}
                   autoComplete="new-password"
                   placeholder="••••••••"
                   aria-invalid={!!confirmForm.formState.errors.newPassword}
                   {...confirmForm.register('newPassword')}
-                  className={`w-full rounded-lg border px-3.5 py-2.5 pr-10 text-sm text-pine placeholder:text-pine/40 focus:outline-none focus:ring-2 transition-colors ${
-                    confirmForm.formState.errors.newPassword
-                      ? 'border-red-400 focus:border-red-400 focus:ring-red-200'
-                      : 'border-mist focus:border-sage focus:ring-mint/30'
-                  }`}
+                  className="pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowNewPassword((v) => !v)}
                   aria-label={showNewPassword ? 'Hide password' : 'Show password'}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-pine/40 hover:text-pine cursor-pointer"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-pine/40 hover:text-pine cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
                 >
                   {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -250,28 +233,22 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
             </div>
 
             <div>
-              <label htmlFor="fp-confirm-new-password" className="block text-sm font-semibold text-pine mb-1.5">
-                Confirm new password
-              </label>
+              <Label htmlFor="fp-confirm-new-password">Confirm new password</Label>
               <div className="relative">
-                <input
+                <Input
                   id="fp-confirm-new-password"
                   type={showConfirmNewPassword ? 'text' : 'password'}
                   autoComplete="new-password"
                   placeholder="••••••••"
                   aria-invalid={!!confirmForm.formState.errors.confirmNewPassword}
                   {...confirmForm.register('confirmNewPassword')}
-                  className={`w-full rounded-lg border px-3.5 py-2.5 pr-10 text-sm text-pine placeholder:text-pine/40 focus:outline-none focus:ring-2 transition-colors ${
-                    confirmForm.formState.errors.confirmNewPassword
-                      ? 'border-red-400 focus:border-red-400 focus:ring-red-200'
-                      : 'border-mist focus:border-sage focus:ring-mint/30'
-                  }`}
+                  className="pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmNewPassword((v) => !v)}
                   aria-label={showConfirmNewPassword ? 'Hide password' : 'Show password'}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-pine/40 hover:text-pine cursor-pointer"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-pine/40 hover:text-pine cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
                 >
                   {showConfirmNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -283,22 +260,23 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
               )}
             </div>
 
-            <button
+            <Button
               id="fp-confirm-submit"
               type="submit"
+              variant="dark"
+              className="w-full"
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white cursor-pointer disabled:opacity-60"
-              style={{ background: '#25372d' }}
             >
               {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" />Resetting…</> : 'Reset Password'}
-            </button>
+            </Button>
 
             <button
               type="button"
               onClick={() => { setStep('request'); setApiError(null); }}
-              className="w-full text-center text-xs text-pine/50 hover:text-pine transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center gap-1.5 text-xs text-pine/50 hover:text-pine transition-colors duration-150 cursor-pointer py-1 focus-visible:outline-2 focus-visible:outline-sage focus-visible:outline-offset-2"
             >
-              ← Back
+              <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
+              Back
             </button>
           </form>
         )}

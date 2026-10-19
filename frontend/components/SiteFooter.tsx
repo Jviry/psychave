@@ -3,98 +3,112 @@
 import React from 'react';
 import Link from 'next/link';
 
+/**
+ * Footer link recipe (design refresh): the lime dot scales/fades in while the
+ * label slides 4px right — directional hover, ≤200ms, no loops. The dot is
+ * absolutely positioned so it never shifts the resting layout.
+ */
+function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="group relative inline-flex items-center text-mist hover:text-white transition-colors duration-200"
+    >
+      <span
+        aria-hidden="true"
+        className="absolute -left-3 h-1 w-1 rounded-full bg-lime-soft opacity-0 scale-0 transition-all duration-200 group-hover:opacity-100 group-hover:scale-100"
+      />
+      <span className="transition-transform duration-200 group-hover:translate-x-1">
+        {children}
+      </span>
+    </Link>
+  );
+}
+
+/**
+ * Tall editorial footer: the brand logo anchors the left half, the link
+ * columns sit smaller on the right, and a slim small-print row closes it out.
+ */
 export function SiteFooter() {
   return (
-    <footer className="bg-[#25372D] text-[#F6F9F6] border-t border-[#5D8B69]/40 mt-20">
-      <div className="max-w-[1280px] mx-auto px-4 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-10 border-b border-[#5D8B69]/30">
-          <div className="md:col-span-2 space-y-3">
-            <p className="font-heading text-2xl font-bold tracking-tight text-white">
-              PSYCHAVE PH
-            </p>
-            <p className="text-sm text-[#C0D3C3] max-w-md leading-relaxed">
-              PsychAvenuePH is a structured Philippine mental-health booking platform built around
-              canonical Flow C booking, PRC-verified resident psychologists, explicit clinical duration
+    <footer className="bg-pine text-parchment border-t border-sage/40 mt-20">
+      <div className="max-w-6xl mx-auto px-4 lg:px-8 py-16 lg:py-24">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-start lg:items-center">
+          {/* Left: brand logo + platform note */}
+          <div className="space-y-6">
+            <img
+              src="/psychave-logo.png"
+              alt="PSYCHAVE PH — PsychAvenuePH logo"
+              width={1024}
+              height={720}
+              className="h-auto w-64 sm:w-72 lg:w-80"
+            />
+            <p className="text-sm text-mist max-w-md leading-relaxed">
+              PsychAvenuePH is a Philippine mental-health booking platform built around
+              structured booking, PRC-verified resident psychologists, explicit clinical duration
               guardrails, and strict confidentiality governance.
             </p>
-            <p className="text-xs text-[#8FBE8F] pt-1">
+            <p className="text-xs text-mint">
               Direct Clinic Coordination: psychaveph.info@gmail.com
             </p>
           </div>
 
-          <div className="space-y-2.5 text-sm">
-            <p className="font-heading text-base font-semibold text-[#D0E187]">
-              Public Site Map
-            </p>
-            <ul className="space-y-2 text-[#C0D3C3]">
-              <li>
-                <Link href="/" className="hover:text-white transition-colors">
-                  Home
-                </Link>
-              </li>
-              <li>
-                <Link href="/services" className="hover:text-white transition-colors">
-                  Services & Guardrails
-                </Link>
-              </li>
-              <li>
-                <Link href="/about" className="hover:text-white transition-colors">
-                  About Us & Anonymized Roster
-                </Link>
-              </li>
-              <li>
-                <Link href="/book" className="hover:text-white transition-colors">
-                  Book a Session (Fallback & Booking)
-                </Link>
-              </li>
-            </ul>
-          </div>
+          {/* Right: smaller link columns */}
+          <div className="grid grid-cols-2 gap-8 lg:gap-12">
+            <div className="space-y-3 text-sm">
+              <p className="text-xs font-medium uppercase tracking-wider text-lime-soft">
+                Public Site Map
+              </p>
+              <ul className="space-y-2 text-mist">
+                <li>
+                  <FooterLink href="/">Home</FooterLink>
+                </li>
+                <li>
+                  <FooterLink href="/#services">Services &amp; Guardrails</FooterLink>
+                </li>
+                <li>
+                  <FooterLink href="/#about">About Us &amp; Anonymized Roster</FooterLink>
+                </li>
+                <li>
+                  <FooterLink href="/book">Book a Session (Fallback &amp; Booking)</FooterLink>
+                </li>
+              </ul>
+            </div>
 
-          <div className="space-y-2.5 text-sm">
-            <p className="font-heading text-base font-semibold text-[#D0E187]">
-              Flow C Role Dashboards
-            </p>
-            <ul className="space-y-2 text-[#C0D3C3]">
-              <li>
-                <Link href="/personas" className="hover:text-white transition-colors">
-                  Client Personas & Booking Form
-                </Link>
-              </li>
-              <li>
-                <Link href="/bookings" className="hover:text-white transition-colors">
-                  Client Bookings & Proposal Picker
-                </Link>
-              </li>
-              <li>
-                <Link href="/psych/queue" className="hover:text-white transition-colors">
-                  Psychologist Pending Queue
-                </Link>
-              </li>
-              <li>
-                <Link href="/psych/schedule" className="hover:text-white transition-colors">
-                  Psychologist My Schedules
-                </Link>
-              </li>
-              <li>
-                <Link href="/admin/verifications" className="hover:text-white transition-colors">
-                  Admin Credential Verification
-                </Link>
-              </li>
-              <li>
-                <Link href="/admin/cms" className="hover:text-white transition-colors">
-                  Admin Payload CMS Editors
-                </Link>
-              </li>
-            </ul>
+            <div className="space-y-3 text-sm">
+              <p className="text-xs font-medium uppercase tracking-wider text-lime-soft">
+                Role Dashboards
+              </p>
+              <ul className="space-y-2 text-mist">
+                <li>
+                  <FooterLink href="/personas">Client Personas &amp; Booking Form</FooterLink>
+                </li>
+                <li>
+                  <FooterLink href="/bookings">Client Bookings &amp; Proposal Picker</FooterLink>
+                </li>
+                <li>
+                  <FooterLink href="/psych/queue">Psychologist Pending Queue</FooterLink>
+                </li>
+                <li>
+                  <FooterLink href="/psych/schedule">Psychologist My Schedules</FooterLink>
+                </li>
+                <li>
+                  <FooterLink href="/admin/verifications">Admin Credential Verification</FooterLink>
+                </li>
+                <li>
+                  <FooterLink href="/admin/cms">Admin Payload CMS Editors</FooterLink>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
 
-        <div className="pt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-[#C0D3C3]/80">
+        <div className="mt-12 lg:mt-16 pt-6 border-t border-sage/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-mist/80">
           <p>
-            © {new Date().getFullYear()} PSYCHAVE PH (PsychAvenuePH). All clinical services adhere to PAP Ethical Guidelines & RA 10173 Data Privacy standards.
+            © {new Date().getFullYear()} PSYCHAVE PH (PsychAvenuePH). All clinical services adhere to PAP Ethical Guidelines &amp; RA 10173 Data Privacy standards.
           </p>
-          <p className="text-[#8FBE8F]">
-            No personal quotes · No identifiable resident names · Canonical Flow C
+          <p className="text-mint">
+            No personal quotes · No identifiable resident names · Structured Booking
           </p>
         </div>
       </div>

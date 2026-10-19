@@ -76,13 +76,9 @@ export const useAppStore = create<AppState>((set) => ({
     })),
   resetBookingDraft: () => set({ bookingDraft: DEFAULT_DRAFT }),
 
-  lastFlowEvent: {
-    id: 'init-flow-c',
-    title: 'Proposal Alert Ready for Review',
-    detail:
-      'Booking #BK-2026-102 has 3 proposed schedule slots from Resident Psychologist #RP-01 awaiting your slot selection and payment.',
-    timestamp: 'Just now',
-  },
+  // No synthetic event on load: a pre-filled fake notification misleads users.
+  // Flow events appear only after real in-app transitions (publishFlowEvent).
+  lastFlowEvent: null,
   publishFlowEvent: (title, detail) =>
     set({
       lastFlowEvent: {

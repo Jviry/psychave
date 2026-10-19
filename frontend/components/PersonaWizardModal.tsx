@@ -27,7 +27,7 @@ import {
 } from '../lib/schemas';
 import { useAppStore } from '../stores/useAppStore';
 import { clearWizardDraftStorage, getConsentVersion, usePersonaWizardStore } from '../stores/usePersonaWizardStore';
-import { Button, Input, Label, Select, Textarea } from './ui/primitives';
+import { Button, Input, Label, Modal, Select, Textarea } from './ui/primitives';
 
 type Errors = Record<string, string>;
 
@@ -151,7 +151,8 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
   const [attempted, setAttempted] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [versionMismatch, setVersionMismatch] = useState(false);
-  const panelRef = useRef<HTMLDivElement>(null);
+  /** True while the inline "leave the wizard?" confirmation is showing. */
+  const [confirmingClose, setConfirmingClose] = useState(false);
   const firstFieldRef = useRef<HTMLInputElement>(null);
   /**
    * When true, the next step change is a programmatic jump to a validation
@@ -180,7 +181,9 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
    */
   function focusFirstError() {
     window.setTimeout(() => {
-      const target = panelRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+      const target = document.querySelector<HTMLElement>(
+        '[data-wizard-panel] [aria-invalid="true"]'
+      );
       if (target) {
         target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         target.focus({ preventScroll: true });
@@ -191,8 +194,9 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
   function requestClose() {
     const dirty = JSON.stringify(draft) !== JSON.stringify(DEFAULT_DRAFT_SNAPSHOT);
     if (dirty) {
-      const ok = window.confirm('Leave the wizard? Your progress is saved and will restore on reopen.');
-      if (!ok) return;
+      // Explicit inline confirm in the dialog — no native window.confirm.
+      setConfirmingClose(true);
+      return;
     }
     closeWizard();
   }
@@ -220,15 +224,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
     return () => clearTimeout(t);
   }, [isOpen, currentStep]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') requestClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, draft]);
+  // Escape-to-close is handled by the shared <Modal> shell (calls requestClose).
 
   // Preserve draft across accidental refresh (store already persists to sessionStorage).
   useEffect(() => {
@@ -376,52 +372,80 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start md:items-center justify-center p-3 sm:p-6"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="persona-wizard-title"
-    >
-      <button
-        aria-label="Close wizard (unsaved progress is kept)"
-        onClick={requestClose}
-        className="absolute inset-0 bg-[#25372D]/60 cursor-pointer"
-      />
-      <div
-        ref={panelRef}
-        className="relative w-full max-w-3xl max-h-[92vh] overflow-y-auto bg-white border border-[#C0D3C3] rounded-xl shadow-xl"
-      >
-        {/* Header — consistent with page headers */}
-        <div className="sticky top-0 bg-white border-b border-[#C0D3C3] px-5 sm:px-7 pt-5 pb-4 rounded-t-xl">
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-xs text-[#5D8B69] font-semibold">
-                New Persona · Step {currentStep} of 4 · Consent {getConsentVersion()}
-              </p>
-              <h2 id="persona-wizard-title" className="font-heading text-2xl font-bold text-[#25372D]">
-                {STEP_TITLES[currentStep - 1]}
-              </h2>
-            </div>
-            <Button variant="ghost" size="sm" onClick={requestClose} aria-label="Close wizard">
-              ✕
+    <Modal
+      open={isOpen}
+      onClose={requestClose}
+      title={STEP_TITLES[currentStep - 1]}
+      description={`New Persona · Step ${currentStep} of 4 · Consent ${getConsentVersion()}`}
+      maxWidth="3xl"
+      footer={
+        <>
+          <span className="mr-auto text-xs text-pine/65">
+            {currentStep < 4 ? 'Nothing is sent until final submit.' : `Single POST /personas · consent ${getConsentVersion()}`}
+          </span>
+          {currentStep > 1 && (
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => setStep((currentStep - 1) as 1 | 2 | 3 | 4)}
+              disabled={mutation.isPending}
+            >
+              Back
             </Button>
-          </div>
-          <ol className="flex items-center gap-2 mt-3" aria-label="Wizard progress">
-            {([1, 2, 3, 4] as const).map((s) => (
-              <li key={s} className="flex-1">
-                <div
-                  className={`h-1.5 rounded-full ${s <= currentStep ? 'bg-[#5D8B69]' : 'bg-[#C0D3C3]/60'}`}
-                  aria-hidden="true"
-                />
-                <span className="sr-only">Step {s}{s === currentStep ? ' (current)' : ''}</span>
-              </li>
-            ))}
-          </ol>
-        </div>
+          )}
+          {currentStep < 4 ? (
+            <Button variant="primary" size="md" onClick={goNext} disabled={mutation.isPending}>
+              Next
+            </Button>
+          ) : (
+            <Button variant="primary" size="md" onClick={handleSubmit} disabled={mutation.isPending}>
+              {mutation.isPending ? 'Submitting…' : 'Submit persona &amp; consent'}
+            </Button>
+          )}
+        </>
+      }
+    >
+      <div data-wizard-panel className="space-y-5">
+        {/* Wizard progress */}
+        <ol className="flex items-center gap-2" aria-label="Wizard progress">
+          {([1, 2, 3, 4] as const).map((s) => (
+            <li key={s} className="flex-1">
+              <div
+                className={`h-1.5 rounded-full ${s <= currentStep ? 'bg-sage' : 'bg-mist/60'}`}
+                aria-hidden="true"
+              />
+              <span className="sr-only">Step {s}{s === currentStep ? ' (current)' : ''}</span>
+            </li>
+          ))}
+        </ol>
 
-        <div className="px-5 sm:px-7 py-6 space-y-5">
+        {confirmingClose ? (
+          /* Unsaved-draft confirm replaces the wizard body */
+          <section className="py-10 text-center space-y-5" role="alertdialog" aria-label="Confirm leaving wizard">
+            <p className="font-heading text-xl font-medium text-pine">Leave the wizard?</p>
+            <p className="text-sm text-pine/70 max-w-md mx-auto leading-relaxed">
+              Your progress is saved and will restore when you reopen.
+            </p>
+            <div className="flex justify-center gap-3">
+              <Button variant="outline" size="md" onClick={() => setConfirmingClose(false)}>
+                Keep editing
+              </Button>
+              <Button
+                variant="dark"
+                size="md"
+                onClick={() => {
+                  setConfirmingClose(false);
+                  closeWizard();
+                }}
+              >
+                Leave wizard
+              </Button>
+            </div>
+          </section>
+        ) : (
+          <>
           {serverError && (
-            <div role="alert" className="p-4 rounded-xl bg-red-50 border border-red-300 text-sm text-red-900 space-y-2">
+            <div role="alert" className="p-4 rounded-lg bg-red-50 border border-red-300 text-sm text-red-900 space-y-2">
               <p className="font-semibold">{serverError}</p>
               {versionMismatch && (
                 <div className="flex flex-wrap gap-2">
@@ -441,11 +465,11 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
           {currentStep === 1 && (
             <section className="space-y-5" aria-label="Informed consent and agreement">
               <div>
-                <Label htmlFor="wiz-consent-text">Informed consent text ({getConsentVersion()}) — scroll to read</Label>
+                <Label htmlFor="wiz-consent-text" variant="doc">Informed consent text ({getConsentVersion()}) — scroll to read</Label>
                 <div
                   id="wiz-consent-text"
                   tabIndex={0}
-                  className="mt-1.5 max-h-48 overflow-y-auto p-4 rounded-lg bg-[#F6F9F6] border border-[#C0D3C3] text-xs text-[#25372D]/90 leading-relaxed whitespace-pre-wrap"
+                  className="mt-1.5 max-h-48 overflow-y-auto p-4 rounded-lg bg-parchment border border-mist text-xs text-pine/90 leading-relaxed whitespace-pre-wrap"
                 >
                   {INFORMED_CONSENT_TEXT}
                 </div>
@@ -511,7 +535,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
                   aria-describedby={shownErrors['terms_signer_name'] ? errId('signer-name') : undefined}
                 />
                 <FieldError id={errId('signer-name')} message={shownErrors['terms_signer_name']} />
-                <p className="text-xs text-[#25372D]/70 mt-1.5 leading-relaxed">{TYPING_STATEMENT}</p>
+                <p className="text-xs text-pine/70 mt-1.5 leading-relaxed">{TYPING_STATEMENT}</p>
               </div>
             </section>
           )}
@@ -519,37 +543,37 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
           {currentStep === 2 && (
             <section className="space-y-5" aria-label="Services offered and acknowledgements">
               <div className="space-y-3">
-                <h3 className="font-heading text-lg font-bold text-[#25372D]">Services offered (read-only)</h3>
+                <h3 className="font-heading text-lg font-medium text-pine">Services offered (read-only)</h3>
                 <ul className="space-y-2">
                   {(services.length > 0 ? services : []).map((s) => (
-                    <li key={s.id} className="p-3.5 rounded-lg bg-[#F6F9F6] border border-[#C0D3C3]">
-                      <p className="text-sm font-semibold text-[#25372D]">
-                        {s.title} <span className="font-mono font-normal text-[#5D8B69]">· {s.durationLabel}</span>
+                    <li key={s.id} className="p-3.5 rounded-lg bg-parchment border border-mist">
+                      <p className="text-sm font-semibold text-pine">
+                        {s.title} <span className="font-normal text-accent-ink">· {s.durationLabel}</span>
                       </p>
-                      <p className="text-xs text-[#25372D]/75 mt-0.5">{s.guardrailNotice}</p>
+                      <p className="text-xs text-pine/75 mt-0.5">{s.guardrailNotice}</p>
                     </li>
                   ))}
                   {services.length === 0 && (
-                    <li className="p-3.5 rounded-lg bg-[#F6F9F6] border border-[#C0D3C3] text-xs text-[#25372D]/75">
+                    <li className="p-3.5 rounded-lg bg-parchment border border-mist text-xs text-pine/75">
                       Service list unavailable offline — scope acknowledgement below still applies to all 7 canonical services.
                     </li>
                   )}
                 </ul>
               </div>
               <div>
-                <Label htmlFor="wiz-scope-text">Scope &amp; limitations of services — scroll to read</Label>
+                <Label htmlFor="wiz-scope-text" variant="doc">Scope &amp; limitations of services — scroll to read</Label>
                 <div
                   id="wiz-scope-text"
                   tabIndex={0}
-                  className="mt-1.5 max-h-48 overflow-y-auto p-4 rounded-lg bg-[#F6F9F6] border border-[#C0D3C3] text-xs text-[#25372D]/90 leading-relaxed whitespace-pre-wrap"
+                  className="mt-1.5 max-h-48 overflow-y-auto p-4 rounded-lg bg-parchment border border-mist text-xs text-pine/90 leading-relaxed whitespace-pre-wrap"
                 >
                   {SCOPE_LIMITATIONS_TEXT}
                 </div>
               </div>
-              <label className="flex items-start gap-3 text-sm text-[#25372D] cursor-pointer p-4 rounded-lg bg-[#F6F9F6] border border-[#C0D3C3]">
+              <label className="flex items-start gap-3 text-sm text-pine cursor-pointer p-4 rounded-lg bg-parchment border border-mist">
                 <input
                   type="checkbox"
-                  className="mt-0.5 h-4 w-4 rounded border-[#5D8B69] text-[#5D8B69] focus:ring-[#5D8B69]"
+                  className="mt-0.5 h-4 w-4 rounded border-mist accent-sage cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
                   checked={draft.scope_acknowledged}
                   onChange={(e) => updateDraft({ scope_acknowledged: e.target.checked })}
                   aria-invalid={!!shownErrors['scope_acknowledged']}
@@ -558,10 +582,10 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
                 <span className="leading-relaxed text-xs">{SCOPE_ACK_TEXT}</span>
               </label>
               <FieldError id={errId('scope')} message={shownErrors['scope_acknowledged']} />
-              <label className="flex items-start gap-3 text-sm text-[#25372D] cursor-pointer">
+              <label className="flex items-start gap-3 text-sm text-pine cursor-pointer">
                 <input
                   type="checkbox"
-                  className="mt-0.5 h-4 w-4 rounded border-[#5D8B69] text-[#5D8B69] focus:ring-[#5D8B69]"
+                  className="mt-0.5 h-4 w-4 rounded border-mist accent-sage cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
                   checked={draft.is_overseas_or_foreign}
                   onChange={(e) =>
                     updateDraft({
@@ -574,18 +598,18 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
               </label>
               {draft.is_overseas_or_foreign && (
                 <div className="space-y-2">
-                  <Label htmlFor="wiz-overseas-text">Limitations for overseas clients and foreign nationals — scroll to read</Label>
+                  <Label htmlFor="wiz-overseas-text" variant="doc">Limitations for overseas clients and foreign nationals — scroll to read</Label>
                   <div
                     id="wiz-overseas-text"
                     tabIndex={0}
-                    className="max-h-48 overflow-y-auto p-4 rounded-lg bg-[#F6F9F6] border border-[#C0D3C3] text-xs text-[#25372D]/90 leading-relaxed whitespace-pre-wrap"
+                    className="max-h-48 overflow-y-auto p-4 rounded-lg bg-parchment border border-mist text-xs text-pine/90 leading-relaxed whitespace-pre-wrap"
                   >
                     {OVERSEAS_LIMITATIONS_TEXT}
                   </div>
-                  <label className="flex items-start gap-3 text-sm text-[#25372D] cursor-pointer p-4 rounded-lg bg-[#EBF2EC] border-l-4 border-[#5D8B69]">
+                  <label className="flex items-start gap-3 text-sm text-pine cursor-pointer p-4 rounded-lg bg-surface-sunken border-l-2 border-sage">
                     <input
                       type="checkbox"
-                      className="mt-0.5 h-4 w-4 rounded border-[#5D8B69] text-[#5D8B69] focus:ring-[#5D8B69]"
+                      className="mt-0.5 h-4 w-4 rounded border-mist accent-sage cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
                       checked={draft.overseas_acknowledged}
                       onChange={(e) => updateDraft({ overseas_acknowledged: e.target.checked })}
                       aria-invalid={!!shownErrors['overseas_acknowledged']}
@@ -678,10 +702,10 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
                 />
                 <FieldError id={errId('perm')} message={shownErrors['permanent_address']} />
               </div>
-              <label className="flex items-center gap-2.5 text-xs text-[#25372D] cursor-pointer">
+              <label className="flex items-center gap-2.5 text-xs text-pine cursor-pointer">
                 <input
                   type="checkbox"
-                  className="h-4 w-4 rounded border-[#5D8B69] text-[#5D8B69] focus:ring-[#5D8B69]"
+                  className="h-4 w-4 rounded border-mist accent-sage cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
                   checked={draft.sameAsPermanent}
                   onChange={(e) => updateDraft({ sameAsPermanent: e.target.checked })}
                 />
@@ -745,7 +769,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-xl bg-[#F6F9F6] border border-[#C0D3C3]">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-lg bg-parchment border border-mist">
                 <div>
                   <Label htmlFor="wiz-em-name">Emergency contact name</Label>
                   <Input
@@ -785,7 +809,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
                   <FieldError id={errId('em-num')} message={shownErrors['emergency_contact_number']} />
                 </div>
               </div>
-              <p className="text-xs text-[#25372D]/65">
+              <p className="text-xs text-pine/65">
                 Presenting concern is not collected here — it belongs to the booking step.
               </p>
             </section>
@@ -793,7 +817,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
 
           {currentStep === 4 && (
             <section className="space-y-5" aria-label="Confirmation and final consent">
-              <div className="rounded-xl border border-[#C0D3C3] overflow-hidden">
+              <div className="rounded-lg border border-mist overflow-hidden">
                 {[
                   { title: 'Consent & agreement', step: 1 as const, rows: [
                     ['Who for', draft.whoFor === 'myself' ? 'Myself' : 'Someone else'],
@@ -815,13 +839,13 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
                     ['Emergency contact', draft.emergency_contact_name ? `${draft.emergency_contact_name} (${draft.emergency_contact_relation}) · ${draft.emergency_contact_number}` : '—'],
                   ]},
                 ].map((group) => (
-                  <div key={group.title} className="border-b border-[#C0D3C3] last:border-b-0">
-                    <div className="flex items-center justify-between px-4 py-2.5 bg-[#F6F9F6]">
-                      <p className="text-xs font-bold text-[#25372D]">{group.title}</p>
+                  <div key={group.title} className="border-b border-mist last:border-b-0">
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-parchment">
+                      <p className="text-xs font-bold text-pine">{group.title}</p>
                       <button
                         type="button"
                         onClick={() => setStep(group.step)}
-                        className="text-xs font-semibold text-[#5D8B69] hover:text-[#25372D] underline cursor-pointer"
+                        className="text-xs font-semibold text-accent-ink hover:text-pine underline cursor-pointer"
                       >
                         Edit
                       </button>
@@ -829,18 +853,18 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
                     <dl className="px-4 py-2 space-y-1">
                       {group.rows.map(([k, v]) => (
                         <div key={k} className="flex justify-between gap-4 text-xs">
-                          <dt className="text-[#25372D]/65">{k}</dt>
-                          <dd className="font-medium text-[#25372D] text-right break-words">{v}</dd>
+                          <dt className="text-pine/65">{k}</dt>
+                          <dd className="font-medium text-pine text-right break-words">{v}</dd>
                         </div>
                       ))}
                     </dl>
                   </div>
                 ))}
               </div>
-              <label className="flex items-start gap-3 text-xs text-[#25372D] cursor-pointer p-4 rounded-lg bg-[#F6F9F6] border border-[#C0D3C3]">
+              <label className="flex items-start gap-3 text-xs text-pine cursor-pointer p-4 rounded-lg bg-parchment border border-mist">
                 <input
                   type="checkbox"
-                  className="mt-0.5 h-4 w-4 rounded border-[#5D8B69] text-[#5D8B69] focus:ring-[#5D8B69]"
+                  className="mt-0.5 h-4 w-4 rounded border-mist accent-sage cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
                   checked={draft.information_confirmed}
                   onChange={(e) => updateDraft({ information_confirmed: e.target.checked })}
                   aria-invalid={!!shownErrors['information_confirmed']}
@@ -867,31 +891,9 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
               </div>
             </section>
           )}
-        </div>
-
-        {/* Footer */}
-        <div className="sticky bottom-0 bg-white border-t border-[#C0D3C3] px-5 sm:px-7 py-4 rounded-b-xl flex flex-wrap items-center justify-between gap-3">
-          <span className="text-xs text-[#25372D]/65">
-            {currentStep < 4 ? 'Nothing is sent until final submit.' : `Single POST /personas · consent ${getConsentVersion()}`}
-          </span>
-          <div className="flex items-center gap-2.5">
-            {currentStep > 1 && (
-              <Button variant="outline" size="md" onClick={() => setStep((currentStep - 1) as 1 | 2 | 3 | 4)} disabled={mutation.isPending}>
-                Back
-              </Button>
-            )}
-            {currentStep < 4 ? (
-              <Button variant="primary" size="md" onClick={goNext} disabled={mutation.isPending}>
-                Next
-              </Button>
-            ) : (
-              <Button variant="primary" size="md" onClick={handleSubmit} disabled={mutation.isPending}>
-                {mutation.isPending ? 'Submitting…' : 'Submit persona & consent'}
-              </Button>
-            )}
-          </div>
-        </div>
+          </>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }

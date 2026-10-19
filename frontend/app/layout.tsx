@@ -1,40 +1,51 @@
-'use client';
-
-import React, { useState } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import React from 'react';
+import type { Metadata } from 'next';
+import { Fraunces, Inter } from 'next/font/google';
 import './globals.css';
-import { SiteHeader } from '../components/SiteHeader';
-import { SiteFooter } from '../components/SiteFooter';
+import { Providers } from './providers';
 
+/**
+ * Fonts are self-hosted at build time via next/font (no runtime CDN, no FOUT
+ * without swap). Display face: Fraunces — a soft serif used at regular/medium
+ * weight for editorial headings (design refresh). Body: Inter (OFL).
+ * Historical: "Proxima Nova Condensed" -> Inter (pre-v2); Archivo expanded
+ * (minimal pass) -> reverted to Fraunces at the user's call.
+ */
+const headingFont = Fraunces({
+  subsets: ['latin'],
+  variable: '--font-fraunces',
+  display: 'swap',
+});
+
+const bodyFont = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+});
+
+export const metadata: Metadata = {
+  title: {
+    default: 'PsychAvenuePH — PRC-Verified Mental Health Care in the Philippines',
+    template: '%s — PsychAvenuePH',
+  },
+  description:
+    'Structured scheduling with PRC-registered psychologists — transparent pricing, guided intake, and consent-first data handling.',
+};
+
+/**
+ * Root layout is a server component and the ONLY place that renders
+ * <html>/<body>. Route-group layouts ((site), (auth)) provide their own
+ * chrome below this — never nest html/body again.
+ */
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 10_000,
-            refetchOnWindowFocus: false,
-          },
-        },
-      })
-  );
-
   return (
-    <html lang="en">
+    <html lang="en" className={`${headingFont.variable} ${bodyFont.variable}`}>
       <body>
-        <QueryClientProvider client={queryClient}>
-          <div className="min-h-screen flex flex-col bg-parchment text-pine font-body">
-            <SiteHeader />
-            <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-10">
-              {children}
-            </main>
-            <SiteFooter />
-          </div>
-        </QueryClientProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
