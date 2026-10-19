@@ -48,7 +48,7 @@ function StatementCard({
   tint: AboutTint;
 }) {
   return (
-    <Card tint={tint} className="flex h-full flex-col gap-5 p-8 lg:p-10">
+    <Card tint={tint} className="flex h-full flex-col gap-5 p-5 lg:p-5">
       <CardHeading icon={icon} title={title} />
       {body ? (
         <p className="text-base leading-relaxed opacity-90">{body}</p>
@@ -87,7 +87,7 @@ function RosterCard({ resident, tint }: { resident: ResidentPsychologist; tint: 
 
 function ClinicCard({ cms }: { cms?: CmsContent }) {
   return (
-    <Card tint="pine" className="flex h-full flex-col gap-5 p-8 lg:p-10 max-w-[35rem]">
+    <Card tint="pine" className="flex h-full flex-col gap-5 p-5 lg:p-8 max-w-[50rem]">
       <CardHeading icon={Stethoscope} title="Clinic Overview" />
 
       {cms?.clinicOverview ? (
@@ -144,12 +144,12 @@ export function AboutGrid({
 
       {/* Center band — Clinic → (Vision ∥ Mission) → (RP-01 ∥ RP-02) → RP-03
           (the decorative white rail cards from the mockup are removed) */}
-      <div className="mx-auto w-full max-w-3xl space-y-2">
-        <div className="mx-auto w-full max-w-[23rem]">
+      <div className="mx-auto w-full max-w-4xl space-y-4">
+        <div className="mx-auto w-full max-w-[35rem]">
           <ClinicCard cms={cms} />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_1fr] sm:gap-1">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-[1fr_1fr] sm:gap-4">
           <StatementCard
             title="Vision Statement"
             icon={Telescope}
@@ -166,13 +166,13 @@ export function AboutGrid({
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_1fr] sm:gap-1">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_1fr] sm:gap-4">
           {roster[0] && <RosterCard resident={roster[0]} tint="mint" />}
           {roster[1] && <RosterCard resident={roster[1]} tint="sage" />}
         </div>
 
         {roster[2] && (
-          <div className="mx-auto w-full max-w-[23rem]">
+          <div className="mx-auto w-full max-w-[35rem]">
             <RosterCard resident={roster[2]} tint="mist" />
           </div>
         )}

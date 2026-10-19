@@ -115,7 +115,7 @@ export function Card({
       }[tint]
     : 'bg-surface-raised border-mist';
   return (
-    <div className={`border rounded-2xl p-6 ${surface} ${className}`}>
+    <div className={`border rounded-2xl p-4 ${surface} ${className}`}>
       {children}
     </div>
   );

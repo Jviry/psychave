@@ -14,21 +14,18 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="min-h-screen flex bg-parchment">
       {/* ── Left: Brand Panel ────────────────────────────────── */}
-      <div className="hidden lg:flex lg:w-[45%] xl:w-[40%] flex-col justify-between bg-pine p-12">
+      <div className="hidden lg:flex lg:w-[45%] xl:w-[40%] flex-col justify-between bg-pine p-20">
         {/* Logo + subtext as a centered unit */}
-        <div className="flex flex-col items-center gap-1.5">
+        <div className="flex flex-col items-center gap-5">
           <Link href="/" className="inline-block">
             <img
               src="/psychave-logo.png"
               alt="PSYCHAVE PH"
               width={1024}
               height={720}
-              className="h-auto w-48 sm:w-64 shrink-0"
+              className="h-auto w-48 sm:w-70 shrink-0"
             />
           </Link>
-          <p className="text-xs font-semibold uppercase tracking-widest text-lime-soft">
-            PRC-Licensed Resident Psychologists
-          </p>
         </div>
 
         {/* Center content */}
@@ -43,22 +40,6 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <p className="text-base leading-relaxed text-parchment/70 max-w-sm">
             Professional, confidential, and compassionate psychological care — when you need it most.
           </p>
-
-          {/* Trust signals */}
-          <ul className="flex flex-col gap-3 pt-2">
-            {[
-              'PRC-verified psychologists only',
-              'RA 10173 Data Privacy Act compliant',
-              'Secure, confidential sessions',
-            ].map((item) => (
-              <li key={item} className="flex items-center gap-3">
-                <span className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 bg-lime-soft/15 text-lime-soft">
-                  <Check className="w-3 h-3" aria-hidden="true" />
-                </span>
-                <span className="text-sm text-parchment/80">{item}</span>
-              </li>
-            ))}
-          </ul>
         </div>
 
         {/* Bottom tagline */}
