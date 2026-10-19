@@ -87,13 +87,13 @@ export default function HomePage() {
         <div className="relative mx-auto max-w-4xl space-y-8 text-center">
           {/* Big brand logo replaces the headline (user mockup); sr-only h1 keeps an accessible document title */}
           <h1 className="sr-only">PSYCHAVE PH — PRC-verified mental health care in the Philippines</h1>
-          {/* Same size as the footer logo, with a subtle shadow */}
+          {/* Same size as the footer logo */}
           <img
             src="/psychave-logo.png"
             alt="PSYCHAVE PH"
             width={1024}
             height={720}
-            className="mx-auto h-auto w-64 sm:w-72 lg:w-80 shadow-sm"
+            className="mx-auto h-auto w-64 sm:w-72 lg:w-80"
           />
 
           <p className="mx-auto max-w-2xl text-base leading-relaxed text-pine/80 sm:text-lg">

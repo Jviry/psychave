@@ -146,15 +146,12 @@ export function SiteHeader() {
 
       {/* Top Bar Contract: Zone 1 (Single Wordmark) — Zone 2 (Clean Text Nav Links) — Zone 3 (Actions) */}
       <header className="max-w-6xl mx-auto px-4 lg:px-8 h-16 flex items-center justify-between gap-4">
-        {/* Zone 1: Brand Logo — same image + size as the footer logo */}
-        <Link href="/" className="flex items-center gap-0">
-          <img
-            src="/psychave-logo.png"
-            alt="PSYCHAVE PH"
-            width={1024}
-            height={720}
-            className="h-auto w-64 sm:w-72 lg:w-80 shrink-0"
-          />
+        {/* Zone 1: Brand Title, single text element in Proxima Nova Condensed */}
+        <Link
+          href="/"
+          className="font-heading text-2xl font-medium tracking-tight text-pine whitespace-nowrap shrink-0"
+        >
+          PSYCHAVE PH
         </Link>
 
         {/* Zone 2: Primary Public Site Map Navigation Links + Booking CTA */}
