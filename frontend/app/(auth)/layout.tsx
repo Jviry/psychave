@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { Check, Heart } from 'lucide-react';
+import { Check } from 'lucide-react';
 
 /**
  * Split-screen auth chrome. This is NOT a root layout — html/body belong to
@@ -16,13 +16,14 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       {/* ── Left: Brand Panel ────────────────────────────────── */}
       <div className="hidden lg:flex lg:w-[45%] xl:w-[40%] flex-col justify-between bg-pine p-12">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-3">
-          <span className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-lime-soft/15 border border-lime-soft/30">
-            <Heart className="w-5 h-5 text-lime-soft" aria-hidden="true" />
-          </span>
-          <span className="font-heading text-xl font-medium tracking-tight text-parchment">
-            PSYCHAVE PH
-          </span>
+        <Link href="/" className="flex items-center gap-0">
+          <img
+            src="/psychave-logo.png"
+            alt="PSYCHAVE PH"
+            width={1024}
+            height={720}
+            className="h-auto w-48 sm:w-64 shrink-0"
+          />
         </Link>
 
         {/* Center content */}
