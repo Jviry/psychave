@@ -90,18 +90,6 @@ export default function LoginPage() {
 
   return (
     <div className="w-full max-w-md">
-      {/* Brand logo — same image as the footer */}
-      <div className="mb-6 text-center">
-        <Link href="/" className="inline-block">
-          <img
-            src="/psychave-logo.png"
-            alt="PSYCHAVE PH"
-            width={1024}
-            height={720}
-            className="h-auto w-48 sm:w-64"
-          />
-        </Link>
-      </div>
       {toast && (
         <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
       )}

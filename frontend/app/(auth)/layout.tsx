@@ -15,22 +15,24 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     <div className="min-h-screen flex bg-parchment">
       {/* ── Left: Brand Panel ────────────────────────────────── */}
       <div className="hidden lg:flex lg:w-[45%] xl:w-[40%] flex-col justify-between bg-pine p-12">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-0">
-          <img
-            src="/psychave-logo.png"
-            alt="PSYCHAVE PH"
-            width={1024}
-            height={720}
-            className="h-auto w-48 sm:w-64 shrink-0"
-          />
-        </Link>
-
-        {/* Center content */}
-        <div className="space-y-6">
+        {/* Logo + subtext as a centered unit */}
+        <div className="flex flex-col items-center gap-1.5">
+          <Link href="/" className="inline-block">
+            <img
+              src="/psychave-logo.png"
+              alt="PSYCHAVE PH"
+              width={1024}
+              height={720}
+              className="h-auto w-48 sm:w-64 shrink-0"
+            />
+          </Link>
           <p className="text-xs font-semibold uppercase tracking-widest text-lime-soft">
             PRC-Licensed Resident Psychologists
           </p>
+        </div>
+
+        {/* Center content */}
+        <div className="space-y-6 mt-4">
           <h1 className="font-heading text-4xl xl:text-5xl font-medium leading-tight tracking-tight text-parchment">
             Your mental health
             <br />
