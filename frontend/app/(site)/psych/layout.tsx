@@ -33,17 +33,21 @@ export default function PsychologistDashboardLayout({
         aria-label="Psychologist Dashboard Navigation"
         className="flex flex-wrap items-center justify-between gap-4 border-b border-mist pb-3"
       >
-        <div className="flex items-center gap-2">
+        <div
+          role="group"
+          aria-label="Psychologist Workspace Sections"
+          className="flex items-center gap-1 p-1 bg-surface-sunken rounded-lg border border-mist"
+        >
           {navLinks.map((link) => {
             const isActive = pathname === link.href;
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                className={`px-3.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
                   isActive
-                    ? 'bg-pine text-white shadow-xs'
-                    : 'bg-surface-raised border border-mist text-pine hover:bg-surface-sunken'
+                    ? 'bg-surface-raised text-pine font-semibold shadow-xs'
+                    : 'text-pine/70 hover:text-pine'
                 }`}
               >
                 {link.label}
@@ -52,7 +56,7 @@ export default function PsychologistDashboardLayout({
           })}
         </div>
         <div className="text-xs text-pine/70 font-mono">
-          Practitioner ID: <span className="font-bold text-sage">{activePsychologistId}</span>
+          Practitioner ID: <span className="font-semibold text-accent-ink">{activePsychologistId}</span>
         </div>
       </nav>
 

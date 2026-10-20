@@ -8,6 +8,8 @@ import { api } from '../../../../lib/api';
 import {
   cmsOverviewSchema,
   CmsOverviewFormValues,
+  serviceGuardrailSchema,
+  ServiceGuardrailFormValues,
 } from '../../../../lib/schemas';
 import { useAppStore } from '../../../../stores/useAppStore';
 import {
@@ -65,19 +67,26 @@ export default function AdminCmsPage() {
   const currentService =
     services.find((s) => s.id === editingServiceId) || services[0];
 
-  const [srvDuration, setSrvDuration] = useState('');
-  const [srvGuardrailTitle, setSrvGuardrailTitle] = useState('');
-  const [srvGuardrailNotice, setSrvGuardrailNotice] = useState('');
-  const [srvDescription, setSrvDescription] = useState('');
+  const serviceForm = useForm<ServiceGuardrailFormValues>({
+    resolver: zodResolver(serviceGuardrailSchema),
+    defaultValues: {
+      durationLabel: '',
+      guardrailTitle: '',
+      guardrailNotice: '',
+      description: '',
+    },
+  });
 
   useEffect(() => {
     if (currentService) {
-      setSrvDuration(currentService.durationLabel);
-      setSrvGuardrailTitle(currentService.guardrailTitle);
-      setSrvGuardrailNotice(currentService.guardrailNotice);
-      setSrvDescription(currentService.description);
+      serviceForm.reset({
+        durationLabel: currentService.durationLabel,
+        guardrailTitle: currentService.guardrailTitle,
+        guardrailNotice: currentService.guardrailNotice,
+        description: currentService.description,
+      });
     }
-  }, [currentService]);
+  }, [currentService, serviceForm]);
 
   const saveCmsMutation = useMutation({
     mutationFn: (values: CmsOverviewFormValues) => {
@@ -103,12 +112,12 @@ export default function AdminCmsPage() {
   });
 
   const saveServiceMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (values: ServiceGuardrailFormValues) =>
       api.updateServiceGuardrail(editingServiceId, {
-        durationLabel: srvDuration,
-        guardrailTitle: srvGuardrailTitle,
-        guardrailNotice: srvGuardrailNotice,
-        description: srvDescription,
+        durationLabel: values.durationLabel,
+        guardrailTitle: values.guardrailTitle,
+        guardrailNotice: values.guardrailNotice,
+        description: values.description,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['services'] });
@@ -275,10 +284,10 @@ export default function AdminCmsPage() {
                   key={srv.id}
                   type="button"
                   onClick={() => setEditingServiceId(srv.id)}
-                  className={`w-full text-left p-3.5 rounded-lg border text-xs transition-colors cursor-pointer ${
+                  className={`w-full text-left p-3.5 rounded-xl border text-xs transition-colors cursor-pointer ${
                     editingServiceId === srv.id
                       ? 'border-sage bg-surface-sunken'
-                      : 'border-mist bg-surface-raised hover:bg-parchment'
+                      : 'border-mist bg-surface-raised hover:border-mint hover:bg-surface-sunken/40'
                   }`}
                 >
                   <div className="flex justify-between font-mono text-accent-ink font-semibold">
@@ -304,23 +313,34 @@ export default function AdminCmsPage() {
               </h2>
             </div>
 
-            <div className="space-y-4">
+            <form
+              onSubmit={serviceForm.handleSubmit((vals) => saveServiceMutation.mutate(vals))}
+              className="space-y-4"
+            >
               <div>
                 <Label htmlFor="srv-dur">Standard Duration Label</Label>
                 <Input
                   id="srv-dur"
-                  value={srvDuration}
-                  onChange={(e) => setSrvDuration(e.target.value)}
+                  {...serviceForm.register('durationLabel')}
                 />
+                {serviceForm.formState.errors.durationLabel && (
+                  <p className="text-xs text-red-700 mt-1">
+                    {serviceForm.formState.errors.durationLabel.message}
+                  </p>
+                )}
               </div>
 
               <div>
                 <Label htmlFor="srv-gt">Guardrail Headline</Label>
                 <Input
                   id="srv-gt"
-                  value={srvGuardrailTitle}
-                  onChange={(e) => setSrvGuardrailTitle(e.target.value)}
+                  {...serviceForm.register('guardrailTitle')}
                 />
+                {serviceForm.formState.errors.guardrailTitle && (
+                  <p className="text-xs text-red-700 mt-1">
+                    {serviceForm.formState.errors.guardrailTitle.message}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -328,9 +348,13 @@ export default function AdminCmsPage() {
                 <Textarea
                   id="srv-gn"
                   rows={3}
-                  value={srvGuardrailNotice}
-                  onChange={(e) => setSrvGuardrailNotice(e.target.value)}
+                  {...serviceForm.register('guardrailNotice')}
                 />
+                {serviceForm.formState.errors.guardrailNotice && (
+                  <p className="text-xs text-red-700 mt-1">
+                    {serviceForm.formState.errors.guardrailNotice.message}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -338,21 +362,25 @@ export default function AdminCmsPage() {
                 <Textarea
                   id="srv-desc"
                   rows={3}
-                  value={srvDescription}
-                  onChange={(e) => setSrvDescription(e.target.value)}
+                  {...serviceForm.register('description')}
                 />
+                {serviceForm.formState.errors.description && (
+                  <p className="text-xs text-red-700 mt-1">
+                    {serviceForm.formState.errors.description.message}
+                  </p>
+                )}
               </div>
 
               <Button
+                type="submit"
                 variant="primary"
-                onClick={() => saveServiceMutation.mutate()}
                 disabled={saveServiceMutation.isPending}
               >
                 {saveServiceMutation.isPending
                   ? 'Saving Service Guardrail...'
                   : 'Update Service & Guardrail'}
               </Button>
-            </div>
+            </form>
           </Card>
         </div>
       )}
@@ -371,14 +399,14 @@ export default function AdminCmsPage() {
               </p>
             </div>
 
-            <div className="space-y-3 text-xs">
+            <div className="divide-y divide-mist/60 text-xs">
               {roster.map((r) => (
                 <div
                   key={r.id}
-                  className="p-3.5 rounded-lg bg-parchment border border-mist flex items-center justify-between gap-3"
+                  className="py-3 flex items-center justify-between gap-3"
                 >
                   <div>
-                    <p className="font-medium text-pine">{r.anonymizedTitle}</p>
+                    <p className="font-heading text-base font-medium text-pine">{r.anonymizedTitle}</p>
                     <p className="text-pine/75">{r.specialization}</p>
                   </div>
                   <span className="font-mono text-xs text-accent-ink font-semibold shrink-0">
@@ -400,23 +428,23 @@ export default function AdminCmsPage() {
             </div>
 
             {cms && cms.testimonialsConfig.emptyCards.length === 0 ? (
-              <p className="p-4 rounded-lg bg-parchment border border-dashed border-mint/50 text-xs text-pine/70 leading-relaxed">
+              <p className="text-xs text-pine/70 leading-relaxed">
                 No testimonial slot structures seeded. Public pages render the consent governance
                 banner only; the emptyCards contract field stays reserved for structured slots when
                 the backend CMS lands.
               </p>
             ) : (
-              <div className="space-y-3 text-xs">
+              <div className="divide-y divide-mist/60 text-xs">
                 {cms?.testimonialsConfig.emptyCards.map((card) => (
                   <div
                     key={card.id}
-                    className="p-3.5 rounded-lg bg-parchment border border-dashed border-mint/50 space-y-1"
+                    className="py-3 space-y-1"
                   >
                     <div className="flex justify-between font-mono text-accent-ink">
                       <span>{card.slotCode}</span>
                       <span>Quote: Intentionally Empty</span>
                     </div>
-                    <p className="font-bold text-pine">{card.serviceCategory}</p>
+                    <p className="font-semibold text-pine">{card.serviceCategory}</p>
                     <p className="text-pine/75">{card.governanceNote}</p>
                   </div>
                 ))}

@@ -331,26 +331,26 @@ export default function PsychologistQueuePage() {
                 </div>
 
                 {/* Details Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs border-t border-mist/60 pt-4">
                   {/* Persona Info */}
-                  <div className="p-3.5 rounded-lg bg-parchment border border-mist/60 space-y-1.5">
-                    <p className="font-semibold text-accent-ink uppercase tracking-wide text-xs">
+                  <div className="space-y-1">
+                    <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
                       Client &amp; Persona Information
-                    </p>
-                    <p className="font-medium text-pine text-sm">{item.personaLabel}</p>
+                    </span>
+                    <p className="font-heading text-lg font-medium text-pine">{item.personaLabel}</p>
                     <p className="text-pine/75">
                       Language: <span className="font-medium text-pine">{item.preferredLanguage}</span>
                     </p>
-                    <p className="text-xs text-pine/60 pt-1">
+                    <p className="text-xs text-pine/60">
                       Submitted: {item.submittedAt}
                     </p>
                   </div>
 
                   {/* Service & Guardrail */}
-                  <div className="p-3.5 rounded-lg bg-parchment border border-mist/60 space-y-1.5">
-                    <p className="font-semibold text-accent-ink uppercase tracking-wide text-xs">
+                  <div className="space-y-1">
+                    <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
                       Service Duration &amp; Clinical Scope
-                    </p>
+                    </span>
                     <p className="font-semibold text-pine">
                       Duration: <span className="font-mono text-accent-ink font-medium">{item.serviceDuration}</span>
                     </p>
@@ -360,15 +360,15 @@ export default function PsychologistQueuePage() {
                   </div>
 
                   {/* Booking Notes */}
-                  <div className="p-3.5 rounded-lg bg-parchment border border-mist/60 space-y-1.5">
-                    <p className="font-semibold text-accent-ink uppercase tracking-wide text-xs">
+                  <div className="space-y-1">
+                    <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
                       Presenting Concerns &amp; Needs
-                    </p>
+                    </span>
                     <p className="text-pine/90 line-clamp-3 leading-relaxed">
                       {item.concernsSummary}
                     </p>
                     {item.specificNeeds && (
-                      <p className="text-xs text-pine/70 italic pt-1">
+                      <p className="text-xs text-pine/70 italic pt-0.5">
                         Specifics: {item.specificNeeds}
                       </p>
                     )}
@@ -458,63 +458,65 @@ export default function PsychologistQueuePage() {
               {/* Exactly 3 Slots Required with no past dates */}
               <div className="space-y-3 pt-1">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold text-pine uppercase tracking-wide">
+                  <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
                     Propose Exactly 3 Schedule Slots (PST) <span className="text-red-600">*</span>
-                  </p>
+                  </span>
                   <span className="text-xs text-accent-ink font-medium">
                     Must be distinct &amp; in the future
                   </span>
                 </div>
 
-                {/* Slot 1 */}
-                <div>
-                  <Label htmlFor="modal-slot-1">Slot 1 (Date &amp; Time)</Label>
-                  <Input
-                    id="modal-slot-1"
-                    type="datetime-local"
-                    min={minDateTime}
-                    className="font-mono tabular-nums"
-                    {...proposalForm.register('slot1DateTime')}
-                  />
-                  {proposalForm.formState.errors.slot1DateTime && (
-                    <p className="text-xs text-red-700 mt-1 font-medium">
-                      {proposalForm.formState.errors.slot1DateTime.message}
-                    </p>
-                  )}
-                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* Slot 1 */}
+                  <div>
+                    <Label htmlFor="modal-slot-1">Slot 1 (Date &amp; Time)</Label>
+                    <Input
+                      id="modal-slot-1"
+                      type="datetime-local"
+                      min={minDateTime}
+                      className="font-mono tabular-nums text-xs"
+                      {...proposalForm.register('slot1DateTime')}
+                    />
+                    {proposalForm.formState.errors.slot1DateTime && (
+                      <p className="text-xs text-red-700 mt-1 font-medium">
+                        {proposalForm.formState.errors.slot1DateTime.message}
+                      </p>
+                    )}
+                  </div>
 
-                {/* Slot 2 */}
-                <div>
-                  <Label htmlFor="modal-slot-2">Slot 2 (Date &amp; Time)</Label>
-                  <Input
-                    id="modal-slot-2"
-                    type="datetime-local"
-                    min={minDateTime}
-                    className="font-mono tabular-nums"
-                    {...proposalForm.register('slot2DateTime')}
-                  />
-                  {proposalForm.formState.errors.slot2DateTime && (
-                    <p className="text-xs text-red-700 mt-1 font-medium">
-                      {proposalForm.formState.errors.slot2DateTime.message}
-                    </p>
-                  )}
-                </div>
+                  {/* Slot 2 */}
+                  <div>
+                    <Label htmlFor="modal-slot-2">Slot 2 (Date &amp; Time)</Label>
+                    <Input
+                      id="modal-slot-2"
+                      type="datetime-local"
+                      min={minDateTime}
+                      className="font-mono tabular-nums text-xs"
+                      {...proposalForm.register('slot2DateTime')}
+                    />
+                    {proposalForm.formState.errors.slot2DateTime && (
+                      <p className="text-xs text-red-700 mt-1 font-medium">
+                        {proposalForm.formState.errors.slot2DateTime.message}
+                      </p>
+                    )}
+                  </div>
 
-                {/* Slot 3 */}
-                <div>
-                  <Label htmlFor="modal-slot-3">Slot 3 (Date &amp; Time)</Label>
-                  <Input
-                    id="modal-slot-3"
-                    type="datetime-local"
-                    min={minDateTime}
-                    className="font-mono tabular-nums"
-                    {...proposalForm.register('slot3DateTime')}
-                  />
-                  {proposalForm.formState.errors.slot3DateTime && (
-                    <p className="text-xs text-red-700 mt-1 font-medium">
-                      {proposalForm.formState.errors.slot3DateTime.message}
-                    </p>
-                  )}
+                  {/* Slot 3 */}
+                  <div>
+                    <Label htmlFor="modal-slot-3">Slot 3 (Date &amp; Time)</Label>
+                    <Input
+                      id="modal-slot-3"
+                      type="datetime-local"
+                      min={minDateTime}
+                      className="font-mono tabular-nums text-xs"
+                      {...proposalForm.register('slot3DateTime')}
+                    />
+                    {proposalForm.formState.errors.slot3DateTime && (
+                      <p className="text-xs text-red-700 mt-1 font-medium">
+                        {proposalForm.formState.errors.slot3DateTime.message}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
 

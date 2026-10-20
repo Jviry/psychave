@@ -124,13 +124,13 @@ export default function PsychologistProfilePage() {
           }
         />
       ) : (
-        <div className="bg-surface-sunken border border-mist rounded-lg p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="bg-surface-sunken border border-mist rounded-xl p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2.5">
             <div className="w-6 h-6 rounded-full bg-sage text-white flex items-center justify-center shrink-0">
               <Check className="w-4 h-4" strokeWidth={3} aria-hidden="true" />
             </div>
             <div>
-              <p className="font-medium text-pine">
+              <p className="font-semibold text-pine">
                 Credential Status: Verified &amp; Active
               </p>
               <p className="text-pine/75">
@@ -138,7 +138,7 @@ export default function PsychologistProfilePage() {
               </p>
             </div>
           </div>
-          <span className="font-mono px-2.5 py-1 bg-surface-raised rounded-md text-accent-ink font-medium border border-mist">
+          <span className="font-mono px-2.5 py-1 bg-surface-raised rounded-md text-accent-ink font-semibold border border-mist">
             {activePsych?.prcCredentialCode}
           </span>
         </div>
@@ -275,10 +275,10 @@ export default function PsychologistProfilePage() {
               <div>
                 <p className="text-pine/70">Public Roster Visibility:</p>
                 <span
-                  className={`inline-block mt-1 px-2 py-0.5 rounded-sm font-semibold text-xs ${
+                  className={`inline-block mt-1 px-2.5 py-0.5 rounded-full font-medium text-xs ${
                     activePsych?.visibleOnPublicRoster
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-amber-100 text-amber-800'
+                      ? 'bg-sage/15 text-pine'
+                      : 'bg-amber-100 text-amber-900'
                   }`}
                 >
                   {activePsych?.visibleOnPublicRoster
@@ -289,7 +289,7 @@ export default function PsychologistProfilePage() {
 
               <div>
                 <p className="text-pine/70">Assigned Case Load:</p>
-                <p className="font-bold text-pine">
+                <p className="font-semibold text-pine">
                   {activePsych?.assignedBookingsCount} active bookings
                 </p>
               </div>
@@ -307,9 +307,9 @@ export default function PsychologistProfilePage() {
               {activePsych?.serviceEligibility?.map((service) => (
                 <li
                   key={service}
-                  className="p-2.5 rounded-lg bg-parchment border border-mist/70 font-medium text-pine flex items-center gap-2"
+                  className="py-1.5 border-b border-mist/50 last:border-b-0 font-medium text-pine flex items-center gap-2"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-sage" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-sage shrink-0" aria-hidden="true" />
                   <span>{service}</span>
                 </li>
               ))}

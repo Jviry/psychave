@@ -17,6 +17,9 @@ import {
   BookingStatusTag,
   Button,
   Card,
+  Checkbox,
+  Label,
+  Radio,
   Skeleton,
 } from '../../../../components/ui/primitives';
 
@@ -138,9 +141,11 @@ export default function ProposalPickerPage() {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            <div className="p-4 rounded-lg bg-surface-raised border border-mist space-y-1">
-              <p className="text-pine/65">Confirmed Date &amp; Time Slot</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
+            <div className="space-y-1">
+              <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                Confirmed Date &amp; Time Slot
+              </span>
               <p className="font-heading text-lg font-medium text-pine">
                 {confirmedSlot?.dateLabel}
               </p>
@@ -149,8 +154,10 @@ export default function ProposalPickerPage() {
               </p>
             </div>
 
-            <div className="p-4 rounded-lg bg-surface-raised border border-mist space-y-1">
-              <p className="text-pine/65">Unlocked Teletherapy Room &amp; Contact</p>
+            <div className="space-y-1">
+              <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                Unlocked Teletherapy Room &amp; Contact
+              </span>
               <p className="font-mono text-accent-ink font-semibold break-all">
                 {booking.unlockedContact?.teletherapyUrl}
               </p>
@@ -159,8 +166,10 @@ export default function ProposalPickerPage() {
               </p>
             </div>
 
-            <div className="p-4 rounded-lg bg-surface-raised border border-mist space-y-1">
-              <p className="text-pine/65">Automated Reminders &amp; Sync</p>
+            <div className="space-y-1">
+              <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                Automated Reminders &amp; Sync
+              </span>
               <p className="font-semibold text-pine">
                 24h Reminder: {booking.reminders.reminder24h.toUpperCase()}
               </p>
@@ -311,18 +320,16 @@ export default function ProposalPickerPage() {
                   return (
                     <label
                       key={slot.id}
-                      className={`flex items-center justify-between p-4 rounded-lg border transition-colors cursor-pointer ${
+                      className={`flex items-center justify-between p-4 rounded-xl border transition-colors duration-150 cursor-pointer ${
                         isChecked
                           ? 'border-sage bg-surface-sunken'
-                          : 'border-mist bg-surface-raised hover:bg-parchment'
+                          : 'border-mist bg-surface-raised hover:border-mint hover:bg-surface-sunken/40'
                       }`}
                     >
                       <div className="flex items-center gap-3.5">
-                        <input
-                          type="radio"
+                        <Radio
                           value={slot.id}
                           disabled={booking.status === 'paid-confirmed'}
-                          className="h-4 w-4 accent-sage cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
                           {...form.register('selectedSlotId')}
                         />
                         <div>
@@ -348,17 +355,13 @@ export default function ProposalPickerPage() {
               </div>
 
               {/* Payment Method & Prototype Error State Simulator */}
-              <div className="p-4 rounded-lg bg-parchment border border-mist space-y-4">
+              <div className="border-t border-mist/70 pt-5 space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs font-medium text-pine">
-                    Stripe Checkout Method (Mock Gateway)
-                  </p>
-                  <label className="inline-flex items-center gap-2 text-xs text-pine cursor-pointer">
-                    <input
-                      type="checkbox"
+                  <Label>Stripe Checkout Method (Mock Gateway)</Label>
+                  <label className="inline-flex items-center gap-2 text-xs text-pine/80 cursor-pointer">
+                    <Checkbox
                       checked={simulatePaymentFailure}
                       onChange={(e) => setSimulatePaymentFailure(e.target.checked)}
-                      className="rounded border-mist accent-sage cursor-pointer"
                     />
                     <span>Simulate &quot;Payment Failed&quot; Error State</span>
                   </label>
@@ -372,13 +375,11 @@ export default function ProposalPickerPage() {
                   ].map((pm) => (
                     <label
                       key={pm.id}
-                      className="flex items-center gap-2 p-2.5 rounded-lg bg-surface-raised border border-mist cursor-pointer"
+                      className="flex items-center gap-2.5 p-3 rounded-lg border border-mist hover:border-mint transition-colors bg-surface-raised cursor-pointer"
                     >
-                      <input
-                        type="radio"
+                      <Radio
                         value={pm.id}
                         disabled={booking.status === 'paid-confirmed'}
-                        className="h-4 w-4 accent-sage cursor-pointer"
                         {...form.register('paymentMethodLabel')}
                       />
                       <span className="font-medium text-pine">{pm.label}</span>
@@ -387,10 +388,8 @@ export default function ProposalPickerPage() {
                 </div>
 
                 <label className="flex items-start gap-2.5 text-xs text-pine/85 cursor-pointer pt-1">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     disabled={booking.status === 'paid-confirmed'}
-                    className="mt-0.5 h-4 w-4 rounded border-mist accent-sage cursor-pointer"
                     {...form.register('acknowledgeFinalizationRule')}
                   />
                   <span>

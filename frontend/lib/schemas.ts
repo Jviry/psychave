@@ -138,6 +138,18 @@ export const cmsOverviewSchema = z.object({
 
 export type CmsOverviewFormValues = z.infer<typeof cmsOverviewSchema>;
 
+/**
+ * Admin CMS Service & Clinical Guardrails Editor Schema
+ */
+export const serviceGuardrailSchema = z.object({
+  durationLabel: z.string().min(2, 'Duration label is required.'),
+  guardrailTitle: z.string().min(5, 'Guardrail headline must be at least 5 characters.'),
+  guardrailNotice: z.string().min(20, 'Scope guardrail notice must be at least 20 characters.'),
+  description: z.string().min(20, 'Public service description must be at least 20 characters.'),
+});
+
+export type ServiceGuardrailFormValues = z.infer<typeof serviceGuardrailSchema>;
+
 /* ------------------------------------------------------------------ */
 /* Persona creation wizard (4 pages, single POST /personas at submit).  */
 /* Page schemas validate their own slice; cross-page rules (minor/self, */
