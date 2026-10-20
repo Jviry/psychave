@@ -166,86 +166,48 @@ export default function PsychologistSchedulePage() {
       )}
 
       {/* Tabs Navigation for Schedule Separation */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-mist pb-2">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setActiveTab('upcoming')}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'upcoming'
-                ? 'bg-pine text-white shadow-xs'
-                : 'bg-surface-raised border border-mist text-pine hover:bg-surface-sunken'
-            }`}
-          >
-            <span>Upcoming Confirmed</span>
-            <span
-              className={`px-1.5 py-0.5 rounded-full text-xs ${
-                activeTab === 'upcoming'
-                  ? 'bg-surface-raised/20 text-white'
-                  : 'bg-surface-sunken text-accent-ink'
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-mist pb-3">
+        <div
+          role="group"
+          aria-label="Filter schedule sessions"
+          className="flex flex-wrap items-center gap-1 p-1 bg-surface-sunken rounded-lg border border-mist"
+        >
+          {(
+            [
+              { id: 'upcoming', label: 'Upcoming Confirmed', count: categorizedSessions.upcoming.length },
+              { id: 'past', label: 'Past Confirmed', count: categorizedSessions.past.length },
+              { id: 'proposed', label: 'Proposals Awaiting Payment', count: categorizedSessions.proposed.length },
+              { id: 'all', label: `All Assigned (${categorizedSessions.all.length})`, count: null },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id as ScheduleTab)}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                activeTab === tab.id
+                  ? 'bg-surface-raised text-pine font-semibold shadow-xs'
+                  : 'text-pine/70 hover:text-pine'
               }`}
             >
-              {categorizedSessions.upcoming.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('past')}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'past'
-                ? 'bg-pine text-white shadow-xs'
-                : 'bg-surface-raised border border-mist text-pine hover:bg-surface-sunken'
-            }`}
-          >
-            <span>Past Confirmed</span>
-            <span
-              className={`px-1.5 py-0.5 rounded-full text-xs ${
-                activeTab === 'past'
-                  ? 'bg-surface-raised/20 text-white'
-                  : 'bg-surface-sunken text-accent-ink'
-              }`}
-            >
-              {categorizedSessions.past.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('proposed')}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'proposed'
-                ? 'bg-pine text-white shadow-xs'
-                : 'bg-surface-raised border border-mist text-pine hover:bg-surface-sunken'
-            }`}
-          >
-            <span>Proposals Awaiting Payment</span>
-            <span
-              className={`px-1.5 py-0.5 rounded-full text-xs ${
-                activeTab === 'proposed'
-                  ? 'bg-surface-raised/20 text-white'
-                  : 'bg-surface-sunken text-accent-ink'
-              }`}
-            >
-              {categorizedSessions.proposed.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('all')}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-              activeTab === 'all'
-                ? 'bg-pine text-white shadow-xs'
-                : 'bg-surface-raised border border-mist text-pine hover:bg-surface-sunken'
-            }`}
-          >
-            All Assigned ({categorizedSessions.all.length})
-          </button>
+              <span>{tab.label}</span>
+              {tab.count !== null && (
+                <span
+                  className={`px-1.5 py-0.5 rounded-full text-xs ${
+                    activeTab === tab.id
+                      ? 'bg-sage/15 text-pine font-semibold'
+                      : 'bg-surface-raised text-pine/60'
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
 
-        <div className="text-xs text-pine/70">
-          Psychologist Roster ID: <span className="font-mono font-medium text-accent-ink">{activePsychologistId}</span>
+        <div className="text-xs text-pine/70 font-mono">
+          Psychologist Roster ID: <span className="font-semibold text-accent-ink">{activePsychologistId}</span>
         </div>
       </div>
 
@@ -401,10 +363,10 @@ export default function PsychologistSchedulePage() {
                 {/* Expandable Appointment Detail View */}
                 {isExpanded && (
                   <div className="border-t border-mist pt-5 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
-                      {/* Left Sub-card: Client / Persona & Payment Status */}
-                      <div className="space-y-4 p-4 rounded-lg bg-parchment border border-mist">
-                        <h3 className="font-heading text-lg font-medium text-pine">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-xs">
+                      {/* Left Column: Client / Persona & Payment Status */}
+                      <div className="space-y-4">
+                        <h3 className="font-heading text-lg font-medium text-pine border-b border-mist pb-2">
                           Client &amp; Persona Profile
                         </h3>
 
@@ -435,61 +397,71 @@ export default function PsychologistSchedulePage() {
                           )}
                         </div>
 
-                        <div>
-                          <p className="font-semibold text-pine mb-1">Presenting Concerns:</p>
-                          <p className="p-2.5 rounded-lg bg-surface-raised border border-mist/70 text-pine/85 leading-relaxed">
+                        <div className="space-y-1">
+                          <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                            Presenting Concerns
+                          </span>
+                          <p className="text-pine/85 leading-relaxed pt-0.5">
                             {session.concernsSummary}
                           </p>
                         </div>
 
                         {session.specificNeeds && (
-                          <div>
-                            <p className="font-semibold text-pine mb-1">Specific Needs / Scheduling Preferences:</p>
-                            <p className="p-2.5 rounded-lg bg-surface-raised border border-mist/70 text-pine/80 italic">
+                          <div className="space-y-1">
+                            <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                              Specific Needs / Scheduling Preferences
+                            </span>
+                            <p className="text-pine/80 italic pt-0.5">
                               {session.specificNeeds}
                             </p>
                           </div>
                         )}
                       </div>
 
-                      {/* Right Sub-card: Unlocked Teletherapy & Lifecycle Actions */}
-                      <div className="space-y-4 p-4 rounded-lg bg-parchment border border-mist">
-                        <h3 className="font-heading text-lg font-medium text-pine">
+                      {/* Right Column: Unlocked Teletherapy & Lifecycle Actions */}
+                      <div className="space-y-4">
+                        <h3 className="font-heading text-lg font-medium text-pine border-b border-mist pb-2">
                           Session Channel &amp; Coordination
                         </h3>
 
                         {isConfirmed && session.unlockedContact ? (
                           <div className="space-y-3">
-                            <div className="p-3 bg-surface-raised rounded-lg border border-sage space-y-1">
-                              <p className="font-semibold text-pine">Direct Teletherapy URL:</p>
+                            <div className="space-y-1">
+                              <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                                Direct Teletherapy URL
+                              </span>
                               <a
                                 href={session.unlockedContact.teletherapyUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="font-mono text-accent-ink hover:underline break-all block"
+                                className="font-mono text-accent-ink hover:underline break-all block text-xs"
                               >
                                 {session.unlockedContact.teletherapyUrl}
                               </a>
                             </div>
 
                             <div className="space-y-1">
-                              <p className="text-pine/70">Clinic Coordination Email:</p>
+                              <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                                Clinic Coordination Email
+                              </span>
                               <p className="font-medium text-pine">
                                 {session.unlockedContact.coordinationEmail}
                               </p>
                             </div>
 
                             <div className="space-y-1">
-                              <p className="text-pine/70">Session Reference Code:</p>
+                              <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                                Session Reference Code
+                              </span>
                               <p className="font-mono font-medium text-accent-ink">
                                 {session.unlockedContact.sessionReferenceCode}
                               </p>
                             </div>
 
-                            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-mist/60 text-xs">
-                              <span>
-                                24h Reminder: <strong>{session.reminders.reminder24h}</strong> · 1h Reminder:{' '}
-                                <strong>{session.reminders.reminder1h}</strong>
+                            <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-mist/60 text-xs">
+                              <span className="text-pine/75">
+                                Reminders: 24h (<strong>{session.reminders.reminder24h}</strong>) · 1h (
+                                <strong>{session.reminders.reminder1h}</strong>)
                               </span>
                               <div className="flex items-center gap-2">
                                 <button
@@ -521,7 +493,7 @@ export default function PsychologistSchedulePage() {
                             </div>
                           </div>
                         ) : (
-                          <div className="p-4 rounded-lg bg-surface-raised border border-dashed border-mist space-y-2">
+                          <div className="p-4 rounded-xl bg-surface-sunken border border-dashed border-mist space-y-2">
                             <p className="font-semibold text-amber-900">
                               Direct Teletherapy Link Locked
                             </p>
@@ -535,11 +507,11 @@ export default function PsychologistSchedulePage() {
                     </div>
 
                     {/* Private Clinical Session Notes (Confidential: Hidden from Admin & Client) */}
-                    <div className="p-4 rounded-lg bg-surface-raised border border-sage/40 space-y-3 text-xs">
+                    <div className="border-t border-mist/80 pt-5 space-y-3 text-xs">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 font-medium text-pine">
                           <ShieldCheck className="w-4 h-4 text-accent-ink shrink-0" aria-hidden="true" />
-                          <span className="font-heading text-base">Private Clinical Notes (Psychologist Only)</span>
+                          <span className="font-heading text-base font-medium">Private Clinical Notes (Psychologist Only)</span>
                         </div>
                         <span className="px-2 py-0.5 rounded-sm bg-surface-sunken text-accent-ink font-semibold text-xs">
                           Confidential · Hidden from Admin &amp; Client
@@ -563,7 +535,7 @@ export default function PsychologistSchedulePage() {
                                 noteMutation.mutate({
                                   bookingId: session.id,
                                   privateClinicalNote: noteDraft,
-                                  })
+                                })
                               }
                             >
                               {noteMutation.isPending ? 'Saving...' : 'Save Private Note'}
@@ -579,7 +551,7 @@ export default function PsychologistSchedulePage() {
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          <p className="p-3 rounded-lg bg-parchment border border-mist text-pine/90 leading-relaxed font-mono text-xs">
+                          <p className="text-pine/90 leading-relaxed font-mono text-xs">
                             {session.privateClinicalNote ||
                               'No confidential clinical notes recorded for this case yet.'}
                           </p>

@@ -27,7 +27,7 @@ import {
 } from '../lib/schemas';
 import { useAppStore } from '../stores/useAppStore';
 import { clearWizardDraftStorage, getConsentVersion, usePersonaWizardStore } from '../stores/usePersonaWizardStore';
-import { Button, Input, Label, Modal, Select, Textarea } from './ui/primitives';
+import { Button, Checkbox, Input, Label, Modal, Select, Textarea } from './ui/primitives';
 
 type Errors = Record<string, string>;
 
@@ -570,10 +570,9 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
                   {SCOPE_LIMITATIONS_TEXT}
                 </div>
               </div>
-              <label className="flex items-start gap-3 text-sm text-pine cursor-pointer p-4 rounded-lg bg-parchment border border-mist">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-4 w-4 rounded border-mist accent-sage cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
+              <label className="flex items-start gap-3 text-sm text-pine cursor-pointer p-4 rounded-xl border border-mist hover:border-mint transition-colors">
+                <Checkbox
+                  className="mt-0.5"
                   checked={draft.scope_acknowledged}
                   onChange={(e) => updateDraft({ scope_acknowledged: e.target.checked })}
                   aria-invalid={!!shownErrors['scope_acknowledged']}
@@ -583,9 +582,8 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
               </label>
               <FieldError id={errId('scope')} message={shownErrors['scope_acknowledged']} />
               <label className="flex items-start gap-3 text-sm text-pine cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-4 w-4 rounded border-mist accent-sage cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
+                <Checkbox
+                  className="mt-0.5"
                   checked={draft.is_overseas_or_foreign}
                   onChange={(e) =>
                     updateDraft({
@@ -606,10 +604,9 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
                   >
                     {OVERSEAS_LIMITATIONS_TEXT}
                   </div>
-                  <label className="flex items-start gap-3 text-sm text-pine cursor-pointer p-4 rounded-lg bg-surface-sunken border-l-2 border-sage">
-                    <input
-                      type="checkbox"
-                      className="mt-0.5 h-4 w-4 rounded border-mist accent-sage cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
+                  <label className="flex items-start gap-3 text-sm text-pine cursor-pointer p-4 rounded-xl bg-surface-sunken border border-sage/50">
+                    <Checkbox
+                      className="mt-0.5"
                       checked={draft.overseas_acknowledged}
                       onChange={(e) => updateDraft({ overseas_acknowledged: e.target.checked })}
                       aria-invalid={!!shownErrors['overseas_acknowledged']}
@@ -703,9 +700,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
                 <FieldError id={errId('perm')} message={shownErrors['permanent_address']} />
               </div>
               <label className="flex items-center gap-2.5 text-xs text-pine cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-mist accent-sage cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
+                <Checkbox
                   checked={draft.sameAsPermanent}
                   onChange={(e) => updateDraft({ sameAsPermanent: e.target.checked })}
                 />
@@ -769,44 +764,49 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-lg bg-parchment border border-mist">
-                <div>
-                  <Label htmlFor="wiz-em-name">Emergency contact name</Label>
-                  <Input
-                    id="wiz-em-name"
-                    value={draft.emergency_contact_name}
-                    onChange={(e) => updateDraft({ emergency_contact_name: e.target.value })}
-                    autoComplete="off"
-                    aria-invalid={!!shownErrors['emergency_contact_name']}
-                    aria-describedby={shownErrors['emergency_contact_name'] ? errId('em-name') : undefined}
-                  />
-                  <FieldError id={errId('em-name')} message={shownErrors['emergency_contact_name']} />
-                </div>
-                <div>
-                  <Label htmlFor="wiz-em-rel">Emergency contact relation</Label>
-                  <Input
-                    id="wiz-em-rel"
-                    value={draft.emergency_contact_relation}
-                    onChange={(e) => updateDraft({ emergency_contact_relation: e.target.value })}
-                    placeholder="e.g. Mother"
-                    autoComplete="off"
-                    aria-invalid={!!shownErrors['emergency_contact_relation']}
-                    aria-describedby={shownErrors['emergency_contact_relation'] ? errId('em-rel') : undefined}
-                  />
-                  <FieldError id={errId('em-rel')} message={shownErrors['emergency_contact_relation']} />
-                </div>
-                <div>
-                  <Label htmlFor="wiz-em-num">Emergency contact number</Label>
-                  <Input
-                    id="wiz-em-num"
-                    type="tel"
-                    value={draft.emergency_contact_number}
-                    onChange={(e) => updateDraft({ emergency_contact_number: e.target.value })}
-                    autoComplete="off"
-                    aria-invalid={!!shownErrors['emergency_contact_number']}
-                    aria-describedby={shownErrors['emergency_contact_number'] ? errId('em-num') : undefined}
-                  />
-                  <FieldError id={errId('em-num')} message={shownErrors['emergency_contact_number']} />
+              <div className="border-t border-mist/70 pt-4 space-y-3">
+                <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                  Emergency Contact
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="wiz-em-name">Contact name</Label>
+                    <Input
+                      id="wiz-em-name"
+                      value={draft.emergency_contact_name}
+                      onChange={(e) => updateDraft({ emergency_contact_name: e.target.value })}
+                      autoComplete="off"
+                      aria-invalid={!!shownErrors['emergency_contact_name']}
+                      aria-describedby={shownErrors['emergency_contact_name'] ? errId('em-name') : undefined}
+                    />
+                    <FieldError id={errId('em-name')} message={shownErrors['emergency_contact_name']} />
+                  </div>
+                  <div>
+                    <Label htmlFor="wiz-em-rel">Relation</Label>
+                    <Input
+                      id="wiz-em-rel"
+                      value={draft.emergency_contact_relation}
+                      onChange={(e) => updateDraft({ emergency_contact_relation: e.target.value })}
+                      placeholder="e.g. Mother"
+                      autoComplete="off"
+                      aria-invalid={!!shownErrors['emergency_contact_relation']}
+                      aria-describedby={shownErrors['emergency_contact_relation'] ? errId('em-rel') : undefined}
+                    />
+                    <FieldError id={errId('em-rel')} message={shownErrors['emergency_contact_relation']} />
+                  </div>
+                  <div>
+                    <Label htmlFor="wiz-em-num">Contact number</Label>
+                    <Input
+                      id="wiz-em-num"
+                      type="tel"
+                      value={draft.emergency_contact_number}
+                      onChange={(e) => updateDraft({ emergency_contact_number: e.target.value })}
+                      autoComplete="off"
+                      aria-invalid={!!shownErrors['emergency_contact_number']}
+                      aria-describedby={shownErrors['emergency_contact_number'] ? errId('em-num') : undefined}
+                    />
+                    <FieldError id={errId('em-num')} message={shownErrors['emergency_contact_number']} />
+                  </div>
                 </div>
               </div>
               <p className="text-xs text-pine/65">
@@ -840,12 +840,12 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
                   ]},
                 ].map((group) => (
                   <div key={group.title} className="border-b border-mist last:border-b-0">
-                    <div className="flex items-center justify-between px-4 py-2.5 bg-parchment">
-                      <p className="text-xs font-bold text-pine">{group.title}</p>
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-mist">
+                      <p className="text-xs font-medium uppercase tracking-wider text-pine/60">{group.title}</p>
                       <button
                         type="button"
                         onClick={() => setStep(group.step)}
-                        className="text-xs font-semibold text-accent-ink hover:text-pine underline cursor-pointer"
+                        className="text-xs font-medium text-sage hover:text-pine transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage rounded"
                       >
                         Edit
                       </button>
@@ -861,19 +861,18 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
                   </div>
                 ))}
               </div>
-              <label className="flex items-start gap-3 text-xs text-pine cursor-pointer p-4 rounded-lg bg-parchment border border-mist">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-4 w-4 rounded border-mist accent-sage cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
+              <div className="flex items-start gap-3 py-1">
+                <Checkbox
+                  id="wiz-confirm-checkbox"
                   checked={draft.information_confirmed}
                   onChange={(e) => updateDraft({ information_confirmed: e.target.checked })}
                   aria-invalid={!!shownErrors['information_confirmed']}
                   aria-describedby={shownErrors['information_confirmed'] ? errId('confirm') : undefined}
                 />
-                <span className="leading-relaxed">
+                <label htmlFor="wiz-confirm-checkbox" className="text-xs text-pine leading-relaxed cursor-pointer">
                   I confirm that the information I have provided is accurate and complete. {FINAL_CONSENT_STATEMENT}
-                </span>
-              </label>
+                </label>
+              </div>
               <FieldError id={errId('confirm')} message={shownErrors['information_confirmed']} />
               <div>
                 <Label htmlFor="wiz-final-signer">Final consent — type full name to sign</Label>
