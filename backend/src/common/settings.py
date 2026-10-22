@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     AWS_REGION: str = ""
     COGNITO_USER_POOL_ID: str = ""
     COGNITO_APP_CLIENT_ID: str = ""
+    SES_FROM_NAME: str = ""
+    SES_FROM_EMAIL: str = ""
+    SES_REPLY_TO: str = ""
+
+    FRONTEND_BASE_URL: str = "http://localhost:3000"
 
     @field_validator("DB_SCHEMA")
     @classmethod
