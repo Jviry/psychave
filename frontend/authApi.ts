@@ -12,13 +12,14 @@
  *   POST /auth/logout          → logoutUser
  */
 
+import { shouldGoLive } from './lib/api';
+
 const getEnv = (key: string, fallback: string): string => {
   if (typeof process !== 'undefined' && process.env?.[key]) return process.env[key] as string;
   return fallback;
 };
 
 const API_BASE_URL = getEnv('NEXT_PUBLIC_API_URL', 'http://localhost:8000');
-const AUTH_MODE = getEnv('NEXT_PUBLIC_AUTH_MODE', 'mock');
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -107,7 +108,7 @@ export const authApi = {
    * Cognito returns AccessToken/IdToken/RefreshToken (capital-case keys).
    */
   loginUser: async (credentials: LoginCredentials): Promise<LoginResponse> => {
-    if (AUTH_MODE === 'mock') {
+    if (!shouldGoLive('/auth')) {
       await mockDelay();
       return { ...MOCK_SESSION };
     }
@@ -129,7 +130,7 @@ export const authApi = {
    * Create a new Cognito user. Returns a message directing user to check email.
    */
   registerUser: async (credentials: RegisterCredentials): Promise<MessageResponse> => {
-    if (AUTH_MODE === 'mock') {
+    if (!shouldGoLive('/auth')) {
       await mockDelay();
       return { message: 'register successful, check email for code' };
     }
@@ -146,7 +147,7 @@ export const authApi = {
    * Confirm the user's account with the Cognito verification code sent to email.
    */
   confirmUser: async (credentials: ConfirmCredentials): Promise<MessageResponse> => {
-    if (AUTH_MODE === 'mock') {
+    if (!shouldGoLive('/auth')) {
       await mockDelay();
       return { message: 'user confirmed' };
     }
@@ -161,7 +162,7 @@ export const authApi = {
    * Resend the Cognito confirmation code to the user's email.
    */
   resendCode: async (username: string): Promise<MessageResponse> => {
-    if (AUTH_MODE === 'mock') {
+    if (!shouldGoLive('/auth')) {
       await mockDelay();
       return { message: 'confirmation code sent' };
     }
@@ -173,7 +174,7 @@ export const authApi = {
    * Request a forgot-password verification code (step 1).
    */
   requestForgotPassword: async (username: string): Promise<MessageResponse> => {
-    if (AUTH_MODE === 'mock') {
+    if (!shouldGoLive('/auth')) {
       await mockDelay();
       return { message: 'confirmation code sent to email' };
     }
@@ -188,7 +189,7 @@ export const authApi = {
    * Confirm a new password with the verification code (step 2).
    */
   confirmForgotPassword: async (credentials: ForgotPasswordConfirmCredentials): Promise<MessageResponse> => {
-    if (AUTH_MODE === 'mock') {
+    if (!shouldGoLive('/auth')) {
       await mockDelay();
       return { message: 'password change successful' };
     }
@@ -204,7 +205,7 @@ export const authApi = {
    * Refresh access token using the stored refresh token.
    */
   refreshAccessToken: async (refreshToken: string): Promise<{ accessToken: string }> => {
-    if (AUTH_MODE === 'mock') {
+    if (!shouldGoLive('/auth')) {
       await mockDelay();
       return { accessToken: MOCK_SESSION.accessToken };
     }
@@ -220,7 +221,7 @@ export const authApi = {
    * Sign out the user from Cognito (invalidates the access token).
    */
   logoutUser: async (accessToken: string): Promise<MessageResponse> => {
-    if (AUTH_MODE === 'mock') {
+    if (!shouldGoLive('/auth')) {
       await mockDelay();
       return { message: 'logout successful' };
     }

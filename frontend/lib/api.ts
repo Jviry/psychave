@@ -1,11 +1,15 @@
 import {
   BookingRequest,
+  BookingStatus,
   CmsContent,
   CognitoRole,
   Persona,
+  ProposedSlot,
   ResidentPsychologist,
   ServiceItem,
+  UnlockedContact,
 } from './types';
+import { useAuthStore } from '../authStore';
 import {
   CONSENT_VERSION,
   isFutureDob,
@@ -19,6 +23,16 @@ import {
  * Single canonical API client for PsychAvenuePH (PSYCHAVE PH).
  * Targets NEXT_PUBLIC_API_URL (default http://localhost:8000) and automatically falls back
  * to deterministic in-memory mock state when the FastAPI/Mangum backend is offline.
+ *
+ * Live integration (backend-integration branch): the backend mounts bare paths
+ * (`/auth`, `/services`, `/personas`, `/appointments`, `/psychologist`, `/payments`)
+ * — see backend/src/controllers/app_router.py. Only wired prefixes may ever go
+ * live; everything else (roster verification, CMS, lifecycle, private notes)
+ * has no backend yet and always resolves from mocks, so a `real` mode run
+ * never 404s into a broken public page. NEXT_PUBLIC_LIVE_ROUTES (comma list)
+ * narrows liveness further, enabling the "one endpoint at a time" smoke-test
+ * rule. Real-mode responses are adapted to the UI types in this file only —
+ * UI components never see backend shapes.
  */
 const getEnvVar = (key: string, fallback: string): string => {
   if (typeof process !== 'undefined' && process.env && process.env[key]) {
@@ -29,6 +43,26 @@ const getEnvVar = (key: string, fallback: string): string => {
 
 export const API_BASE_URL = getEnvVar('NEXT_PUBLIC_API_URL', 'http://localhost:8000');
 export const AUTH_MODE = getEnvVar('NEXT_PUBLIC_AUTH_MODE', 'mock');
+
+/**
+ * Backend prefixes with a real implementation today. Endpoints outside this
+ * list never hit the network — mirrors app_router.py in backend/src.
+ */
+const WIRED_PREFIXES = ['/auth', '/services', '/personas', '/appointments', '/psychologist'];
+
+/** Optional per-prefix allowlist (e.g. "/auth,/appointments") for incremental smoke tests. */
+const LIVE_ROUTES = getEnvVar('NEXT_PUBLIC_LIVE_ROUTES', '')
+  .split(',')
+  .map((p) => p.trim())
+  .filter(Boolean);
+
+export function shouldGoLive(endpoint: string): boolean {
+  if (AUTH_MODE === 'mock') return false;
+  const prefix = WIRED_PREFIXES.find((p) => endpoint.startsWith(p));
+  if (!prefix) return false;
+  if (LIVE_ROUTES.length === 0) return true;
+  return LIVE_ROUTES.includes(prefix);
+}
 
 const INITIAL_SERVICES: ServiceItem[] = [
   {
@@ -418,49 +452,127 @@ async function fetchWithTimeout(
 }
 
 /**
+ * Token refresh single-flight state: a concurrent 401 burst shares one
+ * POST /auth/refresh-token call (backend-dependent — see AGENTS.md).
+ */
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = useAuthStore.getState()?.refreshToken ?? null;
+  if (!refreshToken) return null;
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const res = await fetchWithTimeout(
+          `${API_BASE_URL}/auth/refresh-token?refresh_token=${encodeURIComponent(refreshToken)}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+          },
+          8000
+        );
+        if (!res.ok) return null;
+        const data = (await res.json().catch(() => null)) as { AccessToken?: string } | null;
+        const newToken = data?.AccessToken ?? null;
+        if (newToken) {
+          useAuthStore.setState({ accessToken: newToken });
+          return newToken;
+        }
+        return null;
+      } catch {
+        return null;
+      } finally {
+        refreshInFlight = null;
+      }
+    })();
+  }
+  return refreshInFlight;
+}
+
+/**
+ * Builds the loud backend error format used across the live client.
+ */
+function buildBackendError(endpoint: string, status: number, json: unknown): Error {
+  let errDetail = `HTTP ${status}`;
+  if (json && typeof json === 'object') {
+    const obj = json as { message?: string; detail?: string | unknown };
+    if (obj.message) errDetail = obj.message;
+    else if (obj.detail) {
+      errDetail = typeof obj.detail === 'string' ? obj.detail : JSON.stringify(obj.detail);
+    }
+  }
+  return new Error(`Backend Error (${status}) on ${endpoint}: ${errDetail}`);
+}
+
+/**
+ * Low-level live request: injects the Bearer token from the real session,
+ * retries once on 401 via the backend refresh endpoint, and returns the
+ * status plus the parsed JSON body WITHOUT throwing — callers decide how
+ * each status maps to UI behavior (404-as-null reads, claimed-booking 409s…).
+ */
+async function liveFetch(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<{ status: number; json: unknown }> {
+  const callOnce = () => {
+    const token = useAuthStore.getState()?.accessToken ?? null;
+    return fetchWithTimeout(
+      `${API_BASE_URL}${endpoint}`,
+      {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(options.headers || {}),
+        },
+      },
+      8000
+    );
+  };
+
+  let response = await callOnce();
+  if (response.status === 401) {
+    const newToken = await refreshAccessToken();
+    if (newToken) response = await callOnce();
+  }
+  let json: unknown = null;
+  try {
+    json = await response.json();
+  } catch {
+    // Body not JSON (e.g. 204) — surfaced as null JSON under its real status.
+  }
+  return { status: response.status, json };
+}
+
+/**
  * Helper to attempt real backend fetch against NEXT_PUBLIC_API_URL.
- * - When AUTH_MODE === 'mock', immediately resolves using in-memory mock state.
- * - When AUTH_MODE !== 'mock', executes real HTTP requests.
- *   HTTP errors (4xx, 5xx) and network transport failures are surfaced directly
- *   to avoid masking missing endpoints or producing false success on mutations.
+ * - Endpoint NOT wired to the backend (no matching prefix) → resolves from
+ *   in-memory mock state in every mode: those endpoints don't exist backend-side.
+ * - NEXT_PUBLIC_AUTH_MODE === 'mock' → never touches the network (120ms delay),
+ *   same as before.
+ * - AUTH_MODE === 'real' + wired endpoint → live HTTP with loud 4xx/5xx errors;
+ *   nothing is silently masked, and the optional `transform` adapts the raw
+ *   backend shape into the UI type at this single boundary.
  */
 async function requestWithMockFallback<T>(
   endpoint: string,
   options: RequestInit | undefined,
-  mockResolver: () => T | Promise<T>
+  mockResolver: () => T | Promise<T>,
+  transform?: (raw: unknown) => T
 ): Promise<T> {
+  if (shouldGoLive(endpoint)) {
+    const { status, json } = await liveFetch(endpoint, options ?? {});
+    if (status < 200 || status >= 300) {
+      throw buildBackendError(endpoint, status, json);
+    }
+    return transform ? transform(json) : (json as T);
+  }
+
   if (AUTH_MODE === 'mock') {
     await new Promise((r) => setTimeout(r, 120));
-    return mockResolver();
   }
-
-  const response = await fetchWithTimeout(
-    `${API_BASE_URL}${endpoint}`,
-    {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options?.headers || {}),
-      },
-    },
-    8000
-  );
-
-  if (!response.ok) {
-    let errDetail = `HTTP ${response.status} ${response.statusText}`;
-    try {
-      const data = await response.json();
-      if (data?.message) errDetail = data.message;
-      else if (data?.detail) {
-        errDetail = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
-      }
-    } catch {
-      // Body not JSON
-    }
-    throw new Error(`Backend Error (${response.status}) on ${endpoint}: ${errDetail}`);
-  }
-
-  return (await response.json()) as T;
+  return mockResolver();
 }
 
 function formatSlotDateAndTime(isoString: string, durationMinutes = 60): { dateLabel: string; timeLabel: string } {
@@ -499,6 +611,284 @@ function formatSlotDateAndTime(isoString: string, durationMinutes = 60): { dateL
   };
 }
 
+// ─── Real-backend response adapters (backend/src/schemas + controllers) ──────
+// Response shapes live here ONLY. UI components keep consuming UI types
+// (BookingRequest etc.); UUIDs → UI values, backend enum statuses → UI
+// statuses, and anonymized display codes are derived in this block.
+
+interface AppointmentRaw {
+  appointment_id: string;
+  persona_id: string;
+  service_id: string;
+  psychologist_id: string | null;
+  selected_slot_id: string | null;
+  price: number | null;
+  presenting_concern: string;
+  status: string;
+  requested_datetime: string | null;
+}
+
+interface ProposedSlotRaw {
+  slot_id: string;
+  session_date: string;
+  start_time: string;
+  end_time: string | null;
+}
+
+interface ServiceRaw {
+  service_id: string;
+  name: string;
+  description: string;
+}
+
+interface PersonaRaw {
+  persona_id: string;
+  relation_to_account_holder: string;
+  persona_name: string;
+  date_of_birth: string;
+}
+
+interface PaymentRaw {
+  payment_id: string;
+  appointment_id: string;
+  amount: number;
+  payment_method: string | null;
+  provider: string;
+  provider_ref: string | null;
+  checkout_url: string | null;
+  status: string;
+  paid_at: string | null;
+  created_at: string;
+}
+
+interface PsychologistProfileRaw {
+  psychologist_id: string;
+  full_name: string;
+  license_number: string | null;
+  specialization: string | null;
+  bio: string | null;
+  approval_status: string;
+  approved_by: string | null;
+  approved_at: string | null;
+}
+
+/**
+ * Live-mode service/persona caches. Backend rows carry UUID ids the UI never
+ * sees in mock mode; lookups fall back to mock seeds, then placeholders.
+ */
+let liveServiceItems: ServiceItem[] = [];
+let livePersonaItems: Persona[] = [];
+
+function resolveService(serviceId: string): ServiceItem {
+  return (
+    liveServiceItems.find((s) => s.id === serviceId) ||
+    mockServices.find((s) => s.id === serviceId) || {
+      id: serviceId,
+      indexNumber: '--',
+      title: 'Service',
+      categoryGroup: '',
+      durationLabel: '—',
+      durationMinutes: 60,
+      guardrailTitle: '',
+      guardrailNotice: '',
+      description: '',
+      clinicalFormat: '',
+    }
+  );
+}
+
+function resolvePersona(personaId: string): Persona {
+  return (
+    livePersonaItems.find((p) => p.id === personaId) ||
+    mockPersonas.find((p) => p.id === personaId) || {
+      id: personaId,
+      clientId: 'client-01',
+      type: 'dependent',
+      label: 'Client persona',
+      ageGroup: '',
+      relationshipToClient: '',
+      preferredLanguage: '',
+      createdAt: '',
+    }
+  );
+}
+
+/**
+ * Anonymized display codes (RP-0x) mapped from real UUIDs at this boundary
+ * only. RP-01..RP-04 belong to the mock roster, so anonymous live codes start
+ * at RP-11. Full names from the backend never reach the UI.
+ */
+const anonymizedCodeByUuid = new Map<string, string>();
+let nextAnonymizedCode = 11;
+
+function anonymizedPsychCode(uuid: string | null): string {
+  if (!uuid) return '';
+  const existing = anonymizedCodeByUuid.get(uuid);
+  if (existing) return existing;
+  const code = `RP-${String(nextAnonymizedCode++).padStart(2, '0')}`;
+  anonymizedCodeByUuid.set(uuid, code);
+  return code;
+}
+
+function mapStatusToBookingStatus(raw: string): BookingStatus {
+  switch (raw) {
+    case 'awaiting_slot_selection':
+    case 'awaiting_payment':
+      return 'proposed';
+    case 'confirmed':
+      return 'paid-confirmed';
+    case 'cancelled':
+      return 'cancelled';
+    default:
+      return 'pending';
+  }
+}
+
+interface MapAppointmentOptions {
+  /** Display id used when the psychologist side exists (schedule-filter compat). */
+  psychologistIdLabel?: string;
+}
+
+function mapAppointmentRaw(raw: AppointmentRaw, options: MapAppointmentOptions = {}): BookingRequest {
+  const service = resolveService(raw.service_id);
+  const persona = resolvePersona(raw.persona_id);
+  const status = mapStatusToBookingStatus(raw.status);
+  const code = anonymizedPsychCode(raw.psychologist_id);
+  const contactUnlocked = raw.status === 'confirmed';
+
+  const unlockedContact: UnlockedContact | undefined = contactUnlocked
+    ? {
+        teletherapyUrl: `https://session.psychaveph.clinical/room/${raw.appointment_id.slice(0, 8)}-${code || 'RP'}`,
+        coordinationEmail: 'psychaveph.info@gmail.com',
+        sessionReferenceCode: `CONF-${code || 'RP'}-${raw.appointment_id.slice(0, 8)}`,
+        emergencyProtocolNote:
+          'Direct session channel unlocked after payment confirmation. Automated 24h and 1h reminders are active.',
+      }
+    : undefined;
+
+  return {
+    id: raw.appointment_id,
+    clientId: 'client-01',
+    personaId: raw.persona_id,
+    personaType: persona.type,
+    personaLabel: persona.label,
+    serviceId: raw.service_id,
+    serviceTitle: service.title,
+    serviceDuration: service.durationLabel,
+    serviceGuardrail: service.guardrailNotice,
+    concernsSummary: raw.presenting_concern,
+    // Backend has no forms content columns yet (contract §7.3) — intake is lossy.
+    specificNeeds: '',
+    preferredLanguage: '',
+    submittedAt: raw.requested_datetime ? raw.requested_datetime.slice(0, 10) : '—',
+    status,
+    psychologistId: raw.psychologist_id
+      ? options.psychologistIdLabel || code
+      : undefined,
+    psychologistCode: code ? `Resident Psychologist #${code}` : undefined,
+    pricePhp: raw.price ?? undefined,
+    proposedSlots: [],
+    selectedSlotId: raw.selected_slot_id ?? undefined,
+    contactUnlocked,
+    unlockedContact,
+    reminders: contactUnlocked
+      ? { reminder24h: 'scheduled', reminder1h: 'scheduled' }
+      : { reminder24h: 'pending', reminder1h: 'pending' },
+  };
+}
+
+function mapProposedSlotRaw(
+  raw: ProposedSlotRaw,
+  serviceId: string,
+  slotNumber: 1 | 2 | 3
+): ProposedSlot {
+  const time = raw.start_time.length === 5 ? raw.start_time : raw.start_time.slice(0, 5);
+  const iso = `${raw.session_date.slice(0, 10)}T${time}`;
+  const { dateLabel, timeLabel } = formatSlotDateAndTime(
+    iso,
+    resolveService(serviceId).durationMinutes || 60
+  );
+  return { id: raw.slot_id, slotNumber, isoDateTime: iso, dateLabel, timeLabel };
+}
+
+/**
+ * AppointmentRead carries no slot rows — the client reads them from
+ * GET /appointments/{id}/slots (psychologist tokens are not permitted there).
+ * Failures are swallowed on purpose: 404 (still pending, no slots) and 403
+ * (psychologist-scoped callers) both simply keep the appointment metadata.
+ */
+async function attachClientSlots(booking: BookingRequest): Promise<BookingRequest> {
+  if (!shouldGoLive('/appointments')) return booking;
+  try {
+    const { status, json } = await liveFetch(`/appointments/${booking.id}/slots`);
+    if (status >= 200 && status < 300 && Array.isArray(json)) {
+      booking.proposedSlots = (json as ProposedSlotRaw[]).map((s, i) =>
+        mapProposedSlotRaw(s, booking.serviceId, ((i + 1) as 1 | 2 | 3))
+      );
+    }
+  } catch {
+    // Slot rows are best-effort supplementation; appointment metadata still stands.
+  }
+  return booking;
+}
+
+function mapServiceRaw(raw: ServiceRaw, index: number): ServiceItem {
+  // Backend services table has no duration/guardrail columns yet (contract §7.1).
+  return {
+    id: raw.service_id,
+    indexNumber: String(index + 1).padStart(2, '0'),
+    title: raw.name ?? 'Service',
+    categoryGroup: '',
+    durationLabel: '—',
+    durationMinutes: 60,
+    guardrailTitle: '',
+    guardrailNotice: '',
+    description: raw.description ?? '',
+    clinicalFormat: '',
+  };
+}
+
+function mapPersonaRaw(raw: PersonaRaw): Persona {
+  const dob = String(raw.date_of_birth ?? '').slice(0, 10);
+  return {
+    id: raw.persona_id,
+    clientId: 'client-01',
+    type: raw.relation_to_account_holder === 'self' ? 'self' : 'dependent',
+    label: raw.persona_name,
+    ageGroup: isMinorDob(dob) ? 'Minor (<18)' : 'Adult (18+)',
+    relationshipToClient: raw.relation_to_account_holder ?? '',
+    preferredLanguage: '',
+    createdAt: '',
+  };
+}
+
+/** Guards against posting mock ids where the backend parses UUIDs. */
+function assertUuid(value: string | undefined, label: string): string {
+  const isUuid =
+    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(value ?? '');
+  if (!isUuid) {
+    throw new Error(
+      `${label} is not a backend UUID (got "${value}"). In mixed live mode, flip matching endpoints (personas/services) live together with appointments first.`
+    );
+  }
+  return value as string;
+}
+
+/** ISO datetime ('YYYY-MM-DDTHH:mm[...]') → SlotProposal body rows. */
+function toSlotProposal(isoDateTime: string, durationMinutes: number) {
+  const clean = isoDateTime.slice(0, 16);
+  const sessionDate = clean.slice(0, 10);
+  const timePart = clean.slice(11, 16);
+  const [h, m] = timePart.split(':').map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) {
+    throw new Error(`Invalid slot datetime format: "${isoDateTime}"`);
+  }
+  const total = (h * 60 + m + durationMinutes) % (24 * 60);
+  const endHours = String(Math.floor(total / 60)).padStart(2, '0');
+  const endMinutes = String(total % 60).padStart(2, '0');
+  return { session_date: sessionDate, start_time: `${timePart}:00`, end_time: `${endHours}:${endMinutes}:00` };
+}
+
 export const api = {
   getConfigInfo: () => ({
     apiUrl: API_BASE_URL,
@@ -510,7 +900,16 @@ export const api = {
    * Services API
    */
   getServices: async (): Promise<ServiceItem[]> =>
-    requestWithMockFallback('/api/v1/services', undefined, () => [...mockServices]),
+    requestWithMockFallback(
+      '/services',
+      undefined,
+      () => [...mockServices],
+      (raw) => {
+        const list = Array.isArray(raw) ? (raw as ServiceRaw[]) : [];
+        liveServiceItems = list.map((s, i) => mapServiceRaw(s, i));
+        return liveServiceItems;
+      }
+    ),
 
   updateServiceGuardrail: async (
     serviceId: string,
@@ -555,13 +954,44 @@ export const api = {
     updates: Partial<Pick<ResidentPsychologist, 'specialization' | 'prcCredentialCode' | 'bio' | 'languages' | 'yearsPractice'>>
   ): Promise<ResidentPsychologist> =>
     requestWithMockFallback(
-      `/api/v1/psychologists/${psychId}/profile`,
-      { method: 'PATCH', body: JSON.stringify(updates) },
+      '/psychologist-profile/me',
+      {
+        method: 'PATCH',
+        // Backend PsychologistProfileUpdate: only specialization/bio/license_number
+        // — languages/yearsPractice/prcCredentialCode stay UI-side (contract §7.2).
+        body: JSON.stringify({
+          specialization: updates.specialization,
+          bio: updates.bio,
+          license_number: updates.prcCredentialCode,
+        }),
+      },
       () => {
         const idx = mockRoster.findIndex((r) => r.id === psychId);
         if (idx === -1) throw new Error('Psychologist profile not found.');
         mockRoster[idx] = { ...mockRoster[idx], ...updates };
         return { ...mockRoster[idx] };
+      },
+      (raw) => {
+        const profile = (raw ?? null) as PsychologistProfileRaw | null;
+        const base = mockRoster.find((r) => r.id === psychId) ?? {
+          id: psychId,
+          anonymizedTitle: 'Resident Psychologist',
+          prcCredentialCode: '',
+          specialization: '',
+          serviceEligibility: [],
+          languages: [],
+          yearsPractice: '',
+          verificationStatus: 'verified' as const,
+          visibleOnPublicRoster: true,
+          assignedBookingsCount: 0,
+          bio: '',
+        };
+        return {
+          ...base,
+          specialization: profile?.specialization ?? base.specialization,
+          bio: profile?.bio ?? base.bio,
+          prcCredentialCode: profile?.license_number ?? base.prcCredentialCode,
+        };
       }
     ),
 
@@ -569,11 +999,20 @@ export const api = {
    * Client Personas API
    */
   getPersonas: async (): Promise<Persona[]> =>
-    requestWithMockFallback('/api/v1/personas', undefined, () => [...mockPersonas]),
+    requestWithMockFallback(
+      '/personas',
+      undefined,
+      () => [...mockPersonas],
+      (raw) => {
+        const list = Array.isArray(raw) ? (raw as PersonaRaw[]) : [];
+        livePersonaItems = list.map(mapPersonaRaw);
+        return livePersonaItems;
+      }
+    ),
 
   createPersona: async (input: Partial<Omit<Persona, 'id' | 'clientId' | 'createdAt'>>): Promise<Persona> =>
     requestWithMockFallback(
-      '/api/v1/personas',
+      '/api/v1/personas-legacy-quick-add',
       { method: 'POST', body: JSON.stringify(input) },
       () => {
         const created: Persona = {
@@ -599,7 +1038,9 @@ export const api = {
    */
   createPersonaWithConsent: async (payload: PersonaWizardPayload): Promise<Persona> =>
     requestWithMockFallback(
-      '/api/v1/personas',
+      '/personas',
+      // Backend POST /personas takes PersonaWithConsentCreate {persona, consent}
+      // — the wizard payload already matches its field names.
       { method: 'POST', body: JSON.stringify(payload) },
       () => {
         const fieldErrors: Record<string, string> = {};
@@ -657,6 +1098,12 @@ export const api = {
         };
         mockPersonas = [...mockPersonas, created];
         return created;
+      },
+      // Live response is PersonaRead — map + refresh the persona snapshot.
+      (raw) => {
+        const created = mapPersonaRaw(raw as PersonaRaw);
+        livePersonaItems = [...livePersonaItems, created];
+        return created;
       }
     ),
 
@@ -671,8 +1118,53 @@ export const api = {
   getBookingsForRole: async (
     role: CognitoRole,
     psychologistId = 'RP-01'
-  ): Promise<BookingRequest[]> =>
-    requestWithMockFallback(
+  ): Promise<BookingRequest[]> => {
+    // Legacy role-filter query params are derived server-side from the real
+    // token in live mode — never trust the client for scoping (contract §7.1).
+    if (role === 'client' && shouldGoLive('/appointments')) {
+      const { status, json } = await liveFetch('/appointments');
+      if (status < 200 || status >= 300) {
+        throw buildBackendError('/appointments', status, json);
+      }
+      return (Array.isArray(json) ? (json as AppointmentRaw[]) : []).map((r) =>
+        mapAppointmentRaw(r)
+      );
+    }
+    if (role === 'psychologist' && shouldGoLive('/psychologist')) {
+      const label = { psychologistIdLabel: psychologistId };
+      const [pendingRes, mineRes] = await Promise.all([
+        liveFetch('/psychologist/appointments/pending'),
+        liveFetch('/psychologist/appointments/mine'),
+      ]);
+      if (pendingRes.status < 200 || pendingRes.status >= 300) {
+        throw buildBackendError(
+          '/psychologist/appointments/pending',
+          pendingRes.status,
+          pendingRes.json
+        );
+      }
+      if (mineRes.status < 200 || mineRes.status >= 300) {
+        throw buildBackendError(
+          '/psychologist/appointments/mine',
+          mineRes.status,
+          mineRes.json
+        );
+      }
+      const toPendingRows = Array.isArray(pendingRes.json)
+        ? (pendingRes.json as AppointmentRaw[])
+        : [];
+      const toMineRows = Array.isArray(mineRes.json) ? (mineRes.json as AppointmentRaw[]) : [];
+      const merged: BookingRequest[] = [];
+      const seen = new Set<string>();
+      for (const raw of [...toPendingRows, ...toMineRows]) {
+        if (seen.has(raw.appointment_id)) continue;
+        seen.add(raw.appointment_id);
+        merged.push(mapAppointmentRaw(raw, label));
+      }
+      return merged;
+    }
+    // Admin reads + all mock-mode reads.
+    return requestWithMockFallback(
       `/api/v1/bookings?role=${role}&psychId=${psychologistId}`,
       undefined,
       () => {
@@ -689,10 +1181,24 @@ export const api = {
         // Admin tier: strictly strip privateClinicalNote
         return mockBookings.map(({ privateClinicalNote: _redacted, ...rest }) => rest);
       }
-    ),
+    );
+  },
 
-  getBookingById: async (bookingId: string, role: CognitoRole = 'client'): Promise<BookingRequest | null> =>
-    requestWithMockFallback(`/api/v1/bookings/${bookingId}`, undefined, () => {
+  getBookingById: async (bookingId: string, role: CognitoRole = 'client'): Promise<BookingRequest | null> => {
+    if (shouldGoLive('/appointments') && role !== 'admin') {
+      const { status, json } = await liveFetch(`/appointments/${bookingId}`);
+      if (status === 404) return null;
+      if (status < 200 || status >= 300) {
+        throw buildBackendError(`/appointments/${bookingId}`, status, json);
+      }
+      const mapped = mapAppointmentRaw(json as AppointmentRaw, {
+        psychologistIdLabel: 'RP-01',
+      });
+      // Slot rows live in a separate client-scoped endpoint; supplement them
+      // whenever the booking carries one (proposed pay view / confirmed card).
+      return attachClientSlots(mapped);
+    }
+    return requestWithMockFallback(`/api/v1/bookings/${bookingId}`, undefined, () => {
       const found = mockBookings.find((b) => b.id === bookingId);
       if (!found) return null;
       if (role !== 'psychologist') {
@@ -700,7 +1206,8 @@ export const api = {
         return safeBooking;
       }
       return { ...found };
-    }),
+    });
+  },
 
   /**
    * Flow C Step 1: Client submits Persona + Booking Form -> enters 'pending' queue
@@ -711,8 +1218,25 @@ export const api = {
     preferredLanguage: string;
     concernsSummary: string;
     specificNeeds: string;
-  }): Promise<BookingRequest> =>
-    requestWithMockFallback(
+  }): Promise<BookingRequest> => {
+    if (shouldGoLive('/appointments')) {
+      const body = {
+        persona_id: assertUuid(input.personaId, 'personaId'),
+        service_id: assertUuid(input.serviceId, 'serviceId'),
+        // Backend AppointmentCreate carries a single presenting_concern column;
+        // specificNeeds/preferredLanguage have no forms columns yet (§7.3).
+        presenting_concern: input.concernsSummary,
+      };
+      const { status, json } = await liveFetch('/appointments', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      if (status < 200 || status >= 300) {
+        throw buildBackendError('/api/v1/bookings/intake', status, json);
+      }
+      return mapAppointmentRaw(json as AppointmentRaw);
+    }
+    return requestWithMockFallback(
       '/api/v1/bookings/intake',
       { method: 'POST', body: JSON.stringify(input) },
       () => {
@@ -753,7 +1277,8 @@ export const api = {
         mockBookings = [newBooking, ...mockBookings];
         return newBooking;
       }
-    ),
+    );
+  },
 
   /**
    * Flow C Step 3: Verified Psychologist picks up pending request + sets price + proposes 3 slots
@@ -767,26 +1292,22 @@ export const api = {
     slot3DateTime: string;
     clinicalPrepNote: string;
   }): Promise<BookingRequest> => {
-    // If backend is active and using /appointments REST routes, execute dual pickup + slots endpoints
-    if (AUTH_MODE !== 'mock') {
-      const pickupRes = await fetchWithTimeout(
-        `${API_BASE_URL}/appointments/${input.bookingId}/pickup`,
+    // If backend is active, run the real pickup → durations → 3-slot proposal chain.
+    if (shouldGoLive('/psychologist')) {
+      // Step 1: claim the pending request. PickupRequest body is { price } —
+      // the psychologist identity is derived from the token, never the client
+      // (dependencies/auth.py require_approved_psychologist).
+      const pickupRes = await liveFetch(
+        `/psychologist/appointments/${input.bookingId}/pickup`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            psychologistId: input.psychologistId,
-            pricePhp: input.pricePhp,
-          }),
-        },
-        8000
+          body: JSON.stringify({ price: input.pricePhp }),
+        }
       );
 
-      if (pickupRes.status === 409 || pickupRes.status === 400) {
-        const errData = await pickupRes.json().catch(() => ({}));
+      if (pickupRes.status === 404) {
         throw new Error(
-          errData.message ||
-            `Request already claimed: Booking ${input.bookingId} has already been claimed by another psychologist.`
+          `Booking ${input.bookingId} was not found on ${API_BASE_URL} — it may belong to another client or no longer be on the queue.`
         );
       }
       if (pickupRes.status === 403) {
@@ -794,60 +1315,74 @@ export const api = {
           'Credential Guardrail: Unverified psychologists cannot pick up booking requests or propose slots.'
         );
       }
-
-      // If /appointments endpoint is not implemented (404), fail clearly without masking contract absence
-      if (pickupRes.status === 404) {
-        return requestWithMockFallback(
-          `/api/v1/bookings/${input.bookingId}/propose`,
-          { method: 'POST', body: JSON.stringify(input) },
-          () => {
-            throw new Error(
-              `Backend contract missing: neither /appointments/${input.bookingId}/pickup nor /api/v1/bookings/${input.bookingId}/propose are implemented on ${API_BASE_URL}.`
-            );
-          }
-        );
-      }
-
-      if (!pickupRes.ok) {
+      if (pickupRes.status === 409 || pickupRes.status === 400) {
         throw new Error(
-          `Pickup failed with HTTP ${pickupRes.status}: Unable to claim booking ${input.bookingId}.`
+          `Request already claimed: Booking ${input.bookingId} has already been claimed by another psychologist. Please refresh your queue.`
+        );
+      }
+      if (pickupRes.status < 200 || pickupRes.status >= 300) {
+        throw buildBackendError(
+          `/psychologist/appointments/${input.bookingId}/pickup`,
+          pickupRes.status,
+          pickupRes.json
         );
       }
 
-      // CRITICAL (Copilot Finding 2): Pickup was successful! The appointment is now claimed.
-      // We MUST NOT fall back to legacy /propose or mock if slot submission fails,
-      // as that would leave the booking claimed without slots or double-claim.
-      const slotsRes = await fetchWithTimeout(
-        `${API_BASE_URL}/appointments/${input.bookingId}/slots`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            slots: [
-              { slotNumber: 1, dateTime: input.slot1DateTime },
-              { slotNumber: 2, dateTime: input.slot2DateTime },
-              { slotNumber: 3, dateTime: input.slot3DateTime },
-            ],
-            clinicalPrepNote: input.clinicalPrepNote,
-          }),
-        },
-        8000
+      // CRITICAL (Copilot Finding 2, updated): pickup was successful — the
+      // appointment is claimed. NEVER fall back to mocks or legacy endpoints
+      // from here; failures surface loudly so nobody double-claims.
+      const apptRes = await liveFetch(`/appointments/${input.bookingId}`);
+      if (apptRes.status < 200 || apptRes.status >= 300) {
+        throw buildBackendError(
+          `/appointments/${input.bookingId}`,
+          apptRes.status,
+          apptRes.json
+        );
+      }
+      const claimedRaw = apptRes.json as AppointmentRaw;
+      const durationMinutes = resolveService(claimedRaw.service_id).durationMinutes || 60;
+
+      // Step 2: exactly 3 distinct SlotProposal rows with session_date + times.
+      const slotPayload = [input.slot1DateTime, input.slot2DateTime, input.slot3DateTime].map(
+        (dt) => toSlotProposal(dt, durationMinutes)
       );
 
-      if (!slotsRes.ok) {
-        let slotErr = `HTTP ${slotsRes.status}`;
-        try {
-          const slotData = await slotsRes.json();
-          if (slotData?.message) slotErr = slotData.message;
-        } catch {
-          // ignore
+      const slotsRes = await liveFetch(
+        `/psychologist/appointments/${input.bookingId}/slots`,
+        {
+          method: 'POST',
+          body: JSON.stringify(slotPayload),
         }
+      );
+
+      if (slotsRes.status < 200 || slotsRes.status >= 300) {
+        const detail =
+          (slotsRes.json as { detail?: string | unknown } | null)?.detail ?? `HTTP ${slotsRes.status}`;
         throw new Error(
-          `Appointment ${input.bookingId} was successfully claimed, but proposing slots failed (${slotErr}). Please check My Schedule or contact admin.`
+          `Appointment ${input.bookingId} was successfully claimed, but proposing slots failed (${typeof detail === 'string' ? detail : JSON.stringify(detail)}). It stays assigned to you — please check My Schedule or contact admin.`
         );
       }
 
-      return (await slotsRes.json()) as BookingRequest;
+      // Step 3: refetch the claimed appointment (now awaiting slot selection)
+      // and return it with the proposed slot rows attached.
+      const finalRes = await liveFetch(`/appointments/${input.bookingId}`);
+      if (finalRes.status < 200 || finalRes.status >= 300) {
+        throw buildBackendError(
+          `/appointments/${input.bookingId}`,
+          finalRes.status,
+          finalRes.json
+        );
+      }
+      const mapped = mapAppointmentRaw(finalRes.json as AppointmentRaw, {
+        psychologistIdLabel: input.psychologistId,
+      });
+      const slotRows = Array.isArray(slotsRes.json)
+        ? (slotsRes.json as ProposedSlotRaw[])
+        : [];
+      mapped.proposedSlots = slotRows.map((s, i) =>
+        mapProposedSlotRaw(s, claimedRaw.service_id, ((i + 1) as 1 | 2 | 3))
+      );
+      return mapped;
     }
 
     return requestWithMockFallback(
@@ -927,8 +1462,68 @@ export const api = {
     bookingId: string;
     selectedSlotId: string;
     simulateFailure?: boolean;
-  }): Promise<BookingRequest> =>
-    requestWithMockFallback(
+  }): Promise<BookingRequest> => {
+    if (shouldGoLive('/appointments')) {
+      // simulateFailure stays a mock-only dev toggle (never sent to the backend).
+      if (input.simulateFailure) {
+        throw new Error(
+          'Payment Declined (Simulated Stripe Error): Booking is NOT finalized and contact channels remain locked until payment succeeds.'
+        );
+      }
+
+      // Step 1: select the slot — appointment flips to awaiting_payment.
+      const selectRes = await liveFetch(`/appointments/${input.bookingId}/select-slot`, {
+        method: 'POST',
+        body: JSON.stringify({
+          slot_id: assertUuid(input.selectedSlotId, 'selectedSlotId'),
+        }),
+      });
+      if (selectRes.status < 200 || selectRes.status >= 300) {
+        throw buildBackendError(
+          `/appointments/${input.bookingId}/select-slot`,
+          selectRes.status,
+          selectRes.json
+        );
+      }
+
+      // Step 2: initiate payment. The provider seam returns a PENDING payment
+      // row + checkout ref; the appointment only becomes confirmed via the
+      // provider webhook (POST /payments/webhook {provider_ref, outcome}).
+      // NEVER fake a success here — contact stays locked until confirmation.
+      const payRes = await liveFetch(`/appointments/${input.bookingId}/payment`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      if (payRes.status < 200 || payRes.status >= 300) {
+        throw buildBackendError(
+          `/appointments/${input.bookingId}/payment`,
+          payRes.status,
+          payRes.json
+        );
+      }
+      const payment = payRes.json as PaymentRaw | null;
+
+      // Step 3: short confirmation poll — covers synchronous gateways.
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        await new Promise((r) => setTimeout(r, 500));
+        const appt = await liveFetch(`/appointments/${input.bookingId}`);
+        if (appt.status >= 200 && appt.status < 300) {
+          const raw = appt.json as AppointmentRaw;
+          if (raw.status === 'confirmed') {
+            const mapped = mapAppointmentRaw(raw);
+            await attachClientSlots(mapped);
+            return mapped;
+          }
+          if (raw.status === 'cancelled') break;
+        }
+      }
+
+      throw new Error(
+        `Payment initiated (provider: ${payment?.provider ?? 'gateway'}, ref: ${payment?.provider_ref ?? 'n/a'}) but not yet confirmed — contact stays locked until the provider webhook marks it paid.${payment?.checkout_url ? ` Checkout URL: ${payment.checkout_url}` : ''}`
+      );
+    }
+
+    return requestWithMockFallback(
       `/api/v1/bookings/${input.bookingId}/pay`,
       { method: 'POST', body: JSON.stringify(input) },
       () => {
@@ -971,7 +1566,8 @@ export const api = {
         mockBookings = mockBookings.map((b) => (b.id === input.bookingId ? updated : b));
         return updated;
       }
-    ),
+    );
+  },
 
   /**
    * Flow C Step 5: Real-time status updates for Reschedule / Cancel / Reminder dispatch
@@ -979,8 +1575,23 @@ export const api = {
   updateBookingLifecycleStatus: async (input: {
     bookingId: string;
     action: 'cancel' | 'request-reschedule' | 'dispatch-reminders';
-  }): Promise<BookingRequest> =>
-    requestWithMockFallback(
+  }): Promise<BookingRequest> => {
+    // Live transitions: cancel is the only backend-backed one
+    // (DELETE /appointments/{id}; reschedule/reminder dispatch stay pending §7.5).
+    if (input.action === 'cancel' && shouldGoLive('/appointments')) {
+      const { status, json } = await liveFetch(`/appointments/${input.bookingId}`, {
+        method: 'DELETE',
+      });
+      if (status < 200 || status >= 300) {
+        throw buildBackendError(
+          `/appointments/${input.bookingId}`,
+          status,
+          json
+        );
+      }
+      return mapAppointmentRaw(json as AppointmentRaw);
+    }
+    return requestWithMockFallback(
       `/api/v1/bookings/${input.bookingId}/lifecycle`,
       { method: 'PATCH', body: JSON.stringify(input) },
       () => {
@@ -1002,7 +1613,8 @@ export const api = {
         mockBookings = mockBookings.map((b) => (b.id === input.bookingId ? updated : b));
         return updated;
       }
-    ),
+    );
+  },
 
   /**
    * Update psychologist-only private note (strictly hidden from Admin/Client)
