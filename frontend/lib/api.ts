@@ -34,15 +34,16 @@ import {
  * rule. Real-mode responses are adapted to the UI types in this file only —
  * UI components never see backend shapes.
  */
-const getEnvVar = (key: string, fallback: string): string => {
-  if (typeof process !== 'undefined' && process.env && process.env[key]) {
-    return process.env[key] as string;
-  }
-  return fallback;
-};
-
-export const API_BASE_URL = getEnvVar('NEXT_PUBLIC_API_URL', 'http://localhost:8000');
-export const AUTH_MODE = getEnvVar('NEXT_PUBLIC_AUTH_MODE', 'mock');
+/**
+ * NEXT_PUBLIC_* vars are read as literal member expressions on purpose:
+ * the bundler statically inlines exact `process.env.NEXT_PUBLIC_*` accesses
+ * into both the server and client bundles, so every runtime sees the same
+ * compile-time value. Dynamic lookup (`process.env[key]`) is never inlined —
+ * server process env and client bundle could resolve different values,
+ * producing React hydration text mismatches (seen on the SiteHeader banner).
+ */
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+export const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || 'mock';
 
 /**
  * Backend prefixes with a real implementation today. Endpoints outside this
@@ -51,7 +52,7 @@ export const AUTH_MODE = getEnvVar('NEXT_PUBLIC_AUTH_MODE', 'mock');
 const WIRED_PREFIXES = ['/auth', '/services', '/personas', '/appointments', '/psychologist'];
 
 /** Optional per-prefix allowlist (e.g. "/auth,/appointments") for incremental smoke tests. */
-const LIVE_ROUTES = getEnvVar('NEXT_PUBLIC_LIVE_ROUTES', '')
+const LIVE_ROUTES = (process.env.NEXT_PUBLIC_LIVE_ROUTES || '')
   .split(',')
   .map((p) => p.trim())
   .filter(Boolean);

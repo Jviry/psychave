@@ -12,14 +12,7 @@
  *   POST /auth/logout          → logoutUser
  */
 
-import { shouldGoLive } from './lib/api';
-
-const getEnv = (key: string, fallback: string): string => {
-  if (typeof process !== 'undefined' && process.env?.[key]) return process.env[key] as string;
-  return fallback;
-};
-
-const API_BASE_URL = getEnv('NEXT_PUBLIC_API_URL', 'http://localhost:8000');
+import { API_BASE_URL, shouldGoLive } from './lib/api';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
