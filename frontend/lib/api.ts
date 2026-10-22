@@ -473,11 +473,16 @@ async function refreshAccessToken(): Promise<string | null> {
           8000
         );
         if (!res.ok) return null;
-        const data = (await res.json().catch(() => null)) as { AccessToken?: string } | null;
-        const newToken = data?.AccessToken ?? null;
-        if (newToken) {
-          useAuthStore.setState({ accessToken: newToken });
-          return newToken;
+        // REFRESH_TOKEN_AUTH returns a brand-new AccessToken AND IdToken
+        // (the RefreshToken stays the original one). Both must be updated —
+        // the backend's verify_token() accepts ID tokens only.
+        const data = (await res.json().catch(() => null)) as
+          { AccessToken?: string; IdToken?: string } | null;
+        const newAccess = data?.AccessToken ?? null;
+        const newIdToken = data?.IdToken ?? null;
+        if (newAccess && newIdToken) {
+          useAuthStore.setState({ accessToken: newAccess, idToken: newIdToken });
+          return newIdToken;
         }
         return null;
       } catch {
@@ -516,7 +521,9 @@ async function liveFetch(
   options: RequestInit = {}
 ): Promise<{ status: number; json: unknown }> {
   const callOnce = () => {
-    const token = useAuthStore.getState()?.accessToken ?? null;
+    // Backend contract (backend/README.md): verify_token() requires the **ID
+    // token** (aud = COGNITO_APP_CLIENT_ID); access tokens are rejected.
+    const token = useAuthStore.getState()?.idToken ?? null;
     return fetchWithTimeout(
       `${API_BASE_URL}${endpoint}`,
       {
