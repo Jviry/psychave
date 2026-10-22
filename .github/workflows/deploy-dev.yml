@@ -59,10 +59,14 @@ jobs:
 
       - name: OpenTofu Plan
         working-directory: infra/environments/dev
+        env:
+          TF_VAR_database_url: ${{ secrets.DATABASE_URL }}
         run: |
           tofu plan -var-file="dev.tfvars"
 
       - name: OpenTofu Apply
         working-directory: infra/environments/dev
+        env:
+          TF_VAR_database_url: ${{ secrets.DATABASE_URL }}
         run: |
           tofu apply -auto-approve -var-file="dev.tfvars"
