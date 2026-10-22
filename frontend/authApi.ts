@@ -32,6 +32,8 @@ export interface RegisterCredentials {
   username: string;
   password: string;
   role: 'client' | 'psychologist';
+  /** Required when role === 'psychologist' (backend creates their pending profile from it). */
+  fullName?: string;
 }
 
 export interface ConfirmCredentials {
@@ -133,6 +135,8 @@ export const authApi = {
       username: credentials.username,
       password: credentials.password,
       role: credentials.role,
+      // undefined keys are dropped by JSON.stringify — clients send no name
+      full_name: credentials.fullName?.trim() || undefined,
     });
   },
 
