@@ -2,12 +2,14 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from mangum import Mangum
 from fastapi.middleware.cors import CORSMiddleware
+import logging
+
 from common.exceptions import (
     ForbiddenError,
     UnauthenticatedError,
     UserNotFoundError,
 )
-from botocore.exceptions import ClientError
+from botocore.exceptions import BotoCoreError, ClientError
 from common.settings import settings
 from common.exceptions import DomainError
 from controllers.app_router import app_router
@@ -15,6 +17,33 @@ from controllers.app_router import app_router
 app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG)
 
 handler = Mangum(app)
+
+logger = logging.getLogger("uvicorn.error")
+
+# boto3 CLIENT-side failures (NoCredentialsError, EndpointConnectionError,
+# PartialCredentialsError, ...) are NOT ClientError subclasses — without this
+# handler they escape every exception handler and reach ServerErrorMiddleware,
+# whose 500 responses bypass the CORS middleware (the browser then reports a
+# phantom "blocked by CORS policy" instead of the real provider error).
+@app.exception_handler(BotoCoreError)
+async def botocore_error_handler(_: Request, exc: BotoCoreError):
+    logger.exception("AWS client-side failure: %s", exc)
+    return JSONResponse(
+        status_code=503,
+        content={"detail": f"AWS provider error: {exc}"},
+    )
+
+
+# Last-resort net: an unhandled 500 from ServerErrorMiddleware also loses CORS
+# headers. Always answer JSON (with CORS, since this middleware sits inside
+# CORSMiddleware) and still log the full traceback for the server console.
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(_: Request, exc: Exception):
+    logger.exception("Unhandled exception: %s", exc)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
 
 
 @app.exception_handler(DomainError)
