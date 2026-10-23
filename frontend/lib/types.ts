@@ -4,6 +4,7 @@ export type BookingStatus =
   | 'pending'
   | 'proposed'
   | 'paid-confirmed'
+  | 'completed'
   | 'reschedule-requested'
   | 'cancelled';
 
@@ -32,19 +33,49 @@ export interface Persona {
   createdAt: string;
 }
 
+export interface PersonaReview {
+  persona: {
+    id: string;
+    name: string;
+    relationToAccountHolder: string;
+    dateOfBirth: string;
+    occupation: string | null;
+    nationality: string;
+    permanentAddress: string;
+    presentAddress: string;
+    contactNumber: string;
+    socmedPlatform: string | null;
+    socmedUsername: string | null;
+    preferredContactMode: string;
+    emergencyContactName: string;
+    emergencyContactRelation: string;
+    emergencyContactNumber: string;
+  };
+  consent: {
+    version: string;
+    termsSignerName: string;
+    termsSignerRelation: string;
+    scopeAcknowledged: boolean;
+    isOverseasOrForeign: boolean;
+    overseasAcknowledged: boolean;
+    informationConfirmed: boolean;
+    consentSignerName: string;
+    signedAt: string | null;
+  };
+}
+
+export interface SocialMediaLink {
+  platform: string;
+  url: string;
+}
+
 export interface ProposedSlot {
   id: string;
   slotNumber: 1 | 2 | 3;
   isoDateTime: string;
+  endIsoDateTime?: string;
   dateLabel: string;
   timeLabel: string;
-}
-
-export interface UnlockedContact {
-  teletherapyUrl: string;
-  coordinationEmail: string;
-  sessionReferenceCode: string;
-  emergencyProtocolNote: string;
 }
 
 export interface BookingRequest {
@@ -56,10 +87,9 @@ export interface BookingRequest {
   serviceId: string;
   serviceTitle: string;
   serviceDuration: string;
+  serviceDurationMinutes: number;
   serviceGuardrail: string;
   concernsSummary: string;
-  specificNeeds: string;
-  preferredLanguage: string;
   submittedAt: string;
   status: BookingStatus;
   psychologistId?: string;
@@ -67,11 +97,14 @@ export interface BookingRequest {
   psychologistSpecialization?: string;
   pricePhp?: number;
   proposedSlots: ProposedSlot[];
-  clinicalPrepNote?: string;
   selectedSlotId?: string;
   paidAt?: string;
   contactUnlocked: boolean;
-  unlockedContact?: UnlockedContact;
+  psychologistSocialLinks?: SocialMediaLink[];
+  clientSocialMedia?: {
+    platform: string;
+    username: string;
+  };
   reminders: {
     reminder24h: 'pending' | 'scheduled' | 'dispatched';
     reminder1h: 'pending' | 'scheduled' | 'dispatched';
@@ -101,6 +134,7 @@ export interface ResidentPsychologist {
   verificationStatus: 'verified' | 'waiting_approval';
   visibleOnPublicRoster: boolean;
   assignedBookingsCount: number;
+  socialMediaLinks: SocialMediaLink[];
   bio?: string;
 }
 

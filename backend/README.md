@@ -45,6 +45,7 @@ backend/
 │   │   ├── appointment.py        # Consultation appointments
 │   │   ├── proposed_slot.py      # Available / proposed time slots
 │   │   └── payment.py            # Payment records
+│   ├── seed_services.py          # Idempotent services catalog seed
 │   └── main.py                   # FastAPI entry point & Mangum handler
 ├── .env.example                  # Environment variable reference
 ├── alembic.ini                   # Alembic configuration
@@ -94,7 +95,20 @@ Before running the server, apply database migrations:
 alembic upgrade head
 ```
 
-### 4. Start Development Server
+### 4. Seed the Services Catalog
+
+The `services` table ships empty. Seed the seven catalog entries from
+`docs/services-catalog.md` with:
+
+```bash
+python src/seed_services.py
+```
+
+The script is idempotent — it upserts by a stable UUID per service slug, so
+re-running updates the copy instead of creating duplicates. Existing
+appointments that reference a seeded service are unaffected.
+
+### 5. Start Development Server
 
 Run Uvicorn with `--app-dir src` to ensure modules resolve correctly:
 

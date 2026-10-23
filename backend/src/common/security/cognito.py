@@ -3,8 +3,10 @@ from jose import jwt, JWTError
 from functools import lru_cache
 from common.settings import settings
 
-COGNITO_ISSUER = f"https://cognito-idp.{
-    settings.AWS_REGION}.amazonaws.com/{settings.COGNITO_USER_POOL_ID}"
+COGNITO_ISSUER = (
+    f"https://cognito-idp.{settings.AWS_REGION}.amazonaws.com/"
+    f"{settings.COGNITO_USER_POOL_ID}"
+)
 JWKS_URL = f"{COGNITO_ISSUER}/.well-known/jwks.json"
 
 

@@ -10,6 +10,7 @@ import {
   ProposalFormValues,
 } from '../../../../lib/schemas';
 import { useAppStore } from '../../../../stores/useAppStore';
+import { useActivePsychologist } from '../../../../hooks/useActivePsychologist';
 import { useRouter } from 'next/navigation';
 import { Lock, Check, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { PractitionerSwitcher } from '../../../../components/dashboard/PractitionerSwitcher';
@@ -23,37 +24,91 @@ import {
   Label,
   Modal,
   Skeleton,
-  Textarea,
 } from '../../../../components/ui/primitives';
+
+function formatReviewDate(value: string | null, includeTime = false): string {
+  if (!value) return '—';
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? `${value}T00:00:00+08:00`
+    : value;
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+    ...(includeTime ? { timeStyle: 'short' as const } : {}),
+    timeZone: 'Asia/Manila',
+  }).format(date);
+}
+
+function reviewAge(dateOfBirth: string): string {
+  const dob = new Date(`${dateOfBirth}T00:00:00+08:00`);
+  if (Number.isNaN(dob.getTime())) return '—';
+  const now = new Date();
+  let age = now.getFullYear() - dob.getFullYear();
+  const monthDelta = now.getMonth() - dob.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < dob.getDate())) {
+    age -= 1;
+  }
+  return `${Math.max(age, 0)} yrs`;
+}
+
+function yesNo(value: boolean): string {
+  return value ? 'Yes' : 'No';
+}
+
+function displayValue(value: string | null | undefined): string {
+  return value && value.trim().length > 0 ? value : '—';
+}
+
+function ReviewField({
+  label,
+  value,
+  fullWidth = false,
+}: {
+  label: string;
+  value: string;
+  fullWidth?: boolean;
+}) {
+  return (
+    <div className={fullWidth ? 'sm:col-span-2' : undefined}>
+      <dt className="text-xs text-pine/60">{label}</dt>
+      <dd className="mt-0.5 text-sm font-medium text-pine break-words">{value}</dd>
+    </div>
+  );
+}
 
 export default function PsychologistQueuePage() {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const {
-    activePsychologistId,
-    setCognitoRole,
-    publishFlowEvent,
-  } = useAppStore();
+  const { publishFlowEvent } = useAppStore();
+  const { activePsych, activePsychologistId, showSwitcher } = useActivePsychologist();
 
   const [activeModalBookingId, setActiveModalBookingId] = useState<string | null>(null);
+  const [reviewBookingId, setReviewBookingId] = useState<string | null>(null);
   const [recentProposedId, setRecentProposedId] = useState<string | null>(null);
 
-  const { data: roster = [] } = useQuery({
-    queryKey: ['roster', 'admin'],
-    queryFn: () => api.getRoster(true),
-  });
-
-  const activePsych =
-    roster.find((r) => r.id === activePsychologistId) || roster[0];
   const isVerified = activePsych?.verificationStatus === 'verified';
+  const hasSocialLinks = (activePsych?.socialMediaLinks?.length ?? 0) > 0;
+  const canPickup = isVerified && hasSocialLinks;
 
-  const { data: bookings = [], isLoading, refetch } = useQuery({
+  const { data: bookings = [], isLoading, refetch, error: bookingsError } = useQuery({
     queryKey: ['bookings', 'psychologist', activePsychologistId],
     queryFn: () => api.getBookingsForRole('psychologist', activePsychologistId),
   });
 
   const pendingQueue = bookings.filter((b) => b.status === 'pending');
   const targetBooking = pendingQueue.find((b) => b.id === activeModalBookingId) || null;
+  const reviewBooking = pendingQueue.find((b) => b.id === reviewBookingId) || null;
+
+  const reviewQuery = useQuery({
+    queryKey: ['persona-review', reviewBooking?.personaId],
+    queryFn: () => {
+      if (!reviewBooking) throw new Error('No booking selected for review.');
+      return api.getPersonaReview(reviewBooking.personaId);
+    },
+    enabled: Boolean(reviewBooking?.personaId),
+    retry: false,
+  });
 
   // Format datetime for datetime-local input strictly in Philippine Standard Time (Asia/Manila)
   const formatForManilaInput = (d: Date) => {
@@ -110,8 +165,6 @@ export default function PsychologistQueuePage() {
       slot1DateTime: defaultSlots.slot1,
       slot2DateTime: defaultSlots.slot2,
       slot3DateTime: defaultSlots.slot3,
-      clinicalPrepNote:
-        'Please join from a quiet, private space 5 minutes before our scheduled start. Informed consent and scope guardrails will be reviewed at the start.',
     },
   });
 
@@ -125,7 +178,6 @@ export default function PsychologistQueuePage() {
         slot1DateTime: serializeManilaIso(values.slot1DateTime),
         slot2DateTime: serializeManilaIso(values.slot2DateTime),
         slot3DateTime: serializeManilaIso(values.slot3DateTime),
-        clinicalPrepNote: values.clinicalPrepNote,
       });
     },
     onSuccess: (updated) => {
@@ -141,7 +193,7 @@ export default function PsychologistQueuePage() {
   });
 
   const handleOpenPickupModal = (bookingId: string) => {
-    if (!isVerified) return;
+    if (!canPickup) return;
     setActiveModalBookingId(bookingId);
     proposeMutation.reset();
     proposalForm.reset({
@@ -149,8 +201,6 @@ export default function PsychologistQueuePage() {
       slot1DateTime: defaultSlots.slot1,
       slot2DateTime: defaultSlots.slot2,
       slot3DateTime: defaultSlots.slot3,
-      clinicalPrepNote:
-        'Please join from a quiet, private space 5 minutes before our scheduled start. Informed consent and scope guardrails will be reviewed at the start.',
     });
   };
 
@@ -158,6 +208,23 @@ export default function PsychologistQueuePage() {
     setActiveModalBookingId(null);
     proposeMutation.reset();
   };
+
+  const handleOpenReview = (bookingId: string) => {
+    setReviewBookingId(bookingId);
+  };
+
+  const handleCloseReview = () => {
+    setReviewBookingId(null);
+  };
+
+  const handleReviewToProposal = () => {
+    if (!reviewBooking) return;
+    const bookingId = reviewBooking.id;
+    setReviewBookingId(null);
+    handleOpenPickupModal(bookingId);
+  };
+
+  const review = reviewQuery.data;
 
   return (
     <div className="space-y-8">
@@ -178,12 +245,12 @@ export default function PsychologistQueuePage() {
           </p>
         </div>
 
-        {/* Practitioner State Switcher for Prototype Evaluation */}
-        <PractitionerSwitcher />
+        {/* Practitioner State Switcher (mock mode only) */}
+        {showSwitcher && <PractitionerSwitcher />}
       </header>
 
       {/* Non-Approved Psychologist Blocked Banner (Defense-in-depth) */}
-      {!isVerified && (
+      {!isVerified && activePsych && (
         <UnverifiedBanner
           title="Pending Administrative Approval — Pick-Up Actions Disabled"
           note={`${activePsych?.prcCredentialCode} · STATUS: WAITING_APPROVAL`}
@@ -195,6 +262,30 @@ export default function PsychologistQueuePage() {
             </>
           }
         />
+      )}
+
+      {isVerified && !hasSocialLinks && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-xs text-amber-950 space-y-2">
+          <p className="font-semibold">Add a social media link before accepting a booking.</p>
+          <p>
+            Confirmed clients receive your social media links as their contact channel. Add at
+            least one link to your practitioner profile to unlock pick-up.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push('/psych/profile')}
+          >
+            Add Social Media Link
+          </Button>
+        </div>
+      )}
+
+      {bookingsError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-xs text-red-900">
+          <p className="font-semibold">Could not load pending bookings.</p>
+          <p className="mt-1 break-words">{(bookingsError as Error).message}</p>
+        </div>
       )}
 
       {/* Success Notification if proposal was just submitted */}
@@ -264,37 +355,43 @@ export default function PsychologistQueuePage() {
           <EmptyState
             icon={CheckCircle2}
             title="Pending Queue is All Clear"
-            description="All submitted client booking requests have been claimed and scheduled. Switch to the Client role to submit a new booking form or manage confirmed appointments in My Schedule."
+            description="All submitted client booking requests have been claimed and scheduled. View confirmed appointments in My Schedule."
             action={
-              <div className="flex flex-wrap justify-center gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setCognitoRole('client');
-                    router.push('/personas');
-                  }}
-                >
-                  Submit Test Booking (Client Role)
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => router.push('/psych/schedule')}
-                >
-                  Go to My Schedule
-                </Button>
-              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => router.push('/psych/schedule')}
+              >
+                Go to My Schedule
+              </Button>
             }
           />
         ) : (
           /* Pending Requests Cards */
           <div className="grid grid-cols-1 gap-5">
             {pendingQueue.map((item) => (
-              <Card
+              <div
                 key={item.id}
-                className="hover:border-sage transition-colors p-6 space-y-5"
+                role="button"
+                tabIndex={0}
+                aria-label={`View persona and consent details for booking ${item.id}`}
+                onClick={(event) => {
+                  const target = event.target as HTMLElement;
+                  if (target.closest('button, a, input, select, textarea')) return;
+                  handleOpenReview(item.id);
+                }}
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    handleOpenReview(item.id);
+                  }
+                }}
+                className="rounded-2xl cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2"
               >
+                <Card
+                  className="hover:border-sage transition-colors p-6 space-y-5 h-full"
+                >
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-mist/70 pb-4">
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -313,19 +410,33 @@ export default function PsychologistQueuePage() {
 
                   {/* Pick Up Action Button: Hidden or disabled when unverified */}
                   <div>
-                    {isVerified ? (
+                    {canPickup ? (
                       <Button
                         variant="primary"
                         size="md"
-                        onClick={() => handleOpenPickupModal(item.id)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleOpenPickupModal(item.id);
+                        }}
                       >
                         Pick Up &amp; Propose 3 Slots
                       </Button>
-                    ) : (
+                    ) : !isVerified ? (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-sunken text-pine/50 border border-mist">
                         <Lock className="w-3.5 h-3.5" aria-hidden="true" />
                         Pick-Up Locked (Approval Pending)
                       </span>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="md"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          router.push('/psych/profile');
+                        }}
+                      >
+                        Add Social Media to Accept
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -338,11 +449,11 @@ export default function PsychologistQueuePage() {
                       Client &amp; Persona Information
                     </span>
                     <p className="font-heading text-lg font-medium text-pine">{item.personaLabel}</p>
-                    <p className="text-pine/75">
-                      Language: <span className="font-medium text-pine">{item.preferredLanguage}</span>
-                    </p>
                     <p className="text-xs text-pine/60">
                       Submitted: {item.submittedAt}
+                    </p>
+                    <p className="text-[11px] font-medium text-accent-ink">
+                      Click card to view persona &amp; consent form
                     </p>
                   </div>
 
@@ -362,23 +473,184 @@ export default function PsychologistQueuePage() {
                   {/* Booking Notes */}
                   <div className="space-y-1">
                     <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                      Presenting Concerns &amp; Needs
+                      Presenting Concerns
                     </span>
                     <p className="text-pine/90 line-clamp-3 leading-relaxed">
                       {item.concernsSummary}
                     </p>
-                    {item.specificNeeds && (
-                      <p className="text-xs text-pine/70 italic pt-0.5">
-                        Specifics: {item.specificNeeds}
-                      </p>
-                    )}
                   </div>
                 </div>
               </Card>
+              </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Persona & Consent Review Modal */}
+      {reviewBooking && (
+        <Modal
+          open
+          onClose={handleCloseReview}
+          title={`Persona & Consent Review — ${reviewBooking.id}`}
+          description={`${reviewBooking.serviceTitle} · ${reviewBooking.personaLabel}`}
+          maxWidth="2xl"
+        >
+          <div className="space-y-5">
+            <div className="rounded-lg border border-mist bg-surface-sunken/40 p-4 space-y-1.5">
+              <p className="text-xs font-semibold uppercase tracking-widest text-accent-ink">
+                Booking Request
+              </p>
+              <p className="text-sm text-pine leading-relaxed">
+                {reviewBooking.concernsSummary}
+              </p>
+              <p className="text-xs text-pine/60">
+                Submitted {reviewBooking.submittedAt} · {reviewBooking.serviceDuration}
+              </p>
+              {reviewBooking.serviceGuardrail && (
+                <p className="text-xs text-pine/70 leading-relaxed">
+                  {reviewBooking.serviceGuardrail}
+                </p>
+              )}
+            </div>
+
+            {reviewQuery.isLoading && (
+              <div className="space-y-3">
+                <Skeleton className="h-28" />
+                <Skeleton className="h-40" />
+              </div>
+            )}
+
+            {reviewQuery.isError && (
+              <div
+                role="alert"
+                className="bg-red-50 border border-red-200 rounded-lg p-4 text-xs text-red-900 space-y-2"
+              >
+                <p className="font-semibold">Could not load persona review.</p>
+                <p className="break-words">{(reviewQuery.error as Error).message}</p>
+                <Button variant="outline" size="sm" onClick={() => reviewQuery.refetch()}>
+                  Retry
+                </Button>
+              </div>
+            )}
+
+            {review && (
+              <>
+                <section className="rounded-lg border border-mist overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-mist bg-surface-sunken/40">
+                    <h3 className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                      Persona Details
+                    </h3>
+                  </div>
+                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 px-4 py-4">
+                    <ReviewField label="Full name" value={displayValue(review.persona.name)} />
+                    <ReviewField
+                      label="Relation to account holder"
+                      value={displayValue(review.persona.relationToAccountHolder)}
+                    />
+                    <ReviewField
+                      label="Date of birth"
+                      value={`${formatReviewDate(review.persona.dateOfBirth)} (${reviewAge(review.persona.dateOfBirth)})`}
+                    />
+                    <ReviewField label="Occupation" value={displayValue(review.persona.occupation)} />
+                    <ReviewField label="Nationality" value={displayValue(review.persona.nationality)} />
+                    <ReviewField
+                      label="Preferred contact"
+                      value={displayValue(review.persona.preferredContactMode)}
+                    />
+                    <ReviewField
+                      label="Permanent address"
+                      value={displayValue(review.persona.permanentAddress)}
+                      fullWidth
+                    />
+                    <ReviewField
+                      label="Present address"
+                      value={displayValue(review.persona.presentAddress)}
+                      fullWidth
+                    />
+                    <ReviewField
+                      label="Contact number"
+                      value={displayValue(review.persona.contactNumber)}
+                    />
+                    <ReviewField
+                      label="Social media"
+                      value={
+                        [review.persona.socmedPlatform, review.persona.socmedUsername]
+                          .filter(Boolean)
+                          .join(' · ') || '—'
+                      }
+                    />
+                    <ReviewField
+                      label="Emergency contact"
+                      value={`${displayValue(review.persona.emergencyContactName)} (${displayValue(
+                        review.persona.emergencyContactRelation
+                      )}) · ${displayValue(review.persona.emergencyContactNumber)}`}
+                      fullWidth
+                    />
+                  </dl>
+                </section>
+
+                <section className="rounded-lg border border-mist overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-mist bg-surface-sunken/40">
+                    <h3 className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                      Consent &amp; Forms
+                    </h3>
+                  </div>
+                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 px-4 py-4">
+                    <ReviewField
+                      label="Consent version"
+                      value={displayValue(review.consent.version)}
+                    />
+                    <ReviewField
+                      label="Signed at"
+                      value={formatReviewDate(review.consent.signedAt, true)}
+                    />
+                    <ReviewField
+                      label="Terms signer"
+                      value={`${displayValue(review.consent.termsSignerName)} (${displayValue(
+                        review.consent.termsSignerRelation
+                      )})`}
+                    />
+                    <ReviewField
+                      label="Consent signer"
+                      value={displayValue(review.consent.consentSignerName)}
+                    />
+                    <ReviewField
+                      label="Scope acknowledged"
+                      value={yesNo(review.consent.scopeAcknowledged)}
+                    />
+                    <ReviewField
+                      label="Information confirmed"
+                      value={yesNo(review.consent.informationConfirmed)}
+                    />
+                    <ReviewField
+                      label="Overseas / foreign national"
+                      value={yesNo(review.consent.isOverseasOrForeign)}
+                    />
+                    {review.consent.isOverseasOrForeign && (
+                      <ReviewField
+                        label="Overseas acknowledged"
+                        value={yesNo(review.consent.overseasAcknowledged)}
+                      />
+                    )}
+                  </dl>
+                </section>
+              </>
+            )}
+
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-3 pt-3 border-t border-mist">
+              <Button type="button" variant="outline" size="md" onClick={handleCloseReview}>
+                Close
+              </Button>
+              {canPickup && (
+                <Button type="button" variant="primary" size="md" onClick={handleReviewToProposal}>
+                  Pick Up &amp; Propose 3 Slots
+                </Button>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* Pick-Up Proposal Modal — shared base (Escape close, backdrop click, focus trap) */}
       {targetBooking && (
@@ -518,24 +790,6 @@ export default function PsychologistQueuePage() {
                     )}
                   </div>
                 </div>
-              </div>
-
-              {/* Prep note */}
-              <div>
-                <Label htmlFor="modal-prep-note">
-                  Clinical Preparation Note for Client <span className="text-red-600">*</span>
-                </Label>
-                <Textarea
-                  id="modal-prep-note"
-                  rows={3}
-                  placeholder="Instructions for the client prior to joining session..."
-                  {...proposalForm.register('clinicalPrepNote')}
-                />
-                {proposalForm.formState.errors.clinicalPrepNote && (
-                  <p className="text-xs text-red-700 mt-1 font-medium">
-                    {proposalForm.formState.errors.clinicalPrepNote.message}
-                  </p>
-                )}
               </div>
 
               {/* Modal Actions */}

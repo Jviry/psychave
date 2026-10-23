@@ -61,6 +61,17 @@ def list_my_appointments(
     return PsychologistUsecase(db).list_mine(current_psychologist.psychologist_id, status)
 
 
+@router.post("/appointments/{appointment_id}/complete", response_model=AppointmentRead)
+def complete_appointment(
+    appointment_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_psychologist: PsychologistProfile = Depends(require_approved_psychologist),
+):
+    return PsychologistUsecase(db).complete_appointment(
+        appointment_id, current_psychologist.psychologist_id
+    )
+
+
 # ----- profile -----
 @router.get("/psychologist-profile/me", response_model=PsychologistProfileRead)
 def get_my_profile(

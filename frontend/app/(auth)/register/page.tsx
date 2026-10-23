@@ -256,6 +256,7 @@ export default function RegisterPage() {
         username: data.username,
         password: data.password,
         role: data.role,
+        fullName: data.fullName,
       });
       setRegisteredUsername(data.username);
       setRegisteredRole(data.role);
@@ -359,6 +360,32 @@ export default function RegisterPage() {
               <p role="alert" className="mt-1.5 text-xs text-red-600">{errors.role.message}</p>
             )}
           </div>
+
+          {/* Full name — psychologist accounts only (backend requires it
+              to create their pending PsychologistProfile) */}
+          {selectedRole === 'psychologist' && (
+            <div>
+              <Label htmlFor="register-full-name">Full name</Label>
+              <Input
+                id="register-full-name"
+                type="text"
+                autoComplete="name"
+                placeholder="Dr. Juan Dela Cruz"
+                aria-invalid={!!errors.fullName}
+                aria-describedby={errors.fullName ? 'register-full-name-error' : 'register-full-name-hint'}
+                {...register('fullName')}
+              />
+              {errors.fullName ? (
+                <p id="register-full-name-error" role="alert" className="mt-1.5 text-xs text-red-600">
+                  {errors.fullName.message}
+                </p>
+              ) : (
+                <p id="register-full-name-hint" className="mt-1.5 text-xs text-pine/50">
+                  Used for your practitioner profile — verified against your PRC credentials.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Email */}
           <div>

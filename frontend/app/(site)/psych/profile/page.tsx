@@ -1,17 +1,18 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../../lib/api';
 import {
   psychologistProfileSchema,
   PsychologistProfileValues,
 } from '../../../../lib/schemas';
 import { useAppStore } from '../../../../stores/useAppStore';
+import { useActivePsychologist } from '../../../../hooks/useActivePsychologist';
 import { useRouter } from 'next/navigation';
-import { Check } from 'lucide-react';
+import { Check, Plus, Trash2 } from 'lucide-react';
 import { PractitionerSwitcher } from '../../../../components/dashboard/PractitionerSwitcher';
 import { UnverifiedBanner } from '../../../../components/dashboard/UnverifiedBanner';
 import {
@@ -19,25 +20,29 @@ import {
   Card,
   Input,
   Label,
+  Select,
   Skeleton,
   Textarea,
 } from '../../../../components/ui/primitives';
 
+const SOCIAL_PLATFORMS = [
+  'Facebook',
+  'Instagram',
+  'LinkedIn',
+  'X (Twitter)',
+  'TikTok',
+  'Website',
+];
+
 export default function PsychologistProfilePage() {
   const queryClient = useQueryClient();
   const router = useRouter();
+  const { publishFlowEvent } = useAppStore();
   const {
-    activePsychologistId,
-    publishFlowEvent,
-  } = useAppStore();
-
-  const { data: roster = [], isLoading } = useQuery({
-    queryKey: ['roster', 'admin'],
-    queryFn: () => api.getRoster(true),
-  });
-
-  const activePsych =
-    roster.find((r) => r.id === activePsychologistId) || roster[0];
+    activePsych,
+    isLoading,
+    showSwitcher,
+  } = useActivePsychologist();
   const isVerified = activePsych?.verificationStatus === 'verified';
 
   const profileForm = useForm<PsychologistProfileValues>({
@@ -46,9 +51,13 @@ export default function PsychologistProfilePage() {
       specialization: '',
       prcCredentialCode: '',
       bio: '',
-      yearsPractice: '',
-      languages: '',
+      socialMediaLinks: [],
     },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: profileForm.control,
+    name: 'socialMediaLinks',
   });
 
   // Populate form with active profile data when loaded or switched
@@ -58,8 +67,7 @@ export default function PsychologistProfilePage() {
         specialization: activePsych.specialization || '',
         prcCredentialCode: activePsych.prcCredentialCode || '',
         bio: activePsych.bio || '',
-        yearsPractice: activePsych.yearsPractice || '',
-        languages: activePsych.languages?.join(', ') || '',
+        socialMediaLinks: activePsych.socialMediaLinks ?? [],
       });
     }
   }, [activePsych, profileForm]);
@@ -71,18 +79,18 @@ export default function PsychologistProfilePage() {
         specialization: values.specialization,
         prcCredentialCode: values.prcCredentialCode,
         bio: values.bio,
-        yearsPractice: values.yearsPractice,
-        languages: values.languages
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
+        socialMediaLinks: values.socialMediaLinks.map((link) => ({
+          platform: link.platform ?? '',
+          url: link.url ?? '',
+        })),
       });
     },
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['roster'] });
+      queryClient.invalidateQueries({ queryKey: ['psych-profile'] });
       publishFlowEvent(
         'Profile Updated Successfully',
-        `${updated.anonymizedTitle} profile details (specialization, license, and bio) saved.`
+        `${updated.anonymizedTitle} profile details (specialization, license, bio, and social media links) saved.`
       );
     },
   });
@@ -102,12 +110,12 @@ export default function PsychologistProfilePage() {
           </h1>
           <p className="text-sm text-pine/80 max-w-2xl">
             Manage your clinical specializations, PRC license credentials, professional biography,
-            and review your administrative verification status.
+            social media contact links, and review your administrative verification status.
           </p>
         </div>
 
-        {/* Practitioner State Switcher */}
-        <PractitionerSwitcher />
+        {/* Practitioner State Switcher (mock mode only) */}
+        {showSwitcher && <PractitionerSwitcher />}
       </header>
 
       {/* Approval Status Banner */}
@@ -144,6 +152,17 @@ export default function PsychologistProfilePage() {
         </div>
       )}
 
+      {/* Social media gate */}
+      {isVerified && (activePsych?.socialMediaLinks?.length ?? 0) === 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-950 space-y-1">
+          <p className="font-semibold">Social media contact required before accepting bookings.</p>
+          <p>
+            Add at least one social media link below. Confirmed clients receive these links as
+            their contact channel, and the queue pick-up action stays locked until one is saved.
+          </p>
+        </div>
+      )}
+
       {/* Main Profile Editor & Governance Info */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Editable Profile Form */}
@@ -153,7 +172,7 @@ export default function PsychologistProfilePage() {
               Edit Profile Information
             </h2>
             <p className="text-xs text-pine/70 mt-0.5">
-              Update your professional biography, practice tenure, and clinical specializations.
+              Update your professional biography and clinical specializations.
             </p>
           </div>
 
@@ -195,6 +214,99 @@ export default function PsychologistProfilePage() {
                 )}
               </div>
 
+              {/* Social Media Links */}
+              <div className="space-y-3 pt-1 border-t border-mist">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  <div>
+                    <Label>Social Media Links</Label>
+                    <p className="text-xs text-pine/65">
+                      Confirmed clients receive these links as their contact channel. Add at least
+                      one to unlock booking pick-up.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      append({ platform: SOCIAL_PLATFORMS[0], url: '' })
+                    }
+                    disabled={fields.length >= 6}
+                  >
+                    <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+                    Add Link
+                  </Button>
+                </div>
+
+                {fields.length === 0 && (
+                  <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    No social media links yet. Booking pick-up remains locked until one is added.
+                  </p>
+                )}
+
+                {fields.map((field, index) => {
+                  const platformError =
+                    profileForm.formState.errors.socialMediaLinks?.[index]?.platform;
+                  const urlError =
+                    profileForm.formState.errors.socialMediaLinks?.[index]?.url;
+                  return (
+                    <div
+                      key={field.id}
+                      className="grid grid-cols-1 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.4fr)_auto] gap-2 items-start rounded-lg border border-mist p-3"
+                    >
+                      <div>
+                        <Label htmlFor={`prof-social-platform-${index}`}>Platform</Label>
+                        <Select
+                          id={`prof-social-platform-${index}`}
+                          {...profileForm.register(
+                            `socialMediaLinks.${index}.platform` as const
+                          )}
+                        >
+                          {SOCIAL_PLATFORMS.map((platform) => (
+                            <option key={platform} value={platform}>
+                              {platform}
+                            </option>
+                          ))}
+                        </Select>
+                        {platformError && (
+                          <p className="text-xs text-red-700 mt-1">{platformError.message}</p>
+                        )}
+                      </div>
+                      <div>
+                        <Label htmlFor={`prof-social-url-${index}`}>Profile URL</Label>
+                        <Input
+                          id={`prof-social-url-${index}`}
+                          placeholder="https://facebook.com/your-profile"
+                          {...profileForm.register(
+                            `socialMediaLinks.${index}.url` as const
+                          )}
+                        />
+                        {urlError && (
+                          <p className="text-xs text-red-700 mt-1">{urlError.message}</p>
+                        )}
+                      </div>
+                      <div className="pt-6">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => remove(index)}
+                          aria-label={`Remove social media link ${index + 1}`}
+                        >
+                          <Trash2 className="w-4 h-4" aria-hidden="true" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {profileForm.formState.errors.socialMediaLinks?.message && (
+                  <p className="text-xs text-red-700">
+                    {profileForm.formState.errors.socialMediaLinks.message}
+                  </p>
+                )}
+              </div>
+
               {/* Bio */}
               <div>
                 <Label htmlFor="prof-bio">Professional Biography</Label>
@@ -209,38 +321,6 @@ export default function PsychologistProfilePage() {
                     {profileForm.formState.errors.bio.message}
                   </p>
                 )}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Years of Practice */}
-                <div>
-                  <Label htmlFor="prof-years">Years of Clinical Practice</Label>
-                  <Input
-                    id="prof-years"
-                    placeholder="e.g. 8+ Years Clinical Practice"
-                    {...profileForm.register('yearsPractice')}
-                  />
-                  {profileForm.formState.errors.yearsPractice && (
-                    <p className="text-xs text-red-700 mt-1">
-                      {profileForm.formState.errors.yearsPractice.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* Languages */}
-                <div>
-                  <Label htmlFor="prof-languages">Session Languages</Label>
-                  <Input
-                    id="prof-languages"
-                    placeholder="e.g. English, Filipino / Taglish, Cebuano"
-                    {...profileForm.register('languages')}
-                  />
-                  {profileForm.formState.errors.languages && (
-                    <p className="text-xs text-red-700 mt-1">
-                      {profileForm.formState.errors.languages.message}
-                    </p>
-                  )}
-                </div>
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-3 border-t border-mist">

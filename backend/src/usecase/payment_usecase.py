@@ -43,6 +43,8 @@ class PaymentUsecase:
 
         existing = self.payments.get_pending(appointment_id)
         if existing is not None:
+            if self._auto_confirms():
+                return self.handle_webhook(existing.provider_ref or "", paid=True)
             return existing
 
         initiated = self.provider.create_checkout(
@@ -51,7 +53,7 @@ class PaymentUsecase:
             reference=str(appointment_id),
             description=f"Appointment {appointment_id}",
         )
-        return self.payments.create(
+        payment = self.payments.create(
             appointment_id=appointment_id,
             amount=appt.price,
             provider=self.provider.name,
@@ -59,6 +61,15 @@ class PaymentUsecase:
             checkout_url=initiated.checkout_url,
             payment_method=payment_method,
         )
+        # The offline fake gateway never delivers a webhook. Treat its checkout
+        # as paid immediately so local flows can finalize; real providers keep
+        # the pending-until-webhook behaviour.
+        if self._auto_confirms():
+            return self.handle_webhook(initiated.provider_ref, paid=True)
+        return payment
+
+    def _auto_confirms(self) -> bool:
+        return self.provider.name == "fake"
 
     def handle_webhook(
         self,

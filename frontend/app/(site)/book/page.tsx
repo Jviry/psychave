@@ -2,13 +2,11 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAppStore } from '../../../stores/useAppStore';
 import { Facebook, Mail } from 'lucide-react';
 import { Button } from '../../../components/ui/primitives';
 
 export default function BookFallbackPage() {
   const router = useRouter();
-  const { setCognitoRole } = useAppStore();
   const [copiedField, setCopiedField] = useState<'email' | 'fb' | 'template' | null>(null);
 
   const clinicEmail = 'psychaveph.info@gmail.com';
@@ -36,10 +34,7 @@ General Availability Window: [Days & Times]`;
           <Button
             variant="primary"
             size="lg"
-            onClick={() => {
-              setCognitoRole('client');
-              router.push('/personas');
-            }}
+            onClick={() => router.push('/personas')}
           >
             Start booking
           </Button>

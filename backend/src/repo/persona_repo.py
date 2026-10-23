@@ -7,12 +7,13 @@ from models.proposed_slot import ProposedSlot
 from schemas.persona import PersonaCreate, ConsentCreate
 
 # Appointments in these statuses keep their persona alive — delete is blocked.
-# CONFIRMED included: paid history must survive for records.
+# CONFIRMED + COMPLETED included: paid history must survive for records.
 ACTIVE_APPOINTMENT_STATUSES = (
     AppointmentStatus.PENDING,
     AppointmentStatus.AWAITING_SLOT_SELECTION,
     AppointmentStatus.AWAITING_PAYMENT,
     AppointmentStatus.CONFIRMED,
+    AppointmentStatus.COMPLETED,
 )
 
 

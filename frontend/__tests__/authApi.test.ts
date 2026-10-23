@@ -44,6 +44,24 @@ describe('auth API — mock mode', () => {
     expect(typeof result.accessToken).toBe('string');
   });
 
+  it('mock login derives role from username for dashboard access', async () => {
+    const { authApi } = await import('../authApi');
+
+    const client = await authApi.loginUser({ username: 'client', password: 'Pass@123' });
+    const psychologist = await authApi.loginUser({
+      username: 'psychologist',
+      password: 'Pass@123',
+    });
+    const admin = await authApi.loginUser({ username: 'admin', password: 'Pass@123' });
+
+    const groups = (token: string) =>
+      JSON.parse(atob(token.split('.')[1]))['cognito:groups'] as string[];
+
+    expect(groups(client.idToken)).toEqual([]);
+    expect(groups(psychologist.idToken)).toEqual(['psychologist']);
+    expect(groups(admin.idToken)).toEqual(['admin']);
+  });
+
   it('registerUser resolves with a message in mock mode', async () => {
     const { authApi } = await import('../authApi');
     const result = await authApi.registerUser({

@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { BookingStatus } from '../../../lib/types';
 import { Clock } from 'lucide-react';
 import { DemoDataTag } from '../../../components/DemoDataTag';
+import { SocialLinksList } from '../../../components/SocialLinksList';
 import {
   BookingStatusTag,
   Button,
@@ -18,7 +19,7 @@ import {
 export default function ClientBookingsPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const { setCognitoRole, publishFlowEvent } = useAppStore();
+  const { publishFlowEvent } = useAppStore();
   const [statusFilter, setStatusFilter] = useState<'all' | BookingStatus>('all');
 
   const { data: bookings = [], isLoading } = useQuery({
@@ -26,29 +27,14 @@ export default function ClientBookingsPage() {
     queryFn: () => api.getBookingsForRole('client'),
   });
 
-  const lifecycleMutation = useMutation({
-    mutationFn: (payload: {
-      bookingId: string;
-      action: 'cancel' | 'request-reschedule' | 'dispatch-reminders';
-    }) => api.updateBookingLifecycleStatus(payload),
-    onSuccess: (updated, vars) => {
+  const cancelMutation = useMutation({
+    mutationFn: (bookingId: string) => api.cancelBooking(bookingId),
+    onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
-      if (vars.action === 'dispatch-reminders') {
-        publishFlowEvent(
-          '24h & 1h Reminders Dispatched',
-          `Automated reminders sent for confirmed booking ${updated.id}.`
-        );
-      } else if (vars.action === 'request-reschedule') {
-        publishFlowEvent(
-          'Real-Time Reschedule Requested',
-          `Booking ${updated.id} status updated in real time across Client & Psychologist schedules.`
-        );
-      } else {
-        publishFlowEvent(
-          'Booking Cancelled',
-          `Booking ${updated.id} has been marked as cancelled.`
-        );
-      }
+      publishFlowEvent(
+        'Booking Cancelled',
+        `Booking ${updated.id} has been marked as cancelled.`
+      );
     },
   });
 
@@ -64,7 +50,7 @@ export default function ClientBookingsPage() {
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-mist pb-6">
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-xs text-accent-ink font-semibold">
-            <span>Client Role Dashboard</span>
+            <span>Client Dashboard</span>
             <span aria-hidden="true">·</span>
             <span>Tiered Access: Own History Only (Client #C-01)</span>
           </div>
@@ -74,7 +60,8 @@ export default function ClientBookingsPage() {
           <p className="text-sm text-pine/80 max-w-2xl">
             Track your submitted booking forms from <strong className="font-semibold">pending</strong>{' '}
             to <strong className="font-semibold">proposed</strong> (3 psychologist slots) and{' '}
-            <strong className="font-semibold">paid-confirmed</strong> (contact unlocked + reminders).
+            <strong className="font-semibold">paid-confirmed</strong> (contact unlocked + reminders),
+            then <strong className="font-semibold">completed</strong> once the session is done.
           </p>
         </div>
 
@@ -135,6 +122,12 @@ export default function ClientBookingsPage() {
                 })`,
               },
               {
+                id: 'completed',
+                label: `completed (${
+                  bookings.filter((b) => b.status === 'completed').length
+                })`,
+              },
+              {
                 id: 'reschedule-requested',
                 label: `reschedule-requested (${
                   bookings.filter((b) => b.status === 'reschedule-requested').length
@@ -164,7 +157,8 @@ export default function ClientBookingsPage() {
         </div>
 
         <span className="text-xs text-pine/65">
-          Contact details unlock strictly upon <strong className="text-pine">paid-confirmed</strong> status.
+          Contact details unlock strictly upon <strong className="text-pine">paid-confirmed</strong> status
+          and remain available after the session is marked <strong className="text-pine">completed</strong>.
         </span>
       </div>
 
@@ -237,11 +231,6 @@ export default function ClientBookingsPage() {
                     <p className="text-sm text-pine/85 leading-relaxed">
                       {booking.concernsSummary}
                     </p>
-
-                    <p className="text-xs text-pine/65">
-                      Preferences &amp; Needs: {booking.specificNeeds} · Language:{' '}
-                      {booking.preferredLanguage}
-                    </p>
                   </div>
 
                   {/* Right Status Panel: Empty Waiting State / Proposal Ready / Confirmed Contact Unlocked */}
@@ -256,16 +245,6 @@ export default function ClientBookingsPage() {
                           Your booking is in the verified psychologist pending queue. No fee or date
                           slots are assigned yet, and direct contact remains locked.
                         </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setCognitoRole('psychologist');
-                            router.push('/psych/queue');
-                          }}
-                        >
-                          Test Pick-Up as Verified Psychologist
-                        </Button>
                       </div>
                     )}
 
@@ -295,11 +274,14 @@ export default function ClientBookingsPage() {
                     )}
 
                     {(booking.status === 'paid-confirmed' ||
+                      booking.status === 'completed' ||
                       booking.status === 'reschedule-requested') && (
                       <div className="p-4 rounded-lg bg-surface-raised border border-mist space-y-3">
                         <div className="flex items-center justify-between text-xs">
                           <span className="font-bold text-pine">
-                            Confirmed with {booking.psychologistCode}
+                            {booking.status === 'completed'
+                              ? `Completed with ${booking.psychologistCode}`
+                              : `Confirmed with ${booking.psychologistCode}`}
                           </span>
                           <span className="font-mono font-semibold text-accent-ink tabular-nums">
                             Paid ₱{booking.pricePhp?.toLocaleString()}
@@ -317,68 +299,31 @@ export default function ClientBookingsPage() {
                           </div>
                         )}
 
-                        {booking.contactUnlocked && booking.unlockedContact && (
-                          <div className="space-y-1 text-xs bg-surface-raised p-3 rounded-lg border border-mist">
+                        {booking.contactUnlocked && (
+                          <div className="space-y-2 text-xs bg-surface-raised p-3 rounded-lg border border-mist">
                             <p className="font-bold text-pine">
-                              Unlocked Session Contact &amp; Room:
+                              Psychologist Social Media:
                             </p>
-                            <p className="font-mono text-xs text-accent-ink break-all">
-                              {booking.unlockedContact.teletherapyUrl}
-                            </p>
-                            <p className="text-xs text-pine/75">
-                              Ref: {booking.unlockedContact.sessionReferenceCode} · Coord:{' '}
-                              {booking.unlockedContact.coordinationEmail}
-                            </p>
+                            <SocialLinksList
+                              links={booking.psychologistSocialLinks}
+                              emptyMessage="Your psychologist has not added social media links yet."
+                            />
                           </div>
                         )}
 
-                        {/* 24h / 1h Reminders & Real-Time Cancel/Reschedule */}
-                        <div className="pt-2 border-t border-mist flex flex-wrap items-center justify-between gap-2 text-xs">
-                          <span className="text-pine/80">
-                            Reminders: 24h ({booking.reminders.reminder24h}) · 1h (
-                            {booking.reminders.reminder1h})
-                          </span>
-                          <div className="flex items-center gap-2">
+                        {/* Cancellation is the only backend-backed lifecycle action. */}
+                        {booking.status !== 'completed' && (
+                          <div className="pt-2 border-t border-mist flex items-center justify-end text-xs">
                             <button
                               type="button"
-                              onClick={() =>
-                                lifecycleMutation.mutate({
-                                  bookingId: booking.id,
-                                  action: 'dispatch-reminders',
-                                })
-                              }
-                              className="underline text-accent-ink hover:text-pine font-semibold cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
+                              onClick={() => cancelMutation.mutate(booking.id)}
+                              disabled={cancelMutation.isPending}
+                              className="underline text-red-700 hover:text-red-900 cursor-pointer disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
                             >
-                              Trigger 24h/1h Alert
-                            </button>
-                            <span>·</span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                lifecycleMutation.mutate({
-                                  bookingId: booking.id,
-                                  action: 'request-reschedule',
-                                })
-                              }
-                              className="underline text-pine/80 hover:text-pine cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
-                            >
-                              Reschedule
-                            </button>
-                            <span>·</span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                lifecycleMutation.mutate({
-                                  bookingId: booking.id,
-                                  action: 'cancel',
-                                })
-                              }
-                              className="underline text-red-700 hover:text-red-900 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
-                            >
-                              Cancel
+                              {cancelMutation.isPending ? 'Cancelling…' : 'Cancel'}
                             </button>
                           </div>
-                        </div>
+                        )}
                       </div>
                     )}
 

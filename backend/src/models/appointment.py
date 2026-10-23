@@ -9,6 +9,7 @@ class AppointmentStatus(str, Enum):
     AWAITING_SLOT_SELECTION = "awaiting_slot_selection"
     AWAITING_PAYMENT = "awaiting_payment"
     CONFIRMED = "confirmed"
+    COMPLETED = "completed"
     CANCELLED = "cancelled"
 
 

@@ -33,8 +33,34 @@ describe('registerSchema', () => {
     expect(registerSchema.safeParse(valid).success).toBe(true);
   });
 
-  it('accepts psychologist role', () => {
-    expect(registerSchema.safeParse({ ...valid, role: 'psychologist' }).success).toBe(true);
+  it('accepts psychologist role with a full name', () => {
+    const result = registerSchema.safeParse({
+      ...valid,
+      role: 'psychologist',
+      fullName: 'Dr. Maria Santos',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects psychologist role without a full name (backend contract)', () => {
+    // Backend AuthUsecase: "Full name is required for psychologists"
+    const result = registerSchema.safeParse({ ...valid, role: 'psychologist' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.fullName).toBeDefined();
+    }
+  });
+
+  it('rejects psychologist full name shorter than 2 non-space characters', () => {
+    const result = registerSchema.safeParse({
+      ...valid,
+      role: 'psychologist',
+      fullName: '  ',
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.fullName).toBeDefined();
+    }
   });
 
   it('rejects invalid email', () => {

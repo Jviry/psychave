@@ -50,6 +50,9 @@ crash.*.log
 backend/package/
 backend/lambda.zip
 
+# IDE
+idea/
+
 # Agents & Skills
 AGENT.md
 AGENTS.md

@@ -12,13 +12,7 @@
  *   POST /auth/logout          → logoutUser
  */
 
-const getEnv = (key: string, fallback: string): string => {
-  if (typeof process !== 'undefined' && process.env?.[key]) return process.env[key] as string;
-  return fallback;
-};
-
-const API_BASE_URL = getEnv('NEXT_PUBLIC_API_URL', 'http://localhost:8000');
-const AUTH_MODE = getEnv('NEXT_PUBLIC_AUTH_MODE', 'mock');
+import { API_BASE_URL, shouldGoLive } from './lib/api';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -38,6 +32,8 @@ export interface RegisterCredentials {
   username: string;
   password: string;
   role: 'client' | 'psychologist';
+  /** Required when role === 'psychologist' (backend creates their pending profile from it). */
+  fullName?: string;
 }
 
 export interface ConfirmCredentials {
@@ -99,6 +95,43 @@ const MOCK_SESSION: LoginResponse = {
   refreshToken: 'mock-refresh-token-psychave-prototype',
 };
 
+/**
+ * Mock mode has no Cognito groups, so derive the demo role from the username:
+ * `admin`, `admin-*`, or `admin@*` → admin; `psych*` → psychologist; else client.
+ * The generated IdToken is shaped like a JWT so the existing login decoder can
+ * read `cognito:groups` without a separate mock path in the UI.
+ */
+function mockRoleForUsername(username: string): 'client' | 'psychologist' | 'admin' {
+  const normalized = username.trim().toLowerCase();
+  if (/^admin(?:[-_.@]|$)/.test(normalized)) return 'admin';
+  if (/^(?:psych|psychologist)(?:[-_.@]|$)/.test(normalized)) return 'psychologist';
+  return 'client';
+}
+
+function encodeMockJwtPart(value: unknown): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(value));
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+function mockSessionFor(username: string): LoginResponse {
+  const role = mockRoleForUsername(username);
+  const groups = role === 'client' ? [] : [role];
+  const idToken = [
+    encodeMockJwtPart({ alg: 'none', typ: 'JWT' }),
+    encodeMockJwtPart({
+      'cognito:groups': groups,
+      'cognito:username': username,
+      email: `${username}@mock.psychave.local`,
+      sub: `mock-${role}`,
+    }),
+    'mock-signature',
+  ].join('.');
+
+  return { ...MOCK_SESSION, idToken };
+}
+
 // ─── API ─────────────────────────────────────────────────────────────────────
 
 export const authApi = {
@@ -107,9 +140,9 @@ export const authApi = {
    * Cognito returns AccessToken/IdToken/RefreshToken (capital-case keys).
    */
   loginUser: async (credentials: LoginCredentials): Promise<LoginResponse> => {
-    if (AUTH_MODE === 'mock') {
+    if (!shouldGoLive('/auth')) {
       await mockDelay();
-      return { ...MOCK_SESSION };
+      return mockSessionFor(credentials.username);
     }
 
     // Cognito via backend returns AuthenticationResult with capital-case keys
@@ -129,7 +162,7 @@ export const authApi = {
    * Create a new Cognito user. Returns a message directing user to check email.
    */
   registerUser: async (credentials: RegisterCredentials): Promise<MessageResponse> => {
-    if (AUTH_MODE === 'mock') {
+    if (!shouldGoLive('/auth')) {
       await mockDelay();
       return { message: 'register successful, check email for code' };
     }
@@ -139,6 +172,8 @@ export const authApi = {
       username: credentials.username,
       password: credentials.password,
       role: credentials.role,
+      // undefined keys are dropped by JSON.stringify — clients send no name
+      full_name: credentials.fullName?.trim() || undefined,
     });
   },
 
@@ -146,7 +181,7 @@ export const authApi = {
    * Confirm the user's account with the Cognito verification code sent to email.
    */
   confirmUser: async (credentials: ConfirmCredentials): Promise<MessageResponse> => {
-    if (AUTH_MODE === 'mock') {
+    if (!shouldGoLive('/auth')) {
       await mockDelay();
       return { message: 'user confirmed' };
     }
@@ -161,7 +196,7 @@ export const authApi = {
    * Resend the Cognito confirmation code to the user's email.
    */
   resendCode: async (username: string): Promise<MessageResponse> => {
-    if (AUTH_MODE === 'mock') {
+    if (!shouldGoLive('/auth')) {
       await mockDelay();
       return { message: 'confirmation code sent' };
     }
@@ -173,7 +208,7 @@ export const authApi = {
    * Request a forgot-password verification code (step 1).
    */
   requestForgotPassword: async (username: string): Promise<MessageResponse> => {
-    if (AUTH_MODE === 'mock') {
+    if (!shouldGoLive('/auth')) {
       await mockDelay();
       return { message: 'confirmation code sent to email' };
     }
@@ -188,7 +223,7 @@ export const authApi = {
    * Confirm a new password with the verification code (step 2).
    */
   confirmForgotPassword: async (credentials: ForgotPasswordConfirmCredentials): Promise<MessageResponse> => {
-    if (AUTH_MODE === 'mock') {
+    if (!shouldGoLive('/auth')) {
       await mockDelay();
       return { message: 'password change successful' };
     }
@@ -204,7 +239,7 @@ export const authApi = {
    * Refresh access token using the stored refresh token.
    */
   refreshAccessToken: async (refreshToken: string): Promise<{ accessToken: string }> => {
-    if (AUTH_MODE === 'mock') {
+    if (!shouldGoLive('/auth')) {
       await mockDelay();
       return { accessToken: MOCK_SESSION.accessToken };
     }
@@ -220,7 +255,7 @@ export const authApi = {
    * Sign out the user from Cognito (invalidates the access token).
    */
   logoutUser: async (accessToken: string): Promise<MessageResponse> => {
-    if (AUTH_MODE === 'mock') {
+    if (!shouldGoLive('/auth')) {
       await mockDelay();
       return { message: 'logout successful' };
     }

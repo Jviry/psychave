@@ -1,38 +1,15 @@
 import { z } from 'zod';
 
 /**
- * Zod Schema for creating a Client Persona (Self or Dependent)
- */
-export const personaSchema = z.object({
-  type: z.enum(['self', 'dependent']),
-  label: z
-    .string()
-    .min(3, 'Please provide a non-identifying persona label (min 3 characters).')
-    .max(60, 'Label must be under 60 characters.'),
-  ageGroup: z.string().min(1, 'Please select an age bracket.'),
-  relationshipToClient: z
-    .string()
-    .min(2, 'Specify relationship (e.g., Primary Account Holder, Adolescent Dependent).'),
-  preferredLanguage: z.string().min(2, 'Please select a preferred session language.'),
-});
-
-export type PersonaFormValues = z.infer<typeof personaSchema>;
-
-/**
  * Flow C Step 1: Canonical Client Booking Schema
  */
 export const bookingFormSchema = z.object({
   personaId: z.string().min(1, 'Please select a Persona (Self or Dependent) before submitting.'),
   serviceId: z.string().min(1, 'Please select a clinical service.'),
-  preferredLanguage: z.string().min(1, 'Please choose your preferred session language.'),
   concernsSummary: z
     .string()
     .min(20, 'Please describe your primary concerns or goals (at least 20 characters) to help verified psychologists assess fit.')
     .max(1200, 'Please keep booking summary under 1,200 characters.'),
-  specificNeeds: z
-    .string()
-    .min(5, 'Please note any scheduling preferences, accessibility needs, or breakout accommodations.')
-    .max(600, 'Maximum 600 characters.'),
   guardrailAcknowledged: z.boolean().refine((val) => val === true, {
     message: 'You must acknowledge the clinical scope & duration guardrail for the selected service.',
   }),
@@ -70,10 +47,6 @@ export const proposalFormSchema = z
       .string()
       .min(1, 'Slot 3 date and time is required.')
       .refine(isFutureDate, { message: 'Slot 3 date and time cannot be in the past.' }),
-    clinicalPrepNote: z
-      .string()
-      .min(10, 'Provide a brief preparation note for the client (at least 10 characters).')
-      .max(500, 'Preparation note must be under 500 characters.'),
   })
   .refine(
     (data) => {
@@ -106,8 +79,18 @@ export const psychologistProfileSchema = z.object({
     .string()
     .min(10, 'Bio must be at least 10 characters.')
     .max(1000, 'Bio must be under 1,000 characters.'),
-  yearsPractice: z.string().min(1, 'Years of practice is required.'),
-  languages: z.string().min(2, 'Languages must be specified (comma-separated).'),
+  socialMediaLinks: z
+    .array(
+      z.object({
+        platform: z.string().min(1, 'Choose a platform.'),
+        url: z
+          .string()
+          .trim()
+          .min(1, 'Add the profile URL.')
+          .url('Enter a valid URL starting with http:// or https://.'),
+      })
+    )
+    .max(6, 'Add up to 6 social media links.'),
 });
 
 export type PsychologistProfileValues = z.infer<typeof psychologistProfileSchema>;
@@ -117,7 +100,6 @@ export type PsychologistProfileValues = z.infer<typeof psychologistProfileSchema
  */
 export const slotSelectionPaymentSchema = z.object({
   selectedSlotId: z.string().min(1, 'Please select exactly 1 of the 3 proposed schedule slots.'),
-  paymentMethodLabel: z.enum(['card_visa_4242', 'gcash_paymongo_mock', 'maya_stripe_mock']),
   acknowledgeFinalizationRule: z.boolean().refine((val) => val === true, {
     message: 'Please confirm that booking finalizes and unlocks contact details only upon payment success.',
   }),

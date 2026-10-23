@@ -13,7 +13,9 @@ from models.appointment import Appointment, AppointmentStatus
 from models.proposed_slot import ProposedSlot
 from models.psychologist_profile import PsychologistProfile
 from repo.psychologist_repo import PsychologistRepo
+from schemas.appointment import AppointmentRead
 from schemas.psychologist import PsychologistProfileUpdate, SlotProposal
+from usecase.appointment_view import build_appointment_read, build_appointment_reads
 
 SLOTS_PER_APPOINTMENT = 3
 
@@ -25,8 +27,8 @@ class PsychologistUsecase:
 
     # ----- pending requests / pickup -----
 
-    def list_pending(self) -> list[Appointment]:
-        return self.repo.get_pending()
+    def list_pending(self) -> list[AppointmentRead]:
+        return build_appointment_reads(self.db, self.repo.get_pending())
 
     def _get_owned_appointment(self, appointment_id: uuid.UUID, psychologist_id: uuid.UUID) -> Appointment:
         appt = self.repo.get_for_psychologist(appointment_id, psychologist_id)
@@ -34,7 +36,13 @@ class PsychologistUsecase:
             raise NotFoundError("Appointment not found")
         return appt
 
-    def pickup(self, appointment_id: uuid.UUID, psychologist_id: uuid.UUID, price: float) -> Appointment:
+    def pickup(self, appointment_id: uuid.UUID, psychologist_id: uuid.UUID, price: float) -> AppointmentRead:
+        profile = self.db.get(PsychologistProfile, psychologist_id)
+        if profile is None or not profile.social_media_links:
+            raise ValidationError(
+                "Add at least one social media link to your profile before accepting booking requests"
+            )
+
         appt = self.repo.get_by_id(appointment_id)
         if appt is None:
             raise NotFoundError("Appointment not found")
@@ -44,7 +52,7 @@ class PsychologistUsecase:
             raise BadRequestError("Appointment is no longer pending")
         if price <= 0:
             raise ValidationError("Price must be greater than zero")
-        return self.repo.pickup(appt, psychologist_id, price)
+        return build_appointment_read(self.db, self.repo.pickup(appt, psychologist_id, price))
 
     # ----- slot proposal -----
 
@@ -82,14 +90,24 @@ class PsychologistUsecase:
 
     # ----- own schedule -----
 
-    def list_mine(self, psychologist_id: uuid.UUID, status: AppointmentStatus | None = None) -> list[Appointment]:
-        return self.repo.list_for_psychologist(psychologist_id, status)
+    def list_mine(self, psychologist_id: uuid.UUID, status: AppointmentStatus | None = None) -> list[AppointmentRead]:
+        return build_appointment_reads(
+            self.db, self.repo.list_for_psychologist(psychologist_id, status)
+        )
 
-    def get_detail(self, appointment_id: uuid.UUID, psychologist_id: uuid.UUID) -> Appointment:
-        return self._get_owned_appointment(appointment_id, psychologist_id)
+    def get_detail(self, appointment_id: uuid.UUID, psychologist_id: uuid.UUID) -> AppointmentRead:
+        return build_appointment_read(
+            self.db, self._get_owned_appointment(appointment_id, psychologist_id)
+        )
+
+    def complete_appointment(self, appointment_id: uuid.UUID, psychologist_id: uuid.UUID) -> AppointmentRead:
+        appt = self._get_owned_appointment(appointment_id, psychologist_id)
+        if appt.status != AppointmentStatus.CONFIRMED:
+            raise BadRequestError("Only confirmed appointments can be marked as completed")
+        return build_appointment_read(self.db, self.repo.complete(appt))
 
     # ----- profile -----
 
     def update_profile(self, profile: PsychologistProfile, payload: PsychologistProfileUpdate) -> PsychologistProfile:
-        data = payload.model_dump(exclude_unset=True)
+        data = payload.model_dump(exclude_unset=True, mode="json")
         return self.repo.update_profile(profile, data)

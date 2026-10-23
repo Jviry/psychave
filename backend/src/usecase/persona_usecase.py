@@ -12,7 +12,7 @@ from schemas.persona import (
     _calculate_age,
 )
 
-CURRENT_CONSENT_VERSION = "v1"
+CURRENT_CONSENT_VERSION = "v2"
 
 
 class PersonaUsecase:
@@ -25,8 +25,7 @@ class PersonaUsecase:
 
         if consent_data.consent_version != CURRENT_CONSENT_VERSION:
             raise ConflictError(
-                f"Consent form is outdated — current version is {
-                    CURRENT_CONSENT_VERSION}",
+                f"Consent form is outdated — current version is {CURRENT_CONSENT_VERSION}",
             )
 
         return self.repo.create_with_consent(client_id, payload.persona, consent_data)

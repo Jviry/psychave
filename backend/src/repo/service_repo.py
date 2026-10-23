@@ -7,10 +7,10 @@ class ServiceRepo:
         self.db = db
 
     def get_all(self) -> list[Service]:
-        return self.db.exect(select(Service)).all()
+        return self.db.exec(select(Service)).all()
 
     def get_all_active(self) -> list[Service]:
-        return self.db.exect(
+        return self.db.exec(
             select(Service)
             .where(Service.is_active == True)  # noqa: E712
         ).all()

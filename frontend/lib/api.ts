@@ -1,11 +1,16 @@
 import {
   BookingRequest,
+  BookingStatus,
   CmsContent,
   CognitoRole,
   Persona,
+  PersonaReview,
+  ProposedSlot,
   ResidentPsychologist,
   ServiceItem,
+  SocialMediaLink,
 } from './types';
+import { useAuthStore } from '../authStore';
 import {
   CONSENT_VERSION,
   isFutureDob,
@@ -19,16 +24,49 @@ import {
  * Single canonical API client for PsychAvenuePH (PSYCHAVE PH).
  * Targets NEXT_PUBLIC_API_URL (default http://localhost:8000) and automatically falls back
  * to deterministic in-memory mock state when the FastAPI/Mangum backend is offline.
+ *
+ * Live integration (backend-integration branch): the backend mounts bare paths
+ * (`/auth`, `/services`, `/personas`, `/appointments`, `/payments`). The
+ * psychologist endpoints also live under `/appointments` (`/appointments/pending`,
+ * `/appointments/mine`, `/appointments/{id}/pickup|slots`); only the profile is
+ * under `/psychologist-profile`. Only wired prefixes may ever go
+ * live; everything else (roster verification, CMS, lifecycle, private notes)
+ * has no backend yet and always resolves from mocks, so a `real` mode run
+ * never 404s into a broken public page. NEXT_PUBLIC_LIVE_ROUTES (comma list)
+ * narrows liveness further, enabling the "one endpoint at a time" smoke-test
+ * rule. Real-mode responses are adapted to the UI types in this file only —
+ * UI components never see backend shapes.
  */
-const getEnvVar = (key: string, fallback: string): string => {
-  if (typeof process !== 'undefined' && process.env && process.env[key]) {
-    return process.env[key] as string;
-  }
-  return fallback;
-};
+/**
+ * NEXT_PUBLIC_* vars are read as literal member expressions on purpose:
+ * the bundler statically inlines exact `process.env.NEXT_PUBLIC_*` accesses
+ * into both the server and client bundles, so every runtime sees the same
+ * compile-time value. Dynamic lookup (`process.env[key]`) is never inlined —
+ * server process env and client bundle could resolve different values,
+ * producing React hydration text mismatches (seen on the SiteHeader banner).
+ */
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+export const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || 'mock';
 
-export const API_BASE_URL = getEnvVar('NEXT_PUBLIC_API_URL', 'http://localhost:8000');
-export const AUTH_MODE = getEnvVar('NEXT_PUBLIC_AUTH_MODE', 'mock');
+/**
+ * Backend prefixes with a real implementation today. Endpoints outside this
+ * list never hit the network — mirrors app_router.py in backend/src.
+ */
+const WIRED_PREFIXES = ['/auth', '/services', '/personas', '/appointments', '/psychologist'];
+
+/** Optional per-prefix allowlist (e.g. "/auth,/appointments") for incremental smoke tests. */
+const LIVE_ROUTES = (process.env.NEXT_PUBLIC_LIVE_ROUTES || '')
+  .split(',')
+  .map((p) => p.trim())
+  .filter(Boolean);
+
+export function shouldGoLive(endpoint: string): boolean {
+  if (AUTH_MODE === 'mock') return false;
+  const prefix = WIRED_PREFIXES.find((p) => endpoint.startsWith(p));
+  if (!prefix) return false;
+  if (LIVE_ROUTES.length === 0) return true;
+  return LIVE_ROUTES.includes(prefix);
+}
 
 const INITIAL_SERVICES: ServiceItem[] = [
   {
@@ -171,6 +209,10 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
     verificationStatus: 'verified',
     visibleOnPublicRoster: true,
     assignedBookingsCount: 2,
+    socialMediaLinks: [
+      { platform: 'Facebook', url: 'https://www.facebook.com/psychaveph' },
+      { platform: 'Instagram', url: 'https://www.instagram.com/psychaveph' },
+    ],
     bio: 'Licensed clinical psychologist specializing in cognitive behavioral therapy, anxiety disorders, and trauma-informed care for adults. Committed to culturally sensitive and evidence-based mental healthcare.',
   },
   {
@@ -188,6 +230,9 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
     verificationStatus: 'verified',
     visibleOnPublicRoster: true,
     assignedBookingsCount: 1,
+    socialMediaLinks: [
+      { platform: 'Facebook', url: 'https://www.facebook.com/psychaveph' },
+    ],
     bio: 'Dedicated relational therapist trained in systemic and Emotion-Focused Therapy for couples and families navigating transitional stress, communication breakdowns, and attachment repair.',
   },
   {
@@ -205,6 +250,9 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
     verificationStatus: 'verified',
     visibleOnPublicRoster: true,
     assignedBookingsCount: 0,
+    socialMediaLinks: [
+      { platform: 'LinkedIn', url: 'https://www.linkedin.com/company/psychaveph' },
+    ],
     bio: 'Academic researcher and certified behavioral coach specializing in psychological test construction, quantitative statistical methodology, and executive performance coaching.',
   },
   {
@@ -221,6 +269,7 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
     verificationStatus: 'waiting_approval',
     visibleOnPublicRoster: false,
     assignedBookingsCount: 0,
+    socialMediaLinks: [],
     bio: 'Associate practitioner focusing on child and adolescent emotional regulation, academic adjustment, and parent-child communication dynamics. Awaiting administrative credential verification.',
   },
 ];
@@ -244,21 +293,17 @@ const INITIAL_BOOKINGS: BookingRequest[] = [
     serviceId: 'srv-couples',
     serviceTitle: 'Couples Counseling',
     serviceDuration: '1.5 hrs (90 mins)',
+    serviceDurationMinutes: 90,
     serviceGuardrail: '1.5 hr session with two 15-min individual breakouts.',
     demoSeed: true,
     concernsSummary:
       'Demo booking — synthetic content for prototype preview. Real submissions arrive via POST /api/v1/bookings/intake.',
-    specificNeeds:
-      'Synthetic demo text — replaced by live client scheduling preferences.',
-    preferredLanguage: 'English / Taglish',
     submittedAt: '2026-09-25 09:45 PST',
     status: 'proposed',
     psychologistId: 'RP-01',
     psychologistCode: 'Resident Psychologist #RP-01',
     psychologistSpecialization: 'Adult Psychotherapy, Anxiety Disorders & Trauma-Informed CBT',
     pricePhp: 3200,
-    clinicalPrepNote:
-      'Demo booking — synthetic preparation note; replaced by the assigned psychologist’s clinical instructions.',
     proposedSlots: [
       {
         id: 'slot-102-a',
@@ -283,6 +328,10 @@ const INITIAL_BOOKINGS: BookingRequest[] = [
       },
     ],
     contactUnlocked: false,
+    clientSocialMedia: {
+      platform: 'Facebook',
+      username: '@demo_persona',
+    },
     reminders: {
       reminder24h: 'pending',
       reminder1h: 'pending',
@@ -299,20 +348,17 @@ const INITIAL_BOOKINGS: BookingRequest[] = [
     serviceId: 'srv-individual',
     serviceTitle: 'Individual Counseling & Psychotherapy',
     serviceDuration: '1 hr (60 mins)',
+    serviceDurationMinutes: 60,
     serviceGuardrail: 'Standard 1-hour evidence-based psychotherapy.',
     demoSeed: true,
     concernsSummary:
       'Demo booking — synthetic content for prototype preview. Real submissions arrive via POST /api/v1/bookings/intake.',
-    specificNeeds: 'Synthetic demo text — replaced by live client scheduling preferences.',
-    preferredLanguage: 'English',
     submittedAt: '2026-09-20 11:10 PST',
     status: 'paid-confirmed',
     psychologistId: 'RP-01',
     psychologistCode: 'Resident Psychologist #RP-01',
     psychologistSpecialization: 'Adult Psychotherapy, Anxiety Disorders & Trauma-Informed CBT',
     pricePhp: 2200,
-    clinicalPrepNote:
-      'Demo booking — synthetic preparation note; replaced by the assigned psychologist’s clinical instructions.',
     proposedSlots: [
       {
         id: 'slot-103-a',
@@ -339,12 +385,13 @@ const INITIAL_BOOKINGS: BookingRequest[] = [
     selectedSlotId: 'slot-103-b',
     paidAt: '2026-09-22 16:04 PST',
     contactUnlocked: true,
-    unlockedContact: {
-      teletherapyUrl: 'https://session.psychaveph.clinical/room/BK-2026-103-RP01',
-      coordinationEmail: 'psychaveph.info@gmail.com',
-      sessionReferenceCode: 'CONF-RP01-103B',
-      emergencyProtocolNote:
-        'Direct session channel unlocked post-payment. Automated 24h and 1h reminders are active.',
+    psychologistSocialLinks: [
+      { platform: 'Facebook', url: 'https://www.facebook.com/psychaveph' },
+      { platform: 'Instagram', url: 'https://www.instagram.com/psychaveph' },
+    ],
+    clientSocialMedia: {
+      platform: 'Facebook',
+      username: '@demo_persona',
     },
     reminders: {
       reminder24h: 'scheduled',
@@ -418,49 +465,134 @@ async function fetchWithTimeout(
 }
 
 /**
+ * Token refresh single-flight state: a concurrent 401 burst shares one
+ * POST /auth/refresh-token call (backend-dependent — see AGENTS.md).
+ */
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = useAuthStore.getState()?.refreshToken ?? null;
+  if (!refreshToken) return null;
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const res = await fetchWithTimeout(
+          `${API_BASE_URL}/auth/refresh-token?refresh_token=${encodeURIComponent(refreshToken)}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+          },
+          8000
+        );
+        if (!res.ok) return null;
+        // REFRESH_TOKEN_AUTH returns a brand-new AccessToken AND IdToken
+        // (the RefreshToken stays the original one). Both must be updated —
+        // the backend's verify_token() accepts ID tokens only.
+        const data = (await res.json().catch(() => null)) as
+          { AccessToken?: string; IdToken?: string } | null;
+        const newAccess = data?.AccessToken ?? null;
+        const newIdToken = data?.IdToken ?? null;
+        if (newAccess && newIdToken) {
+          useAuthStore.setState({ accessToken: newAccess, idToken: newIdToken });
+          return newIdToken;
+        }
+        return null;
+      } catch {
+        return null;
+      } finally {
+        refreshInFlight = null;
+      }
+    })();
+  }
+  return refreshInFlight;
+}
+
+/**
+ * Builds the loud backend error format used across the live client.
+ */
+function buildBackendError(endpoint: string, status: number, json: unknown): Error {
+  let errDetail = `HTTP ${status}`;
+  if (json && typeof json === 'object') {
+    const obj = json as { message?: string; detail?: string | unknown };
+    if (obj.message) errDetail = obj.message;
+    else if (obj.detail) {
+      errDetail = typeof obj.detail === 'string' ? obj.detail : JSON.stringify(obj.detail);
+    }
+  }
+  return new Error(`Backend Error (${status}) on ${endpoint}: ${errDetail}`);
+}
+
+/**
+ * Low-level live request: injects the Bearer token from the real session,
+ * retries once on 401 via the backend refresh endpoint, and returns the
+ * status plus the parsed JSON body WITHOUT throwing — callers decide how
+ * each status maps to UI behavior (404-as-null reads, claimed-booking 409s…).
+ */
+async function liveFetch(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<{ status: number; json: unknown }> {
+  const callOnce = () => {
+    // Backend contract (backend/README.md): verify_token() requires the **ID
+    // token** (aud = COGNITO_APP_CLIENT_ID); access tokens are rejected.
+    const token = useAuthStore.getState()?.idToken ?? null;
+    return fetchWithTimeout(
+      `${API_BASE_URL}${endpoint}`,
+      {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(options.headers || {}),
+        },
+      },
+      8000
+    );
+  };
+
+  let response = await callOnce();
+  if (response.status === 401) {
+    const newToken = await refreshAccessToken();
+    if (newToken) response = await callOnce();
+  }
+  let json: unknown = null;
+  try {
+    json = await response.json();
+  } catch {
+    // Body not JSON (e.g. 204) — surfaced as null JSON under its real status.
+  }
+  return { status: response.status, json };
+}
+
+/**
  * Helper to attempt real backend fetch against NEXT_PUBLIC_API_URL.
- * - When AUTH_MODE === 'mock', immediately resolves using in-memory mock state.
- * - When AUTH_MODE !== 'mock', executes real HTTP requests.
- *   HTTP errors (4xx, 5xx) and network transport failures are surfaced directly
- *   to avoid masking missing endpoints or producing false success on mutations.
+ * - Endpoint NOT wired to the backend (no matching prefix) → resolves from
+ *   in-memory mock state in every mode: those endpoints don't exist backend-side.
+ * - NEXT_PUBLIC_AUTH_MODE === 'mock' → never touches the network (120ms delay),
+ *   same as before.
+ * - AUTH_MODE === 'real' + wired endpoint → live HTTP with loud 4xx/5xx errors;
+ *   nothing is silently masked, and the optional `transform` adapts the raw
+ *   backend shape into the UI type at this single boundary.
  */
 async function requestWithMockFallback<T>(
   endpoint: string,
   options: RequestInit | undefined,
-  mockResolver: () => T | Promise<T>
+  mockResolver: () => T | Promise<T>,
+  transform?: (raw: unknown) => T
 ): Promise<T> {
+  if (shouldGoLive(endpoint)) {
+    const { status, json } = await liveFetch(endpoint, options ?? {});
+    if (status < 200 || status >= 300) {
+      throw buildBackendError(endpoint, status, json);
+    }
+    return transform ? transform(json) : (json as T);
+  }
+
   if (AUTH_MODE === 'mock') {
     await new Promise((r) => setTimeout(r, 120));
-    return mockResolver();
   }
-
-  const response = await fetchWithTimeout(
-    `${API_BASE_URL}${endpoint}`,
-    {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options?.headers || {}),
-      },
-    },
-    8000
-  );
-
-  if (!response.ok) {
-    let errDetail = `HTTP ${response.status} ${response.statusText}`;
-    try {
-      const data = await response.json();
-      if (data?.message) errDetail = data.message;
-      else if (data?.detail) {
-        errDetail = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
-      }
-    } catch {
-      // Body not JSON
-    }
-    throw new Error(`Backend Error (${response.status}) on ${endpoint}: ${errDetail}`);
-  }
-
-  return (await response.json()) as T;
+  return mockResolver();
 }
 
 function formatSlotDateAndTime(isoString: string, durationMinutes = 60): { dateLabel: string; timeLabel: string } {
@@ -499,6 +631,350 @@ function formatSlotDateAndTime(isoString: string, durationMinutes = 60): { dateL
   };
 }
 
+// ─── Real-backend response adapters (backend/src/schemas + controllers) ──────
+// Response shapes live here ONLY. UI components keep consuming UI types
+// (BookingRequest etc.); UUIDs → UI values, backend enum statuses → UI
+// statuses, and anonymized display codes are derived in this block.
+
+interface AppointmentRaw {
+  appointment_id: string;
+  persona_id: string;
+  persona_name: string;
+  persona_relation: string;
+  service_id: string;
+  service_name: string;
+  service_duration_minutes: number | null;
+  service_guardrail: string | null;
+  psychologist_id: string | null;
+  selected_slot_id: string | null;
+  price: number | null;
+  presenting_concern: string;
+  status: string;
+  requested_datetime: string | null;
+  proposed_slots: ProposedSlotRaw[];
+  persona_socmed_platform: string | null;
+  persona_socmed_username: string | null;
+  psychologist_social_links: SocialMediaLink[];
+}
+
+interface ProposedSlotRaw {
+  slot_id: string;
+  session_date: string;
+  start_time: string;
+  end_time: string | null;
+}
+
+interface ServiceRaw {
+  service_id: string;
+  name: string;
+  description: string;
+  is_active: boolean;
+  duration_minutes: number;
+  guardrail_notice: string | null;
+}
+
+interface PersonaRaw {
+  persona_id: string;
+  relation_to_account_holder: string;
+  persona_name: string;
+  date_of_birth: string;
+}
+
+interface PersonaReviewRaw {
+  persona: {
+    persona_id: string;
+    relation_to_account_holder: string;
+    persona_name: string;
+    date_of_birth: string;
+    occupation: string | null;
+    nationality: string;
+    permanent_address: string;
+    present_address: string;
+    contact_number: string;
+    socmed_platform: string | null;
+    socmed_username: string | null;
+    preferred_contact_mode: string;
+    emergency_contact_name: string;
+    emergency_contact_relation: string;
+    emergency_contact_number: string;
+  };
+  consent: {
+    consent_version: string;
+    terms_signer_name: string;
+    terms_signer_relation: string;
+    scope_acknowledged: boolean;
+    is_overseas_or_foreign: boolean;
+    overseas_acknowledged: boolean;
+    information_confirmed: boolean;
+    consent_signer_name: string;
+    signed_at: string | null;
+  };
+}
+
+interface PaymentRaw {
+  payment_id: string;
+  appointment_id: string;
+  amount: number;
+  payment_method: string | null;
+  provider: string;
+  provider_ref: string | null;
+  checkout_url: string | null;
+  status: string;
+  paid_at: string | null;
+  created_at: string;
+}
+
+interface PsychologistProfileRaw {
+  psychologist_id: string;
+  full_name: string;
+  license_number: string | null;
+  specialization: string | null;
+  bio: string | null;
+  social_media_links: SocialMediaLink[];
+  approval_status: string;
+  approved_by: string | null;
+  approved_at: string | null;
+}
+
+/**
+ * Anonymized display codes (RP-0x) mapped from real UUIDs at this boundary
+ * only. RP-01..RP-04 belong to the mock roster, so anonymous live codes start
+ * at RP-11. Full names from the backend never reach the UI.
+ */
+const anonymizedCodeByUuid = new Map<string, string>();
+let nextAnonymizedCode = 11;
+
+export function anonymizedPsychCode(uuid: string | null): string {
+  if (!uuid) return '';
+  const existing = anonymizedCodeByUuid.get(uuid);
+  if (existing) return existing;
+  const code = `RP-${String(nextAnonymizedCode++).padStart(2, '0')}`;
+  anonymizedCodeByUuid.set(uuid, code);
+  return code;
+}
+
+function durationLabel(minutes: number | null | undefined): string {
+  if (!minutes) return '—';
+  if (minutes < 60) return `${minutes} mins`;
+  if (minutes === 60) return '1 hr (60 mins)';
+  if (minutes === 90) return '1.5 hr (90 mins)';
+  if (minutes % 60 === 0) return `${minutes / 60} hrs`;
+  return `${Math.floor(minutes / 60)} hr ${minutes % 60} mins`;
+}
+
+function mapStatusToBookingStatus(raw: string): BookingStatus {
+  switch (raw) {
+    case 'awaiting_slot_selection':
+    case 'awaiting_payment':
+      return 'proposed';
+    case 'confirmed':
+      return 'paid-confirmed';
+    case 'completed':
+      return 'completed';
+    case 'cancelled':
+      return 'cancelled';
+    default:
+      return 'pending';
+  }
+}
+
+function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
+  const status = mapStatusToBookingStatus(raw.status);
+  const code = anonymizedPsychCode(raw.psychologist_id);
+  const contactUnlocked =
+    raw.status === 'confirmed' || raw.status === 'completed';
+  const durationMinutes = raw.service_duration_minutes ?? 60;
+
+  const psychologistSocialLinks = contactUnlocked
+    ? (raw.psychologist_social_links ?? [])
+    : undefined;
+  const clientSocialMedia =
+    raw.persona_socmed_platform || raw.persona_socmed_username
+      ? {
+          platform: raw.persona_socmed_platform ?? '',
+          username: raw.persona_socmed_username ?? '',
+        }
+      : undefined;
+
+  const proposedSlots = (raw.proposed_slots ?? []).map((slot, index) => {
+    const time =
+      slot.start_time.length === 5 ? slot.start_time : slot.start_time.slice(0, 5);
+    const iso = `${slot.session_date.slice(0, 10)}T${time}`;
+    const endTime = slot.end_time
+      ? slot.end_time.length === 5
+        ? slot.end_time
+        : slot.end_time.slice(0, 5)
+      : null;
+    const endIso = endTime ? `${slot.session_date.slice(0, 10)}T${endTime}` : undefined;
+    const { dateLabel, timeLabel } = formatSlotDateAndTime(iso, durationMinutes);
+    return {
+      id: slot.slot_id,
+      slotNumber: ((index + 1) as 1 | 2 | 3),
+      isoDateTime: iso,
+      endIsoDateTime: endIso,
+      dateLabel,
+      timeLabel,
+    };
+  });
+
+  return {
+    id: raw.appointment_id,
+    clientId: 'client-01',
+    personaId: raw.persona_id,
+    personaType: raw.persona_relation === 'self' ? 'self' : 'dependent',
+    personaLabel: raw.persona_name,
+    serviceId: raw.service_id,
+    serviceTitle: raw.service_name,
+    serviceDuration: durationLabel(raw.service_duration_minutes),
+    serviceDurationMinutes: durationMinutes,
+    serviceGuardrail: raw.service_guardrail ?? '',
+    concernsSummary: raw.presenting_concern,
+    submittedAt: raw.requested_datetime ? raw.requested_datetime.slice(0, 10) : '—',
+    status,
+    psychologistId: raw.psychologist_id ?? undefined,
+    psychologistCode: code ? `Resident Psychologist #${code}` : undefined,
+    pricePhp: raw.price ?? undefined,
+    proposedSlots,
+    selectedSlotId: raw.selected_slot_id ?? undefined,
+    contactUnlocked,
+    psychologistSocialLinks,
+    clientSocialMedia,
+    reminders: contactUnlocked
+      ? { reminder24h: 'scheduled', reminder1h: 'scheduled' }
+      : { reminder24h: 'pending', reminder1h: 'pending' },
+  };
+}
+
+function mapServiceRaw(raw: ServiceRaw, index: number): ServiceItem {
+  return {
+    id: raw.service_id,
+    indexNumber: String(index + 1).padStart(2, '0'),
+    title: raw.name ?? 'Service',
+    categoryGroup: '',
+    durationLabel: durationLabel(raw.duration_minutes),
+    durationMinutes: raw.duration_minutes || 60,
+    guardrailTitle: '',
+    guardrailNotice: raw.guardrail_notice ?? '',
+
+    description: raw.description ?? '',
+    clinicalFormat: '',
+  };
+}
+
+function mapPersonaRaw(raw: PersonaRaw): Persona {
+  const dob = String(raw.date_of_birth ?? '').slice(0, 10);
+  return {
+    id: raw.persona_id,
+    clientId: 'client-01',
+    type: raw.relation_to_account_holder === 'self' ? 'self' : 'dependent',
+    label: raw.persona_name,
+    ageGroup: isMinorDob(dob) ? 'Minor (<18)' : 'Adult (18+)',
+    relationshipToClient: raw.relation_to_account_holder ?? '',
+    preferredLanguage: '',
+    createdAt: '',
+  };
+}
+
+function mapPersonaReviewRaw(raw: PersonaReviewRaw): PersonaReview {
+  return {
+    persona: {
+      id: raw.persona.persona_id,
+      name: raw.persona.persona_name,
+      relationToAccountHolder: raw.persona.relation_to_account_holder,
+      dateOfBirth: raw.persona.date_of_birth,
+      occupation: raw.persona.occupation,
+      nationality: raw.persona.nationality,
+      permanentAddress: raw.persona.permanent_address,
+      presentAddress: raw.persona.present_address,
+      contactNumber: raw.persona.contact_number,
+      socmedPlatform: raw.persona.socmed_platform,
+      socmedUsername: raw.persona.socmed_username,
+      preferredContactMode: raw.persona.preferred_contact_mode,
+      emergencyContactName: raw.persona.emergency_contact_name,
+      emergencyContactRelation: raw.persona.emergency_contact_relation,
+      emergencyContactNumber: raw.persona.emergency_contact_number,
+    },
+    consent: {
+      version: raw.consent.consent_version,
+      termsSignerName: raw.consent.terms_signer_name,
+      termsSignerRelation: raw.consent.terms_signer_relation,
+      scopeAcknowledged: raw.consent.scope_acknowledged,
+      isOverseasOrForeign: raw.consent.is_overseas_or_foreign,
+      overseasAcknowledged: raw.consent.overseas_acknowledged,
+      informationConfirmed: raw.consent.information_confirmed,
+      consentSignerName: raw.consent.consent_signer_name,
+      signedAt: raw.consent.signed_at,
+    },
+  };
+}
+
+/**
+ * Mock-mode review data. The mock Persona shape intentionally stays small, so
+ * this synthesizes the wizard/consent detail the live review endpoint returns.
+ */
+function buildMockPersonaReview(personaId: string): PersonaReview {
+  const persona = mockPersonas.find((p) => p.id === personaId);
+  if (!persona) throw new Error('Persona review not found.');
+  const isSelf = persona.type === 'self';
+  return {
+    persona: {
+      id: persona.id,
+      name: persona.label,
+      relationToAccountHolder: persona.relationshipToClient,
+      dateOfBirth: isSelf ? '1994-06-12' : '2011-03-08',
+      occupation: isSelf ? 'Demo occupation' : 'Student',
+      nationality: 'Filipino',
+      permanentAddress: 'Demo address — mock mode',
+      presentAddress: 'Demo address — mock mode',
+      contactNumber: '+63 917 000 0000',
+      socmedPlatform: 'Facebook',
+      socmedUsername: '@demo_persona',
+      preferredContactMode: 'phone',
+      emergencyContactName: 'Demo Emergency Contact',
+      emergencyContactRelation: isSelf ? 'Sibling' : 'Parent',
+      emergencyContactNumber: '+63 918 000 0000',
+    },
+    consent: {
+      version: CONSENT_VERSION,
+      termsSignerName: persona.label,
+      termsSignerRelation: persona.relationshipToClient,
+      scopeAcknowledged: true,
+      isOverseasOrForeign: false,
+      overseasAcknowledged: false,
+      informationConfirmed: true,
+      consentSignerName: persona.label,
+      signedAt: persona.createdAt ? `${persona.createdAt}T09:00:00+08:00` : null,
+    },
+  };
+}
+
+/** Guards against posting mock ids where the backend parses UUIDs. */
+function assertUuid(value: string | undefined, label: string): string {
+  const isUuid =
+    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(value ?? '');
+  if (!isUuid) {
+    throw new Error(
+      `${label} is not a backend UUID (got "${value}"). In mixed live mode, flip matching endpoints (personas/services) live together with appointments first.`
+    );
+  }
+  return value as string;
+}
+
+/** ISO datetime ('YYYY-MM-DDTHH:mm[...]') → SlotProposal body rows. */
+function toSlotProposal(isoDateTime: string, durationMinutes: number) {
+  const clean = isoDateTime.slice(0, 16);
+  const sessionDate = clean.slice(0, 10);
+  const timePart = clean.slice(11, 16);
+  const [h, m] = timePart.split(':').map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) {
+    throw new Error(`Invalid slot datetime format: "${isoDateTime}"`);
+  }
+  const total = (h * 60 + m + durationMinutes) % (24 * 60);
+  const endHours = String(Math.floor(total / 60)).padStart(2, '0');
+  const endMinutes = String(total % 60).padStart(2, '0');
+  return { session_date: sessionDate, start_time: `${timePart}:00`, end_time: `${endHours}:${endMinutes}:00` };
+}
+
 export const api = {
   getConfigInfo: () => ({
     apiUrl: API_BASE_URL,
@@ -510,7 +986,15 @@ export const api = {
    * Services API
    */
   getServices: async (): Promise<ServiceItem[]> =>
-    requestWithMockFallback('/api/v1/services', undefined, () => [...mockServices]),
+    requestWithMockFallback(
+      '/services',
+      undefined,
+      () => [...mockServices],
+      (raw) => {
+        const list = Array.isArray(raw) ? (raw as ServiceRaw[]) : [];
+        return list.map((s, i) => mapServiceRaw(s, i));
+      }
+    ),
 
   updateServiceGuardrail: async (
     serviceId: string,
@@ -550,18 +1034,88 @@ export const api = {
       }
     ),
 
+  /**
+   * Current psychologist's own profile, including the approval gate. The
+   * response is mapped to the dashboard's ResidentPsychologist shape so the
+   * mock roster and the live profile render through the same components.
+   */
+  getMyPsychologistProfile: async (): Promise<ResidentPsychologist> => {
+    if (!shouldGoLive('/psychologist')) {
+      return { ...(mockRoster.find((r) => r.id === 'RP-01') ?? mockRoster[0]) };
+    }
+    const { status, json } = await liveFetch('/psychologist-profile/me');
+    if (status < 200 || status >= 300) {
+      throw buildBackendError('/psychologist-profile/me', status, json);
+    }
+    const raw = json as PsychologistProfileRaw;
+    return {
+      id: raw.psychologist_id,
+      anonymizedTitle: `Resident Psychologist #${anonymizedPsychCode(raw.psychologist_id)}`,
+      prcCredentialCode: raw.license_number ?? '',
+      specialization: raw.specialization ?? '',
+      serviceEligibility: [],
+      languages: [],
+      yearsPractice: '',
+      verificationStatus: raw.approval_status === 'approved' ? 'verified' : 'waiting_approval',
+      visibleOnPublicRoster: raw.approval_status === 'approved',
+      assignedBookingsCount: 0,
+      socialMediaLinks: raw.social_media_links ?? [],
+      bio: raw.bio ?? '',
+    };
+  },
+
   updatePsychologistProfile: async (
     psychId: string,
-    updates: Partial<Pick<ResidentPsychologist, 'specialization' | 'prcCredentialCode' | 'bio' | 'languages' | 'yearsPractice'>>
+    updates: Partial<
+      Pick<
+        ResidentPsychologist,
+        'specialization' | 'prcCredentialCode' | 'bio' | 'socialMediaLinks'
+      >
+    >
   ): Promise<ResidentPsychologist> =>
     requestWithMockFallback(
-      `/api/v1/psychologists/${psychId}/profile`,
-      { method: 'PATCH', body: JSON.stringify(updates) },
+      '/psychologist-profile/me',
+      {
+        method: 'PATCH',
+        // Backend PsychologistProfileUpdate: specialization/bio/license_number
+        // plus the social media links clients receive after confirmation.
+        body: JSON.stringify({
+          specialization: updates.specialization,
+          bio: updates.bio,
+          license_number: updates.prcCredentialCode,
+          social_media_links: updates.socialMediaLinks,
+        }),
+      },
       () => {
         const idx = mockRoster.findIndex((r) => r.id === psychId);
         if (idx === -1) throw new Error('Psychologist profile not found.');
         mockRoster[idx] = { ...mockRoster[idx], ...updates };
         return { ...mockRoster[idx] };
+      },
+      (raw) => {
+        const profile = (raw ?? null) as PsychologistProfileRaw | null;
+        const base = mockRoster.find((r) => r.id === psychId) ?? {
+          id: psychId,
+          anonymizedTitle: 'Resident Psychologist',
+          prcCredentialCode: '',
+          specialization: '',
+          serviceEligibility: [],
+          languages: [],
+          yearsPractice: '',
+          verificationStatus: 'verified' as const,
+          visibleOnPublicRoster: true,
+          assignedBookingsCount: 0,
+          socialMediaLinks: [],
+          bio: '',
+        };
+        return {
+          ...base,
+          specialization: profile?.specialization ?? base.specialization,
+          bio: profile?.bio ?? base.bio,
+          prcCredentialCode: profile?.license_number ?? base.prcCredentialCode,
+          socialMediaLinks:
+            profile?.social_media_links ?? base.socialMediaLinks,
+        };
       }
     ),
 
@@ -569,26 +1123,26 @@ export const api = {
    * Client Personas API
    */
   getPersonas: async (): Promise<Persona[]> =>
-    requestWithMockFallback('/api/v1/personas', undefined, () => [...mockPersonas]),
-
-  createPersona: async (input: Partial<Omit<Persona, 'id' | 'clientId' | 'createdAt'>>): Promise<Persona> =>
     requestWithMockFallback(
-      '/api/v1/personas',
-      { method: 'POST', body: JSON.stringify(input) },
-      () => {
-        const created: Persona = {
-          type: input.type ?? 'dependent',
-          label: input.label ?? 'Dependent Ward (Unlabeled)',
-          ageGroup: input.ageGroup ?? 'Adult (25–34)',
-          relationshipToClient: input.relationshipToClient ?? 'Self',
-          preferredLanguage: input.preferredLanguage ?? 'English / Taglish',
-          id: `persona-${input.type}-${Date.now().toString().slice(-4)}`,
-          clientId: 'client-01',
-          createdAt: new Date().toISOString().slice(0, 10),
-        };
-        mockPersonas = [...mockPersonas, created];
-        return created;
+      '/personas',
+      undefined,
+      () => [...mockPersonas],
+      (raw) => {
+        const list = Array.isArray(raw) ? (raw as PersonaRaw[]) : [];
+        return list.map(mapPersonaRaw);
       }
+    ),
+
+  /**
+   * Psychologist review payload for a queue persona: full persona record plus
+   * the latest signed consent/forms row. Backed by GET /personas/{id}/review.
+   */
+  getPersonaReview: async (personaId: string): Promise<PersonaReview> =>
+    requestWithMockFallback(
+      `/personas/${personaId}/review`,
+      undefined,
+      () => buildMockPersonaReview(personaId),
+      (raw) => mapPersonaReviewRaw(raw as PersonaReviewRaw)
     ),
 
   /**
@@ -599,7 +1153,9 @@ export const api = {
    */
   createPersonaWithConsent: async (payload: PersonaWizardPayload): Promise<Persona> =>
     requestWithMockFallback(
-      '/api/v1/personas',
+      '/personas',
+      // Backend POST /personas takes PersonaWithConsentCreate {persona, consent}
+      // — the wizard payload already matches its field names.
       { method: 'POST', body: JSON.stringify(payload) },
       () => {
         const fieldErrors: Record<string, string> = {};
@@ -657,7 +1213,9 @@ export const api = {
         };
         mockPersonas = [...mockPersonas, created];
         return created;
-      }
+      },
+      // Live response is PersonaRead — map at the boundary.
+      (raw) => mapPersonaRaw(raw as PersonaRaw)
     ),
 
   /**
@@ -671,8 +1229,52 @@ export const api = {
   getBookingsForRole: async (
     role: CognitoRole,
     psychologistId = 'RP-01'
-  ): Promise<BookingRequest[]> =>
-    requestWithMockFallback(
+  ): Promise<BookingRequest[]> => {
+    // Legacy role-filter query params are derived server-side from the real
+    // token in live mode — never trust the client for scoping (contract §7.1).
+    if (role === 'client' && shouldGoLive('/appointments')) {
+      const { status, json } = await liveFetch('/appointments');
+      if (status < 200 || status >= 300) {
+        throw buildBackendError('/appointments', status, json);
+      }
+      return (Array.isArray(json) ? (json as AppointmentRaw[]) : []).map((r) =>
+        mapAppointmentRaw(r)
+      );
+    }
+    if (role === 'psychologist' && shouldGoLive('/appointments')) {
+      const [pendingRes, mineRes] = await Promise.all([
+        liveFetch('/appointments/pending'),
+        liveFetch('/appointments/mine'),
+      ]);
+      if (pendingRes.status < 200 || pendingRes.status >= 300) {
+        throw buildBackendError(
+          '/appointments/pending',
+          pendingRes.status,
+          pendingRes.json
+        );
+      }
+      if (mineRes.status < 200 || mineRes.status >= 300) {
+        throw buildBackendError(
+          '/appointments/mine',
+          mineRes.status,
+          mineRes.json
+        );
+      }
+      const toPendingRows = Array.isArray(pendingRes.json)
+        ? (pendingRes.json as AppointmentRaw[])
+        : [];
+      const toMineRows = Array.isArray(mineRes.json) ? (mineRes.json as AppointmentRaw[]) : [];
+      const merged: BookingRequest[] = [];
+      const seen = new Set<string>();
+      for (const raw of [...toPendingRows, ...toMineRows]) {
+        if (seen.has(raw.appointment_id)) continue;
+        seen.add(raw.appointment_id);
+        merged.push(mapAppointmentRaw(raw));
+      }
+      return merged;
+    }
+    // Admin reads + all mock-mode reads.
+    return requestWithMockFallback(
       `/api/v1/bookings?role=${role}&psychId=${psychologistId}`,
       undefined,
       () => {
@@ -689,10 +1291,19 @@ export const api = {
         // Admin tier: strictly strip privateClinicalNote
         return mockBookings.map(({ privateClinicalNote: _redacted, ...rest }) => rest);
       }
-    ),
+    );
+  },
 
-  getBookingById: async (bookingId: string, role: CognitoRole = 'client'): Promise<BookingRequest | null> =>
-    requestWithMockFallback(`/api/v1/bookings/${bookingId}`, undefined, () => {
+  getBookingById: async (bookingId: string, role: CognitoRole = 'client'): Promise<BookingRequest | null> => {
+    if (shouldGoLive('/appointments') && role !== 'admin') {
+      const { status, json } = await liveFetch(`/appointments/${bookingId}`);
+      if (status === 404) return null;
+      if (status < 200 || status >= 300) {
+        throw buildBackendError(`/appointments/${bookingId}`, status, json);
+      }
+      return mapAppointmentRaw(json as AppointmentRaw);
+    }
+    return requestWithMockFallback(`/api/v1/bookings/${bookingId}`, undefined, () => {
       const found = mockBookings.find((b) => b.id === bookingId);
       if (!found) return null;
       if (role !== 'psychologist') {
@@ -700,7 +1311,8 @@ export const api = {
         return safeBooking;
       }
       return { ...found };
-    }),
+    });
+  },
 
   /**
    * Flow C Step 1: Client submits Persona + Booking Form -> enters 'pending' queue
@@ -708,11 +1320,24 @@ export const api = {
   submitBookingRequest: async (input: {
     personaId: string;
     serviceId: string;
-    preferredLanguage: string;
     concernsSummary: string;
-    specificNeeds: string;
-  }): Promise<BookingRequest> =>
-    requestWithMockFallback(
+  }): Promise<BookingRequest> => {
+    if (shouldGoLive('/appointments')) {
+      const body = {
+        persona_id: assertUuid(input.personaId, 'personaId'),
+        service_id: assertUuid(input.serviceId, 'serviceId'),
+        presenting_concern: input.concernsSummary,
+      };
+      const { status, json } = await liveFetch('/appointments', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      if (status < 200 || status >= 300) {
+        throw buildBackendError('/api/v1/bookings/intake', status, json);
+      }
+      return mapAppointmentRaw(json as AppointmentRaw);
+    }
+    return requestWithMockFallback(
       '/api/v1/bookings/intake',
       { method: 'POST', body: JSON.stringify(input) },
       () => {
@@ -730,10 +1355,9 @@ export const api = {
           serviceId: service.id,
           serviceTitle: service.title,
           serviceDuration: service.durationLabel,
+          serviceDurationMinutes: service.durationMinutes,
           serviceGuardrail: service.guardrailNotice,
           concernsSummary: input.concernsSummary,
-          specificNeeds: input.specificNeeds,
-          preferredLanguage: input.preferredLanguage,
           submittedAt: new Date().toLocaleString('en-US', {
             year: 'numeric',
             month: '2-digit',
@@ -753,7 +1377,8 @@ export const api = {
         mockBookings = [newBooking, ...mockBookings];
         return newBooking;
       }
-    ),
+    );
+  },
 
   /**
    * Flow C Step 3: Verified Psychologist picks up pending request + sets price + proposes 3 slots
@@ -765,28 +1390,23 @@ export const api = {
     slot1DateTime: string;
     slot2DateTime: string;
     slot3DateTime: string;
-    clinicalPrepNote: string;
   }): Promise<BookingRequest> => {
-    // If backend is active and using /appointments REST routes, execute dual pickup + slots endpoints
-    if (AUTH_MODE !== 'mock') {
-      const pickupRes = await fetchWithTimeout(
-        `${API_BASE_URL}/appointments/${input.bookingId}/pickup`,
+    // If backend is active, run the real pickup → durations → 3-slot proposal chain.
+    if (shouldGoLive('/appointments')) {
+      // Step 1: claim the pending request. PickupRequest body is { price } —
+      // the psychologist identity is derived from the token, never the client
+      // (dependencies/auth.py require_approved_psychologist).
+      const pickupRes = await liveFetch(
+        `/appointments/${input.bookingId}/pickup`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            psychologistId: input.psychologistId,
-            pricePhp: input.pricePhp,
-          }),
-        },
-        8000
+          body: JSON.stringify({ price: input.pricePhp }),
+        }
       );
 
-      if (pickupRes.status === 409 || pickupRes.status === 400) {
-        const errData = await pickupRes.json().catch(() => ({}));
+      if (pickupRes.status === 404) {
         throw new Error(
-          errData.message ||
-            `Request already claimed: Booking ${input.bookingId} has already been claimed by another psychologist.`
+          `Booking ${input.bookingId} was not found on ${API_BASE_URL} — it may belong to another client or no longer be on the queue.`
         );
       }
       if (pickupRes.status === 403) {
@@ -794,60 +1414,73 @@ export const api = {
           'Credential Guardrail: Unverified psychologists cannot pick up booking requests or propose slots.'
         );
       }
-
-      // If /appointments endpoint is not implemented (404), fail clearly without masking contract absence
-      if (pickupRes.status === 404) {
-        return requestWithMockFallback(
-          `/api/v1/bookings/${input.bookingId}/propose`,
-          { method: 'POST', body: JSON.stringify(input) },
-          () => {
-            throw new Error(
-              `Backend contract missing: neither /appointments/${input.bookingId}/pickup nor /api/v1/bookings/${input.bookingId}/propose are implemented on ${API_BASE_URL}.`
-            );
-          }
-        );
-      }
-
-      if (!pickupRes.ok) {
+      if (pickupRes.status === 409 || pickupRes.status === 400) {
         throw new Error(
-          `Pickup failed with HTTP ${pickupRes.status}: Unable to claim booking ${input.bookingId}.`
+          `Request already claimed: Booking ${input.bookingId} has already been claimed by another psychologist. Please refresh your queue.`
+        );
+      }
+      if (pickupRes.status === 422) {
+        const detail =
+          (pickupRes.json as { detail?: unknown } | null)?.detail ??
+          'Add at least one social media link to your profile before accepting booking requests.';
+        throw new Error(
+          typeof detail === 'string' ? detail : JSON.stringify(detail)
+        );
+      }
+      if (pickupRes.status < 200 || pickupRes.status >= 300) {
+        throw buildBackendError(
+          `/appointments/${input.bookingId}/pickup`,
+          pickupRes.status,
+          pickupRes.json
         );
       }
 
-      // CRITICAL (Copilot Finding 2): Pickup was successful! The appointment is now claimed.
-      // We MUST NOT fall back to legacy /propose or mock if slot submission fails,
-      // as that would leave the booking claimed without slots or double-claim.
-      const slotsRes = await fetchWithTimeout(
-        `${API_BASE_URL}/appointments/${input.bookingId}/slots`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            slots: [
-              { slotNumber: 1, dateTime: input.slot1DateTime },
-              { slotNumber: 2, dateTime: input.slot2DateTime },
-              { slotNumber: 3, dateTime: input.slot3DateTime },
-            ],
-            clinicalPrepNote: input.clinicalPrepNote,
-          }),
-        },
-        8000
+      // CRITICAL (Copilot Finding 2, updated): pickup was successful — the
+      // appointment is claimed. NEVER fall back to mocks or legacy endpoints
+      // from here; failures surface loudly so nobody double-claims.
+      const apptRes = await liveFetch(`/appointments/${input.bookingId}`);
+      if (apptRes.status < 200 || apptRes.status >= 300) {
+        throw buildBackendError(
+          `/appointments/${input.bookingId}`,
+          apptRes.status,
+          apptRes.json
+        );
+      }
+      const claimedRaw = apptRes.json as AppointmentRaw;
+      const durationMinutes = claimedRaw.service_duration_minutes || 60;
+
+      // Step 2: exactly 3 distinct SlotProposal rows with session_date + times.
+      const slotPayload = [input.slot1DateTime, input.slot2DateTime, input.slot3DateTime].map(
+        (dt) => toSlotProposal(dt, durationMinutes)
       );
 
-      if (!slotsRes.ok) {
-        let slotErr = `HTTP ${slotsRes.status}`;
-        try {
-          const slotData = await slotsRes.json();
-          if (slotData?.message) slotErr = slotData.message;
-        } catch {
-          // ignore
+      const slotsRes = await liveFetch(
+        `/appointments/${input.bookingId}/slots`,
+        {
+          method: 'POST',
+          body: JSON.stringify(slotPayload),
         }
+      );
+
+      if (slotsRes.status < 200 || slotsRes.status >= 300) {
+        const detail =
+          (slotsRes.json as { detail?: string | unknown } | null)?.detail ?? `HTTP ${slotsRes.status}`;
         throw new Error(
-          `Appointment ${input.bookingId} was successfully claimed, but proposing slots failed (${slotErr}). Please check My Schedule or contact admin.`
+          `Appointment ${input.bookingId} was successfully claimed, but proposing slots failed (${typeof detail === 'string' ? detail : JSON.stringify(detail)}). It stays assigned to you — please check My Schedule or contact admin.`
         );
       }
 
-      return (await slotsRes.json()) as BookingRequest;
+      // Step 3: refetch the claimed appointment (now awaiting slot selection).
+      // AppointmentRead already carries the proposed slot rows.
+      const finalRes = await liveFetch(`/appointments/${input.bookingId}`);
+      if (finalRes.status < 200 || finalRes.status >= 300) {
+        throw buildBackendError(
+          `/appointments/${input.bookingId}`,
+          finalRes.status,
+          finalRes.json
+        );
+      }
+      return mapAppointmentRaw(finalRes.json as AppointmentRaw);
     }
 
     return requestWithMockFallback(
@@ -858,6 +1491,11 @@ export const api = {
         if (!psych || psych.verificationStatus !== 'verified') {
           throw new Error(
             'Credential Guardrail: Unverified psychologists cannot pick up booking requests or propose slots.'
+          );
+        }
+        if (!psych.socialMediaLinks?.length) {
+          throw new Error(
+            'Add at least one social media link to your profile before accepting booking requests.'
           );
         }
 
@@ -886,7 +1524,6 @@ export const api = {
           psychologistCode: psych.anonymizedTitle,
           psychologistSpecialization: psych.specialization,
           pricePhp: input.pricePhp,
-          clinicalPrepNote: input.clinicalPrepNote,
           proposedSlots: [
             {
               id: `slot-${target.id}-1`,
@@ -927,8 +1564,66 @@ export const api = {
     bookingId: string;
     selectedSlotId: string;
     simulateFailure?: boolean;
-  }): Promise<BookingRequest> =>
-    requestWithMockFallback(
+  }): Promise<BookingRequest> => {
+    if (shouldGoLive('/appointments')) {
+      // simulateFailure stays a mock-only dev toggle (never sent to the backend).
+      if (input.simulateFailure) {
+        throw new Error(
+          'Payment Declined (Simulated Stripe Error): Booking is NOT finalized and contact channels remain locked until payment succeeds.'
+        );
+      }
+
+      // Step 1: select the slot — appointment flips to awaiting_payment.
+      const selectRes = await liveFetch(`/appointments/${input.bookingId}/select-slot`, {
+        method: 'POST',
+        body: JSON.stringify({
+          slot_id: assertUuid(input.selectedSlotId, 'selectedSlotId'),
+        }),
+      });
+      if (selectRes.status < 200 || selectRes.status >= 300) {
+        throw buildBackendError(
+          `/appointments/${input.bookingId}/select-slot`,
+          selectRes.status,
+          selectRes.json
+        );
+      }
+
+      // Step 2: initiate payment. The provider seam returns a PENDING payment
+      // row + checkout ref; the appointment only becomes confirmed via the
+      // provider webhook (POST /payments/webhook {provider_ref, outcome}).
+      // NEVER fake a success here — contact stays locked until confirmation.
+      const payRes = await liveFetch(`/appointments/${input.bookingId}/payment`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      if (payRes.status < 200 || payRes.status >= 300) {
+        throw buildBackendError(
+          `/appointments/${input.bookingId}/payment`,
+          payRes.status,
+          payRes.json
+        );
+      }
+      const payment = payRes.json as PaymentRaw | null;
+
+      // Step 3: short confirmation poll — covers synchronous gateways.
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        await new Promise((r) => setTimeout(r, 500));
+        const appt = await liveFetch(`/appointments/${input.bookingId}`);
+        if (appt.status >= 200 && appt.status < 300) {
+          const raw = appt.json as AppointmentRaw;
+          if (raw.status === 'confirmed') {
+            return mapAppointmentRaw(raw);
+          }
+          if (raw.status === 'cancelled') break;
+        }
+      }
+
+      throw new Error(
+        `Payment initiated (provider: ${payment?.provider ?? 'gateway'}, ref: ${payment?.provider_ref ?? 'n/a'}) but not yet confirmed — contact stays locked until the provider webhook marks it paid.${payment?.checkout_url ? ` Checkout URL: ${payment.checkout_url}` : ''}`
+      );
+    }
+
+    return requestWithMockFallback(
       `/api/v1/bookings/${input.bookingId}/pay`,
       { method: 'POST', body: JSON.stringify(input) },
       () => {
@@ -943,6 +1638,10 @@ export const api = {
           throw new Error('Booking not found.');
         }
 
+        const psychProfile = mockRoster.find(
+          (r) => r.id === (target.psychologistId ?? 'RP-01')
+        );
+
         const updated: BookingRequest = {
           ...target,
           status: 'paid-confirmed',
@@ -955,12 +1654,10 @@ export const api = {
             minute: '2-digit',
           }),
           contactUnlocked: true,
-          unlockedContact: {
-            teletherapyUrl: `https://session.psychaveph.clinical/room/${target.id}-${target.psychologistId || 'RP01'}`,
-            coordinationEmail: 'psychaveph.info@gmail.com',
-            sessionReferenceCode: `CONF-${target.psychologistId || 'RP01'}-${target.id.slice(-3)}`,
-            emergencyProtocolNote:
-              'Contact unlocked for both Client and Assigned Psychologist. Automated 24h and 1h reminders are scheduled.',
+          psychologistSocialLinks: psychProfile?.socialMediaLinks ?? [],
+          clientSocialMedia: target.clientSocialMedia ?? {
+            platform: 'Facebook',
+            username: '@demo_persona',
           },
           reminders: {
             reminder24h: 'scheduled',
@@ -971,60 +1668,74 @@ export const api = {
         mockBookings = mockBookings.map((b) => (b.id === input.bookingId ? updated : b));
         return updated;
       }
-    ),
+    );
+  },
 
   /**
    * Flow C Step 5: Real-time status updates for Reschedule / Cancel / Reminder dispatch
    */
-  updateBookingLifecycleStatus: async (input: {
-    bookingId: string;
-    action: 'cancel' | 'request-reschedule' | 'dispatch-reminders';
-  }): Promise<BookingRequest> =>
-    requestWithMockFallback(
-      `/api/v1/bookings/${input.bookingId}/lifecycle`,
-      { method: 'PATCH', body: JSON.stringify(input) },
+  /**
+   * Cancel a booking. Reschedule requests and reminder dispatch have no backend
+   * implementation, so the UI no longer exposes them.
+   */
+  cancelBooking: async (bookingId: string): Promise<BookingRequest> => {
+    if (shouldGoLive('/appointments')) {
+      const { status, json } = await liveFetch(`/appointments/${bookingId}`, {
+        method: 'DELETE',
+      });
+      if (status < 200 || status >= 300) {
+        throw buildBackendError(`/appointments/${bookingId}`, status, json);
+      }
+      return mapAppointmentRaw(json as AppointmentRaw);
+    }
+    return requestWithMockFallback(
+      `/api/v1/bookings/${bookingId}/cancel`,
+      { method: 'PATCH', body: JSON.stringify({ action: 'cancel' }) },
       () => {
-        const target = mockBookings.find((b) => b.id === input.bookingId);
+        const target = mockBookings.find((b) => b.id === bookingId);
         if (!target) throw new Error('Booking not found');
-
-        let updated: BookingRequest = { ...target };
-        if (input.action === 'cancel') {
-          updated.status = 'cancelled';
-        } else if (input.action === 'request-reschedule') {
-          updated.status = 'reschedule-requested';
-        } else if (input.action === 'dispatch-reminders') {
-          updated.reminders = {
-            reminder24h: 'dispatched',
-            reminder1h: 'dispatched',
-          };
-        }
-
-        mockBookings = mockBookings.map((b) => (b.id === input.bookingId ? updated : b));
+        const updated: BookingRequest = { ...target, status: 'cancelled' };
+        mockBookings = mockBookings.map((b) => (b.id === bookingId ? updated : b));
         return updated;
       }
-    ),
+    );
+  },
 
   /**
-   * Update psychologist-only private note (strictly hidden from Admin/Client)
+   * Mark a confirmed session as completed. Completion timing is not enforced
+   * server-side; the UI warns and asks for a second confirmation when the
+   * selected slot has not ended yet.
    */
-  updatePrivatePsychNote: async (input: {
-    bookingId: string;
-    privateClinicalNote: string;
-  }): Promise<BookingRequest> =>
-    requestWithMockFallback(
-      `/api/v1/bookings/${input.bookingId}/private-note`,
-      { method: 'PATCH', body: JSON.stringify(input) },
+  completeAppointment: async (bookingId: string): Promise<BookingRequest> => {
+    if (shouldGoLive('/appointments')) {
+      const { status, json } = await liveFetch(
+        `/appointments/${bookingId}/complete`,
+        { method: 'POST' }
+      );
+      if (status < 200 || status >= 300) {
+        throw buildBackendError(
+          `/appointments/${bookingId}/complete`,
+          status,
+          json
+        );
+      }
+      return mapAppointmentRaw(json as AppointmentRaw);
+    }
+    return requestWithMockFallback(
+      `/api/v1/bookings/${bookingId}/complete`,
+      { method: 'POST' },
       () => {
-        const target = mockBookings.find((b) => b.id === input.bookingId);
+        const target = mockBookings.find((b) => b.id === bookingId);
         if (!target) throw new Error('Booking not found');
-        const updated: BookingRequest = {
-          ...target,
-          privateClinicalNote: input.privateClinicalNote,
-        };
-        mockBookings = mockBookings.map((b) => (b.id === input.bookingId ? updated : b));
+        if (target.status !== 'paid-confirmed') {
+          throw new Error('Only confirmed appointments can be marked as completed.');
+        }
+        const updated: BookingRequest = { ...target, status: 'completed' };
+        mockBookings = mockBookings.map((b) => (b.id === bookingId ? updated : b));
         return updated;
       }
-    ),
+    );
+  },
 
   /**
    * Admin Payload CMS Content API

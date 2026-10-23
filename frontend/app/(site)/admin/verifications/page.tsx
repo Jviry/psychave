@@ -54,7 +54,7 @@ export default function AdminVerificationsPage() {
       {/* Header */}
       <header className="space-y-2 border-b border-mist pb-6">
         <div className="flex items-center gap-2 text-xs text-accent-ink font-semibold">
-          <span>Admin Role Dashboard</span>
+          <span>Admin Dashboard</span>
           <span aria-hidden="true">·</span>
           <span>Credential Verification Queue &amp; Tiered Privacy Enforcement</span>
         </div>
