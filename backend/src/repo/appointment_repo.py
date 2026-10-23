@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from sqlmodel import Session, select
 from models.appointment import Appointment, AppointmentStatus
 from models.proposed_slot import ProposedSlot
@@ -14,6 +15,7 @@ class AppointmentRepo:
             persona_id=persona_id,
             service_id=service_id,
             presenting_concern=presenting_concern,
+            requested_datetime=datetime.now(timezone.utc).replace(tzinfo=None),
             status=AppointmentStatus.PENDING,
         )
         self.db.add(appt)
