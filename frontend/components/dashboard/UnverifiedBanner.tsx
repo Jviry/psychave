@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { TriangleAlert } from 'lucide-react';
 import { api } from '../../lib/api';
@@ -23,8 +22,7 @@ export function UnverifiedBanner({
   note: string;
   body: React.ReactNode;
 }) {
-  const router = useRouter();
-  const { activePsychologistId, setActivePsychologistId, setCognitoRole } = useAppStore();
+  const { activePsychologistId, setActivePsychologistId } = useAppStore();
 
   const { data: roster = [] } = useQuery({
     queryKey: ['roster', 'admin'],
@@ -53,16 +51,6 @@ export function UnverifiedBanner({
       <div className="flex flex-wrap items-center gap-3 pt-1">
         <Button variant="dark" size="sm" onClick={() => setActivePsychologistId('RP-01')}>
           Switch to Verified Resident #RP-01
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            setCognitoRole('admin');
-            router.push('/admin/verifications');
-          }}
-        >
-          Approve in Admin Portal
         </Button>
       </div>
     </div>

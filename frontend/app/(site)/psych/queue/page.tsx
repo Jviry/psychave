@@ -80,10 +80,7 @@ function ReviewField({
 export default function PsychologistQueuePage() {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const {
-    setCognitoRole,
-    publishFlowEvent,
-  } = useAppStore();
+  const { publishFlowEvent } = useAppStore();
   const { activePsych, activePsychologistId, showSwitcher } = useActivePsychologist();
 
   const [activeModalBookingId, setActiveModalBookingId] = useState<string | null>(null);
@@ -358,27 +355,15 @@ export default function PsychologistQueuePage() {
           <EmptyState
             icon={CheckCircle2}
             title="Pending Queue is All Clear"
-            description="All submitted client booking requests have been claimed and scheduled. Switch to the Client role to submit a new booking form or manage confirmed appointments in My Schedule."
+            description="All submitted client booking requests have been claimed and scheduled. View confirmed appointments in My Schedule."
             action={
-              <div className="flex flex-wrap justify-center gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setCognitoRole('client');
-                    router.push('/personas');
-                  }}
-                >
-                  Submit Test Booking (Client Role)
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => router.push('/psych/schedule')}
-                >
-                  Go to My Schedule
-                </Button>
-              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => router.push('/psych/schedule')}
+              >
+                Go to My Schedule
+              </Button>
             }
           />
         ) : (

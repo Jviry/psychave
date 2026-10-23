@@ -26,8 +26,6 @@ export default function PersonasAndBookingPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const {
-    cognitoRole,
-    setCognitoRole,
     bookingDraft,
     updateBookingDraft,
     resetBookingDraft,
@@ -182,19 +180,6 @@ export default function PersonasAndBookingPage() {
             time slots.
           </p>
         </div>
-
-        {cognitoRole !== 'client' && (
-          <div className="bg-lime-soft/30 border border-lime-soft/60 px-4 py-2.5 rounded-lg text-xs text-pine flex items-center gap-3">
-            <span>Currently viewing as {cognitoRole.toUpperCase()}.</span>
-            <Button
-              variant="dark"
-              size="sm"
-              onClick={() => setCognitoRole('client')}
-            >
-              Switch to Client Role
-            </Button>
-          </div>
-        )}
       </header>
 
       {/* Submission confirmation — the request is now pending */}
@@ -218,16 +203,6 @@ export default function PersonasAndBookingPage() {
               onClick={() => router.push('/bookings')}
             >
               View my bookings
-            </Button>
-            <Button
-              variant="accent"
-              size="sm"
-              onClick={() => {
-                setCognitoRole('psychologist');
-                router.push('/psych/queue');
-              }}
-            >
-              Switch to psychologist
             </Button>
           </div>
         </div>

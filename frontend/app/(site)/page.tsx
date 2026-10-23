@@ -45,7 +45,7 @@ const SERVICE_SUBTEXTS: Record<string, string> = {
  */
 export default function HomePage() {
   const router = useRouter();
-  const { setCognitoRole, updateBookingDraft } = useAppStore();
+  const { updateBookingDraft } = useAppStore();
 
   const { data: services = [] } = useQuery({
     queryKey: ['services'],
@@ -67,7 +67,6 @@ export default function HomePage() {
   const selectService = (srv?: ServiceItem) => {
     if (!srv) return;
     updateBookingDraft({ serviceId: srv.id });
-    setCognitoRole('client');
     router.push('/personas');
   };
 
@@ -104,10 +103,7 @@ export default function HomePage() {
             <Button
               variant="primary"
               size="lg"
-              onClick={() => {
-                setCognitoRole('client');
-                router.push('/personas');
-              }}
+              onClick={() => router.push('/personas')}
             >
               Book a session
             </Button>

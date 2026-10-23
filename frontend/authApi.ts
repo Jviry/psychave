@@ -95,6 +95,43 @@ const MOCK_SESSION: LoginResponse = {
   refreshToken: 'mock-refresh-token-psychave-prototype',
 };
 
+/**
+ * Mock mode has no Cognito groups, so derive the demo role from the username:
+ * `admin`, `admin-*`, or `admin@*` → admin; `psych*` → psychologist; else client.
+ * The generated IdToken is shaped like a JWT so the existing login decoder can
+ * read `cognito:groups` without a separate mock path in the UI.
+ */
+function mockRoleForUsername(username: string): 'client' | 'psychologist' | 'admin' {
+  const normalized = username.trim().toLowerCase();
+  if (/^admin(?:[-_.@]|$)/.test(normalized)) return 'admin';
+  if (/^(?:psych|psychologist)(?:[-_.@]|$)/.test(normalized)) return 'psychologist';
+  return 'client';
+}
+
+function encodeMockJwtPart(value: unknown): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(value));
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+function mockSessionFor(username: string): LoginResponse {
+  const role = mockRoleForUsername(username);
+  const groups = role === 'client' ? [] : [role];
+  const idToken = [
+    encodeMockJwtPart({ alg: 'none', typ: 'JWT' }),
+    encodeMockJwtPart({
+      'cognito:groups': groups,
+      'cognito:username': username,
+      email: `${username}@mock.psychave.local`,
+      sub: `mock-${role}`,
+    }),
+    'mock-signature',
+  ].join('.');
+
+  return { ...MOCK_SESSION, idToken };
+}
+
 // ─── API ─────────────────────────────────────────────────────────────────────
 
 export const authApi = {
@@ -105,7 +142,7 @@ export const authApi = {
   loginUser: async (credentials: LoginCredentials): Promise<LoginResponse> => {
     if (!shouldGoLive('/auth')) {
       await mockDelay();
-      return { ...MOCK_SESSION };
+      return mockSessionFor(credentials.username);
     }
 
     // Cognito via backend returns AuthenticationResult with capital-case keys

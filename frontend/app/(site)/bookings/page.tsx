@@ -19,7 +19,7 @@ import {
 export default function ClientBookingsPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const { setCognitoRole, publishFlowEvent } = useAppStore();
+  const { publishFlowEvent } = useAppStore();
   const [statusFilter, setStatusFilter] = useState<'all' | BookingStatus>('all');
 
   const { data: bookings = [], isLoading } = useQuery({
@@ -50,7 +50,7 @@ export default function ClientBookingsPage() {
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-mist pb-6">
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-xs text-accent-ink font-semibold">
-            <span>Client Role Dashboard</span>
+            <span>Client Dashboard</span>
             <span aria-hidden="true">·</span>
             <span>Tiered Access: Own History Only (Client #C-01)</span>
           </div>
@@ -245,16 +245,6 @@ export default function ClientBookingsPage() {
                           Your booking is in the verified psychologist pending queue. No fee or date
                           slots are assigned yet, and direct contact remains locked.
                         </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setCognitoRole('psychologist');
-                            router.push('/psych/queue');
-                          }}
-                        >
-                          Test Pick-Up as Verified Psychologist
-                        </Button>
                       </div>
                     )}
 

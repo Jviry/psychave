@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 import { loginSchema, type LoginFormValues } from '../../../lib/authSchemas';
 import { authApi } from '../../../authApi';
+import { AUTH_MODE } from '../../../lib/api';
 import { useAuthStore } from '../../../authStore';
 import { ForgotPasswordModal } from '../../../components/auth/ForgotPasswordModal';
 import { Toast } from '../../../components/auth/Toast';
@@ -100,6 +101,12 @@ export default function LoginPage() {
         <div className="mb-8">
           <h2 className="font-heading text-2xl font-medium text-pine mb-1.5">Welcome back</h2>
           <p className="text-sm text-pine/60">Sign in to your PsychAve PH account</p>
+          {AUTH_MODE === 'mock' && (
+            <p className="mt-3 text-xs text-pine/45 leading-relaxed">
+              Mock mode: use <code>admin</code> or <code>psychologist</code> as the username for
+              those dashboards. Any other username signs in as a client.
+            </p>
+          )}
         </div>
 
         {/* API Error Banner */}

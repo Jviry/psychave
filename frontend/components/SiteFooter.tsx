@@ -2,6 +2,23 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useAuthStore } from '../authStore';
+
+const WORKSPACE_LINKS = {
+  client: [
+    { href: '/personas', label: 'Client Personas & Booking Form' },
+    { href: '/bookings', label: 'Client Bookings & Proposal Picker' },
+  ],
+  psychologist: [
+    { href: '/psych/queue', label: 'Psychologist Pending Queue' },
+    { href: '/psych/schedule', label: 'Psychologist My Schedules' },
+    { href: '/psych/profile', label: 'Psychologist Profile' },
+  ],
+  admin: [
+    { href: '/admin/verifications', label: 'Admin Credential Verification' },
+    { href: '/admin/cms', label: 'Admin Payload CMS Editors' },
+  ],
+} as const;
 
 /**
  * Footer link recipe (design refresh): the lime dot scales/fades in while the
@@ -30,6 +47,10 @@ function FooterLink({ href, children }: { href: string; children: React.ReactNod
  * columns sit smaller on the right, and a slim small-print row closes it out.
  */
 export function SiteFooter() {
+  const { isAuthenticated, user } = useAuthStore();
+  const workspaceLinks =
+    isAuthenticated && user ? WORKSPACE_LINKS[user.role] : null;
+
   return (
     <footer className="bg-pine text-parchment border-t border-sage/40 mt-20">
       <div className="max-w-6xl mx-auto px-4 lg:px-8 py-16 lg:py-24">
@@ -77,27 +98,25 @@ export function SiteFooter() {
 
             <div className="space-y-3 text-sm">
               <p className="text-xs font-medium uppercase tracking-wider text-lime-soft">
-                Role Dashboards
+                {workspaceLinks ? 'Your Workspace' : 'Account'}
               </p>
               <ul className="space-y-2 text-mist">
-                <li>
-                  <FooterLink href="/personas">Client Personas &amp; Booking Form</FooterLink>
-                </li>
-                <li>
-                  <FooterLink href="/bookings">Client Bookings &amp; Proposal Picker</FooterLink>
-                </li>
-                <li>
-                  <FooterLink href="/psych/queue">Psychologist Pending Queue</FooterLink>
-                </li>
-                <li>
-                  <FooterLink href="/psych/schedule">Psychologist My Schedules</FooterLink>
-                </li>
-                <li>
-                  <FooterLink href="/admin/verifications">Admin Credential Verification</FooterLink>
-                </li>
-                <li>
-                  <FooterLink href="/admin/cms">Admin Payload CMS Editors</FooterLink>
-                </li>
+                {workspaceLinks ? (
+                  workspaceLinks.map((link) => (
+                    <li key={link.href}>
+                      <FooterLink href={link.href}>{link.label}</FooterLink>
+                    </li>
+                  ))
+                ) : (
+                  <>
+                    <li>
+                      <FooterLink href="/login">Log In</FooterLink>
+                    </li>
+                    <li>
+                      <FooterLink href="/register">Create Account</FooterLink>
+                    </li>
+                  </>
+                )}
               </ul>
             </div>
           </div>
