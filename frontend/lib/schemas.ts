@@ -79,6 +79,18 @@ export const psychologistProfileSchema = z.object({
     .string()
     .min(10, 'Bio must be at least 10 characters.')
     .max(1000, 'Bio must be under 1,000 characters.'),
+  socialMediaLinks: z
+    .array(
+      z.object({
+        platform: z.string().min(1, 'Choose a platform.'),
+        url: z
+          .string()
+          .trim()
+          .min(1, 'Add the profile URL.')
+          .url('Enter a valid URL starting with http:// or https://.'),
+      })
+    )
+    .max(6, 'Add up to 6 social media links.'),
 });
 
 export type PsychologistProfileValues = z.infer<typeof psychologistProfileSchema>;

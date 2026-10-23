@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { BookingStatus } from '../../../lib/types';
 import { Clock } from 'lucide-react';
 import { DemoDataTag } from '../../../components/DemoDataTag';
+import { SocialLinksList } from '../../../components/SocialLinksList';
 import {
   BookingStatusTag,
   Button,
@@ -297,18 +298,15 @@ export default function ClientBookingsPage() {
                           </div>
                         )}
 
-                        {booking.contactUnlocked && booking.unlockedContact && (
-                          <div className="space-y-1 text-xs bg-surface-raised p-3 rounded-lg border border-mist">
+                        {booking.contactUnlocked && (
+                          <div className="space-y-2 text-xs bg-surface-raised p-3 rounded-lg border border-mist">
                             <p className="font-bold text-pine">
-                              Unlocked Session Contact &amp; Room:
+                              Psychologist Social Media:
                             </p>
-                            <p className="font-mono text-xs text-accent-ink break-all">
-                              {booking.unlockedContact.teletherapyUrl}
-                            </p>
-                            <p className="text-xs text-pine/75">
-                              Ref: {booking.unlockedContact.sessionReferenceCode} · Coord:{' '}
-                              {booking.unlockedContact.coordinationEmail}
-                            </p>
+                            <SocialLinksList
+                              links={booking.psychologistSocialLinks}
+                              emptyMessage="Your psychologist has not added social media links yet."
+                            />
                           </div>
                         )}
 

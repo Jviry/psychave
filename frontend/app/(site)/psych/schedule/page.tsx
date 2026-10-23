@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../../lib/api';
 import { useActivePsychologist } from '../../../../hooks/useActivePsychologist';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, Video, CalendarDays } from 'lucide-react';
+import { ChevronDown, CalendarDays } from 'lucide-react';
 import { PractitionerSwitcher } from '../../../../components/dashboard/PractitionerSwitcher';
 import { UnverifiedBanner } from '../../../../components/dashboard/UnverifiedBanner';
 import { DemoDataTag } from '../../../../components/DemoDataTag';
@@ -305,20 +305,6 @@ export default function PsychologistSchedulePage() {
                         aria-hidden="true"
                       />
                     </Button>
-
-                    {isConfirmed && session.unlockedContact && (
-                      <div className="w-full text-right text-xs">
-                        <a
-                          href={session.unlockedContact.teletherapyUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sage text-white rounded-lg font-semibold hover:bg-accent-ink transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-sage focus-visible:outline-offset-2"
-                        >
-                          <Video className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                          Open Teletherapy Room
-                        </a>
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -365,55 +351,44 @@ export default function PsychologistSchedulePage() {
                         </div>
                       </div>
 
-                      {/* Right Column: Unlocked Teletherapy & Lifecycle Actions */}
+                      {/* Right Column: Client Contact & Coordination */}
                       <div className="space-y-4">
                         <h3 className="font-heading text-lg font-medium text-pine border-b border-mist pb-2">
-                          Session Channel &amp; Coordination
+                          Client Contact &amp; Coordination
                         </h3>
 
-                        {isConfirmed && session.unlockedContact ? (
+                        {isConfirmed ? (
                           <div className="space-y-3">
                             <div className="space-y-1">
                               <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                                Direct Teletherapy URL
+                                Client&apos;s Preferred Social Media
                               </span>
-                              <a
-                                href={session.unlockedContact.teletherapyUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-mono text-accent-ink hover:underline break-all block text-xs"
-                              >
-                                {session.unlockedContact.teletherapyUrl}
-                              </a>
+                              {session.clientSocialMedia ? (
+                                <p className="text-sm font-medium text-pine">
+                                  {session.clientSocialMedia.platform || 'Social media'}
+                                  {session.clientSocialMedia.username
+                                    ? ` · ${session.clientSocialMedia.username}`
+                                    : ''}
+                                </p>
+                              ) : (
+                                <p className="text-pine/75 leading-relaxed">
+                                  The client did not provide social media contact details.
+                                </p>
+                              )}
                             </div>
-
-                            <div className="space-y-1">
-                              <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                                Clinic Coordination Email
-                              </span>
-                              <p className="font-medium text-pine">
-                                {session.unlockedContact.coordinationEmail}
-                              </p>
-                            </div>
-
-                            <div className="space-y-1">
-                              <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                                Session Reference Code
-                              </span>
-                              <p className="font-mono font-medium text-accent-ink">
-                                {session.unlockedContact.sessionReferenceCode}
-                              </p>
-                            </div>
-
+                            <p className="text-pine/75 leading-relaxed">
+                              Your social media links were shared with the client after payment.
+                              Coordinate the session directly through the client&apos;s preferred channel.
+                            </p>
                           </div>
                         ) : (
                           <div className="p-4 rounded-xl bg-surface-sunken border border-dashed border-mist space-y-2">
                             <p className="font-semibold text-amber-900">
-                              Direct Teletherapy Link Locked
+                              Client Contact Locked
                             </p>
                             <p className="text-pine/75 leading-relaxed">
-                              This booking has not yet been paid by the client. The direct teletherapy video link,
-                              coordination email, and automated reminders unlock automatically upon payment confirmation.
+                              The client&apos;s preferred social media contact unlocks after payment
+                              confirmation.
                             </p>
                           </div>
                         )}

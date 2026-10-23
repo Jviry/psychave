@@ -13,6 +13,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAppStore } from '../../../../stores/useAppStore';
 import { Lock } from 'lucide-react';
 import { DemoDataTag } from '../../../../components/DemoDataTag';
+import { SocialLinksList } from '../../../../components/SocialLinksList';
 import {
   BookingStatusTag,
   Button,
@@ -128,10 +129,10 @@ export default function ProposalPickerPage() {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-mist pb-4">
             <div className="space-y-1">
               <p className="text-xs font-medium text-accent-ink">
-                Payment confirmed · Contact unlocked ({booking.paidAt})
+                Payment confirmed · Psychologist contact unlocked ({booking.paidAt})
               </p>
               <h2 className="font-heading text-3xl font-medium text-pine">
-                Session Confirmed &amp; Contact Channels Unlocked
+                Session Confirmed &amp; Psychologist Contact Unlocked
               </h2>
             </div>
             <span className="font-mono text-xl font-medium text-pine tabular-nums">
@@ -152,16 +153,14 @@ export default function ProposalPickerPage() {
               </p>
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-2">
               <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                Unlocked Teletherapy Room &amp; Contact
+                Psychologist Social Media
               </span>
-              <p className="font-mono text-accent-ink font-semibold break-all">
-                {booking.unlockedContact?.teletherapyUrl}
-              </p>
-              <p className="text-pine/80">
-                Coord: {booking.unlockedContact?.coordinationEmail}
-              </p>
+              <SocialLinksList
+                links={booking.psychologistSocialLinks}
+                emptyMessage="Your psychologist has not added social media links yet."
+              />
             </div>
 
             <div className="space-y-1">
@@ -264,7 +263,7 @@ export default function ProposalPickerPage() {
             <Lock className="w-4 h-4 text-accent-ink shrink-0 mt-0.5" aria-hidden="true" />
             <span>
               <strong className="font-semibold text-pine">Contact Lock Guardrail:</strong>{' '}
-              Teletherapy link and direct coordination channels are locked until 1 of the 3
+              The psychologist&apos;s social media links are locked until 1 of the 3
               proposed slots is selected and payment succeeds.
             </span>
           </div>

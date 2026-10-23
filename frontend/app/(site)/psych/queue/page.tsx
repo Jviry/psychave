@@ -91,6 +91,8 @@ export default function PsychologistQueuePage() {
   const [recentProposedId, setRecentProposedId] = useState<string | null>(null);
 
   const isVerified = activePsych?.verificationStatus === 'verified';
+  const hasSocialLinks = (activePsych?.socialMediaLinks?.length ?? 0) > 0;
+  const canPickup = isVerified && hasSocialLinks;
 
   const { data: bookings = [], isLoading, refetch, error: bookingsError } = useQuery({
     queryKey: ['bookings', 'psychologist', activePsychologistId],
@@ -194,7 +196,7 @@ export default function PsychologistQueuePage() {
   });
 
   const handleOpenPickupModal = (bookingId: string) => {
-    if (!isVerified) return;
+    if (!canPickup) return;
     setActiveModalBookingId(bookingId);
     proposeMutation.reset();
     proposalForm.reset({
@@ -263,6 +265,23 @@ export default function PsychologistQueuePage() {
             </>
           }
         />
+      )}
+
+      {isVerified && !hasSocialLinks && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-xs text-amber-950 space-y-2">
+          <p className="font-semibold">Add a social media link before accepting a booking.</p>
+          <p>
+            Confirmed clients receive your social media links as their contact channel. Add at
+            least one link to your practitioner profile to unlock pick-up.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push('/psych/profile')}
+          >
+            Add Social Media Link
+          </Button>
+        </div>
       )}
 
       {bookingsError && (
@@ -406,7 +425,7 @@ export default function PsychologistQueuePage() {
 
                   {/* Pick Up Action Button: Hidden or disabled when unverified */}
                   <div>
-                    {isVerified ? (
+                    {canPickup ? (
                       <Button
                         variant="primary"
                         size="md"
@@ -417,11 +436,22 @@ export default function PsychologistQueuePage() {
                       >
                         Pick Up &amp; Propose 3 Slots
                       </Button>
-                    ) : (
+                    ) : !isVerified ? (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-sunken text-pine/50 border border-mist">
                         <Lock className="w-3.5 h-3.5" aria-hidden="true" />
                         Pick-Up Locked (Approval Pending)
                       </span>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="md"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          router.push('/psych/profile');
+                        }}
+                      >
+                        Add Social Media to Accept
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -627,7 +657,7 @@ export default function PsychologistQueuePage() {
               <Button type="button" variant="outline" size="md" onClick={handleCloseReview}>
                 Close
               </Button>
-              {isVerified && (
+              {canPickup && (
                 <Button type="button" variant="primary" size="md" onClick={handleReviewToProposal}>
                   Pick Up &amp; Propose 3 Slots
                 </Button>

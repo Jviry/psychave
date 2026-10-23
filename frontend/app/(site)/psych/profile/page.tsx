@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../../lib/api';
@@ -12,7 +12,7 @@ import {
 import { useAppStore } from '../../../../stores/useAppStore';
 import { useActivePsychologist } from '../../../../hooks/useActivePsychologist';
 import { useRouter } from 'next/navigation';
-import { Check } from 'lucide-react';
+import { Check, Plus, Trash2 } from 'lucide-react';
 import { PractitionerSwitcher } from '../../../../components/dashboard/PractitionerSwitcher';
 import { UnverifiedBanner } from '../../../../components/dashboard/UnverifiedBanner';
 import {
@@ -20,9 +20,19 @@ import {
   Card,
   Input,
   Label,
+  Select,
   Skeleton,
   Textarea,
 } from '../../../../components/ui/primitives';
+
+const SOCIAL_PLATFORMS = [
+  'Facebook',
+  'Instagram',
+  'LinkedIn',
+  'X (Twitter)',
+  'TikTok',
+  'Website',
+];
 
 export default function PsychologistProfilePage() {
   const queryClient = useQueryClient();
@@ -41,7 +51,13 @@ export default function PsychologistProfilePage() {
       specialization: '',
       prcCredentialCode: '',
       bio: '',
+      socialMediaLinks: [],
     },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: profileForm.control,
+    name: 'socialMediaLinks',
   });
 
   // Populate form with active profile data when loaded or switched
@@ -51,6 +67,7 @@ export default function PsychologistProfilePage() {
         specialization: activePsych.specialization || '',
         prcCredentialCode: activePsych.prcCredentialCode || '',
         bio: activePsych.bio || '',
+        socialMediaLinks: activePsych.socialMediaLinks ?? [],
       });
     }
   }, [activePsych, profileForm]);
@@ -62,6 +79,10 @@ export default function PsychologistProfilePage() {
         specialization: values.specialization,
         prcCredentialCode: values.prcCredentialCode,
         bio: values.bio,
+        socialMediaLinks: values.socialMediaLinks.map((link) => ({
+          platform: link.platform ?? '',
+          url: link.url ?? '',
+        })),
       });
     },
     onSuccess: (updated) => {
@@ -69,7 +90,7 @@ export default function PsychologistProfilePage() {
       queryClient.invalidateQueries({ queryKey: ['psych-profile'] });
       publishFlowEvent(
         'Profile Updated Successfully',
-        `${updated.anonymizedTitle} profile details (specialization, license, and bio) saved.`
+        `${updated.anonymizedTitle} profile details (specialization, license, bio, and social media links) saved.`
       );
     },
   });
@@ -89,7 +110,7 @@ export default function PsychologistProfilePage() {
           </h1>
           <p className="text-sm text-pine/80 max-w-2xl">
             Manage your clinical specializations, PRC license credentials, professional biography,
-            and review your administrative verification status.
+            social media contact links, and review your administrative verification status.
           </p>
         </div>
 
@@ -128,6 +149,17 @@ export default function PsychologistProfilePage() {
           <span className="font-mono px-2.5 py-1 bg-surface-raised rounded-md text-accent-ink font-semibold border border-mist">
             {activePsych?.prcCredentialCode}
           </span>
+        </div>
+      )}
+
+      {/* Social media gate */}
+      {isVerified && (activePsych?.socialMediaLinks?.length ?? 0) === 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-950 space-y-1">
+          <p className="font-semibold">Social media contact required before accepting bookings.</p>
+          <p>
+            Add at least one social media link below. Confirmed clients receive these links as
+            their contact channel, and the queue pick-up action stays locked until one is saved.
+          </p>
         </div>
       )}
 
@@ -178,6 +210,99 @@ export default function PsychologistProfilePage() {
                 {profileForm.formState.errors.prcCredentialCode && (
                   <p className="text-xs text-red-700 mt-1">
                     {profileForm.formState.errors.prcCredentialCode.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Social Media Links */}
+              <div className="space-y-3 pt-1 border-t border-mist">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  <div>
+                    <Label>Social Media Links</Label>
+                    <p className="text-xs text-pine/65">
+                      Confirmed clients receive these links as their contact channel. Add at least
+                      one to unlock booking pick-up.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      append({ platform: SOCIAL_PLATFORMS[0], url: '' })
+                    }
+                    disabled={fields.length >= 6}
+                  >
+                    <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+                    Add Link
+                  </Button>
+                </div>
+
+                {fields.length === 0 && (
+                  <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    No social media links yet. Booking pick-up remains locked until one is added.
+                  </p>
+                )}
+
+                {fields.map((field, index) => {
+                  const platformError =
+                    profileForm.formState.errors.socialMediaLinks?.[index]?.platform;
+                  const urlError =
+                    profileForm.formState.errors.socialMediaLinks?.[index]?.url;
+                  return (
+                    <div
+                      key={field.id}
+                      className="grid grid-cols-1 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.4fr)_auto] gap-2 items-start rounded-lg border border-mist p-3"
+                    >
+                      <div>
+                        <Label htmlFor={`prof-social-platform-${index}`}>Platform</Label>
+                        <Select
+                          id={`prof-social-platform-${index}`}
+                          {...profileForm.register(
+                            `socialMediaLinks.${index}.platform` as const
+                          )}
+                        >
+                          {SOCIAL_PLATFORMS.map((platform) => (
+                            <option key={platform} value={platform}>
+                              {platform}
+                            </option>
+                          ))}
+                        </Select>
+                        {platformError && (
+                          <p className="text-xs text-red-700 mt-1">{platformError.message}</p>
+                        )}
+                      </div>
+                      <div>
+                        <Label htmlFor={`prof-social-url-${index}`}>Profile URL</Label>
+                        <Input
+                          id={`prof-social-url-${index}`}
+                          placeholder="https://facebook.com/your-profile"
+                          {...profileForm.register(
+                            `socialMediaLinks.${index}.url` as const
+                          )}
+                        />
+                        {urlError && (
+                          <p className="text-xs text-red-700 mt-1">{urlError.message}</p>
+                        )}
+                      </div>
+                      <div className="pt-6">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => remove(index)}
+                          aria-label={`Remove social media link ${index + 1}`}
+                        >
+                          <Trash2 className="w-4 h-4" aria-hidden="true" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {profileForm.formState.errors.socialMediaLinks?.message && (
+                  <p className="text-xs text-red-700">
+                    {profileForm.formState.errors.socialMediaLinks.message}
                   </p>
                 )}
               </div>

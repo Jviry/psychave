@@ -102,6 +102,11 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
     status: 'confirmed',
     requested_datetime: '2026-12-01T10:00:00+08:00',
     proposed_slots: SLOT_ROWS,
+    persona_socmed_platform: 'Facebook',
+    persona_socmed_username: '@client.demo',
+    psychologist_social_links: [
+      { platform: 'Facebook', url: 'https://facebook.com/psych.demo' },
+    ],
   };
 
   it('getBookingById maps confirmed status + slot rows; no backend fields leak', async () => {
@@ -125,6 +130,13 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
     expect(booking?.proposedSlots[0]?.slotNumber).toBe(1);
     expect(booking?.proposedSlots[0]?.isoDateTime).toBe('2026-12-05T10:00');
     expect(booking?.selectedSlotId).toBe(APPOINTMENT_CONFIRMED.selected_slot_id);
+    expect(booking?.psychologistSocialLinks).toEqual([
+      { platform: 'Facebook', url: 'https://facebook.com/psych.demo' },
+    ]);
+    expect(booking?.clientSocialMedia).toEqual({
+      platform: 'Facebook',
+      username: '@client.demo',
+    });
     // UI-facing booking id is the backend UUID; no full_name anywhere:
     expect(JSON.stringify(booking)).not.toMatch(/full_name/i);
     expect(booking?.psychologistCode).toMatch(/Resident Psychologist #RP-\d+/);
@@ -261,6 +273,8 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
 
     expect(booking.status).toBe('proposed');
     expect(booking.proposedSlots).toHaveLength(3);
+    expect(booking.psychologistSocialLinks).toBeUndefined();
+    expect(booking.clientSocialMedia).toBeUndefined();
   });
 
   it('mixed live mode rejects mock ids where the backend parses UUIDs', async () => {

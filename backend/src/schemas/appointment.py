@@ -3,6 +3,7 @@ from datetime import date, datetime, time
 from sqlmodel import SQLModel, Field
 
 from models.appointment import AppointmentStatus
+from schemas.psychologist import SocialMediaLink
 
 
 class AppointmentCreate(SQLModel):
@@ -34,6 +35,10 @@ class AppointmentRead(SQLModel):
     status: AppointmentStatus
     requested_datetime: datetime | None
     proposed_slots: list[ProposedSlotRead] = Field(default_factory=list)
+    # Contact channels are only exposed after the booking is confirmed.
+    persona_socmed_platform: str | None = None
+    persona_socmed_username: str | None = None
+    psychologist_social_links: list[SocialMediaLink] = Field(default_factory=list)
 
 
 class SlotSelect(SQLModel):

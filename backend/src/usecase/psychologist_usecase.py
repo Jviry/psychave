@@ -37,6 +37,12 @@ class PsychologistUsecase:
         return appt
 
     def pickup(self, appointment_id: uuid.UUID, psychologist_id: uuid.UUID, price: float) -> AppointmentRead:
+        profile = self.db.get(PsychologistProfile, psychologist_id)
+        if profile is None or not profile.social_media_links:
+            raise ValidationError(
+                "Add at least one social media link to your profile before accepting booking requests"
+            )
+
         appt = self.repo.get_by_id(appointment_id)
         if appt is None:
             raise NotFoundError("Appointment not found")
@@ -97,5 +103,5 @@ class PsychologistUsecase:
     # ----- profile -----
 
     def update_profile(self, profile: PsychologistProfile, payload: PsychologistProfileUpdate) -> PsychologistProfile:
-        data = payload.model_dump(exclude_unset=True)
+        data = payload.model_dump(exclude_unset=True, mode="json")
         return self.repo.update_profile(profile, data)

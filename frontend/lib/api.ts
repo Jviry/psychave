@@ -8,7 +8,7 @@ import {
   ProposedSlot,
   ResidentPsychologist,
   ServiceItem,
-  UnlockedContact,
+  SocialMediaLink,
 } from './types';
 import { useAuthStore } from '../authStore';
 import {
@@ -209,6 +209,10 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
     verificationStatus: 'verified',
     visibleOnPublicRoster: true,
     assignedBookingsCount: 2,
+    socialMediaLinks: [
+      { platform: 'Facebook', url: 'https://www.facebook.com/psychaveph' },
+      { platform: 'Instagram', url: 'https://www.instagram.com/psychaveph' },
+    ],
     bio: 'Licensed clinical psychologist specializing in cognitive behavioral therapy, anxiety disorders, and trauma-informed care for adults. Committed to culturally sensitive and evidence-based mental healthcare.',
   },
   {
@@ -226,6 +230,9 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
     verificationStatus: 'verified',
     visibleOnPublicRoster: true,
     assignedBookingsCount: 1,
+    socialMediaLinks: [
+      { platform: 'Facebook', url: 'https://www.facebook.com/psychaveph' },
+    ],
     bio: 'Dedicated relational therapist trained in systemic and Emotion-Focused Therapy for couples and families navigating transitional stress, communication breakdowns, and attachment repair.',
   },
   {
@@ -243,6 +250,9 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
     verificationStatus: 'verified',
     visibleOnPublicRoster: true,
     assignedBookingsCount: 0,
+    socialMediaLinks: [
+      { platform: 'LinkedIn', url: 'https://www.linkedin.com/company/psychaveph' },
+    ],
     bio: 'Academic researcher and certified behavioral coach specializing in psychological test construction, quantitative statistical methodology, and executive performance coaching.',
   },
   {
@@ -259,6 +269,7 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
     verificationStatus: 'waiting_approval',
     visibleOnPublicRoster: false,
     assignedBookingsCount: 0,
+    socialMediaLinks: [],
     bio: 'Associate practitioner focusing on child and adolescent emotional regulation, academic adjustment, and parent-child communication dynamics. Awaiting administrative credential verification.',
   },
 ];
@@ -368,12 +379,13 @@ const INITIAL_BOOKINGS: BookingRequest[] = [
     selectedSlotId: 'slot-103-b',
     paidAt: '2026-09-22 16:04 PST',
     contactUnlocked: true,
-    unlockedContact: {
-      teletherapyUrl: 'https://session.psychaveph.clinical/room/BK-2026-103-RP01',
-      coordinationEmail: 'psychaveph.info@gmail.com',
-      sessionReferenceCode: 'CONF-RP01-103B',
-      emergencyProtocolNote:
-        'Direct session channel unlocked post-payment. Automated 24h and 1h reminders are active.',
+    psychologistSocialLinks: [
+      { platform: 'Facebook', url: 'https://www.facebook.com/psychaveph' },
+      { platform: 'Instagram', url: 'https://www.instagram.com/psychaveph' },
+    ],
+    clientSocialMedia: {
+      platform: 'Facebook',
+      username: '@demo_persona',
     },
     reminders: {
       reminder24h: 'scheduled',
@@ -634,6 +646,9 @@ interface AppointmentRaw {
   status: string;
   requested_datetime: string | null;
   proposed_slots: ProposedSlotRaw[];
+  persona_socmed_platform: string | null;
+  persona_socmed_username: string | null;
+  psychologist_social_links: SocialMediaLink[];
 }
 
 interface ProposedSlotRaw {
@@ -709,6 +724,7 @@ interface PsychologistProfileRaw {
   license_number: string | null;
   specialization: string | null;
   bio: string | null;
+  social_media_links: SocialMediaLink[];
   approval_status: string;
   approved_by: string | null;
   approved_at: string | null;
@@ -760,15 +776,16 @@ function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
   const contactUnlocked = raw.status === 'confirmed';
   const durationMinutes = raw.service_duration_minutes ?? 60;
 
-  const unlockedContact: UnlockedContact | undefined = contactUnlocked
-    ? {
-        teletherapyUrl: `https://session.psychaveph.clinical/room/${raw.appointment_id.slice(0, 8)}-${code || 'RP'}`,
-        coordinationEmail: 'psychaveph.info@gmail.com',
-        sessionReferenceCode: `CONF-${code || 'RP'}-${raw.appointment_id.slice(0, 8)}`,
-        emergencyProtocolNote:
-          'Direct session channel unlocked after payment confirmation. Automated 24h and 1h reminders are active.',
-      }
+  const psychologistSocialLinks = contactUnlocked
+    ? (raw.psychologist_social_links ?? [])
     : undefined;
+  const clientSocialMedia =
+    contactUnlocked && (raw.persona_socmed_platform || raw.persona_socmed_username)
+      ? {
+          platform: raw.persona_socmed_platform ?? '',
+          username: raw.persona_socmed_username ?? '',
+        }
+      : undefined;
 
   const proposedSlots = (raw.proposed_slots ?? []).map((slot, index) => {
     const time =
@@ -803,7 +820,8 @@ function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
     proposedSlots,
     selectedSlotId: raw.selected_slot_id ?? undefined,
     contactUnlocked,
-    unlockedContact,
+    psychologistSocialLinks,
+    clientSocialMedia,
     reminders: contactUnlocked
       ? { reminder24h: 'scheduled', reminder1h: 'scheduled' }
       : { reminder24h: 'pending', reminder1h: 'pending' },
@@ -1024,23 +1042,31 @@ export const api = {
       verificationStatus: raw.approval_status === 'approved' ? 'verified' : 'waiting_approval',
       visibleOnPublicRoster: raw.approval_status === 'approved',
       assignedBookingsCount: 0,
+      socialMediaLinks: raw.social_media_links ?? [],
       bio: raw.bio ?? '',
     };
   },
 
   updatePsychologistProfile: async (
     psychId: string,
-    updates: Partial<Pick<ResidentPsychologist, 'specialization' | 'prcCredentialCode' | 'bio'>>
+    updates: Partial<
+      Pick<
+        ResidentPsychologist,
+        'specialization' | 'prcCredentialCode' | 'bio' | 'socialMediaLinks'
+      >
+    >
   ): Promise<ResidentPsychologist> =>
     requestWithMockFallback(
       '/psychologist-profile/me',
       {
         method: 'PATCH',
-        // Backend PsychologistProfileUpdate: only specialization/bio/license_number.
+        // Backend PsychologistProfileUpdate: specialization/bio/license_number
+        // plus the social media links clients receive after confirmation.
         body: JSON.stringify({
           specialization: updates.specialization,
           bio: updates.bio,
           license_number: updates.prcCredentialCode,
+          social_media_links: updates.socialMediaLinks,
         }),
       },
       () => {
@@ -1062,6 +1088,7 @@ export const api = {
           verificationStatus: 'verified' as const,
           visibleOnPublicRoster: true,
           assignedBookingsCount: 0,
+          socialMediaLinks: [],
           bio: '',
         };
         return {
@@ -1069,6 +1096,8 @@ export const api = {
           specialization: profile?.specialization ?? base.specialization,
           bio: profile?.bio ?? base.bio,
           prcCredentialCode: profile?.license_number ?? base.prcCredentialCode,
+          socialMediaLinks:
+            profile?.social_media_links ?? base.socialMediaLinks,
         };
       }
     ),
@@ -1372,6 +1401,14 @@ export const api = {
           `Request already claimed: Booking ${input.bookingId} has already been claimed by another psychologist. Please refresh your queue.`
         );
       }
+      if (pickupRes.status === 422) {
+        const detail =
+          (pickupRes.json as { detail?: unknown } | null)?.detail ??
+          'Add at least one social media link to your profile before accepting booking requests.';
+        throw new Error(
+          typeof detail === 'string' ? detail : JSON.stringify(detail)
+        );
+      }
       if (pickupRes.status < 200 || pickupRes.status >= 300) {
         throw buildBackendError(
           `/appointments/${input.bookingId}/pickup`,
@@ -1436,6 +1473,11 @@ export const api = {
         if (!psych || psych.verificationStatus !== 'verified') {
           throw new Error(
             'Credential Guardrail: Unverified psychologists cannot pick up booking requests or propose slots.'
+          );
+        }
+        if (!psych.socialMediaLinks?.length) {
+          throw new Error(
+            'Add at least one social media link to your profile before accepting booking requests.'
           );
         }
 
@@ -1578,6 +1620,10 @@ export const api = {
           throw new Error('Booking not found.');
         }
 
+        const psychProfile = mockRoster.find(
+          (r) => r.id === (target.psychologistId ?? 'RP-01')
+        );
+
         const updated: BookingRequest = {
           ...target,
           status: 'paid-confirmed',
@@ -1590,12 +1636,10 @@ export const api = {
             minute: '2-digit',
           }),
           contactUnlocked: true,
-          unlockedContact: {
-            teletherapyUrl: `https://session.psychaveph.clinical/room/${target.id}-${target.psychologistId || 'RP01'}`,
-            coordinationEmail: 'psychaveph.info@gmail.com',
-            sessionReferenceCode: `CONF-${target.psychologistId || 'RP01'}-${target.id.slice(-3)}`,
-            emergencyProtocolNote:
-              'Contact unlocked for both Client and Assigned Psychologist. Automated 24h and 1h reminders are scheduled.',
+          psychologistSocialLinks: psychProfile?.socialMediaLinks ?? [],
+          clientSocialMedia: target.clientSocialMedia ?? {
+            platform: 'Facebook',
+            username: '@demo_persona',
           },
           reminders: {
             reminder24h: 'scheduled',
