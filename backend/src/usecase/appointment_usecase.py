@@ -57,6 +57,14 @@ class AppointmentUsecase:
     def select_slot(self, appointment_id: uuid.UUID, slot_id: uuid.UUID, client_id: uuid.UUID) -> AppointmentRead:
         appt = self._get_owned_appointment(appointment_id, client_id)
 
+        # Idempotent retry: the slot was already selected and the client is
+        # retrying payment after a pending/failed attempt. Do not reject it.
+        if (
+            appt.status == AppointmentStatus.AWAITING_PAYMENT
+            and appt.selected_slot_id == slot_id
+        ):
+            return build_appointment_read(self.db, appt)
+
         if appt.status != AppointmentStatus.AWAITING_SLOT_SELECTION:
             raise BadRequestError("Appointment is not awaiting slot selection")
 
