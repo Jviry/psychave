@@ -6,6 +6,9 @@ resource "aws_lambda_function" "this" {
   runtime = var.runtime
   handler = "main.handler"
 
+  timeout = 25
+  memory_size = 512
+
   filename         = var.lambda_zip_path
   source_code_hash = filebase64sha256(var.lambda_zip_path)
 
