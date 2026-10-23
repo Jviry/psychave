@@ -9,10 +9,12 @@ from sqlmodel import SQLModel
 
 from alembic import context
 
-sys.path.append(os.getcwd())
+src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+if src_dir not in sys.path:
+    sys.path.insert(0, src_dir)
 
-from src.models import *  # noqa
-from src.common.settings import settings
+import models  # noqa
+from common.settings import settings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -23,7 +25,10 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# Use custom sqlalchemy.url from config if explicitly provided (e.g., test suite),
+# otherwise fallback to DATABASE_URL from settings.
+if not config.get_main_option("sqlalchemy.url"):
+    config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 # add your model's MetaData object here
 # for 'autogenerate' support

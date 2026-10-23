@@ -78,7 +78,36 @@ Key environment variables:
 | `CORS_ORIGINS` | Allowed CORS origins (JSON array) | `["http://localhost:3000","http://localhost:5173"]` |
 | `SECRET_KEY` | Application secret key | - |
 
-### 2. Virtual Environment Setup
+### 2. Local Supabase Environment (PostgreSQL & Studio)
+
+Local development and testing uses an encapsulated Supabase environment under `backend/supabase`:
+
+- **PostgreSQL Database Port**: `54322` (`postgresql://postgres:postgres@127.0.0.1:54322/postgres`)
+- **Supabase Studio UI**: [http://127.0.0.1:54323](http://127.0.0.1:54323)
+- **Kong API Gateway**: [http://127.0.0.1:54321](http://127.0.0.1:54321)
+- **Mailpit**: [http://127.0.0.1:54324](http://127.0.0.1:54324)
+
+Start Supabase:
+```bash
+make db-start
+```
+
+To view running services and endpoints:
+```bash
+make db-status
+```
+
+To stop Supabase:
+```bash
+make db-stop
+```
+
+To reset the database, re-apply the schema, and load baseline seeds:
+```bash
+make db-reset
+```
+
+### 3. Virtual Environment Setup
 
 ```bash
 python3 -m venv .venv
@@ -86,18 +115,42 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Run Migrations
+### 4. Database Migrations
 
-Before running the server, apply database migrations:
+Apply Alembic migrations to the running local Supabase database:
 
 ```bash
-alembic upgrade head
+make db-migrate
 ```
 
-### 4. Start Development Server
+To create a new migration from SQLModel models:
+```bash
+make db-new-migration name="your_migration_name"
+```
 
-Run Uvicorn with `--app-dir src` to ensure modules resolve correctly:
+### 5. Running Tests
 
+Testing is powered by `pytest`. Automated integration tests execute against an isolated test database (`postgres_test`) on local Supabase with per-test transaction rollback:
+
+```bash
+# Run all tests (unit + integration)
+make test
+
+# Run unit tests only
+make test-unit
+
+# Run Supabase integration tests only
+make test-integration
+```
+
+### 6. Start Development Server
+
+Run Uvicorn with `--app-dir src`:
+
+```bash
+make dev
+```
+or:
 ```bash
 uvicorn main:app --app-dir src --reload --port 8000
 ```
