@@ -49,6 +49,13 @@ class PsychologistRepo:
         self.db.refresh(appointment)
         return appointment
 
+    def complete(self, appointment: Appointment) -> Appointment:
+        appointment.status = AppointmentStatus.COMPLETED
+        self.db.add(appointment)
+        self.db.commit()
+        self.db.refresh(appointment)
+        return appointment
+
     # ----- proposed slots -----
 
     def get_slots(self, appointment_id: uuid.UUID) -> list[ProposedSlot]:

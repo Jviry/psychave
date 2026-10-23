@@ -450,6 +450,11 @@ export function BookingStatusTag({ status }: { status: BookingStatus }) {
       textClass: 'text-pine font-semibold',
       dotClass: 'bg-sage',
     },
+    completed: {
+      label: 'completed · session finished',
+      textClass: 'text-pine/80 font-medium',
+      dotClass: 'bg-pine/50',
+    },
     'reschedule-requested': {
       label: 'reschedule-requested · under review',
       textClass: 'text-amber-800 font-semibold',

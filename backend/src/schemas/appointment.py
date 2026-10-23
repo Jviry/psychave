@@ -35,7 +35,8 @@ class AppointmentRead(SQLModel):
     status: AppointmentStatus
     requested_datetime: datetime | None
     proposed_slots: list[ProposedSlotRead] = Field(default_factory=list)
-    # Contact channels are only exposed after the booking is confirmed.
+    # Client contact details are visible to the assigned psychologist at every
+    # stage; psychologist contact links only unlock after confirmation.
     persona_socmed_platform: str | None = None
     persona_socmed_username: str | None = None
     psychologist_social_links: list[SocialMediaLink] = Field(default_factory=list)

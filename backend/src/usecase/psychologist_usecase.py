@@ -100,6 +100,12 @@ class PsychologistUsecase:
             self.db, self._get_owned_appointment(appointment_id, psychologist_id)
         )
 
+    def complete_appointment(self, appointment_id: uuid.UUID, psychologist_id: uuid.UUID) -> AppointmentRead:
+        appt = self._get_owned_appointment(appointment_id, psychologist_id)
+        if appt.status != AppointmentStatus.CONFIRMED:
+            raise BadRequestError("Only confirmed appointments can be marked as completed")
+        return build_appointment_read(self.db, self.repo.complete(appt))
+
     # ----- profile -----
 
     def update_profile(self, profile: PsychologistProfile, payload: PsychologistProfileUpdate) -> PsychologistProfile:

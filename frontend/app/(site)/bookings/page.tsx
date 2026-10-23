@@ -60,7 +60,8 @@ export default function ClientBookingsPage() {
           <p className="text-sm text-pine/80 max-w-2xl">
             Track your submitted booking forms from <strong className="font-semibold">pending</strong>{' '}
             to <strong className="font-semibold">proposed</strong> (3 psychologist slots) and{' '}
-            <strong className="font-semibold">paid-confirmed</strong> (contact unlocked + reminders).
+            <strong className="font-semibold">paid-confirmed</strong> (contact unlocked + reminders),
+            then <strong className="font-semibold">completed</strong> once the session is done.
           </p>
         </div>
 
@@ -121,6 +122,12 @@ export default function ClientBookingsPage() {
                 })`,
               },
               {
+                id: 'completed',
+                label: `completed (${
+                  bookings.filter((b) => b.status === 'completed').length
+                })`,
+              },
+              {
                 id: 'reschedule-requested',
                 label: `reschedule-requested (${
                   bookings.filter((b) => b.status === 'reschedule-requested').length
@@ -150,7 +157,8 @@ export default function ClientBookingsPage() {
         </div>
 
         <span className="text-xs text-pine/65">
-          Contact details unlock strictly upon <strong className="text-pine">paid-confirmed</strong> status.
+          Contact details unlock strictly upon <strong className="text-pine">paid-confirmed</strong> status
+          and remain available after the session is marked <strong className="text-pine">completed</strong>.
         </span>
       </div>
 
@@ -276,11 +284,14 @@ export default function ClientBookingsPage() {
                     )}
 
                     {(booking.status === 'paid-confirmed' ||
+                      booking.status === 'completed' ||
                       booking.status === 'reschedule-requested') && (
                       <div className="p-4 rounded-lg bg-surface-raised border border-mist space-y-3">
                         <div className="flex items-center justify-between text-xs">
                           <span className="font-bold text-pine">
-                            Confirmed with {booking.psychologistCode}
+                            {booking.status === 'completed'
+                              ? `Completed with ${booking.psychologistCode}`
+                              : `Confirmed with ${booking.psychologistCode}`}
                           </span>
                           <span className="font-mono font-semibold text-accent-ink tabular-nums">
                             Paid ₱{booking.pricePhp?.toLocaleString()}
@@ -311,16 +322,18 @@ export default function ClientBookingsPage() {
                         )}
 
                         {/* Cancellation is the only backend-backed lifecycle action. */}
-                        <div className="pt-2 border-t border-mist flex items-center justify-end text-xs">
-                          <button
-                            type="button"
-                            onClick={() => cancelMutation.mutate(booking.id)}
-                            disabled={cancelMutation.isPending}
-                            className="underline text-red-700 hover:text-red-900 cursor-pointer disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
-                          >
-                            {cancelMutation.isPending ? 'Cancelling…' : 'Cancel'}
-                          </button>
-                        </div>
+                        {booking.status !== 'completed' && (
+                          <div className="pt-2 border-t border-mist flex items-center justify-end text-xs">
+                            <button
+                              type="button"
+                              onClick={() => cancelMutation.mutate(booking.id)}
+                              disabled={cancelMutation.isPending}
+                              className="underline text-red-700 hover:text-red-900 cursor-pointer disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
+                            >
+                              {cancelMutation.isPending ? 'Cancelling…' : 'Cancel'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
 

@@ -124,6 +124,7 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
     expect(booking).not.toBeNull();
     expect(booking?.status).toBe('paid-confirmed');
     expect(booking?.contactUnlocked).toBe(true);
+    expect(booking?.serviceDurationMinutes).toBe(60);
     expect(booking?.pricePhp).toBe(2400);
     expect(booking?.concernsSummary).toBe(APPOINTMENT_CONFIRMED.presenting_concern);
     expect(booking?.proposedSlots).toHaveLength(3);
@@ -274,7 +275,53 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
     expect(booking.status).toBe('proposed');
     expect(booking.proposedSlots).toHaveLength(3);
     expect(booking.psychologistSocialLinks).toBeUndefined();
-    expect(booking.clientSocialMedia).toBeUndefined();
+    expect(booking.clientSocialMedia).toEqual({
+      platform: 'Facebook',
+      username: '@client.demo',
+    });
+  });
+
+  it('maps completed bookings and keeps contact details unlocked', async () => {
+    process.env.NEXT_PUBLIC_AUTH_MODE = 'live';
+    mockFetch.mockImplementation(async () =>
+      new Response(
+        JSON.stringify({ ...APPOINTMENT_CONFIRMED, status: 'completed' }),
+        { status: 200 }
+      )
+    );
+
+    const { api } = await import('../lib/api');
+    const booking = await api.getBookingById(
+      APPOINTMENT_CONFIRMED.appointment_id,
+      'psychologist'
+    );
+
+    expect(booking?.status).toBe('completed');
+    expect(booking?.contactUnlocked).toBe(true);
+    expect(booking?.psychologistSocialLinks).toHaveLength(1);
+    expect(booking?.clientSocialMedia?.username).toBe('@client.demo');
+  });
+
+  it('completes a confirmed appointment through POST /complete', async () => {
+    process.env.NEXT_PUBLIC_AUTH_MODE = 'live';
+    mockFetch.mockImplementation(async (url: string, init?: { method?: string }) => {
+      expect(url).toContain(
+        `/appointments/${APPOINTMENT_CONFIRMED.appointment_id}/complete`
+      );
+      expect(init?.method).toBe('POST');
+      return new Response(
+        JSON.stringify({ ...APPOINTMENT_CONFIRMED, status: 'completed' }),
+        { status: 200 }
+      );
+    });
+
+    const { api } = await import('../lib/api');
+    const booking = await api.completeAppointment(
+      APPOINTMENT_CONFIRMED.appointment_id
+    );
+
+    expect(booking.status).toBe('completed');
+    expect(booking.contactUnlocked).toBe(true);
   });
 
   it('mixed live mode rejects mock ids where the backend parses UUIDs', async () => {

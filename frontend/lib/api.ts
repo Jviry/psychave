@@ -293,6 +293,7 @@ const INITIAL_BOOKINGS: BookingRequest[] = [
     serviceId: 'srv-couples',
     serviceTitle: 'Couples Counseling',
     serviceDuration: '1.5 hrs (90 mins)',
+    serviceDurationMinutes: 90,
     serviceGuardrail: '1.5 hr session with two 15-min individual breakouts.',
     demoSeed: true,
     concernsSummary:
@@ -327,6 +328,10 @@ const INITIAL_BOOKINGS: BookingRequest[] = [
       },
     ],
     contactUnlocked: false,
+    clientSocialMedia: {
+      platform: 'Facebook',
+      username: '@demo_persona',
+    },
     reminders: {
       reminder24h: 'pending',
       reminder1h: 'pending',
@@ -343,6 +348,7 @@ const INITIAL_BOOKINGS: BookingRequest[] = [
     serviceId: 'srv-individual',
     serviceTitle: 'Individual Counseling & Psychotherapy',
     serviceDuration: '1 hr (60 mins)',
+    serviceDurationMinutes: 60,
     serviceGuardrail: 'Standard 1-hour evidence-based psychotherapy.',
     demoSeed: true,
     concernsSummary:
@@ -763,6 +769,8 @@ function mapStatusToBookingStatus(raw: string): BookingStatus {
       return 'proposed';
     case 'confirmed':
       return 'paid-confirmed';
+    case 'completed':
+      return 'completed';
     case 'cancelled':
       return 'cancelled';
     default:
@@ -773,14 +781,15 @@ function mapStatusToBookingStatus(raw: string): BookingStatus {
 function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
   const status = mapStatusToBookingStatus(raw.status);
   const code = anonymizedPsychCode(raw.psychologist_id);
-  const contactUnlocked = raw.status === 'confirmed';
+  const contactUnlocked =
+    raw.status === 'confirmed' || raw.status === 'completed';
   const durationMinutes = raw.service_duration_minutes ?? 60;
 
   const psychologistSocialLinks = contactUnlocked
     ? (raw.psychologist_social_links ?? [])
     : undefined;
   const clientSocialMedia =
-    contactUnlocked && (raw.persona_socmed_platform || raw.persona_socmed_username)
+    raw.persona_socmed_platform || raw.persona_socmed_username
       ? {
           platform: raw.persona_socmed_platform ?? '',
           username: raw.persona_socmed_username ?? '',
@@ -791,11 +800,18 @@ function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
     const time =
       slot.start_time.length === 5 ? slot.start_time : slot.start_time.slice(0, 5);
     const iso = `${slot.session_date.slice(0, 10)}T${time}`;
+    const endTime = slot.end_time
+      ? slot.end_time.length === 5
+        ? slot.end_time
+        : slot.end_time.slice(0, 5)
+      : null;
+    const endIso = endTime ? `${slot.session_date.slice(0, 10)}T${endTime}` : undefined;
     const { dateLabel, timeLabel } = formatSlotDateAndTime(iso, durationMinutes);
     return {
       id: slot.slot_id,
       slotNumber: ((index + 1) as 1 | 2 | 3),
       isoDateTime: iso,
+      endIsoDateTime: endIso,
       dateLabel,
       timeLabel,
     };
@@ -810,6 +826,7 @@ function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
     serviceId: raw.service_id,
     serviceTitle: raw.service_name,
     serviceDuration: durationLabel(raw.service_duration_minutes),
+    serviceDurationMinutes: durationMinutes,
     serviceGuardrail: raw.service_guardrail ?? '',
     concernsSummary: raw.presenting_concern,
     submittedAt: raw.requested_datetime ? raw.requested_datetime.slice(0, 10) : '—',
@@ -1338,6 +1355,7 @@ export const api = {
           serviceId: service.id,
           serviceTitle: service.title,
           serviceDuration: service.durationLabel,
+          serviceDurationMinutes: service.durationMinutes,
           serviceGuardrail: service.guardrailNotice,
           concernsSummary: input.concernsSummary,
           submittedAt: new Date().toLocaleString('en-US', {
@@ -1677,6 +1695,42 @@ export const api = {
         const target = mockBookings.find((b) => b.id === bookingId);
         if (!target) throw new Error('Booking not found');
         const updated: BookingRequest = { ...target, status: 'cancelled' };
+        mockBookings = mockBookings.map((b) => (b.id === bookingId ? updated : b));
+        return updated;
+      }
+    );
+  },
+
+  /**
+   * Mark a confirmed session as completed. Completion timing is not enforced
+   * server-side; the UI warns and asks for a second confirmation when the
+   * selected slot has not ended yet.
+   */
+  completeAppointment: async (bookingId: string): Promise<BookingRequest> => {
+    if (shouldGoLive('/appointments')) {
+      const { status, json } = await liveFetch(
+        `/appointments/${bookingId}/complete`,
+        { method: 'POST' }
+      );
+      if (status < 200 || status >= 300) {
+        throw buildBackendError(
+          `/appointments/${bookingId}/complete`,
+          status,
+          json
+        );
+      }
+      return mapAppointmentRaw(json as AppointmentRaw);
+    }
+    return requestWithMockFallback(
+      `/api/v1/bookings/${bookingId}/complete`,
+      { method: 'POST' },
+      () => {
+        const target = mockBookings.find((b) => b.id === bookingId);
+        if (!target) throw new Error('Booking not found');
+        if (target.status !== 'paid-confirmed') {
+          throw new Error('Only confirmed appointments can be marked as completed.');
+        }
+        const updated: BookingRequest = { ...target, status: 'completed' };
         mockBookings = mockBookings.map((b) => (b.id === bookingId ? updated : b));
         return updated;
       }

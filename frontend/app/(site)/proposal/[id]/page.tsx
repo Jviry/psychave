@@ -65,7 +65,7 @@ export default function ProposalPickerPage() {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       publishFlowEvent(
         'Payment Confirmed & Contact Unlocked',
-        `Booking ${updated.id} is now paid-confirmed. Direct session room unlocked and 24h/1h reminders scheduled.`
+        `Booking ${updated.id} is now paid-confirmed. Psychologist contact details unlocked and 24h/1h reminders scheduled.`
       );
     },
     onError: (err: Error) => {
@@ -96,6 +96,8 @@ export default function ProposalPickerPage() {
   const confirmedSlot = booking.proposedSlots.find(
     (s) => s.id === booking.selectedSlotId
   );
+  const isFinalized =
+    booking.status === 'paid-confirmed' || booking.status === 'completed';
 
   return (
     <div className="space-y-10">
@@ -124,7 +126,7 @@ export default function ProposalPickerPage() {
       </header>
 
       {/* Payment Success State (Flow C Step 5 Finalized) */}
-      {booking.status === 'paid-confirmed' && (
+      {isFinalized && (
         <Card className="bg-surface-sunken space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-mist pb-4">
             <div className="space-y-1">
@@ -315,7 +317,7 @@ export default function ProposalPickerPage() {
                       <div className="flex items-center gap-3.5">
                         <Radio
                           value={slot.id}
-                          disabled={booking.status === 'paid-confirmed'}
+                          disabled={isFinalized}
                           {...form.register('selectedSlotId')}
                         />
                         <div>
@@ -352,7 +354,7 @@ export default function ProposalPickerPage() {
 
                 <label className="flex items-start gap-2.5 text-xs text-pine/85 cursor-pointer pt-1">
                   <Checkbox
-                    disabled={booking.status === 'paid-confirmed'}
+                    disabled={isFinalized}
                     {...form.register('acknowledgeFinalizationRule')}
                   />
                   <span>
@@ -367,7 +369,7 @@ export default function ProposalPickerPage() {
                 )}
               </div>
 
-              {booking.status !== 'paid-confirmed' && (
+              {!isFinalized && (
                 <Button
                   type="submit"
                   variant={simulatePaymentFailure ? 'danger' : 'primary'}

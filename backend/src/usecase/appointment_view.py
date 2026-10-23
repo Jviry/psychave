@@ -83,7 +83,10 @@ def build_appointment_reads(
     for appointment in appointments:
         persona = personas.get(appointment.persona_id)
         service = services.get(appointment.service_id)
-        is_confirmed = appointment.status == AppointmentStatus.CONFIRMED
+        contact_unlocked = appointment.status in (
+            AppointmentStatus.CONFIRMED,
+            AppointmentStatus.COMPLETED,
+        )
         psychologist_profile = (
             psychologist_profiles.get(appointment.psychologist_id)
             if appointment.psychologist_id
@@ -94,7 +97,7 @@ def build_appointment_reads(
                 SocialMediaLink.model_validate(link)
                 for link in (psychologist_profile.social_media_links or [])
             ]
-            if is_confirmed and psychologist_profile
+            if contact_unlocked and psychologist_profile
             else []
         )
         slots = sorted(
@@ -124,10 +127,10 @@ def build_appointment_reads(
                 requested_datetime=appointment.requested_datetime,
                 proposed_slots=[_slot_read(slot) for slot in slots],
                 persona_socmed_platform=(
-                    persona.socmed_platform if is_confirmed and persona else None
+                    persona.socmed_platform if persona else None
                 ),
                 persona_socmed_username=(
-                    persona.socmed_username if is_confirmed and persona else None
+                    persona.socmed_username if persona else None
                 ),
                 psychologist_social_links=social_links,
             )

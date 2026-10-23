@@ -1,19 +1,22 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../../lib/api';
 import { useActivePsychologist } from '../../../../hooks/useActivePsychologist';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, CalendarDays } from 'lucide-react';
+import { AlertTriangle, ChevronDown, CalendarDays } from 'lucide-react';
 import { PractitionerSwitcher } from '../../../../components/dashboard/PractitionerSwitcher';
 import { UnverifiedBanner } from '../../../../components/dashboard/UnverifiedBanner';
 import { DemoDataTag } from '../../../../components/DemoDataTag';
+import type { BookingRequest } from '../../../../lib/types';
 import {
   BookingStatusTag,
   Button,
   Card,
+  Checkbox,
   EmptyState,
+  Modal,
   Skeleton,
 } from '../../../../components/ui/primitives';
 
@@ -21,16 +24,28 @@ type ScheduleTab = 'upcoming' | 'past' | 'proposed' | 'all';
 
 export default function PsychologistSchedulePage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { activePsych, activePsychologistId, showSwitcher } = useActivePsychologist();
 
   const [activeTab, setActiveTab] = useState<ScheduleTab>('upcoming');
   const [expandedBookingIds, setExpandedBookingIds] = useState<Record<string, boolean>>({});
+  const [completionTarget, setCompletionTarget] = useState<BookingRequest | null>(null);
+  const [earlyCompletionAcknowledged, setEarlyCompletionAcknowledged] = useState(false);
 
   const isVerified = activePsych?.verificationStatus === 'verified';
 
   const { data: bookings = [], isLoading, error: bookingsError } = useQuery({
     queryKey: ['bookings', 'psychologist', activePsychologistId],
     queryFn: () => api.getBookingsForRole('psychologist', activePsychologistId),
+  });
+
+  const completeMutation = useMutation({
+    mutationFn: (bookingId: string) => api.completeAppointment(bookingId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      setCompletionTarget(null);
+      setEarlyCompletionAcknowledged(false);
+    },
   });
 
   const myAssignedSessions = bookings;
@@ -45,13 +60,31 @@ export default function PsychologistSchedulePage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Determine if a session slot is upcoming or past based on current clock (Asia/Manila)
-  const isSlotPast = (isoString?: string) => {
-    if (!isoString) return false;
+  const parseSlotDate = (isoString?: string) => {
+    if (!isoString) return null;
     const hasTimezone = /[zZ]|([+-]\d{2}:?\d{2})$/.test(isoString);
     const normalized = hasTimezone ? isoString : `${isoString}+08:00`;
     const slotDate = new Date(normalized);
-    return !isNaN(slotDate.getTime()) && slotDate.getTime() < currentTime;
+    return Number.isNaN(slotDate.getTime()) ? null : slotDate;
+  };
+
+  // Determine if a session slot is upcoming or past based on current clock (Asia/Manila)
+  const isSlotPast = (isoString?: string) => {
+    const slotDate = parseSlotDate(isoString);
+    return slotDate !== null && slotDate.getTime() < currentTime;
+  };
+
+  const selectedSlotFor = (session: BookingRequest) =>
+    session.proposedSlots.find((slot) => slot.id === session.selectedSlotId);
+
+  const slotEndTime = (session: BookingRequest) => {
+    const slot = selectedSlotFor(session);
+    if (!slot) return null;
+    const exactEnd = parseSlotDate(slot.endIsoDateTime);
+    if (exactEnd) return exactEnd.getTime();
+    const start = parseSlotDate(slot.isoDateTime);
+    if (!start) return null;
+    return start.getTime() + session.serviceDurationMinutes * 60_000;
   };
 
   // Categorize sessions into upcoming, past, and proposed
@@ -61,7 +94,9 @@ export default function PsychologistSchedulePage() {
     const proposed: typeof myAssignedSessions = [];
 
     myAssignedSessions.forEach((session) => {
-      if (session.status === 'paid-confirmed') {
+      if (session.status === 'completed') {
+        past.push(session);
+      } else if (session.status === 'paid-confirmed') {
         const confirmedSlot = session.proposedSlots.find(
           (s) => s.id === session.selectedSlotId
         );
@@ -81,6 +116,20 @@ export default function PsychologistSchedulePage() {
   }, [myAssignedSessions, currentTime]);
 
   const displayedSessions = categorizedSessions[activeTab];
+
+  const completionSlot = completionTarget
+    ? selectedSlotFor(completionTarget)
+    : undefined;
+  const completionEndsAt = completionTarget ? slotEndTime(completionTarget) : null;
+  const isEarlyCompletion =
+    completionEndsAt !== null && completionEndsAt > currentTime;
+
+  const closeCompletionModal = () => {
+    if (completeMutation.isPending) return;
+    completeMutation.reset();
+    setCompletionTarget(null);
+    setEarlyCompletionAcknowledged(false);
+  };
 
   const toggleExpand = (id: string) => {
     setExpandedBookingIds((prev) => ({
@@ -213,7 +262,9 @@ export default function PsychologistSchedulePage() {
             const confirmedSlot = session.proposedSlots.find(
               (s) => s.id === session.selectedSlotId
             );
-            const isConfirmed = session.status === 'paid-confirmed';
+            const isCompleted = session.status === 'completed';
+            const isConfirmed =
+              session.status === 'paid-confirmed' || isCompleted;
 
             return (
               <Card
@@ -293,6 +344,25 @@ export default function PsychologistSchedulePage() {
 
                   {/* Actions & Expand Details Button */}
                   <div className="lg:col-span-4 flex flex-col items-start lg:items-end justify-between gap-3 h-full">
+                    {session.status === 'paid-confirmed' && (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        className="w-full sm:w-auto"
+                        onClick={() => {
+                          completeMutation.reset();
+                          setEarlyCompletionAcknowledged(false);
+                          setCompletionTarget(session);
+                        }}
+                      >
+                        Mark Session Completed
+                      </Button>
+                    )}
+                    {isCompleted && (
+                      <span className="text-xs font-medium text-pine/70">
+                        Session marked completed
+                      </span>
+                    )}
                     <Button
                       variant={isExpanded ? 'dark' : 'outline'}
                       size="sm"
@@ -330,7 +400,11 @@ export default function PsychologistSchedulePage() {
                           <div className="flex justify-between border-b border-mist/50 pb-1.5">
                             <span className="text-pine/70">Payment Status:</span>
                             <span className="font-semibold text-pine">
-                              {isConfirmed ? `Paid (₱${session.pricePhp?.toLocaleString()})` : 'Pending Client Payment'}
+                              {isCompleted
+                                ? `Completed (Paid ₱${session.pricePhp?.toLocaleString()})`
+                                : isConfirmed
+                                ? `Paid (₱${session.pricePhp?.toLocaleString()})`
+                                : 'Pending Client Payment'}
                             </span>
                           </div>
                           {session.paidAt && (
@@ -357,38 +431,31 @@ export default function PsychologistSchedulePage() {
                           Client Contact &amp; Coordination
                         </h3>
 
-                        {isConfirmed ? (
+                        {session.clientSocialMedia ? (
                           <div className="space-y-3">
                             <div className="space-y-1">
                               <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
                                 Client&apos;s Preferred Social Media
                               </span>
-                              {session.clientSocialMedia ? (
-                                <p className="text-sm font-medium text-pine">
-                                  {session.clientSocialMedia.platform || 'Social media'}
-                                  {session.clientSocialMedia.username
-                                    ? ` · ${session.clientSocialMedia.username}`
-                                    : ''}
-                                </p>
-                              ) : (
-                                <p className="text-pine/75 leading-relaxed">
-                                  The client did not provide social media contact details.
-                                </p>
-                              )}
+                              <p className="text-sm font-medium text-pine">
+                                {session.clientSocialMedia.platform || 'Social media'}
+                                {session.clientSocialMedia.username
+                                  ? ` · ${session.clientSocialMedia.username}`
+                                  : ''}
+                              </p>
                             </div>
                             <p className="text-pine/75 leading-relaxed">
-                              Your social media links were shared with the client after payment.
-                              Coordinate the session directly through the client&apos;s preferred channel.
+                              Coordinate the session directly through the client&apos;s preferred
+                              channel.
                             </p>
                           </div>
                         ) : (
                           <div className="p-4 rounded-xl bg-surface-sunken border border-dashed border-mist space-y-2">
-                            <p className="font-semibold text-amber-900">
-                              Client Contact Locked
+                            <p className="font-semibold text-pine/80">
+                              No Client Social Media Provided
                             </p>
                             <p className="text-pine/75 leading-relaxed">
-                              The client&apos;s preferred social media contact unlocks after payment
-                              confirmation.
+                              The client did not provide social media contact details.
                             </p>
                           </div>
                         )}
@@ -401,6 +468,103 @@ export default function PsychologistSchedulePage() {
           })}
         </div>
       )}
+
+      <Modal
+        open={completionTarget !== null}
+        onClose={closeCompletionModal}
+        title={
+          isEarlyCompletion
+            ? 'Complete this session early?'
+            : 'Mark this session as completed?'
+        }
+        description="This closes the appointment and moves it to the Past tab."
+        maxWidth="lg"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={closeCompletionModal}
+              disabled={completeMutation.isPending}
+            >
+              Keep Open
+            </Button>
+            <Button
+              variant={isEarlyCompletion ? 'danger' : 'primary'}
+              size="sm"
+              onClick={() => {
+                if (!completionTarget) return;
+                completeMutation.mutate(completionTarget.id);
+              }}
+              disabled={
+                completeMutation.isPending ||
+                (isEarlyCompletion && !earlyCompletionAcknowledged)
+              }
+            >
+              {completeMutation.isPending
+                ? 'Completing…'
+                : isEarlyCompletion
+                ? 'Confirm Early Completion'
+                : 'Mark Completed'}
+            </Button>
+          </>
+        }
+      >
+        {completionTarget && (
+          <div className="space-y-4 text-sm text-pine/85">
+            <div className="rounded-lg border border-mist bg-surface-raised p-3 text-xs">
+              <p className="font-semibold text-pine">
+                {completionTarget.personaLabel} · {completionTarget.serviceTitle}
+              </p>
+              {completionSlot && (
+                <p className="mt-1 text-pine/75">
+                  {completionSlot.dateLabel} · {completionSlot.timeLabel}
+                </p>
+              )}
+            </div>
+
+            {isEarlyCompletion ? (
+              <>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950 space-y-1.5">
+                  <p className="flex items-center gap-1.5 font-semibold">
+                    <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    This session has not ended yet.
+                  </p>
+                  <p>
+                    It is scheduled to run through{' '}
+                    <strong>{completionSlot?.timeLabel ?? 'the proposed end time'}</strong>.
+                    Completing it now will close the session early.
+                  </p>
+                </div>
+
+                <label className="flex items-start gap-2.5 text-xs text-pine/85 cursor-pointer">
+                  <Checkbox
+                    checked={earlyCompletionAcknowledged}
+                    onChange={(event) =>
+                      setEarlyCompletionAcknowledged(event.target.checked)
+                    }
+                  />
+                  <span>
+                    I understand this session is still in progress and want to mark it as
+                    completed now.
+                  </span>
+                </label>
+              </>
+            ) : (
+              <p className="text-xs text-pine/75">
+                The session slot has ended. Confirm only if the appointment took place and is
+                ready to be archived.
+              </p>
+            )}
+
+            {completeMutation.error && (
+              <p className="text-xs text-red-700">
+                {(completeMutation.error as Error).message}
+              </p>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

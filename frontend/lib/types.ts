@@ -4,6 +4,7 @@ export type BookingStatus =
   | 'pending'
   | 'proposed'
   | 'paid-confirmed'
+  | 'completed'
   | 'reschedule-requested'
   | 'cancelled';
 
@@ -72,6 +73,7 @@ export interface ProposedSlot {
   id: string;
   slotNumber: 1 | 2 | 3;
   isoDateTime: string;
+  endIsoDateTime?: string;
   dateLabel: string;
   timeLabel: string;
 }
@@ -85,6 +87,7 @@ export interface BookingRequest {
   serviceId: string;
   serviceTitle: string;
   serviceDuration: string;
+  serviceDurationMinutes: number;
   serviceGuardrail: string;
   concernsSummary: string;
   submittedAt: string;
