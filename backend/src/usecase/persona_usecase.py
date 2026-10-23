@@ -12,7 +12,7 @@ from schemas.persona import (
     _calculate_age,
 )
 
-CURRENT_CONSENT_VERSION = "v1"
+CURRENT_CONSENT_VERSION = "v2"
 
 
 class PersonaUsecase:
