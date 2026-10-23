@@ -51,7 +51,7 @@ describe('mode gating', () => {
     expect(shouldGoLive('/appointments')).toBe(true);
     expect(shouldGoLive('/services')).toBe(false);
     expect(shouldGoLive('/api/v1/cms')).toBe(false);
-    expect(shouldGoLive('/psychologist/appointments/mine')).toBe(false);
+    expect(shouldGoLive('/psychologist-profile/me')).toBe(false);
   });
 });
 

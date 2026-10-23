@@ -25,8 +25,10 @@ import {
  * to deterministic in-memory mock state when the FastAPI/Mangum backend is offline.
  *
  * Live integration (backend-integration branch): the backend mounts bare paths
- * (`/auth`, `/services`, `/personas`, `/appointments`, `/psychologist`, `/payments`)
- * — see backend/src/controllers/app_router.py. Only wired prefixes may ever go
+ * (`/auth`, `/services`, `/personas`, `/appointments`, `/payments`). The
+ * psychologist endpoints also live under `/appointments` (`/appointments/pending`,
+ * `/appointments/mine`, `/appointments/{id}/pickup|slots`); only the profile is
+ * under `/psychologist-profile`. Only wired prefixes may ever go
  * live; everything else (roster verification, CMS, lifecycle, private notes)
  * has no backend yet and always resolves from mocks, so a `real` mode run
  * never 404s into a broken public page. NEXT_PUBLIC_LIVE_ROUTES (comma list)
@@ -1076,21 +1078,21 @@ export const api = {
         mapAppointmentRaw(r)
       );
     }
-    if (role === 'psychologist' && shouldGoLive('/psychologist')) {
+    if (role === 'psychologist' && shouldGoLive('/appointments')) {
       const [pendingRes, mineRes] = await Promise.all([
-        liveFetch('/psychologist/appointments/pending'),
-        liveFetch('/psychologist/appointments/mine'),
+        liveFetch('/appointments/pending'),
+        liveFetch('/appointments/mine'),
       ]);
       if (pendingRes.status < 200 || pendingRes.status >= 300) {
         throw buildBackendError(
-          '/psychologist/appointments/pending',
+          '/appointments/pending',
           pendingRes.status,
           pendingRes.json
         );
       }
       if (mineRes.status < 200 || mineRes.status >= 300) {
         throw buildBackendError(
-          '/psychologist/appointments/mine',
+          '/appointments/mine',
           mineRes.status,
           mineRes.json
         );
@@ -1226,12 +1228,12 @@ export const api = {
     slot3DateTime: string;
   }): Promise<BookingRequest> => {
     // If backend is active, run the real pickup → durations → 3-slot proposal chain.
-    if (shouldGoLive('/psychologist')) {
+    if (shouldGoLive('/appointments')) {
       // Step 1: claim the pending request. PickupRequest body is { price } —
       // the psychologist identity is derived from the token, never the client
       // (dependencies/auth.py require_approved_psychologist).
       const pickupRes = await liveFetch(
-        `/psychologist/appointments/${input.bookingId}/pickup`,
+        `/appointments/${input.bookingId}/pickup`,
         {
           method: 'POST',
           body: JSON.stringify({ price: input.pricePhp }),
@@ -1255,7 +1257,7 @@ export const api = {
       }
       if (pickupRes.status < 200 || pickupRes.status >= 300) {
         throw buildBackendError(
-          `/psychologist/appointments/${input.bookingId}/pickup`,
+          `/appointments/${input.bookingId}/pickup`,
           pickupRes.status,
           pickupRes.json
         );
@@ -1281,7 +1283,7 @@ export const api = {
       );
 
       const slotsRes = await liveFetch(
-        `/psychologist/appointments/${input.bookingId}/slots`,
+        `/appointments/${input.bookingId}/slots`,
         {
           method: 'POST',
           body: JSON.stringify(slotPayload),
