@@ -32,6 +32,11 @@ SERVICES: list[dict[str, object]] = [
     {
         "slug": "standalone-clinical-consultation",
         "name": "Standalone Clinical Consultation",
+        "duration_minutes": 45,
+        "guardrail_notice": (
+            "This is not a full therapy session but an initial step toward "
+            "further psychological support."
+        ),
         "description": (
             "45-minute initial support session for clients. Before meeting with "
             "their psychologist, clients may be asked to complete a brief set of "
@@ -44,6 +49,8 @@ SERVICES: list[dict[str, object]] = [
     {
         "slug": "individual-counseling-psychotherapy",
         "name": "Individual Counseling & Psychotherapy",
+        "duration_minutes": 60,
+        "guardrail_notice": None,
         "description": (
             "1-hour supportive space for clients to explore personal experiences and "
             "concerns. The psychologist collaborates with the client to identify "
@@ -55,6 +62,8 @@ SERVICES: list[dict[str, object]] = [
     {
         "slug": "couples-counseling",
         "name": "Couples Counseling",
+        "duration_minutes": 90,
+        "guardrail_notice": None,
         "description": (
             "1.5-hour structured session supporting partners in exploring "
             "relationship concerns, communication patterns, goals, conflict "
@@ -68,6 +77,8 @@ SERVICES: list[dict[str, object]] = [
     {
         "slug": "family-group-counseling",
         "name": "Family & Group Counseling",
+        "duration_minutes": 120,
+        "guardrail_notice": None,
         "description": (
             "2-hour session available based on the arrangements and clinical "
             "judgment of the assigned psychologist. Psychologists with training "
@@ -79,6 +90,8 @@ SERVICES: list[dict[str, object]] = [
     {
         "slug": "life-coaching",
         "name": "Life Coaching",
+        "duration_minutes": 60,
+        "guardrail_notice": "Life coaching is not a substitute for therapy.",
         "description": (
             "Designed to guide and support clients in completing therapy-related "
             "activities and assignments provided by their respective psychologists. "
@@ -90,6 +103,8 @@ SERVICES: list[dict[str, object]] = [
     {
         "slug": "clinical-supervision-early-career-psychologists",
         "name": "Clinical Supervision for Early Career Psychologists",
+        "duration_minutes": 60,
+        "guardrail_notice": None,
         "description": (
             "Supervision for newly registered psychologists as they navigate early "
             "clinical practice. Available to both practitioners affiliated with the "
@@ -99,6 +114,12 @@ SERVICES: list[dict[str, object]] = [
     {
         "slug": "academic-research-services",
         "name": "Academic & Research Services",
+        "duration_minutes": 60,
+        "guardrail_notice": (
+            "This does not include taking full responsibility for writing an "
+            "entire thesis report. The psychologist supports, mentors, and "
+            "assists the student in understanding and completing their own work."
+        ),
         "description": (
             "Expert support in thesis supervision and data analysis to guide "
             "students through their research journey. Guardrail: does not include "
@@ -131,6 +152,12 @@ def seed_services() -> tuple[int, int]:
                         name=str(entry["name"]),
                         description=str(entry["description"]),
                         is_active=True,
+                        duration_minutes=int(entry["duration_minutes"]),
+                        guardrail_notice=(
+                            str(entry["guardrail_notice"])
+                            if entry["guardrail_notice"] is not None
+                            else None
+                        ),
                     )
                 )
                 created += 1
@@ -138,6 +165,12 @@ def seed_services() -> tuple[int, int]:
                 service.name = str(entry["name"])
                 service.description = str(entry["description"])
                 service.is_active = True
+                service.duration_minutes = int(entry["duration_minutes"])
+                service.guardrail_notice = (
+                    str(entry["guardrail_notice"])
+                    if entry["guardrail_notice"] is not None
+                    else None
+                )
                 session.add(service)
                 updated += 1
 
