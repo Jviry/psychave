@@ -130,6 +130,66 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
     expect(booking?.psychologistCode).toMatch(/Resident Psychologist #RP-\d+/);
   });
 
+  it('getPersonaReview maps the psychologist review payload', async () => {
+    process.env.NEXT_PUBLIC_AUTH_MODE = 'live';
+    const personaId = '7a3c11a2-1b2c-4d3e-8f90-112233445566';
+    mockFetch.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          persona: {
+            persona_id: personaId,
+            relation_to_account_holder: 'self',
+            persona_name: 'Ana Santos',
+            date_of_birth: '1994-06-12',
+            occupation: 'Designer',
+            nationality: 'Filipino',
+            permanent_address: 'Makati City',
+            present_address: 'Makati City',
+            contact_number: '+639170000000',
+            socmed_platform: 'Facebook',
+            socmed_username: '@ana',
+            preferred_contact_mode: 'phone',
+            emergency_contact_name: 'Ben Santos',
+            emergency_contact_relation: 'Sibling',
+            emergency_contact_number: '+639180000000',
+          },
+          consent: {
+            consent_version: 'v2',
+            terms_signer_name: 'Ana Santos',
+            terms_signer_relation: 'self',
+            scope_acknowledged: true,
+            is_overseas_or_foreign: false,
+            overseas_acknowledged: false,
+            information_confirmed: true,
+            consent_signer_name: 'Ana Santos',
+            signed_at: '2026-10-01T09:00:00+08:00',
+          },
+        }),
+        { status: 200 }
+      )
+    );
+
+    const { api } = await import('../lib/api');
+    const review = await api.getPersonaReview(personaId);
+
+    expect(review.persona.name).toBe('Ana Santos');
+    expect(review.persona.contactNumber).toBe('+639170000000');
+    expect(review.consent.version).toBe('v2');
+    expect(review.consent.scopeAcknowledged).toBe(true);
+    expect(JSON.stringify(review)).not.toMatch(/persona_name|consent_version|signed_at/);
+  });
+
+  it('getPersonaReview falls back to synthetic mock data without a request', async () => {
+    process.env.NEXT_PUBLIC_AUTH_MODE = 'mock';
+    const { api } = await import('../lib/api');
+
+    const review = await api.getPersonaReview('persona-self-01');
+
+    expect(review.persona.name).toBe('Primary Account Holder (Self)');
+    expect(review.consent.version).toBe('v2');
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it('pay flow refuses to fake success when payment stays pending', async () => {
     process.env.NEXT_PUBLIC_AUTH_MODE = 'live';
     mockFetch.mockImplementation(async () =>

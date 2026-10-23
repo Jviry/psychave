@@ -4,6 +4,7 @@ import {
   CmsContent,
   CognitoRole,
   Persona,
+  PersonaReview,
   ProposedSlot,
   ResidentPsychologist,
   ServiceItem,
@@ -658,6 +659,37 @@ interface PersonaRaw {
   date_of_birth: string;
 }
 
+interface PersonaReviewRaw {
+  persona: {
+    persona_id: string;
+    relation_to_account_holder: string;
+    persona_name: string;
+    date_of_birth: string;
+    occupation: string | null;
+    nationality: string;
+    permanent_address: string;
+    present_address: string;
+    contact_number: string;
+    socmed_platform: string | null;
+    socmed_username: string | null;
+    preferred_contact_mode: string;
+    emergency_contact_name: string;
+    emergency_contact_relation: string;
+    emergency_contact_number: string;
+  };
+  consent: {
+    consent_version: string;
+    terms_signer_name: string;
+    terms_signer_relation: string;
+    scope_acknowledged: boolean;
+    is_overseas_or_foreign: boolean;
+    overseas_acknowledged: boolean;
+    information_confirmed: boolean;
+    consent_signer_name: string;
+    signed_at: string | null;
+  };
+}
+
 interface PaymentRaw {
   payment_id: string;
   appointment_id: string;
@@ -805,6 +837,79 @@ function mapPersonaRaw(raw: PersonaRaw): Persona {
     relationshipToClient: raw.relation_to_account_holder ?? '',
     preferredLanguage: '',
     createdAt: '',
+  };
+}
+
+function mapPersonaReviewRaw(raw: PersonaReviewRaw): PersonaReview {
+  return {
+    persona: {
+      id: raw.persona.persona_id,
+      name: raw.persona.persona_name,
+      relationToAccountHolder: raw.persona.relation_to_account_holder,
+      dateOfBirth: raw.persona.date_of_birth,
+      occupation: raw.persona.occupation,
+      nationality: raw.persona.nationality,
+      permanentAddress: raw.persona.permanent_address,
+      presentAddress: raw.persona.present_address,
+      contactNumber: raw.persona.contact_number,
+      socmedPlatform: raw.persona.socmed_platform,
+      socmedUsername: raw.persona.socmed_username,
+      preferredContactMode: raw.persona.preferred_contact_mode,
+      emergencyContactName: raw.persona.emergency_contact_name,
+      emergencyContactRelation: raw.persona.emergency_contact_relation,
+      emergencyContactNumber: raw.persona.emergency_contact_number,
+    },
+    consent: {
+      version: raw.consent.consent_version,
+      termsSignerName: raw.consent.terms_signer_name,
+      termsSignerRelation: raw.consent.terms_signer_relation,
+      scopeAcknowledged: raw.consent.scope_acknowledged,
+      isOverseasOrForeign: raw.consent.is_overseas_or_foreign,
+      overseasAcknowledged: raw.consent.overseas_acknowledged,
+      informationConfirmed: raw.consent.information_confirmed,
+      consentSignerName: raw.consent.consent_signer_name,
+      signedAt: raw.consent.signed_at,
+    },
+  };
+}
+
+/**
+ * Mock-mode review data. The mock Persona shape intentionally stays small, so
+ * this synthesizes the wizard/consent detail the live review endpoint returns.
+ */
+function buildMockPersonaReview(personaId: string): PersonaReview {
+  const persona = mockPersonas.find((p) => p.id === personaId);
+  if (!persona) throw new Error('Persona review not found.');
+  const isSelf = persona.type === 'self';
+  return {
+    persona: {
+      id: persona.id,
+      name: persona.label,
+      relationToAccountHolder: persona.relationshipToClient,
+      dateOfBirth: isSelf ? '1994-06-12' : '2011-03-08',
+      occupation: isSelf ? 'Demo occupation' : 'Student',
+      nationality: 'Filipino',
+      permanentAddress: 'Demo address — mock mode',
+      presentAddress: 'Demo address — mock mode',
+      contactNumber: '+63 917 000 0000',
+      socmedPlatform: 'Facebook',
+      socmedUsername: '@demo_persona',
+      preferredContactMode: 'phone',
+      emergencyContactName: 'Demo Emergency Contact',
+      emergencyContactRelation: isSelf ? 'Sibling' : 'Parent',
+      emergencyContactNumber: '+63 918 000 0000',
+    },
+    consent: {
+      version: CONSENT_VERSION,
+      termsSignerName: persona.label,
+      termsSignerRelation: persona.relationshipToClient,
+      scopeAcknowledged: true,
+      isOverseasOrForeign: false,
+      overseasAcknowledged: false,
+      informationConfirmed: true,
+      consentSignerName: persona.label,
+      signedAt: persona.createdAt ? `${persona.createdAt}T09:00:00+08:00` : null,
+    },
   };
 }
 
@@ -980,6 +1085,18 @@ export const api = {
         const list = Array.isArray(raw) ? (raw as PersonaRaw[]) : [];
         return list.map(mapPersonaRaw);
       }
+    ),
+
+  /**
+   * Psychologist review payload for a queue persona: full persona record plus
+   * the latest signed consent/forms row. Backed by GET /personas/{id}/review.
+   */
+  getPersonaReview: async (personaId: string): Promise<PersonaReview> =>
+    requestWithMockFallback(
+      `/personas/${personaId}/review`,
+      undefined,
+      () => buildMockPersonaReview(personaId),
+      (raw) => mapPersonaReviewRaw(raw as PersonaReviewRaw)
     ),
 
   /**

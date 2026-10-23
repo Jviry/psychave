@@ -32,6 +32,37 @@ export interface Persona {
   createdAt: string;
 }
 
+export interface PersonaReview {
+  persona: {
+    id: string;
+    name: string;
+    relationToAccountHolder: string;
+    dateOfBirth: string;
+    occupation: string | null;
+    nationality: string;
+    permanentAddress: string;
+    presentAddress: string;
+    contactNumber: string;
+    socmedPlatform: string | null;
+    socmedUsername: string | null;
+    preferredContactMode: string;
+    emergencyContactName: string;
+    emergencyContactRelation: string;
+    emergencyContactNumber: string;
+  };
+  consent: {
+    version: string;
+    termsSignerName: string;
+    termsSignerRelation: string;
+    scopeAcknowledged: boolean;
+    isOverseasOrForeign: boolean;
+    overseasAcknowledged: boolean;
+    informationConfirmed: boolean;
+    consentSignerName: string;
+    signedAt: string | null;
+  };
+}
+
 export interface ProposedSlot {
   id: string;
   slotNumber: 1 | 2 | 3;
