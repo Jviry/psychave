@@ -2,8 +2,9 @@ from sqlmodel import create_engine, Session
 from sqlalchemy.pool import NullPool
 from common.settings import settings
 
+db_url = settings.DATABASE_URL if settings.DATABASE_URL else "sqlite:///:memory:"
 engine = create_engine(
-    settings.DATABASE_URL,
+    db_url,
     echo=settings.DEBUG,
     poolclass=NullPool,
 )

@@ -10,7 +10,7 @@ from usecase.appointment_usecase import AppointmentUsecase
 from usecase.payment_usecase import PaymentUsecase
 from usecase.psychologist_usecase import PsychologistUsecase
 from dependencies.payments import get_payment_provider
-from services.payments.base import PaymentProvider
+from interfaces.payment import PaymentProvider
 from schemas.payment import PaymentInitiateRequest, PaymentRead
 from schemas.appointment import (
     AppointmentCreate,
@@ -101,6 +101,8 @@ def initiate_payment(
         appointment_id,
         current_user.user_id,
         payment_method=payload.payment_method if payload else None,
+        success_url=payload.success_url if payload else None,
+        cancel_url=payload.cancel_url if payload else None,
     )
 
 

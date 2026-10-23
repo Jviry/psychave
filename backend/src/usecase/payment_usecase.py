@@ -3,12 +3,13 @@ from datetime import datetime, timezone
 from sqlmodel import Session
 
 from common.exceptions import BadRequestError, NotFoundError
+from common.settings import settings
 from models.appointment import Appointment, AppointmentStatus
 from models.payment import Payment, PaymentStatus
 from models.persona import Persona
 from repo.appointment_repo import AppointmentRepo
 from repo.payment_repo import PaymentRepo
-from services.payments.base import PaymentProvider
+from interfaces.payment import PaymentProvider
 
 
 class PaymentUsecase:
@@ -34,6 +35,8 @@ class PaymentUsecase:
         appointment_id: uuid.UUID,
         client_id: uuid.UUID,
         payment_method: str | None = None,
+        success_url: str | None = None,
+        cancel_url: str | None = None,
     ) -> Payment:
         appt = self._get_owned_appointment(appointment_id, client_id)
         if appt.status != AppointmentStatus.AWAITING_PAYMENT:
@@ -45,11 +48,23 @@ class PaymentUsecase:
         if existing is not None:
             return existing
 
+        base_fe = settings.FRONTEND_URL.rstrip("/")
+        final_success_url = (
+            success_url or f"{
+                base_fe}/proposal/{appointment_id}?payment=success"
+        )
+        final_cancel_url = (
+            cancel_url or f"{
+                base_fe}/proposal/{appointment_id}?payment=cancelled"
+        )
+
         initiated = self.provider.create_checkout(
             amount=appt.price,
             currency="PHP",
             reference=str(appointment_id),
             description=f"Appointment {appointment_id}",
+            success_url=final_success_url,
+            cancel_url=final_cancel_url,
         )
         return self.payments.create(
             appointment_id=appointment_id,
