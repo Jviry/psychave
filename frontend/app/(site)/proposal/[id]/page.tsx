@@ -18,7 +18,6 @@ import {
   Button,
   Card,
   Checkbox,
-  Label,
   Radio,
   Skeleton,
 } from '../../../../components/ui/primitives';
@@ -46,7 +45,6 @@ export default function ProposalPickerPage() {
     resolver: zodResolver(slotSelectionPaymentSchema),
     defaultValues: {
       selectedSlotId: '',
-      paymentMethodLabel: 'card_visa_4242',
       acknowledgeFinalizationRule: false,
     },
   });
@@ -262,17 +260,6 @@ export default function ProposalPickerPage() {
             </div>
           </div>
 
-          {booking.clinicalPrepNote && (
-            <div className="space-y-1 text-xs">
-              <p className="font-semibold text-pine">
-                Psychologist Preparation Note:
-              </p>
-              <p className="text-pine/70 leading-relaxed">
-                {booking.clinicalPrepNote}
-              </p>
-            </div>
-          )}
-
           <div className="text-xs text-pine/75 flex items-start gap-2.5">
             <Lock className="w-4 h-4 text-accent-ink shrink-0 mt-0.5" aria-hidden="true" />
             <span>
@@ -354,38 +341,15 @@ export default function ProposalPickerPage() {
                 )}
               </div>
 
-              {/* Payment Method & Prototype Error State Simulator */}
+              {/* Prototype payment failure simulator */}
               <div className="border-t border-mist/70 pt-5 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Label>Stripe Checkout Method (Mock Gateway)</Label>
-                  <label className="inline-flex items-center gap-2 text-xs text-pine/80 cursor-pointer">
-                    <Checkbox
-                      checked={simulatePaymentFailure}
-                      onChange={(e) => setSimulatePaymentFailure(e.target.checked)}
-                    />
-                    <span>Simulate &quot;Payment Failed&quot; Error State</span>
-                  </label>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-                  {[
-                    { id: 'card_visa_4242', label: 'Credit/Debit •••• 4242' },
-                    { id: 'gcash_paymongo_mock', label: 'GCash (Stripe PH)' },
-                    { id: 'maya_stripe_mock', label: 'Maya Wallet' },
-                  ].map((pm) => (
-                    <label
-                      key={pm.id}
-                      className="flex items-center gap-2.5 p-3 rounded-lg border border-mist hover:border-mint transition-colors bg-surface-raised cursor-pointer"
-                    >
-                      <Radio
-                        value={pm.id}
-                        disabled={booking.status === 'paid-confirmed'}
-                        {...form.register('paymentMethodLabel')}
-                      />
-                      <span className="font-medium text-pine">{pm.label}</span>
-                    </label>
-                  ))}
-                </div>
+                <label className="inline-flex items-center gap-2 text-xs text-pine/80 cursor-pointer">
+                  <Checkbox
+                    checked={simulatePaymentFailure}
+                    onChange={(e) => setSimulatePaymentFailure(e.target.checked)}
+                  />
+                  <span>Simulate &quot;Payment Failed&quot; Error State</span>
+                </label>
 
                 <label className="flex items-start gap-2.5 text-xs text-pine/85 cursor-pointer pt-1">
                   <Checkbox

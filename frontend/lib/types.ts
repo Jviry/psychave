@@ -58,8 +58,6 @@ export interface BookingRequest {
   serviceDuration: string;
   serviceGuardrail: string;
   concernsSummary: string;
-  specificNeeds: string;
-  preferredLanguage: string;
   submittedAt: string;
   status: BookingStatus;
   psychologistId?: string;
@@ -67,7 +65,6 @@ export interface BookingRequest {
   psychologistSpecialization?: string;
   pricePhp?: number;
   proposedSlots: ProposedSlot[];
-  clinicalPrepNote?: string;
   selectedSlotId?: string;
   paidAt?: string;
   contactUnlocked: boolean;

@@ -8,8 +8,6 @@ import { api } from '../../../lib/api';
 import {
   bookingFormSchema,
   BookingFormValues,
-  personaSchema,
-  PersonaFormValues,
 } from '../../../lib/schemas';
 import { useAppStore } from '../../../stores/useAppStore';
 import { useRouter } from 'next/navigation';
@@ -19,7 +17,6 @@ import { ArrowLeft, ArrowRight } from 'lucide-react';
 import {
   Button,
   Card,
-  Input,
   Label,
   Select,
   Textarea,
@@ -41,7 +38,6 @@ export default function PersonasAndBookingPage() {
   const lastUsedPersonaId = usePersonaWizardStore((s) => s.lastUsedPersonaId);
   const setLastUsedPersonaId = usePersonaWizardStore((s) => s.setLastUsedPersonaId);
 
-  const [showLegacyPersonaForm, setShowLegacyPersonaForm] = useState(false);
   const [submittedBookingId, setSubmittedBookingId] = useState<string | null>(null);
   const autoOpenedWizard = useRef(false);
 
@@ -59,27 +55,15 @@ export default function PersonasAndBookingPage() {
     queryFn: () => api.getServices(),
   });
 
-  // React Hook Form for creating a new Persona (Self / Dependent)
-  const personaForm = useForm<PersonaFormValues>({
-    resolver: zodResolver(personaSchema),
-    defaultValues: {
-      type: 'dependent',
-      label: '',
-      ageGroup: 'Adolescent (13–17)',
-      relationshipToClient: 'Parent / Legal Guardian',
-      preferredLanguage: 'English / Taglish',
-    },
-  });
-
   // Booking request form — two steps: Session -> Clinical context
   const bookingForm = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
-      personaId: bookingDraft.personaId || 'persona-self-01',
-      serviceId: bookingDraft.serviceId || 'srv-individual',
-      preferredLanguage: bookingDraft.preferredLanguage || 'English / Taglish',
+      // No mock fallbacks: real mode needs backend UUIDs, and ids are bound
+      // to the live personas/services lists by the effects below.
+      personaId: bookingDraft.personaId,
+      serviceId: bookingDraft.serviceId,
       concernsSummary: bookingDraft.concernsSummary || '',
-      specificNeeds: bookingDraft.specificNeeds || '',
       guardrailAcknowledged: false,
     },
   });
@@ -117,47 +101,52 @@ export default function PersonasAndBookingPage() {
   const activeService = services.find((s) => s.id === selectedServiceId) || services[0];
   const selectedPersona = personas.find((p) => p.id === selectedPersonaId) || null;
 
-  const selectPersona = (personaId: string, preferredLanguage?: string) => {
+  const selectPersona = (personaId: string) => {
     bookingForm.setValue('personaId', personaId, { shouldValidate: true });
-    if (preferredLanguage) bookingForm.setValue('preferredLanguage', preferredLanguage);
-    updateBookingDraft({ personaId, ...(preferredLanguage ? { preferredLanguage } : {}) });
+    updateBookingDraft({ personaId });
     setLastUsedPersonaId(personaId);
   };
+
+  // Bind the booking form to real backend rows. The store starts empty, so
+  // without this the persona/service fields would stay blank (or, before the
+  // defaults were cleared, hold mock ids that `submitBookingRequest` rejects).
+  useEffect(() => {
+    if (personasLoading || personas.length === 0) return;
+    const current = bookingForm.getValues('personaId');
+    if (personas.some((p) => p.id === current)) return;
+
+    const fallback = personas.find((p) => p.id === lastUsedPersonaId) ?? personas[0];
+    bookingForm.setValue('personaId', fallback.id, { shouldValidate: true });
+    updateBookingDraft({ personaId: fallback.id });
+  }, [personas, personasLoading, lastUsedPersonaId, bookingForm, updateBookingDraft]);
+
+  useEffect(() => {
+    if (services.length === 0) return;
+    const current = bookingForm.getValues('serviceId');
+    if (services.some((s) => s.id === current)) return;
+
+    // Prefer a service chosen earlier in the flow if it is still valid.
+    const fallback =
+      services.find((s) => s.id === bookingDraft.serviceId) ?? services[0];
+    bookingForm.setValue('serviceId', fallback.id, { shouldValidate: true });
+    updateBookingDraft({ serviceId: fallback.id });
+  }, [services, bookingDraft.serviceId, bookingForm, updateBookingDraft]);
 
   // Step navigation: validate the visible Step 1 fields before advancing
   const goToStep = async (next: 1 | 2) => {
     if (next === 2) {
-      const valid = await bookingForm.trigger(['serviceId', 'preferredLanguage']);
+      const valid = await bookingForm.trigger(['serviceId']);
       if (!valid) return;
     }
     setStep(next);
   };
-
-  const createPersonaMutation = useMutation({
-    mutationFn: (values: PersonaFormValues) => api.createPersona(values),
-    onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: ['personas'] });
-      updateBookingDraft({ personaId: created.id, preferredLanguage: created.preferredLanguage });
-      bookingForm.setValue('personaId', created.id);
-      bookingForm.setValue('preferredLanguage', created.preferredLanguage);
-      setLastUsedPersonaId(created.id);
-      personaForm.reset();
-      setShowLegacyPersonaForm(false);
-      publishFlowEvent(
-        'Client Persona Created',
-        `Added ${created.label} (${created.type.toUpperCase()}) and selected it for booking.`
-      );
-    },
-  });
 
   const submitBookingMutation = useMutation({
     mutationFn: (values: BookingFormValues) =>
       api.submitBookingRequest({
         personaId: values.personaId,
         serviceId: values.serviceId,
-        preferredLanguage: values.preferredLanguage,
         concernsSummary: values.concernsSummary,
-        specificNeeds: values.specificNeeds,
       }),
     onSuccess: (createdBooking) => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
@@ -165,9 +154,7 @@ export default function PersonasAndBookingPage() {
       bookingForm.reset({
         personaId: createdBooking.personaId,
         serviceId: createdBooking.serviceId,
-        preferredLanguage: createdBooking.preferredLanguage,
         concernsSummary: '',
-        specificNeeds: '',
         guardrailAcknowledged: false,
       });
       setSubmittedBookingId(createdBooking.id);
@@ -299,7 +286,7 @@ export default function PersonasAndBookingPage() {
                   <button
                     key={persona.id}
                     type="button"
-                    onClick={() => selectPersona(persona.id, persona.preferredLanguage)}
+                    onClick={() => selectPersona(persona.id)}
                     className={`w-full text-left p-4 rounded-lg border transition-colors duration-150 cursor-pointer ${
                       isSelected
                         ? 'border-sage bg-surface-sunken'
@@ -316,7 +303,7 @@ export default function PersonasAndBookingPage() {
                       {persona.label}
                     </p>
                     <p className="text-xs text-pine/70 mt-1">
-                      Relationship: {persona.relationshipToClient} · Language: {persona.preferredLanguage}
+                      Relationship: {persona.relationshipToClient}
                     </p>
                     {lastUsedPersonaId === persona.id && (
                       <p className="text-xs text-accent-ink font-semibold mt-1">Last used</p>
@@ -331,113 +318,6 @@ export default function PersonasAndBookingPage() {
                 Add someone else
               </Button>
             )}
-
-            {/* Legacy quick-add (temporary) — deprecated once POST /personas is real */}
-            <details className="rounded-lg bg-parchment border border-mist">
-              <summary className="px-4 py-3 text-xs font-semibold text-pine/75 cursor-pointer list-none">
-                Legacy quick-add (temporary) — old label/age-group form, kept until backend POST
-                /personas supports persona + consent
-              </summary>
-              <div className="px-4 pb-4">
-                {!showLegacyPersonaForm ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowLegacyPersonaForm(true)}
-                  >
-                    Show legacy form
-                  </Button>
-                ) : (
-                <form
-                  onSubmit={personaForm.handleSubmit((vals) => createPersonaMutation.mutate(vals))}
-                  className="p-4 rounded-lg bg-surface-raised border border-mist space-y-4"
-                >
-                  <p className="font-heading text-lg font-medium text-pine">
-                    Create New Anonymized Persona (Legacy)
-                  </p>
-
-                  <div>
-                    <Label htmlFor="persona-type">Persona Classification</Label>
-                    <Select id="persona-type" {...personaForm.register('type')}>
-                      <option value="self">Self (Primary Account)</option>
-                      <option value="dependent">Dependent (Child / Adolescent / Ward)</option>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="persona-label">Anonymized Profile Label (No Real Names)</Label>
-                    <Input
-                      id="persona-label"
-                      placeholder="e.g., Dependent Ward #D-02 (Young Adult)"
-                      {...personaForm.register('label')}
-                    />
-                    {personaForm.formState.errors.label && (
-                      <p className="text-xs text-red-700 mt-1">
-                        {personaForm.formState.errors.label.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="persona-age">Age Bracket</Label>
-                      <Select id="persona-age" {...personaForm.register('ageGroup')}>
-                        <option value="Child (7–12)">Child (7–12)</option>
-                        <option value="Adolescent (13–17)">Adolescent (13–17)</option>
-                        <option value="Young Adult (18–24)">Young Adult (18–24)</option>
-                        <option value="Adult (25–34)">Adult (25–34)</option>
-                        <option value="Adult (35–49)">Adult (35–49)</option>
-                        <option value="Senior (50+)">Senior (50+)</option>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="persona-lang">Preferred Language</Label>
-                      <Select id="persona-lang" {...personaForm.register('preferredLanguage')}>
-                        <option value="English / Taglish">English / Taglish</option>
-                        <option value="Filipino / Taglish">Filipino / Taglish</option>
-                        <option value="English">English</option>
-                        <option value="Cebuano / English">Cebuano / English</option>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="persona-rel">Relationship / Legal Authority</Label>
-                    <Input
-                      id="persona-rel"
-                      placeholder="e.g., Legal Guardian / Parent"
-                      {...personaForm.register('relationshipToClient')}
-                    />
-                    {personaForm.formState.errors.relationshipToClient && (
-                      <p className="text-xs text-red-700 mt-1">
-                        {personaForm.formState.errors.relationshipToClient.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="submit"
-                      variant="primary"
-                      size="sm"
-                      disabled={createPersonaMutation.isPending}
-                    >
-                      {createPersonaMutation.isPending ? 'Saving Persona...' : 'Save Persona Profile'}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowLegacyPersonaForm(false)}
-                    >
-                      Hide
-                    </Button>
-                  </div>
-                </form>
-                )}
-              </div>
-            </details>
           </Card>
         </div>
 
@@ -478,37 +358,20 @@ export default function PersonasAndBookingPage() {
 
             {step === 1 && (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="booking-service">Selected Service &amp; Duration</Label>
-                    <Select
-                      id="booking-service"
-                      {...bookingForm.register('serviceId', {
-                        onChange: (e) => updateBookingDraft({ serviceId: e.target.value }),
-                      })}
-                    >
-                      {services.map((srv) => (
-                        <option key={srv.id} value={srv.id}>
-                          {srv.title} ({srv.durationLabel})
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="booking-language">Preferred Session Language</Label>
-                    <Select
-                      id="booking-language"
-                      {...bookingForm.register('preferredLanguage', {
-                        onChange: (e) => updateBookingDraft({ preferredLanguage: e.target.value }),
-                      })}
-                    >
-                      <option value="English / Taglish">English / Taglish</option>
-                      <option value="Filipino / Taglish">Filipino / Taglish</option>
-                      <option value="English">English</option>
-                      <option value="Cebuano / English">Cebuano / English</option>
-                    </Select>
-                  </div>
+                <div>
+                  <Label htmlFor="booking-service">Selected Service &amp; Duration</Label>
+                  <Select
+                    id="booking-service"
+                    {...bookingForm.register('serviceId', {
+                      onChange: (e) => updateBookingDraft({ serviceId: e.target.value }),
+                    })}
+                  >
+                    {services.map((srv) => (
+                      <option key={srv.id} value={srv.id}>
+                        {srv.title} ({srv.durationLabel})
+                      </option>
+                    ))}
+                  </Select>
                 </div>
 
                 {activeService && (
@@ -545,23 +408,6 @@ export default function PersonasAndBookingPage() {
                   )}
                 </div>
 
-                <div>
-                  <Label htmlFor="booking-needs">Scheduling preferences &amp; needs</Label>
-                  <Textarea
-                    id="booking-needs"
-                    rows={2}
-                    placeholder="e.g., weekday evenings after 6 PM; separate devices ready for the couples breakout"
-                    {...bookingForm.register('specificNeeds', {
-                      onChange: (e) => updateBookingDraft({ specificNeeds: e.target.value }),
-                    })}
-                  />
-                  {bookingForm.formState.errors.specificNeeds && (
-                    <p className="text-xs text-red-700 mt-1">
-                      {bookingForm.formState.errors.specificNeeds.message}
-                    </p>
-                  )}
-                </div>
-
                 <div className="space-y-2">
                   <label className="flex items-start gap-3 text-xs text-pine cursor-pointer">
                     <input
@@ -581,6 +427,20 @@ export default function PersonasAndBookingPage() {
                     </p>
                   )}
                 </div>
+
+                {submitBookingMutation.isError && (
+                  <div
+                    role="alert"
+                    className="rounded-lg border border-red-200 bg-red-50 p-3.5 text-sm text-red-800"
+                  >
+                    <p className="mb-1 font-medium">Booking request failed</p>
+                    <p>
+                      {submitBookingMutation.error instanceof Error
+                        ? submitBookingMutation.error.message
+                        : 'Please try again.'}
+                    </p>
+                  </div>
+                )}
 
                 <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
                   <Button type="button" variant="ghost" onClick={() => goToStep(1)}>
@@ -607,8 +467,7 @@ export default function PersonasAndBookingPage() {
 
       <PersonaWizardModal
         onCreated={(id) => {
-          const created = personas.find((p) => p.id === id);
-          selectPersona(id, created?.preferredLanguage);
+          selectPersona(id);
         }}
       />
     </div>

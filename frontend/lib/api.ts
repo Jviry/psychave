@@ -283,17 +283,12 @@ const INITIAL_BOOKINGS: BookingRequest[] = [
     demoSeed: true,
     concernsSummary:
       'Demo booking — synthetic content for prototype preview. Real submissions arrive via POST /api/v1/bookings/intake.',
-    specificNeeds:
-      'Synthetic demo text — replaced by live client scheduling preferences.',
-    preferredLanguage: 'English / Taglish',
     submittedAt: '2026-09-25 09:45 PST',
     status: 'proposed',
     psychologistId: 'RP-01',
     psychologistCode: 'Resident Psychologist #RP-01',
     psychologistSpecialization: 'Adult Psychotherapy, Anxiety Disorders & Trauma-Informed CBT',
     pricePhp: 3200,
-    clinicalPrepNote:
-      'Demo booking — synthetic preparation note; replaced by the assigned psychologist’s clinical instructions.',
     proposedSlots: [
       {
         id: 'slot-102-a',
@@ -338,16 +333,12 @@ const INITIAL_BOOKINGS: BookingRequest[] = [
     demoSeed: true,
     concernsSummary:
       'Demo booking — synthetic content for prototype preview. Real submissions arrive via POST /api/v1/bookings/intake.',
-    specificNeeds: 'Synthetic demo text — replaced by live client scheduling preferences.',
-    preferredLanguage: 'English',
     submittedAt: '2026-09-20 11:10 PST',
     status: 'paid-confirmed',
     psychologistId: 'RP-01',
     psychologistCode: 'Resident Psychologist #RP-01',
     psychologistSpecialization: 'Adult Psychotherapy, Anxiety Disorders & Trauma-Informed CBT',
     pricePhp: 2200,
-    clinicalPrepNote:
-      'Demo booking — synthetic preparation note; replaced by the assigned psychologist’s clinical instructions.',
     proposedSlots: [
       {
         id: 'slot-103-a',
@@ -627,13 +618,19 @@ function formatSlotDateAndTime(isoString: string, durationMinutes = 60): { dateL
 interface AppointmentRaw {
   appointment_id: string;
   persona_id: string;
+  persona_name: string;
+  persona_relation: string;
   service_id: string;
+  service_name: string;
+  service_duration_minutes: number | null;
+  service_guardrail: string | null;
   psychologist_id: string | null;
   selected_slot_id: string | null;
   price: number | null;
   presenting_concern: string;
   status: string;
   requested_datetime: string | null;
+  proposed_slots: ProposedSlotRaw[];
 }
 
 interface ProposedSlotRaw {
@@ -647,6 +644,9 @@ interface ServiceRaw {
   service_id: string;
   name: string;
   description: string;
+  is_active: boolean;
+  duration_minutes: number;
+  guardrail_notice: string | null;
 }
 
 interface PersonaRaw {
@@ -681,47 +681,6 @@ interface PsychologistProfileRaw {
 }
 
 /**
- * Live-mode service/persona caches. Backend rows carry UUID ids the UI never
- * sees in mock mode; lookups fall back to mock seeds, then placeholders.
- */
-let liveServiceItems: ServiceItem[] = [];
-let livePersonaItems: Persona[] = [];
-
-function resolveService(serviceId: string): ServiceItem {
-  return (
-    liveServiceItems.find((s) => s.id === serviceId) ||
-    mockServices.find((s) => s.id === serviceId) || {
-      id: serviceId,
-      indexNumber: '--',
-      title: 'Service',
-      categoryGroup: '',
-      durationLabel: '—',
-      durationMinutes: 60,
-      guardrailTitle: '',
-      guardrailNotice: '',
-      description: '',
-      clinicalFormat: '',
-    }
-  );
-}
-
-function resolvePersona(personaId: string): Persona {
-  return (
-    livePersonaItems.find((p) => p.id === personaId) ||
-    mockPersonas.find((p) => p.id === personaId) || {
-      id: personaId,
-      clientId: 'client-01',
-      type: 'dependent',
-      label: 'Client persona',
-      ageGroup: '',
-      relationshipToClient: '',
-      preferredLanguage: '',
-      createdAt: '',
-    }
-  );
-}
-
-/**
  * Anonymized display codes (RP-0x) mapped from real UUIDs at this boundary
  * only. RP-01..RP-04 belong to the mock roster, so anonymous live codes start
  * at RP-11. Full names from the backend never reach the UI.
@@ -729,13 +688,22 @@ function resolvePersona(personaId: string): Persona {
 const anonymizedCodeByUuid = new Map<string, string>();
 let nextAnonymizedCode = 11;
 
-function anonymizedPsychCode(uuid: string | null): string {
+export function anonymizedPsychCode(uuid: string | null): string {
   if (!uuid) return '';
   const existing = anonymizedCodeByUuid.get(uuid);
   if (existing) return existing;
   const code = `RP-${String(nextAnonymizedCode++).padStart(2, '0')}`;
   anonymizedCodeByUuid.set(uuid, code);
   return code;
+}
+
+function durationLabel(minutes: number | null | undefined): string {
+  if (!minutes) return '—';
+  if (minutes < 60) return `${minutes} mins`;
+  if (minutes === 60) return '1 hr (60 mins)';
+  if (minutes === 90) return '1.5 hr (90 mins)';
+  if (minutes % 60 === 0) return `${minutes / 60} hrs`;
+  return `${Math.floor(minutes / 60)} hr ${minutes % 60} mins`;
 }
 
 function mapStatusToBookingStatus(raw: string): BookingStatus {
@@ -752,17 +720,11 @@ function mapStatusToBookingStatus(raw: string): BookingStatus {
   }
 }
 
-interface MapAppointmentOptions {
-  /** Display id used when the psychologist side exists (schedule-filter compat). */
-  psychologistIdLabel?: string;
-}
-
-function mapAppointmentRaw(raw: AppointmentRaw, options: MapAppointmentOptions = {}): BookingRequest {
-  const service = resolveService(raw.service_id);
-  const persona = resolvePersona(raw.persona_id);
+function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
   const status = mapStatusToBookingStatus(raw.status);
   const code = anonymizedPsychCode(raw.psychologist_id);
   const contactUnlocked = raw.status === 'confirmed';
+  const durationMinutes = raw.service_duration_minutes ?? 60;
 
   const unlockedContact: UnlockedContact | undefined = contactUnlocked
     ? {
@@ -774,28 +736,37 @@ function mapAppointmentRaw(raw: AppointmentRaw, options: MapAppointmentOptions =
       }
     : undefined;
 
+  const proposedSlots = (raw.proposed_slots ?? []).map((slot, index) => {
+    const time =
+      slot.start_time.length === 5 ? slot.start_time : slot.start_time.slice(0, 5);
+    const iso = `${slot.session_date.slice(0, 10)}T${time}`;
+    const { dateLabel, timeLabel } = formatSlotDateAndTime(iso, durationMinutes);
+    return {
+      id: slot.slot_id,
+      slotNumber: ((index + 1) as 1 | 2 | 3),
+      isoDateTime: iso,
+      dateLabel,
+      timeLabel,
+    };
+  });
+
   return {
     id: raw.appointment_id,
     clientId: 'client-01',
     personaId: raw.persona_id,
-    personaType: persona.type,
-    personaLabel: persona.label,
+    personaType: raw.persona_relation === 'self' ? 'self' : 'dependent',
+    personaLabel: raw.persona_name,
     serviceId: raw.service_id,
-    serviceTitle: service.title,
-    serviceDuration: service.durationLabel,
-    serviceGuardrail: service.guardrailNotice,
+    serviceTitle: raw.service_name,
+    serviceDuration: durationLabel(raw.service_duration_minutes),
+    serviceGuardrail: raw.service_guardrail ?? '',
     concernsSummary: raw.presenting_concern,
-    // Backend has no forms content columns yet (contract §7.3) — intake is lossy.
-    specificNeeds: '',
-    preferredLanguage: '',
     submittedAt: raw.requested_datetime ? raw.requested_datetime.slice(0, 10) : '—',
     status,
-    psychologistId: raw.psychologist_id
-      ? options.psychologistIdLabel || code
-      : undefined,
+    psychologistId: raw.psychologist_id ?? undefined,
     psychologistCode: code ? `Resident Psychologist #${code}` : undefined,
     pricePhp: raw.price ?? undefined,
-    proposedSlots: [],
+    proposedSlots,
     selectedSlotId: raw.selected_slot_id ?? undefined,
     contactUnlocked,
     unlockedContact,
@@ -805,52 +776,17 @@ function mapAppointmentRaw(raw: AppointmentRaw, options: MapAppointmentOptions =
   };
 }
 
-function mapProposedSlotRaw(
-  raw: ProposedSlotRaw,
-  serviceId: string,
-  slotNumber: 1 | 2 | 3
-): ProposedSlot {
-  const time = raw.start_time.length === 5 ? raw.start_time : raw.start_time.slice(0, 5);
-  const iso = `${raw.session_date.slice(0, 10)}T${time}`;
-  const { dateLabel, timeLabel } = formatSlotDateAndTime(
-    iso,
-    resolveService(serviceId).durationMinutes || 60
-  );
-  return { id: raw.slot_id, slotNumber, isoDateTime: iso, dateLabel, timeLabel };
-}
-
-/**
- * AppointmentRead carries no slot rows — the client reads them from
- * GET /appointments/{id}/slots (psychologist tokens are not permitted there).
- * Failures are swallowed on purpose: 404 (still pending, no slots) and 403
- * (psychologist-scoped callers) both simply keep the appointment metadata.
- */
-async function attachClientSlots(booking: BookingRequest): Promise<BookingRequest> {
-  if (!shouldGoLive('/appointments')) return booking;
-  try {
-    const { status, json } = await liveFetch(`/appointments/${booking.id}/slots`);
-    if (status >= 200 && status < 300 && Array.isArray(json)) {
-      booking.proposedSlots = (json as ProposedSlotRaw[]).map((s, i) =>
-        mapProposedSlotRaw(s, booking.serviceId, ((i + 1) as 1 | 2 | 3))
-      );
-    }
-  } catch {
-    // Slot rows are best-effort supplementation; appointment metadata still stands.
-  }
-  return booking;
-}
-
 function mapServiceRaw(raw: ServiceRaw, index: number): ServiceItem {
-  // Backend services table has no duration/guardrail columns yet (contract §7.1).
   return {
     id: raw.service_id,
     indexNumber: String(index + 1).padStart(2, '0'),
     title: raw.name ?? 'Service',
     categoryGroup: '',
-    durationLabel: '—',
-    durationMinutes: 60,
+    durationLabel: durationLabel(raw.duration_minutes),
+    durationMinutes: raw.duration_minutes || 60,
     guardrailTitle: '',
-    guardrailNotice: '',
+    guardrailNotice: raw.guardrail_notice ?? '',
+
     description: raw.description ?? '',
     clinicalFormat: '',
   };
@@ -914,8 +850,7 @@ export const api = {
       () => [...mockServices],
       (raw) => {
         const list = Array.isArray(raw) ? (raw as ServiceRaw[]) : [];
-        liveServiceItems = list.map((s, i) => mapServiceRaw(s, i));
-        return liveServiceItems;
+        return list.map((s, i) => mapServiceRaw(s, i));
       }
     ),
 
@@ -957,16 +892,44 @@ export const api = {
       }
     ),
 
+  /**
+   * Current psychologist's own profile, including the approval gate. The
+   * response is mapped to the dashboard's ResidentPsychologist shape so the
+   * mock roster and the live profile render through the same components.
+   */
+  getMyPsychologistProfile: async (): Promise<ResidentPsychologist> => {
+    if (!shouldGoLive('/psychologist')) {
+      return { ...(mockRoster.find((r) => r.id === 'RP-01') ?? mockRoster[0]) };
+    }
+    const { status, json } = await liveFetch('/psychologist-profile/me');
+    if (status < 200 || status >= 300) {
+      throw buildBackendError('/psychologist-profile/me', status, json);
+    }
+    const raw = json as PsychologistProfileRaw;
+    return {
+      id: raw.psychologist_id,
+      anonymizedTitle: `Resident Psychologist #${anonymizedPsychCode(raw.psychologist_id)}`,
+      prcCredentialCode: raw.license_number ?? '',
+      specialization: raw.specialization ?? '',
+      serviceEligibility: [],
+      languages: [],
+      yearsPractice: '',
+      verificationStatus: raw.approval_status === 'approved' ? 'verified' : 'waiting_approval',
+      visibleOnPublicRoster: raw.approval_status === 'approved',
+      assignedBookingsCount: 0,
+      bio: raw.bio ?? '',
+    };
+  },
+
   updatePsychologistProfile: async (
     psychId: string,
-    updates: Partial<Pick<ResidentPsychologist, 'specialization' | 'prcCredentialCode' | 'bio' | 'languages' | 'yearsPractice'>>
+    updates: Partial<Pick<ResidentPsychologist, 'specialization' | 'prcCredentialCode' | 'bio'>>
   ): Promise<ResidentPsychologist> =>
     requestWithMockFallback(
       '/psychologist-profile/me',
       {
         method: 'PATCH',
-        // Backend PsychologistProfileUpdate: only specialization/bio/license_number
-        // — languages/yearsPractice/prcCredentialCode stay UI-side (contract §7.2).
+        // Backend PsychologistProfileUpdate: only specialization/bio/license_number.
         body: JSON.stringify({
           specialization: updates.specialization,
           bio: updates.bio,
@@ -1013,28 +976,7 @@ export const api = {
       () => [...mockPersonas],
       (raw) => {
         const list = Array.isArray(raw) ? (raw as PersonaRaw[]) : [];
-        livePersonaItems = list.map(mapPersonaRaw);
-        return livePersonaItems;
-      }
-    ),
-
-  createPersona: async (input: Partial<Omit<Persona, 'id' | 'clientId' | 'createdAt'>>): Promise<Persona> =>
-    requestWithMockFallback(
-      '/api/v1/personas-legacy-quick-add',
-      { method: 'POST', body: JSON.stringify(input) },
-      () => {
-        const created: Persona = {
-          type: input.type ?? 'dependent',
-          label: input.label ?? 'Dependent Ward (Unlabeled)',
-          ageGroup: input.ageGroup ?? 'Adult (25–34)',
-          relationshipToClient: input.relationshipToClient ?? 'Self',
-          preferredLanguage: input.preferredLanguage ?? 'English / Taglish',
-          id: `persona-${input.type}-${Date.now().toString().slice(-4)}`,
-          clientId: 'client-01',
-          createdAt: new Date().toISOString().slice(0, 10),
-        };
-        mockPersonas = [...mockPersonas, created];
-        return created;
+        return list.map(mapPersonaRaw);
       }
     ),
 
@@ -1107,12 +1049,8 @@ export const api = {
         mockPersonas = [...mockPersonas, created];
         return created;
       },
-      // Live response is PersonaRead — map + refresh the persona snapshot.
-      (raw) => {
-        const created = mapPersonaRaw(raw as PersonaRaw);
-        livePersonaItems = [...livePersonaItems, created];
-        return created;
-      }
+      // Live response is PersonaRead — map at the boundary.
+      (raw) => mapPersonaRaw(raw as PersonaRaw)
     ),
 
   /**
@@ -1139,7 +1077,6 @@ export const api = {
       );
     }
     if (role === 'psychologist' && shouldGoLive('/psychologist')) {
-      const label = { psychologistIdLabel: psychologistId };
       const [pendingRes, mineRes] = await Promise.all([
         liveFetch('/psychologist/appointments/pending'),
         liveFetch('/psychologist/appointments/mine'),
@@ -1167,7 +1104,7 @@ export const api = {
       for (const raw of [...toPendingRows, ...toMineRows]) {
         if (seen.has(raw.appointment_id)) continue;
         seen.add(raw.appointment_id);
-        merged.push(mapAppointmentRaw(raw, label));
+        merged.push(mapAppointmentRaw(raw));
       }
       return merged;
     }
@@ -1199,12 +1136,7 @@ export const api = {
       if (status < 200 || status >= 300) {
         throw buildBackendError(`/appointments/${bookingId}`, status, json);
       }
-      const mapped = mapAppointmentRaw(json as AppointmentRaw, {
-        psychologistIdLabel: 'RP-01',
-      });
-      // Slot rows live in a separate client-scoped endpoint; supplement them
-      // whenever the booking carries one (proposed pay view / confirmed card).
-      return attachClientSlots(mapped);
+      return mapAppointmentRaw(json as AppointmentRaw);
     }
     return requestWithMockFallback(`/api/v1/bookings/${bookingId}`, undefined, () => {
       const found = mockBookings.find((b) => b.id === bookingId);
@@ -1223,16 +1155,12 @@ export const api = {
   submitBookingRequest: async (input: {
     personaId: string;
     serviceId: string;
-    preferredLanguage: string;
     concernsSummary: string;
-    specificNeeds: string;
   }): Promise<BookingRequest> => {
     if (shouldGoLive('/appointments')) {
       const body = {
         persona_id: assertUuid(input.personaId, 'personaId'),
         service_id: assertUuid(input.serviceId, 'serviceId'),
-        // Backend AppointmentCreate carries a single presenting_concern column;
-        // specificNeeds/preferredLanguage have no forms columns yet (§7.3).
         presenting_concern: input.concernsSummary,
       };
       const { status, json } = await liveFetch('/appointments', {
@@ -1264,8 +1192,6 @@ export const api = {
           serviceDuration: service.durationLabel,
           serviceGuardrail: service.guardrailNotice,
           concernsSummary: input.concernsSummary,
-          specificNeeds: input.specificNeeds,
-          preferredLanguage: input.preferredLanguage,
           submittedAt: new Date().toLocaleString('en-US', {
             year: 'numeric',
             month: '2-digit',
@@ -1298,7 +1224,6 @@ export const api = {
     slot1DateTime: string;
     slot2DateTime: string;
     slot3DateTime: string;
-    clinicalPrepNote: string;
   }): Promise<BookingRequest> => {
     // If backend is active, run the real pickup → durations → 3-slot proposal chain.
     if (shouldGoLive('/psychologist')) {
@@ -1348,7 +1273,7 @@ export const api = {
         );
       }
       const claimedRaw = apptRes.json as AppointmentRaw;
-      const durationMinutes = resolveService(claimedRaw.service_id).durationMinutes || 60;
+      const durationMinutes = claimedRaw.service_duration_minutes || 60;
 
       // Step 2: exactly 3 distinct SlotProposal rows with session_date + times.
       const slotPayload = [input.slot1DateTime, input.slot2DateTime, input.slot3DateTime].map(
@@ -1371,8 +1296,8 @@ export const api = {
         );
       }
 
-      // Step 3: refetch the claimed appointment (now awaiting slot selection)
-      // and return it with the proposed slot rows attached.
+      // Step 3: refetch the claimed appointment (now awaiting slot selection).
+      // AppointmentRead already carries the proposed slot rows.
       const finalRes = await liveFetch(`/appointments/${input.bookingId}`);
       if (finalRes.status < 200 || finalRes.status >= 300) {
         throw buildBackendError(
@@ -1381,16 +1306,7 @@ export const api = {
           finalRes.json
         );
       }
-      const mapped = mapAppointmentRaw(finalRes.json as AppointmentRaw, {
-        psychologistIdLabel: input.psychologistId,
-      });
-      const slotRows = Array.isArray(slotsRes.json)
-        ? (slotsRes.json as ProposedSlotRaw[])
-        : [];
-      mapped.proposedSlots = slotRows.map((s, i) =>
-        mapProposedSlotRaw(s, claimedRaw.service_id, ((i + 1) as 1 | 2 | 3))
-      );
-      return mapped;
+      return mapAppointmentRaw(finalRes.json as AppointmentRaw);
     }
 
     return requestWithMockFallback(
@@ -1429,7 +1345,6 @@ export const api = {
           psychologistCode: psych.anonymizedTitle,
           psychologistSpecialization: psych.specialization,
           pricePhp: input.pricePhp,
-          clinicalPrepNote: input.clinicalPrepNote,
           proposedSlots: [
             {
               id: `slot-${target.id}-1`,
@@ -1518,9 +1433,7 @@ export const api = {
         if (appt.status >= 200 && appt.status < 300) {
           const raw = appt.json as AppointmentRaw;
           if (raw.status === 'confirmed') {
-            const mapped = mapAppointmentRaw(raw);
-            await attachClientSlots(mapped);
-            return mapped;
+            return mapAppointmentRaw(raw);
           }
           if (raw.status === 'cancelled') break;
         }
@@ -1580,71 +1493,32 @@ export const api = {
   /**
    * Flow C Step 5: Real-time status updates for Reschedule / Cancel / Reminder dispatch
    */
-  updateBookingLifecycleStatus: async (input: {
-    bookingId: string;
-    action: 'cancel' | 'request-reschedule' | 'dispatch-reminders';
-  }): Promise<BookingRequest> => {
-    // Live transitions: cancel is the only backend-backed one
-    // (DELETE /appointments/{id}; reschedule/reminder dispatch stay pending §7.5).
-    if (input.action === 'cancel' && shouldGoLive('/appointments')) {
-      const { status, json } = await liveFetch(`/appointments/${input.bookingId}`, {
+  /**
+   * Cancel a booking. Reschedule requests and reminder dispatch have no backend
+   * implementation, so the UI no longer exposes them.
+   */
+  cancelBooking: async (bookingId: string): Promise<BookingRequest> => {
+    if (shouldGoLive('/appointments')) {
+      const { status, json } = await liveFetch(`/appointments/${bookingId}`, {
         method: 'DELETE',
       });
       if (status < 200 || status >= 300) {
-        throw buildBackendError(
-          `/appointments/${input.bookingId}`,
-          status,
-          json
-        );
+        throw buildBackendError(`/appointments/${bookingId}`, status, json);
       }
       return mapAppointmentRaw(json as AppointmentRaw);
     }
     return requestWithMockFallback(
-      `/api/v1/bookings/${input.bookingId}/lifecycle`,
-      { method: 'PATCH', body: JSON.stringify(input) },
+      `/api/v1/bookings/${bookingId}/cancel`,
+      { method: 'PATCH', body: JSON.stringify({ action: 'cancel' }) },
       () => {
-        const target = mockBookings.find((b) => b.id === input.bookingId);
+        const target = mockBookings.find((b) => b.id === bookingId);
         if (!target) throw new Error('Booking not found');
-
-        let updated: BookingRequest = { ...target };
-        if (input.action === 'cancel') {
-          updated.status = 'cancelled';
-        } else if (input.action === 'request-reschedule') {
-          updated.status = 'reschedule-requested';
-        } else if (input.action === 'dispatch-reminders') {
-          updated.reminders = {
-            reminder24h: 'dispatched',
-            reminder1h: 'dispatched',
-          };
-        }
-
-        mockBookings = mockBookings.map((b) => (b.id === input.bookingId ? updated : b));
+        const updated: BookingRequest = { ...target, status: 'cancelled' };
+        mockBookings = mockBookings.map((b) => (b.id === bookingId ? updated : b));
         return updated;
       }
     );
   },
-
-  /**
-   * Update psychologist-only private note (strictly hidden from Admin/Client)
-   */
-  updatePrivatePsychNote: async (input: {
-    bookingId: string;
-    privateClinicalNote: string;
-  }): Promise<BookingRequest> =>
-    requestWithMockFallback(
-      `/api/v1/bookings/${input.bookingId}/private-note`,
-      { method: 'PATCH', body: JSON.stringify(input) },
-      () => {
-        const target = mockBookings.find((b) => b.id === input.bookingId);
-        if (!target) throw new Error('Booking not found');
-        const updated: BookingRequest = {
-          ...target,
-          privateClinicalNote: input.privateClinicalNote,
-        };
-        mockBookings = mockBookings.map((b) => (b.id === input.bookingId ? updated : b));
-        return updated;
-      }
-    ),
 
   /**
    * Admin Payload CMS Content API

@@ -4,9 +4,7 @@ import { CognitoRole } from '../lib/types';
 interface BookingDraft {
   personaId: string;
   serviceId: string;
-  preferredLanguage: string;
   concernsSummary: string;
-  specificNeeds: string;
 }
 
 interface AppState {
@@ -51,12 +49,15 @@ interface AppState {
   clearFlowEvent: () => void;
 }
 
+/**
+ * Empty by design: in real mode persona/service ids must come from the
+ * backend (UUIDs). The booking page binds these to the first live row when
+ * they are unset, so a mock id can never reach `submitBookingRequest`.
+ */
 const DEFAULT_DRAFT: BookingDraft = {
-  personaId: 'persona-self-01',
-  serviceId: 'srv-individual',
-  preferredLanguage: 'English / Taglish',
+  personaId: '',
+  serviceId: '',
   concernsSummary: '',
-  specificNeeds: '',
 };
 
 export const useAppStore = create<AppState>((set) => ({

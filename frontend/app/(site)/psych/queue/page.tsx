@@ -10,6 +10,7 @@ import {
   ProposalFormValues,
 } from '../../../../lib/schemas';
 import { useAppStore } from '../../../../stores/useAppStore';
+import { useActivePsychologist } from '../../../../hooks/useActivePsychologist';
 import { useRouter } from 'next/navigation';
 import { Lock, Check, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { PractitionerSwitcher } from '../../../../components/dashboard/PractitionerSwitcher';
@@ -23,28 +24,20 @@ import {
   Label,
   Modal,
   Skeleton,
-  Textarea,
 } from '../../../../components/ui/primitives';
 
 export default function PsychologistQueuePage() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const {
-    activePsychologistId,
     setCognitoRole,
     publishFlowEvent,
   } = useAppStore();
+  const { activePsych, activePsychologistId, showSwitcher } = useActivePsychologist();
 
   const [activeModalBookingId, setActiveModalBookingId] = useState<string | null>(null);
   const [recentProposedId, setRecentProposedId] = useState<string | null>(null);
 
-  const { data: roster = [] } = useQuery({
-    queryKey: ['roster', 'admin'],
-    queryFn: () => api.getRoster(true),
-  });
-
-  const activePsych =
-    roster.find((r) => r.id === activePsychologistId) || roster[0];
   const isVerified = activePsych?.verificationStatus === 'verified';
 
   const { data: bookings = [], isLoading, refetch } = useQuery({
@@ -110,8 +103,6 @@ export default function PsychologistQueuePage() {
       slot1DateTime: defaultSlots.slot1,
       slot2DateTime: defaultSlots.slot2,
       slot3DateTime: defaultSlots.slot3,
-      clinicalPrepNote:
-        'Please join from a quiet, private space 5 minutes before our scheduled start. Informed consent and scope guardrails will be reviewed at the start.',
     },
   });
 
@@ -125,7 +116,6 @@ export default function PsychologistQueuePage() {
         slot1DateTime: serializeManilaIso(values.slot1DateTime),
         slot2DateTime: serializeManilaIso(values.slot2DateTime),
         slot3DateTime: serializeManilaIso(values.slot3DateTime),
-        clinicalPrepNote: values.clinicalPrepNote,
       });
     },
     onSuccess: (updated) => {
@@ -149,8 +139,6 @@ export default function PsychologistQueuePage() {
       slot1DateTime: defaultSlots.slot1,
       slot2DateTime: defaultSlots.slot2,
       slot3DateTime: defaultSlots.slot3,
-      clinicalPrepNote:
-        'Please join from a quiet, private space 5 minutes before our scheduled start. Informed consent and scope guardrails will be reviewed at the start.',
     });
   };
 
@@ -178,12 +166,12 @@ export default function PsychologistQueuePage() {
           </p>
         </div>
 
-        {/* Practitioner State Switcher for Prototype Evaluation */}
-        <PractitionerSwitcher />
+        {/* Practitioner State Switcher (mock mode only) */}
+        {showSwitcher && <PractitionerSwitcher />}
       </header>
 
       {/* Non-Approved Psychologist Blocked Banner (Defense-in-depth) */}
-      {!isVerified && (
+      {!isVerified && activePsych && (
         <UnverifiedBanner
           title="Pending Administrative Approval — Pick-Up Actions Disabled"
           note={`${activePsych?.prcCredentialCode} · STATUS: WAITING_APPROVAL`}
@@ -338,9 +326,6 @@ export default function PsychologistQueuePage() {
                       Client &amp; Persona Information
                     </span>
                     <p className="font-heading text-lg font-medium text-pine">{item.personaLabel}</p>
-                    <p className="text-pine/75">
-                      Language: <span className="font-medium text-pine">{item.preferredLanguage}</span>
-                    </p>
                     <p className="text-xs text-pine/60">
                       Submitted: {item.submittedAt}
                     </p>
@@ -362,16 +347,11 @@ export default function PsychologistQueuePage() {
                   {/* Booking Notes */}
                   <div className="space-y-1">
                     <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                      Presenting Concerns &amp; Needs
+                      Presenting Concerns
                     </span>
                     <p className="text-pine/90 line-clamp-3 leading-relaxed">
                       {item.concernsSummary}
                     </p>
-                    {item.specificNeeds && (
-                      <p className="text-xs text-pine/70 italic pt-0.5">
-                        Specifics: {item.specificNeeds}
-                      </p>
-                    )}
                   </div>
                 </div>
               </Card>
@@ -518,24 +498,6 @@ export default function PsychologistQueuePage() {
                     )}
                   </div>
                 </div>
-              </div>
-
-              {/* Prep note */}
-              <div>
-                <Label htmlFor="modal-prep-note">
-                  Clinical Preparation Note for Client <span className="text-red-600">*</span>
-                </Label>
-                <Textarea
-                  id="modal-prep-note"
-                  rows={3}
-                  placeholder="Instructions for the client prior to joining session..."
-                  {...proposalForm.register('clinicalPrepNote')}
-                />
-                {proposalForm.formState.errors.clinicalPrepNote && (
-                  <p className="text-xs text-red-700 mt-1 font-medium">
-                    {proposalForm.formState.errors.clinicalPrepNote.message}
-                  </p>
-                )}
               </div>
 
               {/* Modal Actions */}

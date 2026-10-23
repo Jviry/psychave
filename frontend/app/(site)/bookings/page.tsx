@@ -26,29 +26,14 @@ export default function ClientBookingsPage() {
     queryFn: () => api.getBookingsForRole('client'),
   });
 
-  const lifecycleMutation = useMutation({
-    mutationFn: (payload: {
-      bookingId: string;
-      action: 'cancel' | 'request-reschedule' | 'dispatch-reminders';
-    }) => api.updateBookingLifecycleStatus(payload),
-    onSuccess: (updated, vars) => {
+  const cancelMutation = useMutation({
+    mutationFn: (bookingId: string) => api.cancelBooking(bookingId),
+    onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
-      if (vars.action === 'dispatch-reminders') {
-        publishFlowEvent(
-          '24h & 1h Reminders Dispatched',
-          `Automated reminders sent for confirmed booking ${updated.id}.`
-        );
-      } else if (vars.action === 'request-reschedule') {
-        publishFlowEvent(
-          'Real-Time Reschedule Requested',
-          `Booking ${updated.id} status updated in real time across Client & Psychologist schedules.`
-        );
-      } else {
-        publishFlowEvent(
-          'Booking Cancelled',
-          `Booking ${updated.id} has been marked as cancelled.`
-        );
-      }
+      publishFlowEvent(
+        'Booking Cancelled',
+        `Booking ${updated.id} has been marked as cancelled.`
+      );
     },
   });
 
@@ -237,11 +222,6 @@ export default function ClientBookingsPage() {
                     <p className="text-sm text-pine/85 leading-relaxed">
                       {booking.concernsSummary}
                     </p>
-
-                    <p className="text-xs text-pine/65">
-                      Preferences &amp; Needs: {booking.specificNeeds} · Language:{' '}
-                      {booking.preferredLanguage}
-                    </p>
                   </div>
 
                   {/* Right Status Panel: Empty Waiting State / Proposal Ready / Confirmed Contact Unlocked */}
@@ -332,52 +312,16 @@ export default function ClientBookingsPage() {
                           </div>
                         )}
 
-                        {/* 24h / 1h Reminders & Real-Time Cancel/Reschedule */}
-                        <div className="pt-2 border-t border-mist flex flex-wrap items-center justify-between gap-2 text-xs">
-                          <span className="text-pine/80">
-                            Reminders: 24h ({booking.reminders.reminder24h}) · 1h (
-                            {booking.reminders.reminder1h})
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                lifecycleMutation.mutate({
-                                  bookingId: booking.id,
-                                  action: 'dispatch-reminders',
-                                })
-                              }
-                              className="underline text-accent-ink hover:text-pine font-semibold cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
-                            >
-                              Trigger 24h/1h Alert
-                            </button>
-                            <span>·</span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                lifecycleMutation.mutate({
-                                  bookingId: booking.id,
-                                  action: 'request-reschedule',
-                                })
-                              }
-                              className="underline text-pine/80 hover:text-pine cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
-                            >
-                              Reschedule
-                            </button>
-                            <span>·</span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                lifecycleMutation.mutate({
-                                  bookingId: booking.id,
-                                  action: 'cancel',
-                                })
-                              }
-                              className="underline text-red-700 hover:text-red-900 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
-                            >
-                              Cancel
-                            </button>
-                          </div>
+                        {/* Cancellation is the only backend-backed lifecycle action. */}
+                        <div className="pt-2 border-t border-mist flex items-center justify-end text-xs">
+                          <button
+                            type="button"
+                            onClick={() => cancelMutation.mutate(booking.id)}
+                            disabled={cancelMutation.isPending}
+                            className="underline text-red-700 hover:text-red-900 cursor-pointer disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
+                          >
+                            {cancelMutation.isPending ? 'Cancelling…' : 'Cancel'}
+                          </button>
                         </div>
                       </div>
                     )}

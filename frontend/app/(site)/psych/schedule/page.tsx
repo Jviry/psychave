@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../../lib/api';
-import { useAppStore } from '../../../../stores/useAppStore';
+import { useActivePsychologist } from '../../../../hooks/useActivePsychologist';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, Video, ShieldCheck, CalendarDays } from 'lucide-react';
+import { ChevronDown, Video, CalendarDays } from 'lucide-react';
 import { PractitionerSwitcher } from '../../../../components/dashboard/PractitionerSwitcher';
 import { UnverifiedBanner } from '../../../../components/dashboard/UnverifiedBanner';
 import { DemoDataTag } from '../../../../components/DemoDataTag';
@@ -15,31 +15,17 @@ import {
   Card,
   EmptyState,
   Skeleton,
-  Textarea,
 } from '../../../../components/ui/primitives';
 
 type ScheduleTab = 'upcoming' | 'past' | 'proposed' | 'all';
 
 export default function PsychologistSchedulePage() {
-  const queryClient = useQueryClient();
   const router = useRouter();
-  const {
-    activePsychologistId,
-    publishFlowEvent,
-  } = useAppStore();
+  const { activePsych, activePsychologistId, showSwitcher } = useActivePsychologist();
 
   const [activeTab, setActiveTab] = useState<ScheduleTab>('upcoming');
   const [expandedBookingIds, setExpandedBookingIds] = useState<Record<string, boolean>>({});
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [noteDraft, setNoteDraft] = useState<string>('');
 
-  const { data: roster = [] } = useQuery({
-    queryKey: ['roster', 'admin'],
-    queryFn: () => api.getRoster(true),
-  });
-
-  const activePsych =
-    roster.find((r) => r.id === activePsychologistId) || roster[0];
   const isVerified = activePsych?.verificationStatus === 'verified';
 
   const { data: bookings = [], isLoading } = useQuery({
@@ -47,10 +33,7 @@ export default function PsychologistSchedulePage() {
     queryFn: () => api.getBookingsForRole('psychologist', activePsychologistId),
   });
 
-  // Strictly filter to sessions booked/picked-up under the active psychologist
-  const myAssignedSessions = useMemo(() => {
-    return bookings.filter((b) => b.psychologistId === activePsychologistId);
-  }, [bookings, activePsychologistId]);
+  const myAssignedSessions = bookings;
 
   const [currentTime, setCurrentTime] = useState(() => Date.now());
 
@@ -106,33 +89,6 @@ export default function PsychologistSchedulePage() {
     }));
   };
 
-  const noteMutation = useMutation({
-    mutationFn: (payload: { bookingId: string; privateClinicalNote: string }) =>
-      api.updatePrivatePsychNote(payload),
-    onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ['bookings'] });
-      setEditingNoteId(null);
-      publishFlowEvent(
-        'Private Clinical Note Updated',
-        `Saved confidential note on ${updated.id} (Visible to ${activePsychologistId} only; redacted from Admin & Client).`
-      );
-    },
-  });
-
-  const lifecycleMutation = useMutation({
-    mutationFn: (payload: {
-      bookingId: string;
-      action: 'cancel' | 'request-reschedule' | 'dispatch-reminders';
-    }) => api.updateBookingLifecycleStatus(payload),
-    onSuccess: (updated, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['bookings'] });
-      publishFlowEvent(
-        'Psychologist Schedule Updated',
-        `Booking ${updated.id} lifecycle action (${vars.action}) synced in real time.`
-      );
-    },
-  });
-
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -147,17 +103,16 @@ export default function PsychologistSchedulePage() {
             My Practice Schedule
           </h1>
           <p className="text-sm text-pine/80 max-w-2xl">
-            Track confirmed appointments separated into upcoming and past sessions, review client booking details,
-            and manage confidential clinical notes.
+            Track confirmed appointments separated into upcoming and past sessions, and review client booking details.
           </p>
         </div>
 
-        {/* Practitioner State Switcher */}
-        <PractitionerSwitcher />
+        {/* Practitioner State Switcher (mock mode only) */}
+        {showSwitcher && <PractitionerSwitcher />}
       </header>
 
       {/* Non-Approved Psychologist Banner */}
-      {!isVerified && (
+      {!isVerified && activePsych && (
         <UnverifiedBanner
           title="Pending Approval Notice"
           note={`${activePsych?.prcCredentialCode} · WAITING_APPROVAL`}
@@ -207,7 +162,7 @@ export default function PsychologistSchedulePage() {
         </div>
 
         <div className="text-xs text-pine/70 font-mono">
-          Psychologist Roster ID: <span className="font-semibold text-accent-ink">{activePsychologistId}</span>
+          Psychologist: <span className="font-semibold text-accent-ink">{activePsych?.anonymizedTitle ?? activePsychologistId}</span>
         </div>
       </div>
 
@@ -380,10 +335,6 @@ export default function PsychologistSchedulePage() {
                             <span className="font-semibold text-pine uppercase">{session.personaType}</span>
                           </div>
                           <div className="flex justify-between border-b border-mist/50 pb-1.5">
-                            <span className="text-pine/70">Session Language:</span>
-                            <span className="font-semibold text-pine">{session.preferredLanguage}</span>
-                          </div>
-                          <div className="flex justify-between border-b border-mist/50 pb-1.5">
                             <span className="text-pine/70">Payment Status:</span>
                             <span className="font-semibold text-pine">
                               {isConfirmed ? `Paid (₱${session.pricePhp?.toLocaleString()})` : 'Pending Client Payment'}
@@ -405,17 +356,6 @@ export default function PsychologistSchedulePage() {
                             {session.concernsSummary}
                           </p>
                         </div>
-
-                        {session.specificNeeds && (
-                          <div className="space-y-1">
-                            <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                              Specific Needs / Scheduling Preferences
-                            </span>
-                            <p className="text-pine/80 italic pt-0.5">
-                              {session.specificNeeds}
-                            </p>
-                          </div>
-                        )}
                       </div>
 
                       {/* Right Column: Unlocked Teletherapy & Lifecycle Actions */}
@@ -458,39 +398,6 @@ export default function PsychologistSchedulePage() {
                               </p>
                             </div>
 
-                            <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-mist/60 text-xs">
-                              <span className="text-pine/75">
-                                Reminders: 24h (<strong>{session.reminders.reminder24h}</strong>) · 1h (
-                                <strong>{session.reminders.reminder1h}</strong>)
-                              </span>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    lifecycleMutation.mutate({
-                                      bookingId: session.id,
-                                      action: 'dispatch-reminders',
-                                    })
-                                  }
-                                  className="underline text-accent-ink font-semibold cursor-pointer"
-                                >
-                                  Dispatch Reminders
-                                </button>
-                                <span>·</span>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    lifecycleMutation.mutate({
-                                      bookingId: session.id,
-                                      action: 'request-reschedule',
-                                    })
-                                  }
-                                  className="underline text-pine cursor-pointer"
-                                >
-                                  Request Reschedule
-                                </button>
-                              </div>
-                            </div>
                           </div>
                         ) : (
                           <div className="p-4 rounded-xl bg-surface-sunken border border-dashed border-mist space-y-2">
@@ -504,69 +411,6 @@ export default function PsychologistSchedulePage() {
                           </div>
                         )}
                       </div>
-                    </div>
-
-                    {/* Private Clinical Session Notes (Confidential: Hidden from Admin & Client) */}
-                    <div className="border-t border-mist/80 pt-5 space-y-3 text-xs">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 font-medium text-pine">
-                          <ShieldCheck className="w-4 h-4 text-accent-ink shrink-0" aria-hidden="true" />
-                          <span className="font-heading text-base font-medium">Private Clinical Notes (Psychologist Only)</span>
-                        </div>
-                        <span className="px-2 py-0.5 rounded-sm bg-surface-sunken text-accent-ink font-semibold text-xs">
-                          Confidential · Hidden from Admin &amp; Client
-                        </span>
-                      </div>
-
-                      {editingNoteId === session.id ? (
-                        <div className="space-y-2">
-                          <Textarea
-                            rows={4}
-                            value={noteDraft}
-                            onChange={(e) => setNoteDraft(e.target.value)}
-                            placeholder="Enter confidential clinical observations, therapeutic formulations, or prep notes..."
-                          />
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="primary"
-                              size="sm"
-                              disabled={noteMutation.isPending}
-                              onClick={() =>
-                                noteMutation.mutate({
-                                  bookingId: session.id,
-                                  privateClinicalNote: noteDraft,
-                                })
-                              }
-                            >
-                              {noteMutation.isPending ? 'Saving...' : 'Save Private Note'}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setEditingNoteId(null)}
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <p className="text-pine/90 leading-relaxed font-mono text-xs">
-                            {session.privateClinicalNote ||
-                              'No confidential clinical notes recorded for this case yet.'}
-                          </p>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setEditingNoteId(session.id);
-                              setNoteDraft(session.privateClinicalNote || '');
-                            }}
-                          >
-                            Edit Confidential Note
-                          </Button>
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}

@@ -63,9 +63,7 @@ describe('mock-mode redaction guard (contract §4 — never undo)', () => {
     await api.submitBookingRequest({
       personaId: 'persona-self-01',
       serviceId: 'srv-individual',
-      preferredLanguage: 'English',
       concernsSummary: 'A realistic concern for the demo booking flow.',
-      specificNeeds: 'Weekly evenings.',
     });
     const clientList = await api.getBookingsForRole('client');
     expect(clientList.every((b) => b.privateClinicalNote === undefined)).toBe(true);
@@ -82,23 +80,29 @@ describe('mock-mode redaction guard (contract §4 — never undo)', () => {
 });
 
 describe('live adapters (AppointmentRead → BookingRequest)', () => {
+  const SLOT_ROWS = [
+    { slot_id: 'cc3dd4ee-5f60-7182-93a4-b5c6d7e8f9a0', session_date: '2026-12-05', start_time: '10:00:00', end_time: '11:30:00' },
+    { slot_id: 'dd4ee5ff-6071-8293-a4b5-c6d7e8f9a0b1', session_date: '2026-12-06', start_time: '14:00:00', end_time: '15:30:00' },
+    { slot_id: 'ee5ff600-7182-93a4-b5c6-d7e8f9a0b1c2', session_date: '2026-12-08', start_time: '18:00:00', end_time: '19:30:00' },
+  ];
+
   const APPOINTMENT_CONFIRMED = {
     appointment_id: '3f2504e0-4f89-11d3-9a0c-0305e82c3301',
     persona_id: '7a3c11a2-1b2c-4d3e-8f90-112233445566',
+    persona_name: 'Primary Account Holder',
+    persona_relation: 'self',
     service_id: '9a2b1c3d-4e5f-6071-8293-a4b5c6d7e8f9',
+    service_name: 'Individual Counseling & Psychotherapy',
+    service_duration_minutes: 60,
+    service_guardrail: null,
     psychologist_id: 'aa1bb2cc-3d4e-5f60-7182-93a4b5c6d7e8',
     selected_slot_id: 'bb2cc3dd-4e5f-6071-8293-a4b5c6d7e8f9',
     price: 2400,
     presenting_concern: 'Anxiety and burnout for two months.',
     status: 'confirmed',
     requested_datetime: '2026-12-01T10:00:00+08:00',
+    proposed_slots: SLOT_ROWS,
   };
-
-  const SLOT_ROWS = [
-    { slot_id: 'cc3dd4ee-5f60-7182-93a4-b5c6d7e8f9a0', session_date: '2026-12-05', start_time: '10:00:00', end_time: '11:30:00' },
-    { slot_id: 'dd4ee5ff-6071-8293-a4b5-c6d7e8f9a0b1', session_date: '2026-12-06', start_time: '14:00:00', end_time: '15:30:00' },
-    { slot_id: 'ee5ff600-7182-93a4-b5c6-d7e8f9a0b1c2', session_date: '2026-12-08', start_time: '18:00:00', end_time: '19:30:00' },
-  ];
 
   it('getBookingById maps confirmed status + slot rows; no backend fields leak', async () => {
     process.env.NEXT_PUBLIC_AUTH_MODE = 'live';
@@ -193,12 +197,10 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
       slot1DateTime: '2026-12-01T10:00',
       slot2DateTime: '2026-12-02T15:00',
       slot3DateTime: '2026-12-03T18:30',
-      clinicalPrepNote: 'Bring journal notes.',
     });
 
     expect(booking.status).toBe('proposed');
     expect(booking.proposedSlots).toHaveLength(3);
-    expect(booking.pendingPrivateNoteGuards).toBeUndefined?.();
   });
 
   it('mixed live mode rejects mock ids where the backend parses UUIDs', async () => {
@@ -210,9 +212,7 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
       api.submitBookingRequest({
         personaId: 'persona-self-01',
         serviceId: 'srv-individual',
-        preferredLanguage: 'English',
         concernsSummary: 'This should fail on uuid validation.',
-        specificNeeds: 'n/a',
       })
     ).rejects.toThrow(/not a backend UUID/);
     expect(mockFetch).not.toHaveBeenCalled();

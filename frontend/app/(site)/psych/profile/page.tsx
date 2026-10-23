@@ -3,13 +3,14 @@
 import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../../lib/api';
 import {
   psychologistProfileSchema,
   PsychologistProfileValues,
 } from '../../../../lib/schemas';
 import { useAppStore } from '../../../../stores/useAppStore';
+import { useActivePsychologist } from '../../../../hooks/useActivePsychologist';
 import { useRouter } from 'next/navigation';
 import { Check } from 'lucide-react';
 import { PractitionerSwitcher } from '../../../../components/dashboard/PractitionerSwitcher';
@@ -26,18 +27,12 @@ import {
 export default function PsychologistProfilePage() {
   const queryClient = useQueryClient();
   const router = useRouter();
+  const { publishFlowEvent } = useAppStore();
   const {
-    activePsychologistId,
-    publishFlowEvent,
-  } = useAppStore();
-
-  const { data: roster = [], isLoading } = useQuery({
-    queryKey: ['roster', 'admin'],
-    queryFn: () => api.getRoster(true),
-  });
-
-  const activePsych =
-    roster.find((r) => r.id === activePsychologistId) || roster[0];
+    activePsych,
+    isLoading,
+    showSwitcher,
+  } = useActivePsychologist();
   const isVerified = activePsych?.verificationStatus === 'verified';
 
   const profileForm = useForm<PsychologistProfileValues>({
@@ -46,8 +41,6 @@ export default function PsychologistProfilePage() {
       specialization: '',
       prcCredentialCode: '',
       bio: '',
-      yearsPractice: '',
-      languages: '',
     },
   });
 
@@ -58,8 +51,6 @@ export default function PsychologistProfilePage() {
         specialization: activePsych.specialization || '',
         prcCredentialCode: activePsych.prcCredentialCode || '',
         bio: activePsych.bio || '',
-        yearsPractice: activePsych.yearsPractice || '',
-        languages: activePsych.languages?.join(', ') || '',
       });
     }
   }, [activePsych, profileForm]);
@@ -71,15 +62,11 @@ export default function PsychologistProfilePage() {
         specialization: values.specialization,
         prcCredentialCode: values.prcCredentialCode,
         bio: values.bio,
-        yearsPractice: values.yearsPractice,
-        languages: values.languages
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
       });
     },
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['roster'] });
+      queryClient.invalidateQueries({ queryKey: ['psych-profile'] });
       publishFlowEvent(
         'Profile Updated Successfully',
         `${updated.anonymizedTitle} profile details (specialization, license, and bio) saved.`
@@ -106,8 +93,8 @@ export default function PsychologistProfilePage() {
           </p>
         </div>
 
-        {/* Practitioner State Switcher */}
-        <PractitionerSwitcher />
+        {/* Practitioner State Switcher (mock mode only) */}
+        {showSwitcher && <PractitionerSwitcher />}
       </header>
 
       {/* Approval Status Banner */}
@@ -153,7 +140,7 @@ export default function PsychologistProfilePage() {
               Edit Profile Information
             </h2>
             <p className="text-xs text-pine/70 mt-0.5">
-              Update your professional biography, practice tenure, and clinical specializations.
+              Update your professional biography and clinical specializations.
             </p>
           </div>
 
@@ -209,38 +196,6 @@ export default function PsychologistProfilePage() {
                     {profileForm.formState.errors.bio.message}
                   </p>
                 )}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Years of Practice */}
-                <div>
-                  <Label htmlFor="prof-years">Years of Clinical Practice</Label>
-                  <Input
-                    id="prof-years"
-                    placeholder="e.g. 8+ Years Clinical Practice"
-                    {...profileForm.register('yearsPractice')}
-                  />
-                  {profileForm.formState.errors.yearsPractice && (
-                    <p className="text-xs text-red-700 mt-1">
-                      {profileForm.formState.errors.yearsPractice.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* Languages */}
-                <div>
-                  <Label htmlFor="prof-languages">Session Languages</Label>
-                  <Input
-                    id="prof-languages"
-                    placeholder="e.g. English, Filipino / Taglish, Cebuano"
-                    {...profileForm.register('languages')}
-                  />
-                  {profileForm.formState.errors.languages && (
-                    <p className="text-xs text-red-700 mt-1">
-                      {profileForm.formState.errors.languages.message}
-                    </p>
-                  )}
-                </div>
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-3 border-t border-mist">
