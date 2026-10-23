@@ -62,6 +62,9 @@ export function SiteHeader() {
   // Mock-mode-only widgets (role switcher, payment simulator, dev panel)
   // must never appear when the app is pointed at the real backend.
   const isMock = AUTH_MODE === 'mock';
+  // Live mode must follow the authenticated Cognito role; the mock store's
+  // `cognitoRole` defaults to 'client' and would hide the psychologist nav.
+  const effectiveRole: CognitoRole = isMock ? cognitoRole : (user?.role ?? 'client');
 
   const handleRoleSwitch = (nextRole: CognitoRole) => {
     setCognitoRole(nextRole);
@@ -331,7 +334,7 @@ export function SiteHeader() {
                 {isMock ? `Cognito Group (${cognitoRole}) Workspace:` : 'Workspace:'}
               </span>
               <div className="flex items-center gap-4">
-                {roleNavItems[cognitoRole].map((item) => {
+                {roleNavItems[effectiveRole].map((item) => {
                   const active =
                     pathname === item.href ||
                     (item.href.startsWith('/proposal/') && pathname.startsWith('/proposal/'));
@@ -356,15 +359,15 @@ export function SiteHeader() {
           {/* Tiered Access Guardrail Summary */}
           <div className="hidden lg:flex items-center gap-1.5 text-pine/70">
             <Lock className="w-3.5 h-3.5 text-sage" aria-hidden="true" />
-            {cognitoRole === 'client' && (
+            {effectiveRole === 'client' && (
               <span>Tiered Access: Viewing own Client #C-01 history & personas only</span>
             )}
-            {cognitoRole === 'psychologist' && (
+            {effectiveRole === 'psychologist' && (
               <span>
                 Tiered Access: Pending Queue + Sessions booked under #{activePsychologistId} only
               </span>
             )}
-            {cognitoRole === 'admin' && (
+            {effectiveRole === 'admin' && (
               <span>
                 Tiered Access: Verifications & CMS only · Private clinical session notes redacted
               </span>

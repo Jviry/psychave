@@ -28,7 +28,7 @@ export default function PsychologistSchedulePage() {
 
   const isVerified = activePsych?.verificationStatus === 'verified';
 
-  const { data: bookings = [], isLoading } = useQuery({
+  const { data: bookings = [], isLoading, error: bookingsError } = useQuery({
     queryKey: ['bookings', 'psychologist', activePsychologistId],
     queryFn: () => api.getBookingsForRole('psychologist', activePsychologistId),
   });
@@ -118,6 +118,13 @@ export default function PsychologistSchedulePage() {
           note={`${activePsych?.prcCredentialCode} · WAITING_APPROVAL`}
           body="You are currently operating in unverified status. You cannot accept new bookings or claim requests until your clinical credentials are fully approved by clinic administration."
         />
+      )}
+
+      {bookingsError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-xs text-red-900">
+          <p className="font-semibold">Could not load your schedule.</p>
+          <p className="mt-1 break-words">{(bookingsError as Error).message}</p>
+        </div>
       )}
 
       {/* Tabs Navigation for Schedule Separation */}

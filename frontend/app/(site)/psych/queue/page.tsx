@@ -40,7 +40,7 @@ export default function PsychologistQueuePage() {
 
   const isVerified = activePsych?.verificationStatus === 'verified';
 
-  const { data: bookings = [], isLoading, refetch } = useQuery({
+  const { data: bookings = [], isLoading, refetch, error: bookingsError } = useQuery({
     queryKey: ['bookings', 'psychologist', activePsychologistId],
     queryFn: () => api.getBookingsForRole('psychologist', activePsychologistId),
   });
@@ -183,6 +183,13 @@ export default function PsychologistQueuePage() {
             </>
           }
         />
+      )}
+
+      {bookingsError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-xs text-red-900">
+          <p className="font-semibold">Could not load pending bookings.</p>
+          <p className="mt-1 break-words">{(bookingsError as Error).message}</p>
+        </div>
       )}
 
       {/* Success Notification if proposal was just submitted */}
