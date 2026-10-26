@@ -27,8 +27,8 @@ Develop a secure, user-centric web-based platform that streamlines mental health
 
 ### System Administrator (Admin)
 
-- Verify psychologists' credentials (unhide roster + enable pick-up).
-- Manage user roles, psychologist approvals, and CMS content.
+- Promote clients to psychologists with their credential/profile details (enables pick-up and roster visibility).
+- Manage user roles, role promotions, and CMS content.
 - Ensure the platform runs smoothly and securely.
 - No access to private consultation details or session notes.
 - Authentication: AWS Cognito with Cognito Groups (client / psychologist / admin), verified on every request.

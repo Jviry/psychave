@@ -1,12 +1,12 @@
 # Frontend ↔ Backend Contract — Mock-First (Initial UI Only)
 
-> Status: mock-first. `frontend/` runs on built-in mocks (`NEXT_PUBLIC_AUTH_MODE=mock`). **No backend code was added or changed.** Missing backend endpoints are listed as future work only.
+> Status: mixed. Auth, personas, appointments, and services have live backend routes; roster/CMS remain mock-only. Rows marked **Implemented** are callable today; the rest are future work.
 
 ## 1. Runtime Contract (Current)
 
 - `frontend/.env.local`: `NEXT_PUBLIC_API_URL=http://localhost:8000`, `NEXT_PUBLIC_AUTH_MODE=mock`.
 - `frontend/lib/api.ts` tries `NEXT_PUBLIC_API_URL` first with short timeout, then falls back to in-memory mocks. With no backend endpoints, every screen works offline.
-- Auth is a header role switcher (`client / psychologist / admin`); no real Cognito verification in the UI prototype.
+- Auth uses real Cognito login (`/auth/login`) in real mode; mock mode derives the demo role from the username (`admin*` / `psych*`).
 - Routing is native Next.js App Router (`next/link` + `next/navigation` `useRouter`/`usePathname`/`useParams`). The earlier custom `lib/navigation.tsx` prototype router was removed; public nav (`/`, `/services`, `/about`, `/book`) and role workspaces navigate via real routes.
 
 ## 2. Endpoint Map (Frontend Expects → Backend Has)
@@ -17,9 +17,10 @@
 | `GET /api/v1/roster` | Missing. Backend has `psychologist_profiles` table only, no controller. |
 | `GET/POST /api/v1/personas` | Missing. Backend has `persona` table only. |
 | `POST /api/v1/bookings/intake`, `POST /:id/propose`, `POST /:id/pay`, `PATCH /:id/lifecycle`, `GET /api/v1/bookings?role=` | Missing. Backend has `appointments / proposed_slots / payments / forms` tables only. |
-| `GET/PATCH /api/v1/cms`, `PATCH /api/v1/admin/verifications/:id` | Missing. No CMS table; verification is `psychologist_profiles.approval_status`. |
+| `GET/PATCH /api/v1/cms` | Missing. No CMS table. |
+| `GET /admin/users`, `POST /admin/users/:id/promote` | Implemented (admin-only). Promotes a client to psychologist with profile details and swaps the Cognito group. Approval status was removed. |
 
-Do not implement these in this task (initial UI only).
+Do not implement the remaining future-wired rows in this task (initial UI only).
 
 ## 3. Field Map (Frontend Mock → Backend Column, for Future Wiring)
 
@@ -28,13 +29,13 @@ Do not implement these in this task (initial UI only).
 - Payments: frontend pay-success (`paidAt`, `contactUnlocked`, reminders `scheduled`) → backend `payments(amount, payment_method?, status, paid_at)`; `amount` ↔ `pricePhp`; method enum (`card_visa_4242 / gcash_paymongo_mock / maya_stripe_mock`) is mock-only.
 - Personas: frontend `Persona.id / clientId / type self|dependent / label / ageGroup / relationshipToClient / preferredLanguage` → backend `persona.persona_id / client_id / full_name` only; extra UI fields have no backend column yet.
 - Booking: frontend `concernsSummary / specificNeeds / preferredLanguage / serviceId` → backend `forms(persona_id)` only (content columns missing).
-- Roster: frontend `ResidentPsychologist.id RP-01.. / anonymizedTitle / prcCredentialCode / verificationStatus verified|waiting_approval / visibleOnPublicRoster` → backend `psychologist_id (FK users) / full_name / liscence_number [typo] / specialization / approval_status / approved_by / approved_at`; no `visibleOnPublicRoster` column; IDs are UUIDs, not `RP-01`.
-- Users/auth: frontend mock role switch → backend `users(user_id, cognito_sub unique, email, role)`; official Cognito Groups verification is future backend work.
+- Roster: frontend `ResidentPsychologist.id RP-01.. / anonymizedTitle / prcCredentialCode / verificationStatus verified|waiting_approval / visibleOnPublicRoster` → backend `psychologist_id (FK users) / full_name / license_number / specialization / bio / social_media_links`; approval metadata was removed. The mock roster still models `verificationStatus` for demo purposes; there is no backend `visibleOnPublicRoster` column and IDs are UUIDs, not `RP-01`.
+- Users/auth: backend `users(user_id, cognito_sub unique, email, role)`; Cognito Groups (`client` / `psychologist` / `admin`) are the access source of truth. Signup is client-only; admins promote clients via `/admin/users/:id/promote`.
 - CMS/testimonials: frontend-only mock (`vision / mission / clinicOverview / impactMetrics / testimonialsConfig` with consent flags); no backend table.
 
 ## 4. Frontend-Fits-Backend Rules Already Applied in UI
 
-- Roster uses anonymized codes (`RP-01`), hidden-until-verified, unverified `RP-04` blocked from pick-up — matches `approval_status` gate.
+- Mock roster uses anonymized codes (`RP-01`) and demo verification labels. Live psychologist access is granted by admin promotion, with no separate approval status.
 - No personal names/quotes in docs or UI mocks (consent-flag empty cards).
 - Contact unlock + reminders only on pay success; tiered redaction (`privateClinicalNote` hidden from client/admin in `getBookingsForRole`/`getBookingById`).
 - Service durations/guardrails match `docs/services-catalog.md`.
@@ -54,10 +55,10 @@ Conventions for every row below: `api.ts` function → HTTP method + path the UI
 - `getServices` → `GET /api/v1/services`. Auth: public. Request: none. Success: `ServiceItem[]` (`id / indexNumber / title / categoryGroup / durationLabel / durationMinutes / guardrailTitle / guardrailNotice / description / clinicalFormat / isStandaloneConsultation?`). Backend: no services table today — owner decides (new table vs Payload CMS read-through). Errors: 5xx → UI keeps last-known list (mock fallback).
 - `updateServiceGuardrail` → `PATCH /api/v1/services/:serviceId`. Auth: admin. Request: `{ durationLabel, guardrailTitle, guardrailNotice, description }` (all strings; durations like `45 mins`, `1 hr (60 mins)`, `1.5 hrs (90 mins)`, `2 hrs (120 mins)` per `services-catalog.md`). Success: updated `ServiceItem[]`. Errors: 403 non-admin; 404 unknown service id; 422 empty guardrail text.
 
-### 6.2 Roster & Verification
+### 6.2 Roster & Psychologist Promotion
 
-- `getRoster(includeHiddenForAdmin)` → `GET /api/v1/roster`. Auth: public (filtered) vs admin (full). Request: none (`includeHiddenForAdmin` is a UI-side filter today). Success: `ResidentPsychologist[]` (`id / anonymizedTitle / prcCredentialCode / specialization / serviceEligibility[] / languages[] / yearsPractice / verificationStatus: verified|waiting_approval / visibleOnPublicRoster / assignedBookingsCount`). Backend mapping: `psychologist_id (UUID, FK users) / full_name / liscence_number [typo — see §7.2] / specialization / approval_status / approved_by / approved_at`; `visibleOnPublicRoster`, `anonymizedTitle`, `prcCredentialCode` format, `serviceEligibility`, `languages`, `yearsPractice`, `assignedBookingsCount` have no columns yet. Errors: 5xx → UI keeps mock roster.
-- `updatePsychologistVerification` → `PATCH /api/v1/admin/verifications/:psychId`. Auth: admin. Request: `{ verificationStatus?: verified|waiting_approval, visibleOnPublicRoster?: boolean }` (partial; at least one key). Success: updated roster row. Errors: 403 non-admin; 404 unknown psychologist; 422 invalid status value.
+- `getRoster(includeHiddenForAdmin)` → `GET /api/v1/roster`. Auth: public (filtered) vs admin (full). Request: none (`includeHiddenForAdmin` is a UI-side filter today). Success: `ResidentPsychologist[]` (`id / anonymizedTitle / prcCredentialCode / specialization / serviceEligibility[] / languages[] / yearsPractice / verificationStatus / visibleOnPublicRoster / assignedBookingsCount`). Backend today: no roster endpoint. `psychologist_profiles` stores `psychologist_id (UUID, FK users) / full_name / license_number / specialization / bio / social_media_links`; the mock-only fields above have no columns yet. Errors: 5xx → UI keeps mock roster.
+- `updatePsychologistVerification` is **mock-only/legacy** — the backend no longer has an approval status. Admin promotion replaces it: `GET /admin/users?role=client&search=` to find the account, then `POST /admin/users/:id/promote` with `{ full_name (required), license_number?, specialization?, bio?, social_media_links? }`. Promotion swaps the Cognito group to `psychologist`, updates `users.role`, and creates/updates the profile. Errors: 403 non-admin; 404 unknown user/Cognito account; 409 not a client or already a psychologist.
 
 ### 6.3 Personas
 
@@ -72,7 +73,7 @@ Conventions for every row below: `api.ts` function → HTTP method + path the UI
 
 ### 6.5 Bookings — Proposal, Payment, Lifecycle
 
-- `pickUpAndProposeSlots` → `POST /api/v1/bookings/:bookingId/propose`. Auth: psychologist, must be verified. Request: `proposalFormSchema` + ids → `{ bookingId / psychologistId / pricePhp 500–25000 / slot1DateTime / slot2DateTime / slot3DateTime (ISO, all distinct) / clinicalPrepNote 10–500 chars }`. Success: booking `status=proposed`, `psychologist_id` set, `price` set, exactly 3 `proposed_slots` rows (`slotNumber 1|2|3`, `isoDateTime` → `session_date + start_time/end_time` from service `durationMinutes`). Errors: 403 unverified psychologist (guardrail); 404 unknown booking; 409 already picked-up by another psychologist; 422 non-distinct slots / price out of range.
+- `pickUpAndProposeSlots` → `POST /api/v1/bookings/:bookingId/propose`. Auth: promoted psychologist. Request: `proposalFormSchema` + ids → `{ bookingId / psychologistId / pricePhp 500–25000 / slot1DateTime / slot2DateTime / slot3DateTime (ISO, all distinct) / clinicalPrepNote 10–500 chars }`. Success: booking `status=proposed`, `psychologist_id` set, `price` set, exactly 3 `proposed_slots` rows (`slotNumber 1|2|3`, `isoDateTime` → `session_date + start_time/end_time` from service `durationMinutes`). Errors: 403 non-psychologist (guardrail); 404 unknown booking; 409 already picked-up by another psychologist; 422 non-distinct slots / price out of range.
 - `confirmSlotAndPay` → `POST /api/v1/bookings/:bookingId/pay`. Auth: client (own booking). Request: `{ bookingId / selectedSlotId }` plus UI-only `paymentMethodLabel` (`card_visa_4242 / gcash_paymongo_mock / maya_stripe_mock`, mock-only) and `acknowledgeFinalizationRule` (UI-only) and `simulateFailure` (mock-only test toggle). Success: `status=paid-confirmed`, `selected_slot_id` set, `payments(amount=price, status=paid, paid_at)` written, `contactUnlocked=true` with `unlockedContact { teletherapyUrl / coordinationEmail=psychaveph.info@gmail.com / sessionReferenceCode / emergencyProtocolNote }`, reminders `scheduled/scheduled`. Finalization is payment-gated: nothing unlocks on failure. Errors: 402 payment declined (booking stays `proposed`, contact locked); 404 unknown booking/slot; 409 already finalized; 422 `selectedSlotId` not one of the 3 proposed.
 - `updateBookingLifecycleStatus` → `PATCH /api/v1/bookings/:bookingId/lifecycle`. Auth: role-scoped (client owns booking; psychologist assigned; admin announcements). Request: `{ bookingId / action: cancel | request-reschedule | dispatch-reminders }`. Success: `cancel → status=cancelled`; `request-reschedule → status=reschedule-requested`; `dispatch-reminders → reminders=dispatched/dispatched`. Errors: 403 unauthorized role; 404 unknown booking; 409 illegal transition (e.g. cancel after `paid-confirmed` per policy decision in §7.5).
 - `updatePrivatePsychNote` → `PATCH /api/v1/bookings/:bookingId/private-note`. Auth: assigned psychologist only. Request: `{ bookingId / privateClinicalNote }`. Success: note stored, never returned to client/admin tiers. Errors: 403 all other roles.
@@ -85,9 +86,9 @@ Conventions for every row below: `api.ts` function → HTTP method + path the UI
 ## 7. Backend Implementation Order (Checklist For Owners)
 
 - [ ] **7.1 Auth first.** Cognito Groups (`client / psychologist / admin`) verified on every request; map to `users(role, cognito_sub)`. NOTE: teammate-slimmed `backend/requirements.txt` removed `python-jose` (+ `cryptography`, `rsa`, `ecdsa`) — owner must re-add a JWT verifier or choose a replacement before this step. Done when: unauthenticated calls 401; wrong-group calls 403; `role`/`psychId` query params are derived from the token, not trusted client input.
-- [ ] **7.2 Roster verification.** Implement `PATCH /admin/verifications/:id` on `psychologist_profiles(approval_status, approved_by, approved_at)`; decide the `liscence_number` typo fix (rename needs migration); decide where `visibleOnPublicRoster`, anonymized display codes, languages, and service eligibility live. Done when: unverified psychologists get 403 on pick-up; public roster hides unapproved rows.
+- [x] **7.2 Roster promotion (replaces verification).** Admin-only `GET /admin/users` + `POST /admin/users/:id/promote` implemented; `approval_status` / `approved_by` / `approved_at` removed by migration. Promotion requires only `full_name`. Remaining: decide where `visibleOnPublicRoster`, anonymized display codes, languages, and service eligibility live. Done when: public roster lists promoted psychologists and non-psychologists get 403 on pick-up.
 - [ ] **7.3 Personas + booking content.** Add missing persona detail columns (or companion table) and `forms` content columns for `concernsSummary/specificNeeds/preferredLanguage/serviceId`; enforce `personaSchema`/`bookingFormSchema` limits server-side. Done when: `POST /personas` and `POST /bookings/intake` round-trip without data loss in real (non-mock) mode.
-- [ ] **7.4 Queue + propose-3.** Implement pending-queue scope (which psychologists see which pending rows), pick-up race rule (first verified pick-up wins → 409 for others), and exactly-3 distinct slots + price range enforcement mapping ISO datetimes to `session_date/start_time/end_time` via service durations. Done when: two psychologists racing one request yields one `proposed` + one 409.
+- [ ] **7.4 Queue + propose-3.** Implement pending-queue scope (which psychologists see which pending rows), pick-up race rule (first psychologist pick-up wins → 409 for others), and exactly-3 distinct slots + price range enforcement mapping ISO datetimes to `session_date/start_time/end_time` via service durations. Done when: two psychologists racing one request yields one `proposed` + one 409.
 - [ ] **7.5 Pay-gated finalization + lifecycle.** Implement `payments` write, `selected_slot_id` set, contact unlock, reminders scheduling, and the `cancel / request-reschedule / dispatch-reminders` transitions (including the cancel-after-paid policy). Done when: failed payment leaves booking `proposed` with contact locked; success flips to `paid-confirmed` exactly once (idempotent on retry).
 - [ ] **7.6 Redaction + CMS.** Enforce `privateClinicalNote` visibility (assigned psychologist only) in both single and list reads; confirm CMS ownership (Payload vs new tables) for services/roster-structure/testimonials/Vision/Mission/Clinic Overview. Done when: client/admin payloads never contain private notes; CMS edits persist.
 

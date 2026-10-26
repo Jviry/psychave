@@ -25,7 +25,7 @@ Related docs:
 ### C.1 Psychologist Directory View
 
 - A list of available psychologists where clients can view each one's specialization, spoken languages, and general availability.
-- Psychologist accounts remain hidden from the public roster and cannot pick up appointment requests until the System Administrator manually reviews and approves their credentials.
+- Psychologist accounts are created when an administrator promotes an existing client and supplies their psychologist profile. Only promoted psychologists appear in the practitioner roster and can pick up appointment requests.
 
 ### C.2 Steps
 
@@ -45,7 +45,7 @@ Related docs:
 
 - A psychologist picks up a pending request, sets the session price, and proposes exactly 3 candidate date/time options.
 - Model mapping: `appointments.psychologist_id` set by pick-up actor; `appointments.price` set here; 3 rows in `proposed_slots` per `appointment_id`.
-- Gate: unverified psychologists cannot pick up.
+- Gate: only accounts promoted by an administrator can pick up.
 
 **Step 4 — Client Selection & Payment**
 
@@ -80,9 +80,9 @@ Client selects Persona + completes Booking Form (forms)
 
 ### C.4 Roles (Official)
 
-- **Patients (Clients):** Search verified psychologists, book/manage across all linked personas, view services, receive proposal/payment/reminder notifications. Own booking history only.
-- **Psychologists (Providers):** View pending queue (if verified), pick up requests, set price, propose 3 times, manage own schedules. Only schedules/details of clients/personas booked under them.
-- **System Administrator (Admin):** Verify credentials (unhide roster + enable pick-up), manage user roles / approvals / CMS content. No access to private consultation details or session notes.
+- **Patients (Clients):** Search promoted psychologists, book/manage across all linked personas, view services, receive proposal/payment/reminder notifications. Own booking history only.
+- **Psychologists (Providers):** Once promoted by an admin, view the pending queue, pick up requests, set price, propose 3 times, manage own schedules. Only schedules/details of clients/personas booked under them.
+- **System Administrator (Admin):** Promote client accounts to psychologists (supplying the psychologist profile), manage user roles / CMS content. No access to private consultation details or session notes.
 - **Authentication:** AWS Cognito; role membership (client / psychologist / admin) via Cognito Groups, verified on every request.
 
 ### Flow A note (legacy, where appropriate)
