@@ -1,5 +1,5 @@
 import uuid
-from datetime import date, datetime, time
+from datetime import date, time
 from pydantic import field_validator
 from sqlmodel import Field, SQLModel
 
@@ -32,13 +32,10 @@ class PsychologistProfileRead(SQLModel):
     specialization: str | None
     bio: str | None
     social_media_links: list[SocialMediaLink] = Field(default_factory=list)
-    approval_status: str
-    approved_by: uuid.UUID | None
-    approved_at: datetime | None
 
 
 class PsychologistProfileUpdate(SQLModel):
-    """Writable profile fields — approval fields are deliberately excluded."""
+    """Writable profile fields."""
     specialization: str | None = None
     license_number: str | None = None
     bio: str | None = None

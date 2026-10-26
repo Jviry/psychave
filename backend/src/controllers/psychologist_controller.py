@@ -3,10 +3,7 @@ from fastapi import APIRouter, Depends
 from sqlmodel import Session
 
 from common.database import get_db
-from dependencies.auth import (
-    get_current_psychologist,
-    require_approved_psychologist,
-)
+from dependencies.auth import get_current_psychologist
 from models.appointment import AppointmentStatus
 from models.psychologist_profile import PsychologistProfile
 from schemas.appointment import AppointmentRead, ProposedSlotRead
@@ -35,7 +32,7 @@ def pickup_appointment(
     appointment_id: uuid.UUID,
     payload: PickupRequest,
     db: Session = Depends(get_db),
-    current_psychologist: PsychologistProfile = Depends(require_approved_psychologist),
+    current_psychologist: PsychologistProfile = Depends(get_current_psychologist),
 ):
     return PsychologistUsecase(db).pickup(appointment_id, current_psychologist.psychologist_id, payload.price)
 
@@ -46,7 +43,7 @@ def propose_slots(
     appointment_id: uuid.UUID,
     payload: list[SlotProposal],
     db: Session = Depends(get_db),
-    current_psychologist: PsychologistProfile = Depends(require_approved_psychologist),
+    current_psychologist: PsychologistProfile = Depends(get_current_psychologist),
 ):
     return PsychologistUsecase(db).propose_slots(appointment_id, current_psychologist.psychologist_id, payload)
 
@@ -65,7 +62,7 @@ def list_my_appointments(
 def complete_appointment(
     appointment_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_psychologist: PsychologistProfile = Depends(require_approved_psychologist),
+    current_psychologist: PsychologistProfile = Depends(get_current_psychologist),
 ):
     return PsychologistUsecase(db).complete_appointment(
         appointment_id, current_psychologist.psychologist_id

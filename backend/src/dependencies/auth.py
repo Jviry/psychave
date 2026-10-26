@@ -69,13 +69,3 @@ def get_current_psychologist(
         raise ForbiddenError("Psychologist profile not found")
 
     return profile
-
-
-def require_approved_psychologist(
-    profile: PsychologistProfile = Depends(get_current_psychologist),
-) -> PsychologistProfile:
-    """App-level approval gate — independent of Cognito group membership."""
-    if profile.approval_status != "approved":
-        raise ForbiddenError("Psychologist profile is not approved")
-
-    return profile

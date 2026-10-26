@@ -1,5 +1,4 @@
 import uuid
-from datetime import datetime
 from sqlalchemy import JSON, Column
 from sqlmodel import SQLModel, Field
 
@@ -18,8 +17,3 @@ class PsychologistProfile(SQLModel, table=True):
         default_factory=list,
         sa_column=Column(JSON, nullable=False, default=list),
     )
-    approval_status: str = "pending"
-    approved_by: uuid.UUID | None = Field(
-        default=None, foreign_key="admin_profiles.admin_id"
-    )
-    approved_at: datetime | None = None
