@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, RefreshCcw, Check } from 'lucide-react';
+import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, RefreshCcw } from 'lucide-react';
 import {
   registerSchema,
   confirmSchema,
@@ -99,11 +99,9 @@ function ResendCodeButton({
 // ─── Email Confirmation Step ──────────────────────────────────────────────────
 function ConfirmStep({
   username,
-  role,
   onConfirmed,
 }: {
   username: string;
-  role: 'client' | 'psychologist';
   onConfirmed: () => void;
 }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -144,14 +142,6 @@ function ConfirmStep({
           <p className="text-sm text-pine/60 mt-1">
             We sent a 6-digit verification code to the email you registered with.
           </p>
-          {role === 'psychologist' && (
-            <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
-              <p className="text-xs text-amber-800">
-                <span className="font-semibold">Psychologist accounts</span> require admin credential
-                verification before you can access the queue. You&apos;ll be notified once approved.
-              </p>
-            </div>
-          )}
         </div>
       </div>
 
@@ -230,7 +220,6 @@ export default function RegisterPage() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [step, setStep] = useState<'register' | 'confirm' | 'done'>('register');
   const [registeredUsername, setRegisteredUsername] = useState('');
-  const [registeredRole, setRegisteredRole] = useState<'client' | 'psychologist'>('client');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const {
@@ -241,11 +230,9 @@ export default function RegisterPage() {
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     mode: 'onBlur',
-    defaultValues: { role: 'client' },
   });
 
   const passwordValue = watch('password', '');
-  const selectedRole = watch('role', 'client');
 
   const onSubmit = async (data: RegisterFormValues) => {
     setIsLoading(true);
@@ -255,11 +242,8 @@ export default function RegisterPage() {
         email: data.email,
         username: data.username,
         password: data.password,
-        role: data.role,
-        fullName: data.fullName,
       });
       setRegisteredUsername(data.username);
-      setRegisteredRole(data.role);
       setStep('confirm');
     } catch (err) {
       setApiError(err instanceof Error ? err.message : 'Registration failed. Please try again.');
@@ -271,14 +255,11 @@ export default function RegisterPage() {
   const handleConfirmed = useCallback(() => {
     setStep('done');
     setToast({
-      message:
-        registeredRole === 'psychologist'
-          ? 'Account confirmed! Await admin approval to access the queue.'
-          : 'Account confirmed! Please sign in.',
+      message: 'Account confirmed! Please sign in.',
       type: 'success',
     });
     setTimeout(() => router.push('/login'), 2000);
-  }, [registeredRole, router]);
+  }, [router]);
 
   if (step === 'confirm') {
     return (
@@ -287,7 +268,6 @@ export default function RegisterPage() {
         <div className="bg-surface-raised rounded-lg border border-mist p-8 sm:p-10">
           <ConfirmStep
             username={registeredUsername}
-            role={registeredRole}
             onConfirmed={handleConfirmed}
           />
         </div>
@@ -319,73 +299,6 @@ export default function RegisterPage() {
         )}
 
         <form id="register-form" onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
-
-          {/* Role Selector */}
-          <div>
-            <Label>I am registering as</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { value: 'client', label: 'Client', desc: 'Seeking psychological support' },
-                { value: 'psychologist', label: 'Psychologist', desc: 'Provider — PRC-licensed' },
-              ].map(({ value, label, desc }) => {
-                const isSelected = selectedRole === value;
-                return (
-                  <label
-                    key={value}
-                    className={`relative flex flex-col gap-0.5 p-3.5 rounded-lg border cursor-pointer transition-colors duration-150 ${
-                      isSelected
-                        ? 'border-sage bg-sage/5'
-                        : 'border-mist hover:border-mint bg-surface-raised'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      value={value}
-                      id={`role-${value}`}
-                      {...register('role')}
-                      className="sr-only"
-                    />
-                    <span className="text-sm font-semibold text-pine">{label}</span>
-                    <span className="text-xs text-pine/55">{desc}</span>
-                    {isSelected && (
-                      <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-sage flex items-center justify-center">
-                        <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} aria-hidden="true" />
-                      </div>
-                    )}
-                  </label>
-                );
-              })}
-            </div>
-            {errors.role && (
-              <p role="alert" className="mt-1.5 text-xs text-red-600">{errors.role.message}</p>
-            )}
-          </div>
-
-          {/* Full name — psychologist accounts only (backend requires it
-              to create their pending PsychologistProfile) */}
-          {selectedRole === 'psychologist' && (
-            <div>
-              <Label htmlFor="register-full-name">Full name</Label>
-              <Input
-                id="register-full-name"
-                type="text"
-                autoComplete="name"
-                placeholder="Dr. Juan Dela Cruz"
-                aria-invalid={!!errors.fullName}
-                aria-describedby={errors.fullName ? 'register-full-name-error' : 'register-full-name-hint'}
-                {...register('fullName')}
-              />
-              {errors.fullName ? (
-                <p id="register-full-name-error" role="alert" className="mt-1.5 text-xs text-red-600">
-                  {errors.fullName.message}
-                </p>
-              ) : (
-                <p id="register-full-name-hint" className="mt-1.5 text-xs text-pine/50">
-                  Used for your practitioner profile — verified against your PRC credentials.
-                </p>
-              )}
-            </div>
-          )}
 
           {/* Email */}
           <div>
