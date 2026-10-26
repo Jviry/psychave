@@ -69,6 +69,8 @@ resource "aws_iam_role_policy" "cognito_admin" {
           "cognito-idp:AdminAddUserToGroup",
           "cognito-idp:AdminGetUser",
           "cognito-idp:AdminListGroupsForUser",
+          "cognito-idp:AdminRemoveUserFromGroup",
+          "cognito-idp:ListUsers",
         ]
 
         Resource = var.user_pool_arn
