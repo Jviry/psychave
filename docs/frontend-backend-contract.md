@@ -18,7 +18,7 @@
 | `GET/POST /api/v1/personas` | Missing. Backend has `persona` table only. |
 | `POST /api/v1/bookings/intake`, `POST /:id/propose`, `POST /:id/pay`, `PATCH /:id/lifecycle`, `GET /api/v1/bookings?role=` | Missing. Backend has `appointments / proposed_slots / payments / forms` tables only. |
 | `GET/PATCH /api/v1/cms` | Missing. No CMS table. |
-| `GET /admin/users`, `POST /admin/users/:id/promote` | Implemented (admin-only). Promotes a client to psychologist with profile details and swaps the Cognito group. Approval status was removed. |
+| `GET /admin/users`, `PATCH /admin/users/:id/role`, `POST /admin/users/:id/promote` | Implemented (admin-only). Paginated user directory with search/role filters, arbitrary role changes with self-change and last-admin guards, and the richer client→psychologist promotion. Approval status was removed. |
 
 Do not implement the remaining future-wired rows in this task (initial UI only).
 
@@ -58,7 +58,9 @@ Conventions for every row below: `api.ts` function → HTTP method + path the UI
 ### 6.2 Roster & Psychologist Promotion
 
 - `getRoster(includeHiddenForAdmin)` → `GET /api/v1/roster`. Auth: public (filtered) vs admin (full). Request: none (`includeHiddenForAdmin` is a UI-side filter today). Success: `ResidentPsychologist[]` (`id / anonymizedTitle / prcCredentialCode / specialization / serviceEligibility[] / languages[] / yearsPractice / verificationStatus / visibleOnPublicRoster / assignedBookingsCount`). Backend today: no roster endpoint. `psychologist_profiles` stores `psychologist_id (UUID, FK users) / full_name / license_number / specialization / bio / social_media_links`; the mock-only fields above have no columns yet. Errors: 5xx → UI keeps mock roster.
-- `updatePsychologistVerification` is **mock-only/legacy** — the backend no longer has an approval status. Admin promotion replaces it: `GET /admin/users?role=client&search=` to find the account, then `POST /admin/users/:id/promote` with `{ full_name (required), license_number?, specialization?, bio?, social_media_links? }`. Promotion swaps the Cognito group to `psychologist`, updates `users.role`, and creates/updates the profile. Errors: 403 non-admin; 404 unknown user/Cognito account; 409 not a client or already a psychologist.
+- `getAdminUsers({search, role, page, pageSize})` → `GET /admin/users?search=&role=&page=&page_size=`. Auth: admin. Success: `{items: AdminUser[], total, page, page_size}` where `AdminUser = {user_id, email, role, full_name, created_at}`. Search matches email plus psychologist/admin names; `role` is optional; `page_size` is capped at 100. UI types live in `lib/types.ts` (`AdminUser`, `AdminUserPage`) and are mapped at the API boundary.
+- `updateAdminUserRole(userId, {role, fullName})` → `PATCH /admin/users/:id/role`. Auth: admin. Request: `{role: client|psychologist|admin, full_name?}`. `full_name` is required when assigning psychologist without an existing profile name. Success: updated `AdminUser`. Errors: 403 non-admin; 404 unknown user/Cognito account; 409 self-change, last-admin demotion, or same-role conflict; 422 missing psychologist name.
+- `updatePsychologistVerification` is **mock-only/legacy** — the backend no longer has an approval status. Admin role changes replace it: `GET /admin/users?search=` to find the account, then either `PATCH /admin/users/:id/role` or `POST /admin/users/:id/promote` with `{ full_name (required), license_number?, specialization?, bio?, social_media_links? }`. Both swap the Cognito group, update `users.role`, and create/update the profile. Errors: 403 non-admin; 404 unknown user/Cognito account; 409 self-change/last-admin/not a client or already a psychologist.
 
 ### 6.3 Personas
 
