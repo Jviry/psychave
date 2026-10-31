@@ -16,6 +16,29 @@ class AdminUserRead(SQLModel):
     created_at: datetime
 
 
+class AdminUserPage(SQLModel):
+    items: list[AdminUserRead]
+    total: int
+    page: int
+    page_size: int
+
+
+class UpdateUserRoleRequest(SQLModel):
+    """Admin role change. ``full_name`` is required when the target role has
+    a name-bearing profile row (psychologist/admin) and none exists yet."""
+
+    role: UserRole
+    full_name: str | None = None
+
+    @field_validator("full_name")
+    @classmethod
+    def strip_full_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
+
+
 class PromotePsychologistRequest(SQLModel):
     """Profile details an admin supplies when promoting a client.
 

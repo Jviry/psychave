@@ -165,17 +165,18 @@ Self-service signup always creates a **client**. Only an admin can turn a client
 
 | Route | Notes |
 | :--- | :--- |
-| `GET /admin/users?role=client&search=` | Lists accounts (defaults to clients) so an admin can find the user to promote |
-| `POST /admin/users/{user_id}/promote` | Body: `full_name` (required), `license_number?`, `specialization?`, `bio?`, `social_media_links?`. Swaps the Cognito group to `psychologist`, updates `users.role`, and creates the `psychologist_profiles` row. The existing `client_profiles` row is kept because personas reference it. |
+| `GET /admin/users?role=&search=&page=1&page_size=10` | Paginated account directory. `role` is optional (omit for all roles); `search` matches email, psychologist name, or admin name; `page_size` is capped at 100. Returns `{items, total, page, page_size}`. |
+| `PATCH /admin/users/{user_id}/role` | Body: `{role, full_name?}`. Swaps the Cognito group and updates `users.role`, creating the target role's profile row. `full_name` is required when assigning psychologist without an existing profile name; admin falls back to the account email. Admins cannot change their own role or demote the last admin (`409`). |
+| `POST /admin/users/{user_id}/promote` | Body: `full_name` (required), `license_number?`, `specialization?`, `bio?`, `social_media_links?`. Client → psychologist shorthand that also fills the profile fields. Swaps the Cognito group to `psychologist`, updates `users.role`, and creates the `psychologist_profiles` row. The existing `client_profiles` row is kept because personas reference it. |
 
-Both routes require the `admin` Cognito group. Promotion only works in one direction (client → psychologist). The promoted user must sign in again before their ID token carries the new `psychologist` group claim.
+All routes require the `admin` Cognito group. Any role transition is allowed except self-change and demoting the last admin. The affected user must sign in again before their ID token carries the new group claim.
 
 ### Lifecycle
 
 1. `POST /auth/create-user` (client-only; the payload has no `role` field) → Cognito `sign_up` + `admin_add_user_to_group` for `client`, then the local `User` row (from the returned `UserSub`) and `client_profiles` row are created immediately. Older clients that still send `role`/`full_name` are ignored by the request schema, so a role can never be self-assigned. Lambda needs the `cognito_admin` IAM policy for these Admin APIs.
 2. `POST /auth/confirm` → `confirm_sign_up`, then inserts/reconciles `User(cognito_sub, email, role-from-groups)` **and the role's profile row** (`client_profiles` / `psychologist_profiles` / `admin_profiles`, idempotent). Admin promotion normally creates the psychologist profile before this point.
 3. `POST /auth/login` → returns tokens and lazily inserts the `User` row for users created before local sync existed (best-effort; never fails login). Also heals a **missing role profile row** and reconciles a stale cached role from live Cognito groups.
-4. Admins promote clients with `POST /admin/users/{user_id}/promote`; this updates Cognito groups and the local role/profile in one action.
+4. Admins assign roles with `PATCH /admin/users/{id}/role` (or `POST /admin/users/{id}/promote` to fill psychologist profile details); both update Cognito groups and the local role/profile row in one action.
 5. Session endpoints (`/auth/me`, `/auth/logout`, `/auth/delete`) require `Depends(get_current_user)`; the pure auth flows (login/signup/confirm/refresh/password) stay public and are also exempt from the gateway authorizer.
 
 ---
