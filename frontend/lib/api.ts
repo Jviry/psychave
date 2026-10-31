@@ -1,4 +1,6 @@
 import {
+  AdminUser,
+  AdminUserPage,
   BookingRequest,
   BookingStatus,
   CmsContent,
@@ -52,7 +54,7 @@ export const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE || 'mock';
  * Backend prefixes with a real implementation today. Endpoints outside this
  * list never hit the network — mirrors app_router.py in backend/src.
  */
-const WIRED_PREFIXES = ['/auth', '/services', '/personas', '/appointments', '/psychologist'];
+const WIRED_PREFIXES = ['/auth', '/services', '/personas', '/appointments', '/psychologist', '/admin'];
 
 /** Optional per-prefix allowlist (e.g. "/auth,/appointments") for incremental smoke tests. */
 const LIVE_ROUTES = (process.env.NEXT_PUBLIC_LIVE_ROUTES || '')
@@ -432,6 +434,39 @@ let mockBookings: BookingRequest[] = [...INITIAL_BOOKINGS];
 let mockCms: CmsContent = JSON.parse(JSON.stringify(INITIAL_CMS));
 
 /**
+ * Mock-mode user directory for the admin dashboard. Mirrors the backend's
+ * paginated /admin/users contract so search, role filters, and pagination
+ * behave identically with or without a live API.
+ */
+const INITIAL_ADMIN_USERS: AdminUser[] = [
+  { userId: 'usr-001', email: 'admin@mock.psychave.local', role: 'admin', fullName: 'Clinic Administrator', createdAt: '2026-01-05T09:00:00+08:00' },
+  { userId: 'usr-002', email: 'psychologist@mock.psychave.local', role: 'psychologist', fullName: 'Dr. Elena Reyes', createdAt: '2026-01-12T09:00:00+08:00' },
+  { userId: 'usr-003', email: 'maria.santos@example.com', role: 'client', fullName: null, createdAt: '2026-01-18T09:00:00+08:00' },
+  { userId: 'usr-004', email: 'jose.dela.cruz@example.com', role: 'client', fullName: null, createdAt: '2026-01-22T09:00:00+08:00' },
+  { userId: 'usr-005', email: 'andrea.lim@example.com', role: 'client', fullName: null, createdAt: '2026-02-02T09:00:00+08:00' },
+  { userId: 'usr-006', email: 'miguel.torres@example.com', role: 'client', fullName: null, createdAt: '2026-02-08T09:00:00+08:00' },
+  { userId: 'usr-007', email: 'bea.navarro@example.com', role: 'client', fullName: null, createdAt: '2026-02-14T09:00:00+08:00' },
+  { userId: 'usr-008', email: 'carlo.aquino@example.com', role: 'client', fullName: null, createdAt: '2026-02-20T09:00:00+08:00' },
+  { userId: 'usr-009', email: 'dana.felipe@example.com', role: 'client', fullName: null, createdAt: '2026-02-26T09:00:00+08:00' },
+  { userId: 'usr-010', email: 'eric.villanueva@example.com', role: 'client', fullName: null, createdAt: '2026-03-04T09:00:00+08:00' },
+  { userId: 'usr-011', email: 'faith.garcia@example.com', role: 'client', fullName: null, createdAt: '2026-03-10T09:00:00+08:00' },
+  { userId: 'usr-012', email: 'gabriel.mendoza@example.com', role: 'client', fullName: null, createdAt: '2026-03-16T09:00:00+08:00' },
+  { userId: 'usr-013', email: 'hannah.cruz@example.com', role: 'client', fullName: null, createdAt: '2026-03-22T09:00:00+08:00' },
+  { userId: 'usr-014', email: 'ivan.reyes@example.com', role: 'client', fullName: null, createdAt: '2026-03-28T09:00:00+08:00' },
+  { userId: 'usr-015', email: 'jasmine.uy@example.com', role: 'client', fullName: null, createdAt: '2026-04-03T09:00:00+08:00' },
+  { userId: 'usr-016', email: 'kevin.ong@example.com', role: 'client', fullName: null, createdAt: '2026-04-09T09:00:00+08:00' },
+  { userId: 'usr-017', email: 'liza.ramos@example.com', role: 'client', fullName: null, createdAt: '2026-04-15T09:00:00+08:00' },
+  { userId: 'usr-018', email: 'marco.bautista@example.com', role: 'client', fullName: null, createdAt: '2026-04-21T09:00:00+08:00' },
+  { userId: 'usr-019', email: 'nina.valdez@example.com', role: 'client', fullName: null, createdAt: '2026-04-27T09:00:00+08:00' },
+  { userId: 'usr-020', email: 'oliver.chua@example.com', role: 'client', fullName: null, createdAt: '2026-05-03T09:00:00+08:00' },
+  { userId: 'usr-021', email: 'dr.pauline.cruz@example.com', role: 'psychologist', fullName: 'Dr. Pauline Cruz', createdAt: '2026-05-09T09:00:00+08:00' },
+  { userId: 'usr-022', email: 'dr.renato.sy@example.com', role: 'psychologist', fullName: 'Dr. Renato Sy', createdAt: '2026-05-15T09:00:00+08:00' },
+  { userId: 'usr-023', email: 'ops.admin@example.com', role: 'admin', fullName: 'Operations Admin', createdAt: '2026-05-21T09:00:00+08:00' },
+  { userId: 'usr-024', email: 'quinn.lopez@example.com', role: 'client', fullName: null, createdAt: '2026-05-27T09:00:00+08:00' },
+];
+let mockAdminUsers: AdminUser[] = [...INITIAL_ADMIN_USERS];
+
+/**
  * Monotonic mock booking sequence — continue past the seeded BK-2026-102..103
  * so newly created bookings never collide with seed data (or each other).
  * The random range previously reused ids on short sessions.
@@ -731,6 +766,31 @@ interface PsychologistProfileRaw {
   specialization: string | null;
   bio: string | null;
   social_media_links: SocialMediaLink[];
+}
+
+interface AdminUserRaw {
+  user_id: string;
+  email: string;
+  role: CognitoRole;
+  full_name: string | null;
+  created_at: string;
+}
+
+interface AdminUserPageRaw {
+  items: AdminUserRaw[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+function mapAdminUserRaw(raw: AdminUserRaw): AdminUser {
+  return {
+    userId: raw.user_id,
+    email: raw.email,
+    role: raw.role,
+    fullName: raw.full_name ?? null,
+    createdAt: raw.created_at,
+  };
 }
 
 /**
@@ -1735,6 +1795,124 @@ export const api = {
       }
     );
   },
+
+  /**
+   * Admin user directory & role management API
+   */
+  getAdminUsers: async ({
+    search = '',
+    role,
+    page = 1,
+    pageSize = 10,
+  }: {
+    search?: string;
+    role?: CognitoRole | 'all';
+    page?: number;
+    pageSize?: number;
+  } = {}): Promise<AdminUserPage> => {
+    const safePage = Math.max(1, Math.floor(page));
+    const safePageSize = Math.min(100, Math.max(1, Math.floor(pageSize)));
+    const params = new URLSearchParams({
+      page: String(safePage),
+      page_size: String(safePageSize),
+    });
+    if (search.trim()) params.set('search', search.trim());
+    if (role && role !== 'all') params.set('role', role);
+
+    return requestWithMockFallback(
+      `/admin/users?${params.toString()}`,
+      undefined,
+      () => {
+        const term = search.trim().toLowerCase();
+        const filtered = mockAdminUsers
+          .filter((u) => !role || role === 'all' || u.role === role)
+          .filter((u) => {
+            if (!term) return true;
+            return (
+              u.email.toLowerCase().includes(term) ||
+              (u.fullName ?? '').toLowerCase().includes(term)
+            );
+          })
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        const start = (safePage - 1) * safePageSize;
+
+        return {
+          items: filtered.slice(start, start + safePageSize),
+          total: filtered.length,
+          page: safePage,
+          pageSize: safePageSize,
+        };
+      },
+      (raw) => {
+        const data = (raw ?? {
+          items: [],
+          total: 0,
+          page: safePage,
+          page_size: safePageSize,
+        }) as AdminUserPageRaw;
+
+        return {
+          items: data.items.map(mapAdminUserRaw),
+          total: data.total,
+          page: data.page,
+          pageSize: data.page_size,
+        };
+      }
+    );
+  },
+
+  updateAdminUserRole: async (
+    userId: string,
+    payload: { role: CognitoRole; fullName?: string }
+  ): Promise<AdminUser> =>
+    requestWithMockFallback(
+      `/admin/users/${userId}/role`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({
+          role: payload.role,
+          full_name: payload.fullName,
+        }),
+      },
+      () => {
+        const target = mockAdminUsers.find((u) => u.userId === userId);
+        if (!target) throw new Error('User not found');
+
+        const currentEmail = useAuthStore.getState().user?.email;
+        if (currentEmail && currentEmail === target.email) {
+          throw new Error('You cannot change your own role');
+        }
+        if (target.role === payload.role) return { ...target };
+        if (
+          target.role === 'admin' &&
+          mockAdminUsers.filter((u) => u.role === 'admin').length <= 1
+        ) {
+          throw new Error('Cannot change the role of the last admin account');
+        }
+
+        const trimmedName = payload.fullName?.trim();
+        if (payload.role === 'psychologist' && !trimmedName && !target.fullName) {
+          throw new Error(
+            'Full name is required when assigning the psychologist role'
+          );
+        }
+
+        const updated: AdminUser = {
+          ...target,
+          role: payload.role,
+          fullName:
+            payload.role === 'client'
+              ? target.fullName
+              : trimmedName || target.fullName || target.email,
+        };
+        mockAdminUsers = mockAdminUsers.map((u) =>
+          u.userId === userId ? updated : u
+        );
+
+        return updated;
+      },
+      (raw) => mapAdminUserRaw(raw as AdminUserRaw)
+    ),
 
   /**
    * Admin Payload CMS Content API

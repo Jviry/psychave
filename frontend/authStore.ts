@@ -31,7 +31,7 @@ interface AuthState {
 const ROLE_DASHBOARD: Record<CognitoRole, string> = {
   client: '/bookings',
   psychologist: '/psych/queue',
-  admin: '/admin/verifications',
+  admin: '/admin/users',
 };
 
 export const useAuthStore = create<AuthState>()(

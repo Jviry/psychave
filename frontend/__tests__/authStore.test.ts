@@ -97,7 +97,7 @@ describe('useAuthStore', () => {
         user: { email: 'a@test.com', username: 'admin1', role: 'admin', cognitoSub: 'sub-a' },
       });
     });
-    expect(useAuthStore.getState().getDashboardPath()).toBe('/admin/verifications');
+    expect(useAuthStore.getState().getDashboardPath()).toBe('/admin/users');
   });
 
   it('getDashboardPath returns /login when unauthenticated', () => {

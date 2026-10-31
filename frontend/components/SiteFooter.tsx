@@ -15,6 +15,7 @@ const WORKSPACE_LINKS = {
     { href: '/psych/profile', label: 'Psychologist Profile' },
   ],
   admin: [
+    { href: '/admin/users', label: 'Admin User Roles' },
     { href: '/admin/verifications', label: 'Admin Credential Verification' },
     { href: '/admin/cms', label: 'Admin Payload CMS Editors' },
   ],

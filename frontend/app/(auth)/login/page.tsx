@@ -16,7 +16,7 @@ import { Button, Input, Label } from '../../../components/ui/primitives';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuthStore();
+  const { login, getDashboardPath } = useAuthStore();
 
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -73,12 +73,7 @@ export default function LoginPage() {
 
       setToast({ message: 'Welcome back! Redirecting…', type: 'success' });
 
-      const dashboardPath =
-        userInfo.role === 'admin'
-          ? '/admin/verifications'
-          : userInfo.role === 'psychologist'
-            ? '/psych/queue'
-            : '/bookings';
+      const dashboardPath = getDashboardPath();
 
       setTimeout(() => router.push(dashboardPath), 800);
     } catch (err) {

@@ -72,6 +72,7 @@ export function SiteHeader() {
       { label: 'Profile', href: '/psych/profile' },
     ],
     admin: [
+      { label: 'User Management', href: '/admin/users' },
       { label: 'Credential Verifications', href: '/admin/verifications' },
       { label: 'Payload CMS Editors', href: '/admin/cms' },
     ],
@@ -212,7 +213,7 @@ export function SiteHeader() {
                     </div>
                     <Link
                       id="user-menu-dashboard"
-                      href={user.role === 'admin' ? '/admin/verifications' : user.role === 'psychologist' ? '/psych/queue' : '/bookings'}
+                      href={user.role === 'admin' ? '/admin/users' : user.role === 'psychologist' ? '/psych/queue' : '/bookings'}
                       className="flex items-center gap-2 px-4 py-2 text-xs text-pine hover:bg-mist/40 transition-colors"
                       onClick={() => setShowUserMenu(false)}
                     >
@@ -300,7 +301,7 @@ export function SiteHeader() {
               )}
               {user.role === 'admin' && (
                 <span>
-                  Tiered Access: Verifications & CMS only · Private clinical session notes redacted
+                  Tiered Access: User roles, verifications &amp; CMS only · Private clinical session notes redacted
                 </span>
               )}
             </div>

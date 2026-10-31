@@ -138,6 +138,21 @@ export interface ResidentPsychologist {
   bio?: string;
 }
 
+export interface AdminUser {
+  userId: string;
+  email: string;
+  role: CognitoRole;
+  fullName: string | null;
+  createdAt: string;
+}
+
+export interface AdminUserPage {
+  items: AdminUser[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface TestimonialSlot {
   id: string;
   slotCode: string;
