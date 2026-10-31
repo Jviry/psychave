@@ -143,31 +143,40 @@ Always send the **ID token**: `Authorization: Bearer <id_token>`. `verify_token(
 - `get_current_user()` — maps `claims["sub"]` to the `users` row via `UserRepository`. Raises `UserNotFoundError` (`401`) when the row is missing.
 - `require_role(UserRole.ADMIN, ...)` — checks the `cognito:groups` claim from the pool groups (`admin` / `psychologist` / `client`), not the DB `role` column, then resolves and returns the `users` row (`User`) so handlers can use `current_user.user_id`. Raises `ForbiddenError` (`403`).
 - `get_current_psychologist()` — `require_role(PSYCHOLOGIST)` plus the `psychologist_profiles` row for that user. Raises `ForbiddenError` when the profile is missing.
-- `require_approved_psychologist()` — additionally enforces `psychologist_profiles.approval_status == "approved"`. This is an app-level gate, independent of Cognito group membership.
-- The DB `role` column is a cached copy for queries/joins only; Cognito groups are the source of truth for access.
+- The DB `role` column is a cached copy for queries/joins only; Cognito groups are the source of truth for access. `AuthUsecase` reconciles the cached role from live groups on confirm/login.
 
 ### Psychologist dashboard endpoints
 
-All routes below require the `psychologist` Cognito group (`require_role(UserRole.PSYCHOLOGIST)`). Routes marked ✅ approved additionally require `psychologist_profiles.approval_status == "approved"`.
+All routes below require the `psychologist` Cognito group (`require_role(UserRole.PSYCHOLOGIST)`). Psychologists are created by admin promotion, so there is no separate credential-approval gate.
 
 | Route | Notes |
 | :--- | :--- |
 | `GET /appointments/pending` | Unclaimed requests (`psychologist_id IS NULL`, `status = pending`) |
-| `POST /appointments/{id}/pickup` ✅ | Sets `psychologist_id` + `price`, moves status to `awaiting_slot_selection` |
-| `POST /appointments/{id}/slots` ✅ | Body is a list of exactly 3 `{session_date, start_time, end_time?}` proposals; rejects duplicates/past times and re-proposals |
+| `POST /appointments/{id}/pickup` | Sets `psychologist_id` + `price`, moves status to `awaiting_slot_selection` |
+| `POST /appointments/{id}/slots` | Body is a list of exactly 3 `{session_date, start_time, end_time?}` proposals; rejects duplicates/past times and re-proposals |
 | `GET /appointments/mine` | Own appointments, optional `?status=` filter |
 | `GET /appointments/{id}` | Shared with the client route (same path) — branches on the caller's role; psychologists only ever see appointments they own (others → `404`) |
-| `GET /psychologist-profile/me` | Own profile incl. `approval_status` |
-| `PATCH /psychologist-profile/me` | Writable: `specialization`, `license_number`, `bio`; approval fields are read-only |
+| `GET /psychologist-profile/me` | Own profile |
+| `PATCH /psychologist-profile/me` | Writable: `specialization`, `license_number`, `bio`, `social_media_links` |
 
+### Admin role management
 
+Self-service signup always creates a **client**. Only an admin can turn a client into a psychologist:
+
+| Route | Notes |
+| :--- | :--- |
+| `GET /admin/users?role=client&search=` | Lists accounts (defaults to clients) so an admin can find the user to promote |
+| `POST /admin/users/{user_id}/promote` | Body: `full_name` (required), `license_number?`, `specialization?`, `bio?`, `social_media_links?`. Swaps the Cognito group to `psychologist`, updates `users.role`, and creates the `psychologist_profiles` row. The existing `client_profiles` row is kept because personas reference it. |
+
+Both routes require the `admin` Cognito group. Promotion only works in one direction (client → psychologist). The promoted user must sign in again before their ID token carries the new `psychologist` group claim.
 
 ### Lifecycle
 
-1. `POST /auth/create-user` (`role` defaults to `client`; `admin` cannot be self-assigned; **`full_name` is required when `role = psychologist`**) → Cognito `sign_up` + `admin_add_user_to_group`, then the local `User` row (from the returned `UserSub`) and the role profile row are created immediately — the psychologist's `full_name` lands in `psychologist_profiles` at this point, not at confirm. Lambda needs the `cognito_admin` IAM policy for these Admin APIs.
-2. `POST /auth/confirm` → `confirm_sign_up`, then inserts `User(cognito_sub, email, role-from-groups)` **and the role's profile row** — `client_profiles`, `psychologist_profiles` (with `approval_status = "pending"`), or `admin_profiles` (idempotent; `full_name` falls back to the Cognito username since the pool stores no name attributes).
-3. `POST /auth/login` → returns tokens and lazily inserts the `User` row for users created before sync existed (best-effort; never fails login). Also heals a **missing role profile row** for existing users.
-4. Session endpoints (`/auth/me`, `/auth/logout`, `/auth/delete`) require `Depends(get_current_user)`; the pure auth flows (login/signup/confirm/refresh/password) stay public and are also exempt from the gateway authorizer.
+1. `POST /auth/create-user` (client-only; the payload has no `role` field) → Cognito `sign_up` + `admin_add_user_to_group` for `client`, then the local `User` row (from the returned `UserSub`) and `client_profiles` row are created immediately. Older clients that still send `role`/`full_name` are ignored by the request schema, so a role can never be self-assigned. Lambda needs the `cognito_admin` IAM policy for these Admin APIs.
+2. `POST /auth/confirm` → `confirm_sign_up`, then inserts/reconciles `User(cognito_sub, email, role-from-groups)` **and the role's profile row** (`client_profiles` / `psychologist_profiles` / `admin_profiles`, idempotent). Admin promotion normally creates the psychologist profile before this point.
+3. `POST /auth/login` → returns tokens and lazily inserts the `User` row for users created before local sync existed (best-effort; never fails login). Also heals a **missing role profile row** and reconciles a stale cached role from live Cognito groups.
+4. Admins promote clients with `POST /admin/users/{user_id}/promote`; this updates Cognito groups and the local role/profile in one action.
+5. Session endpoints (`/auth/me`, `/auth/logout`, `/auth/delete`) require `Depends(get_current_user)`; the pure auth flows (login/signup/confirm/refresh/password) stay public and are also exempt from the gateway authorizer.
 
 ---
 

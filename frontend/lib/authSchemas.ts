@@ -26,18 +26,8 @@ export const registerSchema = z
   .object({
     email: z.string().email('Please enter a valid email address'),
     username: usernameSchema,
-    // Required for psychologist accounts (backend AuthUsecase creates their
-    // pending PsychologistProfile from it); optional/absent for clients.
-    fullName: z
-      .string()
-      .trim()
-      .max(120, 'Please keep your full name under 120 characters')
-      .optional(),
     password: passwordSchema,
     confirmPassword: z.string(),
-    role: z.enum(['client', 'psychologist'], {
-      required_error: 'Please select a role',
-    }),
     privacyConsent: z.literal(true, {
       errorMap: () => ({ message: 'You must accept the Data Privacy Policy to continue' }),
     }),
@@ -45,10 +35,6 @@ export const registerSchema = z
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',
     path: ['confirmPassword'],
-  })
-  .refine((data) => data.role !== 'psychologist' || (data.fullName?.trim().length ?? 0) >= 2, {
-    message: 'Full name is required for psychologists',
-    path: ['fullName'],
   });
 
 export type RegisterFormValues = z.infer<typeof registerSchema>;

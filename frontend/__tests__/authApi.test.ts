@@ -68,7 +68,6 @@ describe('auth API — mock mode', () => {
       email: 'test@test.com',
       username: 'newuser',
       password: 'Pass@123',
-      role: 'client',
     });
     expect(result).toHaveProperty('message');
   });
@@ -160,7 +159,6 @@ describe('auth API — live mode (real fetch)', () => {
       email: 'user@example.com',
       username: 'username1',
       password: 'Pass@123',
-      role: 'client',
     });
 
     const [url] = mockFetch.mock.calls[0];

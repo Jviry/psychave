@@ -731,9 +731,6 @@ interface PsychologistProfileRaw {
   specialization: string | null;
   bio: string | null;
   social_media_links: SocialMediaLink[];
-  approval_status: string;
-  approved_by: string | null;
-  approved_at: string | null;
 }
 
 /**
@@ -1056,8 +1053,10 @@ export const api = {
       serviceEligibility: [],
       languages: [],
       yearsPractice: '',
-      verificationStatus: raw.approval_status === 'approved' ? 'verified' : 'waiting_approval',
-      visibleOnPublicRoster: raw.approval_status === 'approved',
+      // Psychologists are created by admin promotion, so there is no
+      // separate credential-approval step to reflect here.
+      verificationStatus: 'verified',
+      visibleOnPublicRoster: true,
       assignedBookingsCount: 0,
       socialMediaLinks: raw.social_media_links ?? [],
       bio: raw.bio ?? '',

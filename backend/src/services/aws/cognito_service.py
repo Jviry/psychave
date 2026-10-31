@@ -81,6 +81,44 @@ class CognitoService:
             GroupName=group,
         )
 
+    def get_username_by_email(self, email: str) -> str | None:
+        """Resolve the Cognito username for a local user's email."""
+        response = self.client.list_users(
+            UserPoolId=self.user_pool_id,
+            Filter=f'email = "{email}"',
+        )
+        users = response.get("Users", [])
+        return users[0]["Username"] if users else None
+
+    def set_user_groups(self, username: str, groups: set[str]):
+        """Make the user's role groups exactly ``groups``.
+
+        Only the known role groups are managed; unrelated Cognito groups are
+        left untouched. Idempotent, which also makes it safe for restoring a
+        previous state.
+        """
+        role_groups = {"client", "psychologist", "admin"}
+        desired = set(groups) & role_groups
+        current = set(self.list_user_groups(username)) & role_groups
+
+        for group in current - desired:
+            self.client.admin_remove_user_from_group(
+                UserPoolId=self.user_pool_id,
+                Username=username,
+                GroupName=group,
+            )
+
+        for group in desired - current:
+            self.client.admin_add_user_to_group(
+                UserPoolId=self.user_pool_id,
+                Username=username,
+                GroupName=group,
+            )
+
+    def set_role_group(self, username: str, role: str):
+        """Replace any existing role group with a single ``role``."""
+        self.set_user_groups(username, {role})
+
     def describe_user(self, username: str) -> dict:
         response = self.client.admin_get_user(
             UserPoolId=self.user_pool_id,

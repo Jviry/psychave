@@ -1,7 +1,5 @@
 from pydantic import BaseModel, EmailStr
 
-from models.user import UserRole
-
 
 class UserLogin(BaseModel):
     username: str
@@ -9,12 +7,16 @@ class UserLogin(BaseModel):
 
 
 class UserCreate(BaseModel):
+    """Self-service signup always creates a client account.
+
+    Roles are assigned by admins after registration, so this payload
+    deliberately has no ``role`` field. Pydantic ignores unknown fields, so
+    older clients that still send ``role`` cannot self-assign a group.
+    """
+
     email: EmailStr
     username: str
     password: str
-    role: UserRole = UserRole.CLIENT
-    # required when role == psychologist (enforced in AuthUsecase)
-    full_name: str | None = None
 
 
 class ConfirmUserRequest(BaseModel):
