@@ -81,6 +81,15 @@ class CognitoService:
             GroupName=group,
         )
 
+    def get_username_by_sub(self, sub: str) -> str | None:
+        """Resolve the Cognito username for a local user's unique sub."""
+        response = self.client.list_users(
+            UserPoolId=self.user_pool_id,
+            Filter=f'sub = "{sub}"',
+        )
+        users = response.get("Users", [])
+        return users[0]["Username"] if users else None
+
     def get_username_by_email(self, email: str) -> str | None:
         """Resolve the Cognito username for a local user's email."""
         response = self.client.list_users(

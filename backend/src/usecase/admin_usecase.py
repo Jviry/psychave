@@ -103,7 +103,9 @@ class AdminUsecase:
         full_name: str | None,
         profile_fields: dict | None = None,
     ) -> AdminUserRead:
-        username = self.auth.get_username_by_email(user.email)
+        username = self.auth.get_username_by_sub(
+            user.cognito_sub
+        ) or self.auth.get_username_by_email(user.email)
         if username is None:
             raise NotFoundError("Cognito account not found for this user")
 
