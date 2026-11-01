@@ -51,7 +51,17 @@ export default function LoginPage() {
       };
 
       try {
-        const payload = JSON.parse(atob(session.idToken.split('.')[1]));
+        const parts = session.idToken.split('.');
+        const base64Url = parts[1] || '';
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const padded = base64.padEnd(base64.length + (4 - (base64.length % 4)) % 4, '=');
+        const json = decodeURIComponent(
+          atob(padded)
+            .split('')
+            .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+            .join('')
+        );
+        const payload = JSON.parse(json);
         const groups: string[] = payload['cognito:groups'] || [];
         const role = groups.includes('admin')
           ? 'admin'
