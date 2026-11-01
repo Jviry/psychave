@@ -1,41 +1,44 @@
-# Frontend ↔ Backend Contract — Mock-First (Initial UI Only)
+# Frontend ↔ Backend Contract
 
-> Status: mixed. Auth, personas, appointments, and services have live backend routes; roster/CMS remain mock-only. Rows marked **Implemented** are callable today; the rest are future work.
+> Status: operational data is live and authenticated. CMS and the public marketing roster are local-only because no backend table exists yet.
 
 ## 1. Runtime Contract (Current)
 
-- `frontend/.env.local`: `NEXT_PUBLIC_API_URL=http://localhost:8000`, `NEXT_PUBLIC_AUTH_MODE=mock`.
-- `frontend/lib/api.ts` tries `NEXT_PUBLIC_API_URL` first with short timeout, then falls back to in-memory mocks. With no backend endpoints, every screen works offline.
-- Auth uses real Cognito login (`/auth/login`) in real mode; mock mode derives the demo role from the username (`admin*` / `psych*`).
-- Routing is native Next.js App Router (`next/link` + `next/navigation` `useRouter`/`usePathname`/`useParams`). The earlier custom `lib/navigation.tsx` prototype router was removed; public nav (`/`, `/services`, `/about`, `/book`) and role workspaces navigate via real routes.
+- `frontend/.env.local`: `NEXT_PUBLIC_API_URL=http://localhost:8000`.
+- `frontend/lib/api.ts` calls the backend directly; there is no mock mode, offline fallback, or role-switcher bypass.
+- Auth always uses Cognito via `/auth/login`. Dashboard access is enforced by `RoleGate` in the UI and by the backend token/role dependencies.
+- `GET /services/active` is public so the marketing home page loads before login. Auth flows, `/health`, and the payment webhook are public by necessity; every other endpoint requires a valid Cognito token, and `/admin/*` requires the `admin` group.
+- Routing is native Next.js App Router (`next/link` + `next/navigation` `useRouter`/`usePathname`/`useParams`).
 
-## 2. Endpoint Map (Frontend Expects → Backend Has)
+## 2. Endpoint Map (Frontend Uses → Backend)
 
-| Frontend call | Backend today |
+| Frontend call | Backend |
 |---|---|
-| `GET /api/v1/services` | Missing — only `GET /health` exists. Mock: 7 services in `lib/api.ts`. |
-| `GET /api/v1/roster` | Missing. Backend has `psychologist_profiles` table only, no controller. |
-| `GET/POST /api/v1/personas` | Missing. Backend has `persona` table only. |
-| `POST /api/v1/bookings/intake`, `POST /:id/propose`, `POST /:id/pay`, `PATCH /:id/lifecycle`, `GET /api/v1/bookings?role=` | Missing. Backend has `appointments / proposed_slots / payments / forms` tables only. |
-| `GET/PATCH /api/v1/cms` | Missing. No CMS table. |
-| `GET /admin/users`, `PATCH /admin/users/:id/role`, `POST /admin/users/:id/promote` | Implemented (admin-only). Paginated user directory with search/role filters, arbitrary role changes with self-change and last-admin guards, and the richer client→psychologist promotion. Approval status was removed. |
+| `GET /services/active` | Public active catalog. |
+| `GET /services` | Authenticated catalog. |
+| `POST /auth/*` | Cognito login, register, confirm, refresh, logout, password reset. |
+| `GET/POST /personas`, `GET /personas/:id/review` | Authenticated persona and consent records. |
+| `POST /appointments`, `GET /appointments`, `GET /appointments/:id` | Client/psychologist appointment reads and booking intake. |
+| `GET /appointments/pending`, `GET /appointments/mine`, `POST /appointments/:id/pickup`, `POST /appointments/:id/slots` | Psychologist queue and 3-slot proposal. |
+| `POST /appointments/:id/select-slot`, `POST /appointments/:id/payment`, `POST /appointments/:id/complete`, `DELETE /appointments/:id` | Payment-gated finalization, completion, cancellation. |
+| `GET/PATCH /psychologist-profile/me` | Authenticated psychologist profile. |
+| `GET /admin/users`, `PATCH /admin/users/:id/role`, `POST /admin/users/:id/promote` | Admin-only user directory and role changes. |
+| CMS (`getCmsContent`, `updateCmsContent`, `getRoster`, `updateServiceGuardrail`) | Local-only marketing preview. Not sent to the backend. |
 
-Do not implement the remaining future-wired rows in this task (initial UI only).
-
-## 3. Field Map (Frontend Mock → Backend Column, for Future Wiring)
+## 3. Field Map (Frontend → Backend Column)
 
 - Bookings: `BookingRequest.id` → `appointments.appointment_id`; `personaId` → `persona_id`; `psychologistId` → `psychologist_id`; `pricePhp` → `price`; `selectedSlotId` → `selected_slot_id`; `status: pending / proposed / paid-confirmed / cancelled` → backend `status` string (frontend has 2 extra UI states: `reschedule-requested`; backend has no enum constraint).
 - Slots: frontend `ProposedSlot.id / isoDateTime / slotNumber 1|2|3` → backend `slot_id / session_date + start_time (+end_time)`; official rule “exactly 3 rows per proposal” is enforced in UI (`proposalFormSchema` distinct-slots check) and must later be enforced server-side.
 - Payments: frontend pay-success (`paidAt`, `contactUnlocked`, reminders `scheduled`) → backend `payments(amount, payment_method?, status, paid_at)`; `amount` ↔ `pricePhp`; method enum (`card_visa_4242 / gcash_paymongo_mock / maya_stripe_mock`) is mock-only.
 - Personas: frontend `Persona.id / clientId / type self|dependent / label / ageGroup / relationshipToClient / preferredLanguage` → backend `persona.persona_id / client_id / full_name` only; extra UI fields have no backend column yet.
 - Booking: frontend `concernsSummary / specificNeeds / preferredLanguage / serviceId` → backend `forms(persona_id)` only (content columns missing).
-- Roster: frontend `ResidentPsychologist.id RP-01.. / anonymizedTitle / prcCredentialCode / verificationStatus verified|waiting_approval / visibleOnPublicRoster` → backend `psychologist_id (FK users) / full_name / license_number / specialization / bio / social_media_links`; approval metadata was removed. The mock roster still models `verificationStatus` for demo purposes; there is no backend `visibleOnPublicRoster` column and IDs are UUIDs, not `RP-01`.
+- Roster: frontend `ResidentPsychologist.id RP-01.. / anonymizedTitle / prcCredentialCode / visibleOnPublicRoster` → backend `psychologist_id (FK users) / full_name / license_number / specialization / bio / social_media_links`. Approval metadata was removed; admin promotion replaces it. The public roster remains a local marketing payload until a backend roster endpoint exists.
 - Users/auth: backend `users(user_id, cognito_sub unique, email, role)`; Cognito Groups (`client` / `psychologist` / `admin`) are the access source of truth. Signup is client-only; admins promote clients via `/admin/users/:id/promote`.
 - CMS/testimonials: frontend-only mock (`vision / mission / clinicOverview / impactMetrics / testimonialsConfig` with consent flags); no backend table.
 
 ## 4. Frontend-Fits-Backend Rules Already Applied in UI
 
-- Mock roster uses anonymized codes (`RP-01`) and demo verification labels. Live psychologist access is granted by admin promotion, with no separate approval status.
+- Local marketing roster uses anonymized codes (`RP-01`). Live psychologist access is granted by admin promotion, with no separate approval status.
 - No personal names/quotes in docs or UI mocks (consent-flag empty cards).
 - Contact unlock + reminders only on pay success; tiered redaction (`privateClinicalNote` hidden from client/admin in `getBookingsForRole`/`getBookingById`).
 - Service durations/guardrails match `docs/services-catalog.md`.
@@ -52,15 +55,15 @@ Conventions for every row below: `api.ts` function → HTTP method + path the UI
 
 ### 6.1 Services
 
-- `getServices` → `GET /api/v1/services`. Auth: public. Request: none. Success: `ServiceItem[]` (`id / indexNumber / title / categoryGroup / durationLabel / durationMinutes / guardrailTitle / guardrailNotice / description / clinicalFormat / isStandaloneConsultation?`). Backend: no services table today — owner decides (new table vs Payload CMS read-through). Errors: 5xx → UI keeps last-known list (mock fallback).
+- `getPublicServices` → `GET /services/active` (public) and `getServices` → `GET /services` (authenticated). Success: `ServiceItem[]` (`id / indexNumber / title / categoryGroup / durationLabel / durationMinutes / guardrailTitle / guardrailNotice / description / clinicalFormat / isStandaloneConsultation?`). Errors: surface the backend message to the UI.
 - `updateServiceGuardrail` → `PATCH /api/v1/services/:serviceId`. Auth: admin. Request: `{ durationLabel, guardrailTitle, guardrailNotice, description }` (all strings; durations like `45 mins`, `1 hr (60 mins)`, `1.5 hrs (90 mins)`, `2 hrs (120 mins)` per `services-catalog.md`). Success: updated `ServiceItem[]`. Errors: 403 non-admin; 404 unknown service id; 422 empty guardrail text.
 
 ### 6.2 Roster & Psychologist Promotion
 
-- `getRoster(includeHiddenForAdmin)` → `GET /api/v1/roster`. Auth: public (filtered) vs admin (full). Request: none (`includeHiddenForAdmin` is a UI-side filter today). Success: `ResidentPsychologist[]` (`id / anonymizedTitle / prcCredentialCode / specialization / serviceEligibility[] / languages[] / yearsPractice / verificationStatus / visibleOnPublicRoster / assignedBookingsCount`). Backend today: no roster endpoint. `psychologist_profiles` stores `psychologist_id (UUID, FK users) / full_name / license_number / specialization / bio / social_media_links`; the mock-only fields above have no columns yet. Errors: 5xx → UI keeps mock roster.
+- `getRoster(includeHiddenForAdmin)` is a local marketing helper, not a backend request. Success: `ResidentPsychologist[]` (`id / anonymizedTitle / prcCredentialCode / specialization / serviceEligibility[] / languages[] / yearsPractice / visibleOnPublicRoster`). `psychologist_profiles` stores the real profile (`psychologist_id`, `full_name`, `license_number`, `specialization`, `bio`, `social_media_links`); a public roster endpoint is future work.
 - `getAdminUsers({search, role, page, pageSize})` → `GET /admin/users?search=&role=&page=&page_size=`. Auth: admin. Success: `{items: AdminUser[], total, page, page_size}` where `AdminUser = {user_id, email, role, full_name, created_at}`. Search matches email plus psychologist/admin names; `role` is optional; `page_size` is capped at 100. UI types live in `lib/types.ts` (`AdminUser`, `AdminUserPage`) and are mapped at the API boundary.
 - `updateAdminUserRole(userId, {role, fullName})` → `PATCH /admin/users/:id/role`. Auth: admin. Request: `{role: client|psychologist|admin, full_name?}`. `full_name` is required when assigning psychologist without an existing profile name. Success: updated `AdminUser`. Errors: 403 non-admin; 404 unknown user/Cognito account; 409 self-change, last-admin demotion, or same-role conflict; 422 missing psychologist name.
-- `updatePsychologistVerification` is **mock-only/legacy** — the backend no longer has an approval status. Admin role changes replace it: `GET /admin/users?search=` to find the account, then either `PATCH /admin/users/:id/role` or `POST /admin/users/:id/promote` with `{ full_name (required), license_number?, specialization?, bio?, social_media_links? }`. Both swap the Cognito group, update `users.role`, and create/update the profile. Errors: 403 non-admin; 404 unknown user/Cognito account; 409 self-change/last-admin/not a client or already a psychologist.
+- Admin role changes replace the removed credential-approval flow: `GET /admin/users?search=` to find the account, then either `PATCH /admin/users/:id/role` or `POST /admin/users/:id/promote` with `{ full_name (required), license_number?, specialization?, bio?, social_media_links? }`. Both swap the Cognito group, update `users.role`, and create/update the profile. Errors: 403 non-admin; 404 unknown user/Cognito account; 409 self-change/last-admin/not a client or already a psychologist.
 
 ### 6.3 Personas
 
@@ -76,7 +79,7 @@ Conventions for every row below: `api.ts` function → HTTP method + path the UI
 ### 6.5 Bookings — Proposal, Payment, Lifecycle
 
 - `pickUpAndProposeSlots` → `POST /api/v1/bookings/:bookingId/propose`. Auth: promoted psychologist. Request: `proposalFormSchema` + ids → `{ bookingId / psychologistId / pricePhp 500–25000 / slot1DateTime / slot2DateTime / slot3DateTime (ISO, all distinct) / clinicalPrepNote 10–500 chars }`. Success: booking `status=proposed`, `psychologist_id` set, `price` set, exactly 3 `proposed_slots` rows (`slotNumber 1|2|3`, `isoDateTime` → `session_date + start_time/end_time` from service `durationMinutes`). Errors: 403 non-psychologist (guardrail); 404 unknown booking; 409 already picked-up by another psychologist; 422 non-distinct slots / price out of range.
-- `confirmSlotAndPay` → `POST /api/v1/bookings/:bookingId/pay`. Auth: client (own booking). Request: `{ bookingId / selectedSlotId }` plus UI-only `paymentMethodLabel` (`card_visa_4242 / gcash_paymongo_mock / maya_stripe_mock`, mock-only) and `acknowledgeFinalizationRule` (UI-only) and `simulateFailure` (mock-only test toggle). Success: `status=paid-confirmed`, `selected_slot_id` set, `payments(amount=price, status=paid, paid_at)` written, `contactUnlocked=true` with `unlockedContact { teletherapyUrl / coordinationEmail=psychaveph.info@gmail.com / sessionReferenceCode / emergencyProtocolNote }`, reminders `scheduled/scheduled`. Finalization is payment-gated: nothing unlocks on failure. Errors: 402 payment declined (booking stays `proposed`, contact locked); 404 unknown booking/slot; 409 already finalized; 422 `selectedSlotId` not one of the 3 proposed.
+- `confirmSlotAndPay` → `POST /appointments/:id/select-slot` then `POST /appointments/:id/payment`. Auth: client (own booking). Request: `{ slot_id }`; the payment endpoint takes an empty body. Success: the appointment becomes `confirmed` after the provider webhook marks the payment paid; contact unlocks only then. The UI polls the appointment briefly and otherwise reports the checkout reference. Errors: the backend's status/detail is surfaced verbatim; contact stays locked.
 - `updateBookingLifecycleStatus` → `PATCH /api/v1/bookings/:bookingId/lifecycle`. Auth: role-scoped (client owns booking; psychologist assigned; admin announcements). Request: `{ bookingId / action: cancel | request-reschedule | dispatch-reminders }`. Success: `cancel → status=cancelled`; `request-reschedule → status=reschedule-requested`; `dispatch-reminders → reminders=dispatched/dispatched`. Errors: 403 unauthorized role; 404 unknown booking; 409 illegal transition (e.g. cancel after `paid-confirmed` per policy decision in §7.5).
 - `updatePrivatePsychNote` → `PATCH /api/v1/bookings/:bookingId/private-note`. Auth: assigned psychologist only. Request: `{ bookingId / privateClinicalNote }`. Success: note stored, never returned to client/admin tiers. Errors: 403 all other roles.
 
@@ -96,7 +99,8 @@ Conventions for every row below: `api.ts` function → HTTP method + path the UI
 
 ## 8. Flip-to-Real Runbook (When Backend Is Ready)
 
-1. Point the UI at the real API: set `NEXT_PUBLIC_API_URL` to the dev backend URL and `NEXT_PUBLIC_AUTH_MODE` to the real mode agreed with backend owners (mock header switcher is then bypassed by real Cognito tokens). Restart: `npm run dev`.
-2. Confirm mocks are off: `api.ts` `requestWithMockFallback` should return live JSON (short-timeout fallback only triggers when the backend is unreachable). Check browser network tab for real `/api/v1/*` calls.
-3. Smoke in §7 order: submit booking → queue visible to psychologist → pick-up + 3 slots → client selects 1 + pays → paid-confirmed + contact unlock → reminders dispatch. While endpoints are still missing, expect 404s with mock fallback — owners check off §7 rows as each turns green.
-4. Rollback any time: set `NEXT_PUBLIC_AUTH_MODE=mock` and restart — full offline prototype returns.
+1. Set `NEXT_PUBLIC_API_URL` to the backend URL, ensure PostgreSQL is running, and run the Alembic migrations/seeds. Restart: `npm run dev`.
+2. Log in with a real Cognito account. Check the browser network tab for authenticated requests; an absent/invalid token returns 401.
+3. Smoke in order: public catalog → submit booking → queue visible to psychologist → pick-up + 3 slots → client selects 1 + pays → paid-confirmed + contact unlock → completion.
+4. Admin smoke: `GET /admin/users` without a token returns 401; with an `admin` token it returns the paginated directory. Role changes require the admin group, cannot target the caller, and cannot demote the last admin.
+5. CMS remains a local preview until a CMS backend is implemented; it is not part of the auth/API smoke test.

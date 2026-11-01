@@ -1,12 +1,14 @@
 /**
- * Integration wiring tests for lib/api.ts (backend-integration branch).
+ * Integration wiring tests for lib/api.ts.
  *
- * Covers:
- *  - Mock mode parity: redaction guard still strips privateClinicalNote,
- *    shouldGoLive() is false in every mode when AUTH_MODE=mock.
- *  - Live adapters: AppointmentRead → BookingRequest mapping (status enum,
- *    slot rows, anonymized codes) without leaking backend shapes to the UI.
- *  - Pickup→slots chain and the pay flow's "never fake success" invariant.
+ * Every operational call now goes to the authenticated backend. These tests
+ * cover response adaptation and the guardrails that must survive the mock
+ * removal:
+ *  - public catalog uses GET /services/active
+ *  - appointment reads map to UI types without leaking backend shapes
+ *  - pickup → 3 slot rows chain
+ *  - payment never fakes success before provider confirmation
+ *  - UUID validation blocks placeholder ids
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -21,61 +23,51 @@ global.fetch = mockFetch;
 
 beforeEach(() => {
   vi.resetModules();
+  localStorage.clear();
   mockFetch.mockReset();
+  process.env.NEXT_PUBLIC_API_URL = 'http://localhost:8000';
 });
 
 afterEach(() => {
-  delete process.env.NEXT_PUBLIC_AUTH_MODE;
-  delete process.env.NEXT_PUBLIC_LIVE_ROUTES;
+  delete process.env.NEXT_PUBLIC_API_URL;
 });
 
-describe('mode gating', () => {
-  it('mock mode never sends a single request', async () => {
-    process.env.NEXT_PUBLIC_AUTH_MODE = 'mock';
-    const { api, shouldGoLive } = await import('../lib/api');
+describe('service catalog', () => {
+  it('getPublicServices calls GET /services/active', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify([
+          {
+            service_id: '9a2b1c3d-4e5f-6071-8293-a4b5c6d7e8f9',
+            name: 'Individual Counseling',
+            description: 'One-on-one therapy.',
+            is_active: true,
+            duration_minutes: 60,
+            guardrail_notice: 'Not for emergencies.',
+          },
+        ]),
+        { status: 200 }
+      )
+    );
 
-    await api.getBookingsForRole('client');
+    const { api } = await import('../lib/api');
+    const services = await api.getPublicServices();
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    expect(String(mockFetch.mock.calls[0][0])).toContain('/services/active');
+    expect(services).toHaveLength(1);
+    expect(services[0].title).toBe('Individual Counseling');
+    expect(services[0].durationMinutes).toBe(60);
+  });
+
+  it('getServices calls the authenticated catalog path', async () => {
+    mockFetch.mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 }));
+
+    const { api } = await import('../lib/api');
     await api.getServices();
 
-    expect(mockFetch).not.toHaveBeenCalled();
-    expect(shouldGoLive('/appointments')).toBe(false);
-    expect(shouldGoLive('/auth/login')).toBe(false);
-  });
-
-  it('real mode goes live only for wired prefixes; LIVE_ROUTES narrows further', async () => {
-    process.env.NEXT_PUBLIC_AUTH_MODE = 'live';
-    process.env.NEXT_PUBLIC_LIVE_ROUTES = '/auth,/appointments';
-    const { shouldGoLive } = await import('../lib/api');
-
-    expect(shouldGoLive('/auth/login')).toBe(true);
-    expect(shouldGoLive('/appointments')).toBe(true);
-    expect(shouldGoLive('/services')).toBe(false);
-    expect(shouldGoLive('/api/v1/cms')).toBe(false);
-    expect(shouldGoLive('/psychologist-profile/me')).toBe(false);
-  });
-});
-
-describe('mock-mode redaction guard (contract §4 — never undo)', () => {
-  it('client/admin lists never carry privateClinicalNote', async () => {
-    process.env.NEXT_PUBLIC_AUTH_MODE = 'mock';
-    const { api } = await import('../lib/api');
-
-    await api.submitBookingRequest({
-      personaId: 'persona-self-01',
-      serviceId: 'srv-individual',
-      concernsSummary: 'A realistic concern for the demo booking flow.',
-    });
-    const clientList = await api.getBookingsForRole('client');
-    expect(clientList.every((b) => b.privateClinicalNote === undefined)).toBe(true);
-
-    const adminList = await api.getBookingsForRole('admin');
-    expect(adminList.every((b) => b.privateClinicalNote === undefined)).toBe(true);
-
-    const clientSingle = await api.getBookingById('BK-2026-103', 'client');
-    expect(clientSingle?.privateClinicalNote).toBeUndefined();
-
-    const psychSingle = await api.getBookingById('BK-2026-103', 'psychologist');
-    expect(typeof psychSingle?.privateClinicalNote).toBe('string');
+    expect(String(mockFetch.mock.calls[0][0])).toContain('/services');
+    expect(String(mockFetch.mock.calls[0][0])).not.toContain('/services/active');
   });
 });
 
@@ -110,16 +102,12 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
   };
 
   it('getBookingById maps confirmed status + slot rows; no backend fields leak', async () => {
-    process.env.NEXT_PUBLIC_AUTH_MODE = 'live';
-    mockFetch.mockImplementation(async (url: string) => {
-      if (url.endsWith('/slots')) {
-        return new Response(JSON.stringify(SLOT_ROWS), { status: 200 });
-      }
-      return new Response(JSON.stringify(APPOINTMENT_CONFIRMED), { status: 200 });
-    });
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify(APPOINTMENT_CONFIRMED), { status: 200 })
+    );
 
     const { api } = await import('../lib/api');
-    const booking = await api.getBookingById(APPOINTMENT_CONFIRMED.appointment_id, 'client');
+    const booking = await api.getBookingById(APPOINTMENT_CONFIRMED.appointment_id);
 
     expect(booking).not.toBeNull();
     expect(booking?.status).toBe('paid-confirmed');
@@ -138,15 +126,13 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
       platform: 'Facebook',
       username: '@client.demo',
     });
-    // UI-facing booking id is the backend UUID; no full_name anywhere:
     expect(JSON.stringify(booking)).not.toMatch(/full_name/i);
     expect(booking?.psychologistCode).toMatch(/Resident Psychologist #RP-\d+/);
   });
 
   it('getPersonaReview maps the psychologist review payload', async () => {
-    process.env.NEXT_PUBLIC_AUTH_MODE = 'live';
     const personaId = '7a3c11a2-1b2c-4d3e-8f90-112233445566';
-    mockFetch.mockResolvedValue(
+    mockFetch.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
           persona: {
@@ -192,19 +178,7 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
     expect(JSON.stringify(review)).not.toMatch(/persona_name|consent_version|signed_at/);
   });
 
-  it('getPersonaReview falls back to synthetic mock data without a request', async () => {
-    process.env.NEXT_PUBLIC_AUTH_MODE = 'mock';
-    const { api } = await import('../lib/api');
-
-    const review = await api.getPersonaReview('persona-self-01');
-
-    expect(review.persona.name).toBe('Primary Account Holder (Self)');
-    expect(review.consent.version).toBe('v2');
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
   it('pay flow refuses to fake success when payment stays pending', async () => {
-    process.env.NEXT_PUBLIC_AUTH_MODE = 'live';
     mockFetch.mockImplementation(async () =>
       new Response(
         JSON.stringify({
@@ -229,13 +203,15 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
         selectedSlotId: SLOT_ROWS[0].slot_id,
       })
     ).rejects.toThrow(/not yet confirmed|Checkout URL/);
-    // select-slot + payment initiated; contact never unlocked:
-    expect(mockFetch.mock.calls.some((c) => String(c[0]).includes('/select-slot'))).toBe(true);
-    expect(mockFetch.mock.calls.some((c) => String(c[0]).includes('/payment'))).toBe(true);
+    expect(mockFetch.mock.calls.some((call) => String(call[0]).includes('/select-slot'))).toBe(
+      true
+    );
+    expect(mockFetch.mock.calls.some((call) => String(call[0]).includes('/payment'))).toBe(
+      true
+    );
   });
 
   it('pickup → 3 distinct SlotProposal rows → mapped booking', async () => {
-    process.env.NEXT_PUBLIC_AUTH_MODE = 'live';
     mockFetch.mockImplementation(async (url: string, init?: { body?: string }) => {
       if (url.includes('/pickup')) {
         return new Response(
@@ -252,7 +228,7 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
         const payload = JSON.parse(init.body) as Array<Record<string, string>>;
         expect(payload).toHaveLength(3);
         expect(
-          new Set(payload.map((s) => `${s.session_date}T${s.start_time}`)).size
+          new Set(payload.map((slot) => `${slot.session_date}T${slot.start_time}`)).size
         ).toBe(3);
         return new Response(JSON.stringify(SLOT_ROWS), { status: 200 });
       }
@@ -265,7 +241,6 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
     const { api } = await import('../lib/api');
     const booking = await api.pickUpAndProposeSlots({
       bookingId: APPOINTMENT_CONFIRMED.appointment_id,
-      psychologistId: 'RP-01',
       pricePhp: 2400,
       slot1DateTime: '2026-12-01T10:00',
       slot2DateTime: '2026-12-02T15:00',
@@ -282,19 +257,14 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
   });
 
   it('maps completed bookings and keeps contact details unlocked', async () => {
-    process.env.NEXT_PUBLIC_AUTH_MODE = 'live';
-    mockFetch.mockImplementation(async () =>
-      new Response(
-        JSON.stringify({ ...APPOINTMENT_CONFIRMED, status: 'completed' }),
-        { status: 200 }
-      )
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ...APPOINTMENT_CONFIRMED, status: 'completed' }), {
+        status: 200,
+      })
     );
 
     const { api } = await import('../lib/api');
-    const booking = await api.getBookingById(
-      APPOINTMENT_CONFIRMED.appointment_id,
-      'psychologist'
-    );
+    const booking = await api.getBookingById(APPOINTMENT_CONFIRMED.appointment_id);
 
     expect(booking?.status).toBe('completed');
     expect(booking?.contactUnlocked).toBe(true);
@@ -303,8 +273,7 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
   });
 
   it('completes a confirmed appointment through POST /complete', async () => {
-    process.env.NEXT_PUBLIC_AUTH_MODE = 'live';
-    mockFetch.mockImplementation(async (url: string, init?: { method?: string }) => {
+    mockFetch.mockImplementationOnce(async (url: string, init?: { method?: string }) => {
       expect(url).toContain(
         `/appointments/${APPOINTMENT_CONFIRMED.appointment_id}/complete`
       );
@@ -324,8 +293,7 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
     expect(booking.contactUnlocked).toBe(true);
   });
 
-  it('mixed live mode rejects mock ids where the backend parses UUIDs', async () => {
-    process.env.NEXT_PUBLIC_AUTH_MODE = 'live';
+  it('rejects placeholder ids where the backend parses UUIDs', async () => {
     mockFetch.mockReset();
     const { api } = await import('../lib/api');
 

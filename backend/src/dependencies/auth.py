@@ -13,8 +13,8 @@ from models.user import User, UserRole
 from repo.user_repo import UserRepository
 
 
-def get_claims(authorization: str = Header(...)) -> dict:
-    if not authorization.startswith("Bearer "):
+def get_claims(authorization: str | None = Header(default=None)) -> dict:
+    if not authorization or not authorization.startswith("Bearer "):
         raise UnauthenticatedError("Invalid authorization header")
 
     token = authorization.removeprefix("Bearer ").strip()

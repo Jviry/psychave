@@ -1,99 +1,119 @@
 /**
- * Admin user directory API — mock-mode parity with backend /admin/users.
+ * Admin user directory API — authenticated backend contract.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+const mockFetch = vi.fn();
+global.fetch = mockFetch;
 
 beforeEach(() => {
   vi.resetModules();
   localStorage.clear();
-  process.env.NEXT_PUBLIC_AUTH_MODE = 'mock';
+  process.env.NEXT_PUBLIC_API_URL = 'http://localhost:8000';
+  mockFetch.mockReset();
 });
 
 afterEach(() => {
-  delete process.env.NEXT_PUBLIC_AUTH_MODE;
-  delete process.env.NEXT_PUBLIC_LIVE_ROUTES;
+  delete process.env.NEXT_PUBLIC_API_URL;
 });
 
-describe('admin user directory (mock mode)', () => {
-  it('paginates users and reports the total', async () => {
+function userPage(overrides: Record<string, unknown> = {}) {
+  return {
+    items: [
+      {
+        user_id: 'usr-001',
+        email: 'admin@example.com',
+        role: 'admin',
+        full_name: 'Clinic Administrator',
+        created_at: '2026-01-05T09:00:00+08:00',
+      },
+    ],
+    total: 1,
+    page: 1,
+    page_size: 10,
+    ...overrides,
+  };
+}
+
+describe('admin user directory', () => {
+  it('sends pagination, search, and role params', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify(userPage()), { status: 200 })
+    );
+
     const { api } = await import('../lib/api');
+    const result = await api.getAdminUsers({
+      search: '  admin  ',
+      role: 'admin',
+      page: 2,
+      pageSize: 25,
+    });
 
-    const first = await api.getAdminUsers({ page: 1, pageSize: 10 });
-    expect(first.items).toHaveLength(10);
-    expect(first.total).toBe(24);
-    expect(first.page).toBe(1);
-
-    const last = await api.getAdminUsers({ page: 3, pageSize: 10 });
-    expect(last.items).toHaveLength(4);
-    expect(last.total).toBe(24);
+    const [url] = mockFetch.mock.calls[0];
+    const parsed = new URL(String(url));
+    expect(parsed.pathname).toBe('/admin/users');
+    expect(parsed.searchParams.get('page')).toBe('2');
+    expect(parsed.searchParams.get('page_size')).toBe('25');
+    expect(parsed.searchParams.get('search')).toBe('admin');
+    expect(parsed.searchParams.get('role')).toBe('admin');
+    expect(result.pageSize).toBe(10);
+    expect(result.items[0].fullName).toBe('Clinic Administrator');
   });
 
-  it('searches by email and profile name', async () => {
+  it('omits search and role when empty/all', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify(userPage()), { status: 200 })
+    );
+
     const { api } = await import('../lib/api');
+    await api.getAdminUsers({ search: '   ', role: 'all' });
 
-    const byEmail = await api.getAdminUsers({ search: 'maria.santos' });
-    expect(byEmail.total).toBe(1);
-    expect(byEmail.items[0].email).toBe('maria.santos@example.com');
-
-    const byName = await api.getAdminUsers({ search: 'elena' });
-    expect(byName.total).toBe(1);
-    expect(byName.items[0].fullName).toBe('Dr. Elena Reyes');
+    const [url] = mockFetch.mock.calls[0];
+    const parsed = new URL(String(url));
+    expect(parsed.searchParams.has('search')).toBe(false);
+    expect(parsed.searchParams.has('role')).toBe(false);
   });
 
-  it('filters by role', async () => {
+  it('maps a role update response', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          user_id: 'usr-003',
+          email: 'maria.santos@example.com',
+          role: 'psychologist',
+          full_name: 'Maria Santos',
+          created_at: '2026-01-18T09:00:00+08:00',
+        }),
+        { status: 200 }
+      )
+    );
+
     const { api } = await import('../lib/api');
-
-    const psychologists = await api.getAdminUsers({ role: 'psychologist' });
-    expect(psychologists.total).toBe(3);
-    expect(psychologists.items.every((u) => u.role === 'psychologist')).toBe(true);
-  });
-
-  it('updates a role and persists it in mock state', async () => {
-    const { api } = await import('../lib/api');
-
     const updated = await api.updateAdminUserRole('usr-003', {
       role: 'psychologist',
       fullName: 'Maria Santos',
     });
+
+    const [url, opts] = mockFetch.mock.calls[0];
+    expect(String(url)).toContain('/admin/users/usr-003/role');
+    expect(opts.method).toBe('PATCH');
+    expect(JSON.parse(opts.body)).toEqual({
+      role: 'psychologist',
+      full_name: 'Maria Santos',
+    });
     expect(updated.role).toBe('psychologist');
     expect(updated.fullName).toBe('Maria Santos');
-
-    const after = await api.getAdminUsers({ search: 'maria.santos' });
-    expect(after.items[0].role).toBe('psychologist');
   });
 
-  it('requires a full name for the psychologist role', async () => {
-    const { api } = await import('../lib/api');
-
-    await expect(
-      api.updateAdminUserRole('usr-004', { role: 'psychologist' })
-    ).rejects.toThrow(/Full name is required/i);
-  });
-
-  it('blocks changing your own role', async () => {
-    const { useAuthStore } = await import('../authStore');
-    useAuthStore.setState({
-      isAuthenticated: true,
-      user: {
-        email: 'admin@mock.psychave.local',
-        username: 'admin',
-        role: 'admin',
-        cognitoSub: 'mock-admin',
-      },
-    });
+  it('surfaces the backend guardrail error', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ detail: 'Cannot change the role of the last admin account' }),
+        { status: 409 }
+      )
+    );
 
     const { api } = await import('../lib/api');
-
-    await expect(
-      api.updateAdminUserRole('usr-001', { role: 'client' })
-    ).rejects.toThrow(/own role/i);
-  });
-
-  it('blocks demoting the last admin', async () => {
-    const { api } = await import('../lib/api');
-
-    await api.updateAdminUserRole('usr-023', { role: 'client' });
-
     await expect(
       api.updateAdminUserRole('usr-001', { role: 'client' })
     ).rejects.toThrow(/last admin/i);

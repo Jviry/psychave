@@ -145,6 +145,11 @@ Always send the **ID token**: `Authorization: Bearer <id_token>`. `verify_token(
 - `get_current_psychologist()` — `require_role(PSYCHOLOGIST)` plus the `psychologist_profiles` row for that user. Raises `ForbiddenError` when the profile is missing.
 - The DB `role` column is a cached copy for queries/joins only; Cognito groups are the source of truth for access. `AuthUsecase` reconciles the cached role from live groups on confirm/login.
 
+### Services catalog endpoints
+
+- `GET /services/active` — public active services catalog; used by the marketing home page before login.
+- `GET /services` — authenticated services catalog (requires client/psychologist/admin role).
+
 ### Psychologist dashboard endpoints
 
 All routes below require the `psychologist` Cognito group (`require_role(UserRole.PSYCHOLOGIST)`). Psychologists are created by admin promotion, so there is no separate credential-approval gate.

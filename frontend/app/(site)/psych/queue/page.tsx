@@ -12,9 +12,7 @@ import {
 import { useAppStore } from '../../../../stores/useAppStore';
 import { useActivePsychologist } from '../../../../hooks/useActivePsychologist';
 import { useRouter } from 'next/navigation';
-import { Lock, Check, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { PractitionerSwitcher } from '../../../../components/dashboard/PractitionerSwitcher';
-import { UnverifiedBanner } from '../../../../components/dashboard/UnverifiedBanner';
+import { Check, AlertCircle, CheckCircle2 } from 'lucide-react';
 import {
   BookingStatusTag,
   Button,
@@ -81,19 +79,18 @@ export default function PsychologistQueuePage() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const { publishFlowEvent } = useAppStore();
-  const { activePsych, activePsychologistId, showSwitcher } = useActivePsychologist();
+  const { activePsych } = useActivePsychologist();
 
   const [activeModalBookingId, setActiveModalBookingId] = useState<string | null>(null);
   const [reviewBookingId, setReviewBookingId] = useState<string | null>(null);
   const [recentProposedId, setRecentProposedId] = useState<string | null>(null);
 
-  const isVerified = activePsych?.verificationStatus === 'verified';
   const hasSocialLinks = (activePsych?.socialMediaLinks?.length ?? 0) > 0;
-  const canPickup = isVerified && hasSocialLinks;
+  const canPickup = hasSocialLinks;
 
   const { data: bookings = [], isLoading, refetch, error: bookingsError } = useQuery({
-    queryKey: ['bookings', 'psychologist', activePsychologistId],
-    queryFn: () => api.getBookingsForRole('psychologist', activePsychologistId),
+    queryKey: ['bookings', 'psychologist'],
+    queryFn: () => api.getBookingsForRole('psychologist'),
   });
 
   const pendingQueue = bookings.filter((b) => b.status === 'pending');
@@ -173,7 +170,6 @@ export default function PsychologistQueuePage() {
       if (!targetBooking) throw new Error('No pending booking selected for proposal.');
       return api.pickUpAndProposeSlots({
         bookingId: targetBooking.id,
-        psychologistId: activePsychologistId,
         pricePhp: values.pricePhp,
         slot1DateTime: serializeManilaIso(values.slot1DateTime),
         slot2DateTime: serializeManilaIso(values.slot2DateTime),
@@ -187,7 +183,7 @@ export default function PsychologistQueuePage() {
       setActiveModalBookingId(null);
       publishFlowEvent(
         '3 Slots & Fee Proposed',
-        `${activePsych?.anonymizedTitle} picked up ${updated.id}, set fee to ₱${updated.pricePhp?.toLocaleString()}, and proposed 3 schedule slots. Client alerted.`
+        `${activePsych?.anonymizedTitle ?? 'Psychologist'} picked up ${updated.id}, set fee to ₱${updated.pricePhp?.toLocaleString()}, and proposed 3 schedule slots. Client alerted.`
       );
     },
   });
@@ -245,26 +241,9 @@ export default function PsychologistQueuePage() {
           </p>
         </div>
 
-        {/* Practitioner State Switcher (mock mode only) */}
-        {showSwitcher && <PractitionerSwitcher />}
       </header>
 
-      {/* Non-Approved Psychologist Blocked Banner (Defense-in-depth) */}
-      {!isVerified && activePsych && (
-        <UnverifiedBanner
-          title="Pending Administrative Approval — Pick-Up Actions Disabled"
-          note={`${activePsych?.prcCredentialCode} · STATUS: WAITING_APPROVAL`}
-          body={
-            <>
-              You are logged in as <strong>{activePsych?.anonymizedTitle}</strong>. In accordance with
-              clinical governance standards, psychologists cannot pick up client booking requests or propose
-              session slots until their PRC license credentials are authenticated and approved by clinic administrators.
-            </>
-          }
-        />
-      )}
-
-      {isVerified && !hasSocialLinks && (
+      {!hasSocialLinks && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-xs text-amber-950 space-y-2">
           <p className="font-semibold">Add a social media link before accepting a booking.</p>
           <p>
@@ -408,7 +387,7 @@ export default function PsychologistQueuePage() {
                     </h3>
                   </div>
 
-                  {/* Pick Up Action Button: Hidden or disabled when unverified */}
+                  {/* Pick Up Action Button: requires a contact link */}
                   <div>
                     {canPickup ? (
                       <Button
@@ -421,11 +400,6 @@ export default function PsychologistQueuePage() {
                       >
                         Pick Up &amp; Propose 3 Slots
                       </Button>
-                    ) : !isVerified ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-sunken text-pine/50 border border-mist">
-                        <Lock className="w-3.5 h-3.5" aria-hidden="true" />
-                        Pick-Up Locked (Approval Pending)
-                      </span>
                     ) : (
                       <Button
                         variant="outline"

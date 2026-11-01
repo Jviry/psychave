@@ -7,7 +7,6 @@ import { RoleGate } from '../../../components/auth/RoleGate';
 
 const navLinks = [
   { label: 'User Management', href: '/admin/users' },
-  { label: 'Credential Verifications', href: '/admin/verifications' },
   { label: 'CMS Editors', href: '/admin/cms' },
 ];
 

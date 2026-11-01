@@ -12,7 +12,6 @@ import {
 import { useParams, useRouter } from 'next/navigation';
 import { useAppStore } from '../../../../stores/useAppStore';
 import { Lock } from 'lucide-react';
-import { DemoDataTag } from '../../../../components/DemoDataTag';
 import { SocialLinksList } from '../../../../components/SocialLinksList';
 import {
   BookingStatusTag,
@@ -29,17 +28,13 @@ export default function ProposalPickerPage() {
   const routeParams = useParams<{ id: string }>();
   const bookingId = routeParams.id || 'BK-2026-102';
 
-  const {
-    simulatePaymentFailure,
-    setSimulatePaymentFailure,
-    publishFlowEvent,
-  } = useAppStore();
+  const { publishFlowEvent } = useAppStore();
 
   const [paymentErrorMsg, setPaymentErrorMsg] = useState<string | null>(null);
 
   const { data: booking, isLoading } = useQuery({
     queryKey: ['booking', bookingId],
-    queryFn: () => api.getBookingById(bookingId, 'client'),
+    queryFn: () => api.getBookingById(bookingId),
   });
 
   const form = useForm<SlotSelectionPaymentValues>({
@@ -57,7 +52,6 @@ export default function ProposalPickerPage() {
       api.confirmSlotAndPay({
         bookingId,
         selectedSlotId: values.selectedSlotId,
-        simulateFailure: simulatePaymentFailure,
       }),
     onSuccess: (updated) => {
       setPaymentErrorMsg(null);
@@ -120,7 +114,6 @@ export default function ProposalPickerPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          {booking.demoSeed && <DemoDataTag />}
           <BookingStatusTag status={booking.status} />
         </div>
       </header>
@@ -207,18 +200,13 @@ export default function ProposalPickerPage() {
             </span>
           </div>
           <p className="text-xs text-red-900/90 leading-relaxed">{paymentErrorMsg}</p>
-          <div className="pt-1 flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSimulatePaymentFailure(false);
-                setPaymentErrorMsg(null);
-              }}
-            >
-              Switch Gateway to &quot;Payment Succeeds&quot; &amp; Retry
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPaymentErrorMsg(null)}
+          >
+            Dismiss
+          </Button>
         </div>
       )}
 
@@ -342,16 +330,7 @@ export default function ProposalPickerPage() {
                 )}
               </div>
 
-              {/* Prototype payment failure simulator */}
               <div className="border-t border-mist/70 pt-5 space-y-4">
-                <label className="inline-flex items-center gap-2 text-xs text-pine/80 cursor-pointer">
-                  <Checkbox
-                    checked={simulatePaymentFailure}
-                    onChange={(e) => setSimulatePaymentFailure(e.target.checked)}
-                  />
-                  <span>Simulate &quot;Payment Failed&quot; Error State</span>
-                </label>
-
                 <label className="flex items-start gap-2.5 text-xs text-pine/85 cursor-pointer pt-1">
                   <Checkbox
                     disabled={isFinalized}
@@ -372,15 +351,13 @@ export default function ProposalPickerPage() {
               {!isFinalized && (
                 <Button
                   type="submit"
-                  variant={simulatePaymentFailure ? 'danger' : 'primary'}
+                  variant="primary"
                   size="lg"
                   className="w-full"
                   disabled={payMutation.isPending}
                 >
                   {payMutation.isPending
                     ? 'Processing Payment...'
-                    : simulatePaymentFailure
-                    ? `Test Payment Failure (₱${booking.pricePhp?.toLocaleString()})`
                     : `Pay ₱${booking.pricePhp?.toLocaleString()} & Finalize Booking`}
                 </Button>
               )}

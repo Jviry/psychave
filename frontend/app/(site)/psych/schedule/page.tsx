@@ -6,9 +6,6 @@ import { api } from '../../../../lib/api';
 import { useActivePsychologist } from '../../../../hooks/useActivePsychologist';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, ChevronDown, CalendarDays } from 'lucide-react';
-import { PractitionerSwitcher } from '../../../../components/dashboard/PractitionerSwitcher';
-import { UnverifiedBanner } from '../../../../components/dashboard/UnverifiedBanner';
-import { DemoDataTag } from '../../../../components/DemoDataTag';
 import type { BookingRequest } from '../../../../lib/types';
 import {
   BookingStatusTag,
@@ -25,18 +22,16 @@ type ScheduleTab = 'upcoming' | 'past' | 'proposed' | 'all';
 export default function PsychologistSchedulePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { activePsych, activePsychologistId, showSwitcher } = useActivePsychologist();
+  const { activePsych } = useActivePsychologist();
 
   const [activeTab, setActiveTab] = useState<ScheduleTab>('upcoming');
   const [expandedBookingIds, setExpandedBookingIds] = useState<Record<string, boolean>>({});
   const [completionTarget, setCompletionTarget] = useState<BookingRequest | null>(null);
   const [earlyCompletionAcknowledged, setEarlyCompletionAcknowledged] = useState(false);
 
-  const isVerified = activePsych?.verificationStatus === 'verified';
-
   const { data: bookings = [], isLoading, error: bookingsError } = useQuery({
-    queryKey: ['bookings', 'psychologist', activePsychologistId],
-    queryFn: () => api.getBookingsForRole('psychologist', activePsychologistId),
+    queryKey: ['bookings', 'psychologist'],
+    queryFn: () => api.getBookingsForRole('psychologist'),
   });
 
   const completeMutation = useMutation({
@@ -156,18 +151,7 @@ export default function PsychologistSchedulePage() {
           </p>
         </div>
 
-        {/* Practitioner State Switcher (mock mode only) */}
-        {showSwitcher && <PractitionerSwitcher />}
       </header>
-
-      {/* Non-Approved Psychologist Banner */}
-      {!isVerified && activePsych && (
-        <UnverifiedBanner
-          title="Pending Approval Notice"
-          note={`${activePsych?.prcCredentialCode} · WAITING_APPROVAL`}
-          body="You are currently operating in unverified status. You cannot accept new bookings or claim requests until your clinical credentials are fully approved by clinic administration."
-        />
-      )}
 
       {bookingsError && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-xs text-red-900">
@@ -218,7 +202,7 @@ export default function PsychologistSchedulePage() {
         </div>
 
         <div className="text-xs text-pine/70 font-mono">
-          Psychologist: <span className="font-semibold text-accent-ink">{activePsych?.anonymizedTitle ?? activePsychologistId}</span>
+          Psychologist: <span className="font-semibold text-accent-ink">{activePsych?.anonymizedTitle ?? 'Authenticated psychologist'}</span>
         </div>
       </div>
 
@@ -277,7 +261,6 @@ export default function PsychologistSchedulePage() {
                     <span className="font-mono font-medium text-pine text-sm">
                       {session.id}
                     </span>
-                    {session.demoSeed && <DemoDataTag />}
                     <span className="text-mist">·</span>
                     <span className="font-semibold text-accent-ink">
                       {session.personaLabel} ({session.personaType})

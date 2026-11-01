@@ -16,8 +16,7 @@ const WORKSPACE_LINKS = {
   ],
   admin: [
     { href: '/admin/users', label: 'Admin User Roles' },
-    { href: '/admin/verifications', label: 'Admin Credential Verification' },
-    { href: '/admin/cms', label: 'Admin Payload CMS Editors' },
+    { href: '/admin/cms', label: 'Admin CMS Editors' },
   ],
 } as const;
 
