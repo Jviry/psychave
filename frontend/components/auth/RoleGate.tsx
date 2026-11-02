@@ -42,13 +42,19 @@ export function RoleGate({
   useEffect(() => {
     if (!hydrated) return;
 
-    if (!isAuthenticated || !user) {
+    // Decide from the LIVE store, not the hook values above. During React's
+    // hydration pass, useSyncExternalStore deliberately renders zustand's
+    // getServerSnapshot (the store's INITIAL state), which is unauthenticated
+    // even when a valid persisted session is being restored. Acting on that
+    // snapshot bounced logged-in users to /login on every full page load.
+    const live = useAuthStore.getState();
+    if (!live.isAuthenticated || !live.user) {
       router.replace('/login');
       return;
     }
 
-    if (user.role !== role) {
-      router.replace(useAuthStore.getState().getDashboardPath());
+    if (live.user.role !== role) {
+      router.replace(live.getDashboardPath());
     }
   }, [hydrated, isAuthenticated, user, role, router]);
 
