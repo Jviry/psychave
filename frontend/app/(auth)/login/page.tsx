@@ -8,7 +8,6 @@ import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 import { loginSchema, type LoginFormValues } from '../../../lib/authSchemas';
 import { authApi } from '../../../authApi';
-import { AUTH_MODE } from '../../../lib/api';
 import { useAuthStore } from '../../../authStore';
 import { ForgotPasswordModal } from '../../../components/auth/ForgotPasswordModal';
 import { Toast } from '../../../components/auth/Toast';
@@ -16,7 +15,7 @@ import { Button, Input, Label } from '../../../components/ui/primitives';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuthStore();
+  const { login, getDashboardPath } = useAuthStore();
 
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -52,7 +51,17 @@ export default function LoginPage() {
       };
 
       try {
-        const payload = JSON.parse(atob(session.idToken.split('.')[1]));
+        const parts = session.idToken.split('.');
+        const base64Url = parts[1] || '';
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const padded = base64.padEnd(base64.length + (4 - (base64.length % 4)) % 4, '=');
+        const json = decodeURIComponent(
+          atob(padded)
+            .split('')
+            .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+            .join('')
+        );
+        const payload = JSON.parse(json);
         const groups: string[] = payload['cognito:groups'] || [];
         const role = groups.includes('admin')
           ? 'admin'
@@ -66,19 +75,14 @@ export default function LoginPage() {
           cognitoSub: payload.sub || '',
         };
       } catch {
-        // mock token won't be parseable — keep defaults
+        // Token decode is best-effort; keep backend-provided session defaults.
       }
 
       login({ ...session, user: userInfo });
 
       setToast({ message: 'Welcome back! Redirecting…', type: 'success' });
 
-      const dashboardPath =
-        userInfo.role === 'admin'
-          ? '/admin/verifications'
-          : userInfo.role === 'psychologist'
-            ? '/psych/queue'
-            : '/bookings';
+      const dashboardPath = getDashboardPath();
 
       setTimeout(() => router.push(dashboardPath), 800);
     } catch (err) {
@@ -101,12 +105,6 @@ export default function LoginPage() {
         <div className="mb-8">
           <h2 className="font-heading text-2xl font-medium text-pine mb-1.5">Welcome back</h2>
           <p className="text-sm text-pine/60">Sign in to your PsychAve PH account</p>
-          {AUTH_MODE === 'mock' && (
-            <p className="mt-3 text-xs text-pine/45 leading-relaxed">
-              Mock mode: use <code>admin</code> or <code>psychologist</code> as the username for
-              those dashboards. Any other username signs in as a client.
-            </p>
-          )}
         </div>
 
         {/* API Error Banner */}

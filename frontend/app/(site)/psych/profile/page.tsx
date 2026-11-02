@@ -12,9 +12,7 @@ import {
 import { useAppStore } from '../../../../stores/useAppStore';
 import { useActivePsychologist } from '../../../../hooks/useActivePsychologist';
 import { useRouter } from 'next/navigation';
-import { Check, Plus, Trash2 } from 'lucide-react';
-import { PractitionerSwitcher } from '../../../../components/dashboard/PractitionerSwitcher';
-import { UnverifiedBanner } from '../../../../components/dashboard/UnverifiedBanner';
+import { Plus, Trash2 } from 'lucide-react';
 import {
   Button,
   Card,
@@ -38,12 +36,7 @@ export default function PsychologistProfilePage() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const { publishFlowEvent } = useAppStore();
-  const {
-    activePsych,
-    isLoading,
-    showSwitcher,
-  } = useActivePsychologist();
-  const isVerified = activePsych?.verificationStatus === 'verified';
+  const { activePsych, isLoading } = useActivePsychologist();
 
   const profileForm = useForm<PsychologistProfileValues>({
     resolver: zodResolver(psychologistProfileSchema),
@@ -75,7 +68,7 @@ export default function PsychologistProfilePage() {
   const updateMutation = useMutation({
     mutationFn: (values: PsychologistProfileValues) => {
       if (!activePsych) throw new Error('No practitioner profile active.');
-      return api.updatePsychologistProfile(activePsych.id, {
+      return api.updatePsychologistProfile({
         specialization: values.specialization,
         prcCredentialCode: values.prcCredentialCode,
         bio: values.bio,
@@ -86,7 +79,6 @@ export default function PsychologistProfilePage() {
       });
     },
     onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ['roster'] });
       queryClient.invalidateQueries({ queryKey: ['psych-profile'] });
       publishFlowEvent(
         'Profile Updated Successfully',
@@ -110,50 +102,13 @@ export default function PsychologistProfilePage() {
           </h1>
           <p className="text-sm text-pine/80 max-w-2xl">
             Manage your clinical specializations, PRC license credentials, professional biography,
-            social media contact links, and review your administrative verification status.
+            and social media contact links.
           </p>
         </div>
-
-        {/* Practitioner State Switcher (mock mode only) */}
-        {showSwitcher && <PractitionerSwitcher />}
       </header>
 
-      {/* Approval Status Banner */}
-      {!isVerified ? (
-        <UnverifiedBanner
-          title="Read-Only Approval Status: WAITING_APPROVAL"
-          note="STATUS: PENDING CLINIC APPROVAL"
-          body={
-            <>
-              Your clinical account is currently <strong>awaiting administrator verification</strong>.
-              While pending approval, your profile is hidden from the public roster and booking pick-up actions
-              remain blocked app-wide to maintain patient safety and clinical regulatory standards.
-            </>
-          }
-        />
-      ) : (
-        <div className="bg-surface-sunken border border-mist rounded-xl p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2.5">
-            <div className="w-6 h-6 rounded-full bg-sage text-white flex items-center justify-center shrink-0">
-              <Check className="w-4 h-4" strokeWidth={3} aria-hidden="true" />
-            </div>
-            <div>
-              <p className="font-semibold text-pine">
-                Credential Status: Verified &amp; Active
-              </p>
-              <p className="text-pine/75">
-                Authenticated under PRC Registration. Queue pick-up and schedule proposal privileges are enabled.
-              </p>
-            </div>
-          </div>
-          <span className="font-mono px-2.5 py-1 bg-surface-raised rounded-md text-accent-ink font-semibold border border-mist">
-            {activePsych?.prcCredentialCode}
-          </span>
-        </div>
-      )}
-
       {/* Social media gate */}
-      {isVerified && (activePsych?.socialMediaLinks?.length ?? 0) === 0 && (
+      {(activePsych?.socialMediaLinks?.length ?? 0) === 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-950 space-y-1">
           <p className="font-semibold">Social media contact required before accepting bookings.</p>
           <p>
@@ -337,7 +292,7 @@ export default function PsychologistProfilePage() {
           )}
         </Card>
 
-        {/* Right Column: Read-Only Roster & Service Scope Governance */}
+        {/* Right Column: Read-Only Identity */}
         <div className="lg:col-span-4 space-y-6">
           <Card className="space-y-4">
             <h3 className="font-heading text-xl font-medium text-pine border-b border-mist pb-2">
@@ -348,52 +303,10 @@ export default function PsychologistProfilePage() {
               <div>
                 <p className="text-pine/70">Anonymized Identifier:</p>
                 <p className="font-mono font-medium text-pine text-sm">
-                  {activePsych?.anonymizedTitle}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-pine/70">Public Roster Visibility:</p>
-                <span
-                  className={`inline-block mt-1 px-2.5 py-0.5 rounded-full font-medium text-xs ${
-                    activePsych?.visibleOnPublicRoster
-                      ? 'bg-sage/15 text-pine'
-                      : 'bg-amber-100 text-amber-900'
-                  }`}
-                >
-                  {activePsych?.visibleOnPublicRoster
-                    ? 'Listed on Public Roster'
-                    : 'Hidden from Public Roster'}
-                </span>
-              </div>
-
-              <div>
-                <p className="text-pine/70">Assigned Case Load:</p>
-                <p className="font-semibold text-pine">
-                  {activePsych?.assignedBookingsCount} active bookings
+                  {activePsych?.anonymizedTitle ?? 'Resident Psychologist'}
                 </p>
               </div>
             </div>
-          </Card>
-
-          <Card className="space-y-4">
-            <h3 className="font-heading text-xl font-medium text-pine border-b border-mist pb-2">
-              Certified Service Eligibility
-            </h3>
-            <p className="text-xs text-pine/70">
-              Services you are certified to evaluate and pick up from the pending booking queue:
-            </p>
-            <ul className="space-y-2 text-xs">
-              {activePsych?.serviceEligibility?.map((service) => (
-                <li
-                  key={service}
-                  className="py-1.5 border-b border-mist/50 last:border-b-0 font-medium text-pine flex items-center gap-2"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-sage shrink-0" aria-hidden="true" />
-                  <span>{service}</span>
-                </li>
-              ))}
-            </ul>
           </Card>
         </div>
       </div>

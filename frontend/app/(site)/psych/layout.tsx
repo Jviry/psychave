@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAppStore } from '../../../stores/useAppStore';
+import { useActivePsychologist } from '../../../hooks/useActivePsychologist';
 import { RoleGate } from '../../../components/auth/RoleGate';
 
 export default function PsychologistDashboardLayout({
@@ -12,7 +12,7 @@ export default function PsychologistDashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { activePsychologistId } = useAppStore();
+  const { activePsych } = useActivePsychologist();
 
   const navLinks = [
     { label: 'Pending Requests', href: '/psych/queue' },
@@ -51,8 +51,10 @@ export default function PsychologistDashboardLayout({
             })}
           </div>
           <div className="text-xs text-pine/70 font-mono">
-            Practitioner ID:{' '}
-            <span className="font-semibold text-accent-ink">{activePsychologistId}</span>
+            Practitioner:{' '}
+            <span className="font-semibold text-accent-ink">
+              {activePsych?.anonymizedTitle ?? 'Authenticated psychologist'}
+            </span>
           </div>
         </nav>
 

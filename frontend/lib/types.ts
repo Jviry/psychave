@@ -114,13 +114,6 @@ export interface BookingRequest {
    * Redacted in Admin and Client payloads.
    */
   privateClinicalNote?: string;
-  /**
-   * UI-only mock flag: marks the clearly-labeled demo seed bookings kept in
-   * lib/api.ts (INITIAL_BOOKINGS) so cards render a "Demo data" tag. Never
-   * sent to, or stored by, the backend — contract §2 flags UI-only fields and
-   * they must NOT become backend columns.
-   */
-  demoSeed?: boolean;
 }
 
 export interface ResidentPsychologist {
@@ -131,11 +124,24 @@ export interface ResidentPsychologist {
   serviceEligibility: string[];
   languages: string[];
   yearsPractice: string;
-  verificationStatus: 'verified' | 'waiting_approval';
   visibleOnPublicRoster: boolean;
-  assignedBookingsCount: number;
   socialMediaLinks: SocialMediaLink[];
   bio?: string;
+}
+
+export interface AdminUser {
+  userId: string;
+  email: string;
+  role: CognitoRole;
+  fullName: string | null;
+  createdAt: string;
+}
+
+export interface AdminUserPage {
+  items: AdminUser[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface TestimonialSlot {

@@ -6,20 +6,12 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAppStore } from '../stores/useAppStore';
 import { useAuthStore } from '../authStore';
 import { CognitoRole } from '../lib/types';
-import { API_BASE_URL, AUTH_MODE } from '../lib/api';
-import { LogOut, User, ChevronDown, Info, Bell, Lock } from 'lucide-react';
+import { LogOut, User, ChevronDown, Bell, Lock } from 'lucide-react';
 
 export function SiteHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const {
-    activePsychologistId,
-    setActivePsychologistId,
-    simulatePaymentFailure,
-    setSimulatePaymentFailure,
-    lastFlowEvent,
-    clearFlowEvent,
-  } = useAppStore();
+  const { lastFlowEvent, clearFlowEvent } = useAppStore();
 
   const { isAuthenticated, user, logout: authLogout } = useAuthStore();
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -56,10 +48,6 @@ export function SiteHeader() {
     };
   }, [isHome]);
 
-  // Mock-mode-only widgets (payment simulator, psych identity) must never
-  // appear when the app is pointed at the real backend.
-  const isMock = AUTH_MODE === 'mock';
-
   const roleNavItems: Record<CognitoRole, { label: string; href: string }[]> = {
     client: [
       { label: 'Personas & Booking', href: '/personas' },
@@ -72,64 +60,13 @@ export function SiteHeader() {
       { label: 'Profile', href: '/psych/profile' },
     ],
     admin: [
-      { label: 'Credential Verifications', href: '/admin/verifications' },
-      { label: 'Payload CMS Editors', href: '/admin/cms' },
+      { label: 'User Management', href: '/admin/users' },
+      { label: 'CMS Editors', href: '/admin/cms' },
     ],
   };
 
   return (
     <div className="sticky top-0 z-40 bg-surface-raised border-b border-mist">
-      {/* Canonical Prototype Demo Banner */}
-      <div className="bg-pine text-white px-4 lg:px-8 py-1.5 text-xs">
-        <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Info className="w-3.5 h-3.5 text-lime-soft shrink-0" aria-hidden="true" />
-            <span className="font-medium text-parchment">
-              {isMock
-                ? 'Frontend prototype — mock mode (in-memory data, no backend calls).'
-                : `Frontend prototype — live mode (NEXT_PUBLIC_API_URL: ${API_BASE_URL}).`}
-            </span>
-          </div>
-
-          {/* Interactive State Simulation Controls — mock mode only (they are fake toggles) */}
-          <div className="flex items-center gap-4 text-xs text-parchment/70">
-            {isMock && user?.role === 'psychologist' && (
-              <div className="flex items-center gap-1.5">
-                <span>Psych Identity:</span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setActivePsychologistId(activePsychologistId === 'RP-01' ? 'RP-04' : 'RP-01')
-                  }
-                  className="underline text-lime-soft hover:text-white font-medium cursor-pointer whitespace-nowrap"
-                >
-                  {activePsychologistId === 'RP-01'
-                    ? 'Resident #RP-01 (Verified)'
-                    : 'Associate #RP-04 (Unverified · Cannot Pick Up)'}
-                </button>
-              </div>
-            )}
-
-            {isMock && user?.role === 'client' && (
-              <div className="flex items-center gap-1.5">
-                <span>Stripe Gateway Simulation:</span>
-                <button
-                  type="button"
-                  onClick={() => setSimulatePaymentFailure(!simulatePaymentFailure)}
-                  className="underline text-lime-soft hover:text-white font-medium cursor-pointer whitespace-nowrap"
-                >
-                  {simulatePaymentFailure ? 'Simulate Payment Failed' : 'Payment Succeeds'}
-                </button>
-              </div>
-            )}
-
-            <span className="hidden sm:inline text-parchment/60">
-              AUTH_MODE: {AUTH_MODE}
-            </span>
-          </div>
-        </div>
-      </div>
-
       {/* Top Bar Contract: Zone 1 (Single Wordmark) — Zone 2 (Clean Text Nav Links) — Zone 3 (Actions) */}
       <header className="max-w-6xl mx-auto px-4 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Zone 1: Brand Title, single text element in Proxima Nova Condensed */}
@@ -212,7 +149,7 @@ export function SiteHeader() {
                     </div>
                     <Link
                       id="user-menu-dashboard"
-                      href={user.role === 'admin' ? '/admin/verifications' : user.role === 'psychologist' ? '/psych/queue' : '/bookings'}
+                      href={user.role === 'admin' ? '/admin/users' : user.role === 'psychologist' ? '/psych/queue' : '/bookings'}
                       className="flex items-center gap-2 px-4 py-2 text-xs text-pine hover:bg-mist/40 transition-colors"
                       onClick={() => setShowUserMenu(false)}
                     >
@@ -295,12 +232,12 @@ export function SiteHeader() {
               )}
               {user.role === 'psychologist' && (
                 <span>
-                  Tiered Access: Pending Queue + Sessions booked under #{activePsychologistId} only
+                  Tiered Access: Pending Queue + sessions assigned to your authenticated account
                 </span>
               )}
               {user.role === 'admin' && (
                 <span>
-                  Tiered Access: Verifications & CMS only · Private clinical session notes redacted
+                  Tiered Access: User roles &amp; CMS only · Private clinical session notes redacted
                 </span>
               )}
             </div>

@@ -8,20 +8,6 @@ interface BookingDraft {
 
 interface AppState {
   /**
-   * Active psychologist profile ID used by the mock roster.
-   * Live mode resolves identity from GET /psychologist-profile/me instead.
-   */
-  activePsychologistId: string;
-  setActivePsychologistId: (id: string) => void;
-
-  /**
-   * Simulate Stripe payment failure to demonstrate the required "payment failed" error state
-   * where booking is NOT finalized and contact remains locked.
-   */
-  simulatePaymentFailure: boolean;
-  setSimulatePaymentFailure: (val: boolean) => void;
-
-  /**
    * Client Booking Draft state (persisted while browsing Services -> Personas/Booking)
    */
   bookingDraft: BookingDraft;
@@ -42,9 +28,9 @@ interface AppState {
 }
 
 /**
- * Empty by design: in real mode persona/service ids must come from the
- * backend (UUIDs). The booking page binds these to the first live row when
- * they are unset, so a mock id can never reach `submitBookingRequest`.
+ * Empty by design: persona/service ids must come from the backend (UUIDs).
+ * The booking page binds these to the first live row when they are unset, so
+ * a placeholder id can never reach `submitBookingRequest`.
  */
 const DEFAULT_DRAFT: BookingDraft = {
   personaId: '',
@@ -53,12 +39,6 @@ const DEFAULT_DRAFT: BookingDraft = {
 };
 
 export const useAppStore = create<AppState>((set) => ({
-  activePsychologistId: 'RP-01',
-  setActivePsychologistId: (id) => set({ activePsychologistId: id }),
-
-  simulatePaymentFailure: false,
-  setSimulatePaymentFailure: (val) => set({ simulatePaymentFailure: val }),
-
   bookingDraft: DEFAULT_DRAFT,
   updateBookingDraft: (partial) =>
     set((state) => ({

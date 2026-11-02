@@ -49,7 +49,7 @@ export default function HomePage() {
 
   const { data: services = [] } = useQuery({
     queryKey: ['services'],
-    queryFn: () => api.getServices(),
+    queryFn: () => api.getPublicServices(),
   });
 
   const { data: cms } = useQuery({

@@ -21,10 +21,7 @@ def list_services(
 
 
 @router.get("/active", response_model=list[ServiceRead])
-def list_services_active(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(
-        UserRole.ADMIN, UserRole.CLIENT, UserRole.PSYCHOLOGIST))
-):
+def list_services_active(db: Session = Depends(get_db)):
+    """Public catalog: used by the marketing home page before login."""
     uc = ServiceUsecase(db)
     return uc.get_all_active()

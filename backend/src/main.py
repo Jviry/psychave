@@ -97,6 +97,3 @@ async def health_check():
     return {"status": "ok", "env": settings.ENV}
 
 
-@app.get("/hello")
-async def hello_world():
-    return {"hello": "world"}

@@ -57,8 +57,8 @@ export default function PersonasAndBookingPage() {
   const bookingForm = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
-      // No mock fallbacks: real mode needs backend UUIDs, and ids are bound
-      // to the live personas/services lists by the effects below.
+      // Backend UUIDs only: ids are bound to the live personas/services
+      // lists by the effects below.
       personaId: bookingDraft.personaId,
       serviceId: bookingDraft.serviceId,
       concernsSummary: bookingDraft.concernsSummary || '',
@@ -106,8 +106,8 @@ export default function PersonasAndBookingPage() {
   };
 
   // Bind the booking form to real backend rows. The store starts empty, so
-  // without this the persona/service fields would stay blank (or, before the
-  // defaults were cleared, hold mock ids that `submitBookingRequest` rejects).
+  // without this the persona/service fields would stay blank or hold ids that
+  // `submitBookingRequest` rejects as non-UUIDs.
   useEffect(() => {
     if (personasLoading || personas.length === 0) return;
     const current = bookingForm.getValues('personaId');
