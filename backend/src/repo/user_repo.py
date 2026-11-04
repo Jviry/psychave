@@ -4,6 +4,7 @@ from sqlalchemy import func, or_
 from sqlmodel import Session, select
 
 from models.admin_profile import AdminProfile
+from models.client_profile import ClientProfile
 from models.psychologist_profile import PsychologistProfile
 from models.user import User, UserRole
 
@@ -73,6 +74,93 @@ class UserRepository:
     def update(self, user: User) -> User:
         self.session.add(user)
         self.session.commit()
+        self.session.refresh(user)
+        return user
+
+    def get_psychologist_profile(
+        self, user_id: uuid.UUID
+    ) -> PsychologistProfile | None:
+        return self.session.get(PsychologistProfile, user_id)
+
+    def get_admin_profile(self, user_id: uuid.UUID) -> AdminProfile | None:
+        return self.session.get(AdminProfile, user_id)
+
+    def ensure_role_profile(self, user: User, display_name: str) -> None:
+        """Create the role's profile row when missing (idempotent)."""
+        name = display_name or user.email
+
+        if user.role == UserRole.CLIENT.value:
+            if self.session.get(ClientProfile, user.user_id) is None:
+                self.session.add(ClientProfile(client_id=user.user_id))
+        elif user.role == UserRole.PSYCHOLOGIST.value:
+            if self.session.get(PsychologistProfile, user.user_id) is None:
+                self.session.add(
+                    PsychologistProfile(
+                        psychologist_id=user.user_id,
+                        full_name=name,
+                    )
+                )
+        elif user.role == UserRole.ADMIN.value:
+            if self.session.get(AdminProfile, user.user_id) is None:
+                self.session.add(
+                    AdminProfile(admin_id=user.user_id, full_name=name)
+                )
+
+        self.session.commit()
+
+    def apply_role_change(
+        self,
+        user: User,
+        target_role: UserRole,
+        full_name: str | None,
+        profile_fields: dict,
+    ) -> User:
+        """Upsert the target role's profile row and update the cached role.
+
+        Existing profile rows are intentionally kept on demotion: personas and
+        appointments reference them, and they preserve historical data.
+        Rolls back on error so callers can undo upstream Cognito group changes.
+        """
+        try:
+            if target_role == UserRole.CLIENT:
+                if self.session.get(ClientProfile, user.user_id) is None:
+                    self.session.add(ClientProfile(client_id=user.user_id))
+
+            elif target_role == UserRole.PSYCHOLOGIST:
+                profile = self.session.get(PsychologistProfile, user.user_id)
+                if profile is None:
+                    profile = PsychologistProfile(
+                        psychologist_id=user.user_id,
+                        full_name=full_name or user.email,
+                    )
+                    self.session.add(profile)
+                elif full_name:
+                    profile.full_name = full_name
+
+                for field, value in profile_fields.items():
+                    setattr(profile, field, value)
+                self.session.add(profile)
+
+            elif target_role == UserRole.ADMIN:
+                profile = self.session.get(AdminProfile, user.user_id)
+                if profile is None:
+                    self.session.add(
+                        AdminProfile(
+                            admin_id=user.user_id,
+                            full_name=full_name or user.email,
+                        )
+                    )
+                elif full_name:
+                    profile.full_name = full_name
+                    self.session.add(profile)
+
+            user.role = target_role.value
+            self.session.add(user)
+            self.session.commit()
+        except Exception:
+            self.session.rollback()
+            raise
+
         self.session.refresh(user)
         return user
 

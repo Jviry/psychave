@@ -5,9 +5,6 @@ from schemas.auth_model import (
     ConfirmUserRequest,
     ForgotPasswordConfirm
 )
-from models.admin_profile import AdminProfile
-from models.client_profile import ClientProfile
-from models.psychologist_profile import PsychologistProfile
 from models.user import User, UserRole
 from repo.user_repo import UserRepository
 from services.aws.cognito_service import CognitoService
@@ -132,23 +129,7 @@ class AuthUsecase:
         The profile rows are FK targets (persona -> client_profiles), so every
         user needs one. Idempotent.
         """
-        name = display_name or user.email
-
-        if user.role == UserRole.CLIENT.value:
-            if self.db.get(ClientProfile, user.user_id) is None:
-                self.db.add(ClientProfile(client_id=user.user_id))
-        elif user.role == UserRole.PSYCHOLOGIST.value:
-            if self.db.get(PsychologistProfile, user.user_id) is None:
-                self.db.add(PsychologistProfile(
-                    psychologist_id=user.user_id,
-                    full_name=name,
-                ))
-        elif user.role == UserRole.ADMIN.value:
-            if self.db.get(AdminProfile, user.user_id) is None:
-                self.db.add(AdminProfile(
-                    admin_id=user.user_id, full_name=name))
-
-        self.db.commit()
+        self.user_repo.ensure_role_profile(user, display_name)
 
     def _ensure_local_user(self, id_token: str | None):
         """Heal rows for users created before local sync existed.

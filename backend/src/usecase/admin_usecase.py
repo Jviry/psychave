@@ -4,9 +4,6 @@ import uuid
 from sqlmodel import Session
 
 from common.exceptions import ConflictError, NotFoundError, ValidationError
-from models.admin_profile import AdminProfile
-from models.client_profile import ClientProfile
-from models.psychologist_profile import PsychologistProfile
 from models.user import User, UserRole
 from repo.user_repo import UserRepository
 from schemas.admin import AdminUserPage, AdminUserRead, PromotePsychologistRequest
@@ -113,11 +110,10 @@ class AdminUsecase:
         self.auth.set_role_group(username, target_role.value)
 
         try:
-            self._apply_role(
-                user, target_role, full_name, profile_fields or {})
-            self.db.commit()
+            user = self.user_repo.apply_role_change(
+                user, target_role, full_name, profile_fields or {}
+            )
         except Exception:
-            self.db.rollback()
             try:
                 self.auth.set_user_groups(username, previous_groups)
             except Exception:
@@ -127,7 +123,6 @@ class AdminUsecase:
                 )
             raise
 
-        self.db.refresh(user)
         return self._read_user(user)
 
     def _resolve_full_name(
@@ -146,7 +141,7 @@ class AdminUsecase:
             return name
 
         if target_role == UserRole.PSYCHOLOGIST:
-            profile = self.db.get(PsychologistProfile, user.user_id)
+            profile = self.user_repo.get_psychologist_profile(user.user_id)
             if profile is not None and profile.full_name.strip():
                 return profile.full_name
             raise ValidationError(
@@ -154,63 +149,16 @@ class AdminUsecase:
             )
 
         if target_role == UserRole.ADMIN:
-            profile = self.db.get(AdminProfile, user.user_id)
+            profile = self.user_repo.get_admin_profile(user.user_id)
             if profile is not None and profile.full_name.strip():
                 return profile.full_name
             return user.email
 
         return None
 
-    def _apply_role(
-        self,
-        user: User,
-        target_role: UserRole,
-        full_name: str | None,
-        profile_fields: dict,
-    ) -> None:
-        """Upsert the target role's profile row and update the cached role.
-
-        Existing profile rows are intentionally kept on demotion: personas and
-        appointments reference them, and they preserve historical data.
-        """
-        if target_role == UserRole.CLIENT:
-            if self.db.get(ClientProfile, user.user_id) is None:
-                self.db.add(ClientProfile(client_id=user.user_id))
-
-        elif target_role == UserRole.PSYCHOLOGIST:
-            profile = self.db.get(PsychologistProfile, user.user_id)
-            if profile is None:
-                profile = PsychologistProfile(
-                    psychologist_id=user.user_id,
-                    full_name=full_name or user.email,
-                )
-                self.db.add(profile)
-            elif full_name:
-                profile.full_name = full_name
-
-            for field, value in profile_fields.items():
-                setattr(profile, field, value)
-            self.db.add(profile)
-
-        elif target_role == UserRole.ADMIN:
-            profile = self.db.get(AdminProfile, user.user_id)
-            if profile is None:
-                self.db.add(
-                    AdminProfile(
-                        admin_id=user.user_id,
-                        full_name=full_name or user.email,
-                    )
-                )
-            elif full_name:
-                profile.full_name = full_name
-                self.db.add(profile)
-
-        user.role = target_role.value
-        self.db.add(user)
-
     def _read_user(self, user: User) -> AdminUserRead:
-        psych_profile = self.db.get(PsychologistProfile, user.user_id)
-        admin_profile = self.db.get(AdminProfile, user.user_id)
+        psych_profile = self.user_repo.get_psychologist_profile(user.user_id)
+        admin_profile = self.user_repo.get_admin_profile(user.user_id)
 
         full_name = None
         if user.role == UserRole.ADMIN.value and admin_profile is not None:
