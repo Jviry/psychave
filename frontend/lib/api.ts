@@ -9,6 +9,8 @@ import {
   PersonaReview,
   ResidentPsychologist,
   ServiceItem,
+  SlotProposer,
+  SlotStatus,
   SocialMediaLink,
 } from './types';
 import { useAuthStore } from '../authStore';
@@ -312,7 +314,11 @@ interface AppointmentRaw {
   presenting_concern: string;
   status: string;
   requested_datetime: string | null;
+  scheduling_turn: string | null;
+  scheduling_round: number;
+  payment_deadline: string | null;
   proposed_slots: ProposedSlotRaw[];
+  conflicting_slot_ids?: string[];
   persona_socmed_platform: string | null;
   persona_socmed_username: string | null;
   psychologist_social_links: SocialMediaLink[];
@@ -323,6 +329,9 @@ interface ProposedSlotRaw {
   session_date: string;
   start_time: string;
   end_time: string | null;
+  proposed_by: string;
+  status: string;
+  round: number;
 }
 
 interface ServiceRaw {
@@ -445,11 +454,15 @@ function durationLabel(minutes: number | null | undefined): string {
   return `${Math.floor(minutes / 60)} hr ${minutes % 60} mins`;
 }
 
-function mapStatusToBookingStatus(raw: string): BookingStatus {
+function mapStatusToBookingStatus(
+  raw: string,
+  schedulingTurn: string | null
+): BookingStatus {
   switch (raw) {
-    case 'awaiting_slot_selection':
+    case 'awaiting_schedule':
+      return schedulingTurn === 'client' ? 'awaiting-client' : 'awaiting-review';
     case 'awaiting_payment':
-      return 'proposed';
+      return 'awaiting-payment';
     case 'confirmed':
       return 'paid-confirmed';
     case 'completed':
@@ -462,7 +475,7 @@ function mapStatusToBookingStatus(raw: string): BookingStatus {
 }
 
 function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
-  const status = mapStatusToBookingStatus(raw.status);
+  const status = mapStatusToBookingStatus(raw.status, raw.scheduling_turn);
   const code = anonymizedPsychCode(raw.psychologist_id);
   const contactUnlocked =
     raw.status === 'confirmed' || raw.status === 'completed';
@@ -490,13 +503,24 @@ function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
       : null;
     const endIso = endTime ? `${slot.session_date.slice(0, 10)}T${endTime}` : undefined;
     const { dateLabel, timeLabel } = formatSlotDateAndTime(iso, durationMinutes);
+    const slotStatus: SlotStatus =
+      slot.status === 'accepted' ||
+      slot.status === 'declined' ||
+      slot.status === 'expired'
+        ? slot.status
+        : 'proposed';
+    const proposedBy: SlotProposer =
+      slot.proposed_by === 'client' ? 'client' : 'psychologist';
     return {
       id: slot.slot_id,
-      slotNumber: ((index + 1) as 1 | 2 | 3),
+      slotNumber: index + 1,
       isoDateTime: iso,
       endIsoDateTime: endIso,
       dateLabel,
       timeLabel,
+      proposedBy,
+      status: slotStatus,
+      round: slot.round ?? 1,
     };
   });
 
@@ -518,6 +542,13 @@ function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
     psychologistCode: code ? `Resident Psychologist #${code}` : undefined,
     pricePhp: raw.price ?? undefined,
     proposedSlots,
+    schedulingTurn:
+      raw.scheduling_turn === 'client' || raw.scheduling_turn === 'psychologist'
+        ? raw.scheduling_turn
+        : undefined,
+    schedulingRound: raw.scheduling_round ?? 1,
+    paymentDeadline: raw.payment_deadline ?? undefined,
+    conflictingSlotIds: raw.conflicting_slot_ids ?? [],
     selectedSlotId: raw.selected_slot_id ?? undefined,
     contactUnlocked,
     psychologistSocialLinks,
@@ -603,8 +634,8 @@ function assertUuid(value: string | undefined, label: string): string {
   return value as string;
 }
 
-/** ISO datetime ('YYYY-MM-DDTHH:mm[...]') → SlotProposal body rows. */
-function toSlotProposal(isoDateTime: string, durationMinutes: number) {
+/** ISO datetime ('YYYY-MM-DDTHH:mm[...]') → SlotInput body row. */
+function toSlotPreference(isoDateTime: string) {
   const clean = isoDateTime.slice(0, 16);
   const sessionDate = clean.slice(0, 10);
   const timePart = clean.slice(11, 16);
@@ -612,10 +643,7 @@ function toSlotProposal(isoDateTime: string, durationMinutes: number) {
   if (Number.isNaN(h) || Number.isNaN(m)) {
     throw new Error(`Invalid slot datetime format: "${isoDateTime}"`);
   }
-  const total = (h * 60 + m + durationMinutes) % (24 * 60);
-  const endHours = String(Math.floor(total / 60)).padStart(2, '0');
-  const endMinutes = String(total % 60).padStart(2, '0');
-  return { session_date: sessionDate, start_time: `${timePart}:00`, end_time: `${endHours}:${endMinutes}:00` };
+  return { session_date: sessionDate, start_time: `${timePart}:00` };
 }
 
 async function liveRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -787,11 +815,16 @@ export const api = {
     personaId: string;
     serviceId: string;
     concernsSummary: string;
+    preferredSlots: string[];
   }): Promise<BookingRequest> => {
+    if (input.preferredSlots.length < 3) {
+      throw new Error('Choose at least 3 preferred schedules.');
+    }
     const body = {
       persona_id: assertUuid(input.personaId, 'personaId'),
       service_id: assertUuid(input.serviceId, 'serviceId'),
       presenting_concern: input.concernsSummary,
+      preferred_slots: input.preferredSlots.map(toSlotPreference),
     };
     const raw = await liveRequest<AppointmentRaw>('/appointments', {
       method: 'POST',
@@ -801,18 +834,32 @@ export const api = {
   },
 
   /**
-   * Flow C Step 3: Psychologist claims a request, sets price, proposes 3 slots.
+   * Psychologist atomically claims a pending request, sets the session price,
+   * and either accepts a client-preferred schedule or offers one alternative.
    */
-  pickUpAndProposeSlots: async (input: {
+  pickUpBooking: async (input: {
     bookingId: string;
     pricePhp: number;
-    slot1DateTime: string;
-    slot2DateTime: string;
-    slot3DateTime: string;
+    slotId?: string;
+    counterDateTime?: string;
   }): Promise<BookingRequest> => {
-    const pickupRes = await liveFetch(`/appointments/${input.bookingId}/pickup`, {
+    const hasSlot = Boolean(input.slotId);
+    const hasCounter = Boolean(input.counterDateTime);
+    if (hasSlot === hasCounter) {
+      throw new Error('Choose a preferred schedule or offer an alternative.');
+    }
+
+    const body: Record<string, unknown> = { price: input.pricePhp };
+    if (input.slotId) {
+      body.slot_id = assertUuid(input.slotId, 'slotId');
+    } else if (input.counterDateTime) {
+      body.counter_slot = toSlotPreference(input.counterDateTime);
+    }
+
+    const path = `/appointments/${assertUuid(input.bookingId, 'bookingId')}/pickup`;
+    const pickupRes = await liveFetch(path, {
       method: 'POST',
-      body: JSON.stringify({ price: input.pricePhp }),
+      body: JSON.stringify(body),
     });
 
     if (pickupRes.status === 404) {
@@ -821,9 +868,17 @@ export const api = {
       );
     }
     if (pickupRes.status === 409 || pickupRes.status === 400) {
-      throw new Error(
-        `Request already claimed: Booking ${input.bookingId} has already been claimed by another psychologist. Please refresh your queue.`
-      );
+      const detail = (pickupRes.json as { detail?: unknown } | null)?.detail;
+      const detailText = typeof detail === 'string' ? detail : '';
+      if (
+        /already been picked up|no longer pending/i.test(detailText) ||
+        !detailText
+      ) {
+        throw new Error(
+          `Request already claimed: Booking ${input.bookingId} has already been claimed by another psychologist. Please refresh your queue.`
+        );
+      }
+      throw new Error(detailText);
     }
     if (pickupRes.status === 422) {
       const detail =
@@ -832,81 +887,92 @@ export const api = {
       throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
     }
     if (pickupRes.status < 200 || pickupRes.status >= 300) {
-      throw buildBackendError(
-        `/appointments/${input.bookingId}/pickup`,
-        pickupRes.status,
-        pickupRes.json
-      );
+      throw buildBackendError(path, pickupRes.status, pickupRes.json);
     }
 
-    // Pickup succeeded: never fall back from here. The appointment is claimed.
-    const claimed = await liveRequest<AppointmentRaw>(
-      `/appointments/${input.bookingId}`
-    );
-    const durationMinutes = claimed.service_duration_minutes || 60;
-    const slotPayload = [
-      input.slot1DateTime,
-      input.slot2DateTime,
-      input.slot3DateTime,
-    ].map((dateTime) => toSlotProposal(dateTime, durationMinutes));
-
-    const slotsRes = await liveFetch(`/appointments/${input.bookingId}/slots`, {
-      method: 'POST',
-      body: JSON.stringify(slotPayload),
-    });
-    if (slotsRes.status < 200 || slotsRes.status >= 300) {
-      const detail =
-        (slotsRes.json as { detail?: string | unknown } | null)?.detail ??
-        `HTTP ${slotsRes.status}`;
-      throw new Error(
-        `Appointment ${input.bookingId} was successfully claimed, but proposing slots failed (${typeof detail === 'string' ? detail : JSON.stringify(detail)}). It stays assigned to you — please check My Schedule or contact admin.`
-      );
-    }
-
-    const final = await liveRequest<AppointmentRaw>(
-      `/appointments/${input.bookingId}`
-    );
-    return mapAppointmentRaw(final);
+    return mapAppointmentRaw(pickupRes.json as AppointmentRaw);
   },
 
-  /**
-   * Flow C Step 4: Client selects 1 of 3 slots and initiates payment.
-   * Contact stays locked until the provider confirms payment.
-   */
-  confirmSlotAndPay: async (input: {
+  /** Psychologist accepts one of the client's preferred schedules. */
+  acceptPreferredSlot: async (input: {
     bookingId: string;
-    selectedSlotId: string;
+    slotId: string;
   }): Promise<BookingRequest> => {
-    const selectRes = await liveFetch(`/appointments/${input.bookingId}/select-slot`, {
-      method: 'POST',
-      body: JSON.stringify({
-        slot_id: assertUuid(input.selectedSlotId, 'selectedSlotId'),
-      }),
-    });
-    if (selectRes.status < 200 || selectRes.status >= 300) {
-      throw buildBackendError(
-        `/appointments/${input.bookingId}/select-slot`,
-        selectRes.status,
-        selectRes.json
-      );
-    }
+    const raw = await liveRequest<AppointmentRaw>(
+      `/appointments/${assertUuid(input.bookingId, 'bookingId')}/accept-preferred-slot`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ slot_id: assertUuid(input.slotId, 'slotId') }),
+      }
+    );
+    return mapAppointmentRaw(raw);
+  },
 
-    const payRes = await liveFetch(`/appointments/${input.bookingId}/payment`, {
+  /** Psychologist offers exactly one nearest/earliest alternative. */
+  counterOffer: async (input: {
+    bookingId: string;
+    dateTime: string;
+  }): Promise<BookingRequest> => {
+    const raw = await liveRequest<AppointmentRaw>(
+      `/appointments/${assertUuid(input.bookingId, 'bookingId')}/counter-offer`,
+      {
+        method: 'POST',
+        body: JSON.stringify(toSlotPreference(input.dateTime)),
+      }
+    );
+    return mapAppointmentRaw(raw);
+  },
+
+  /** Client accepts the psychologist's counter-offer. */
+  acceptCounterSlot: async (input: {
+    bookingId: string;
+    slotId: string;
+  }): Promise<BookingRequest> => {
+    const raw = await liveRequest<AppointmentRaw>(
+      `/appointments/${assertUuid(input.bookingId, 'bookingId')}/accept-slot`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ slot_id: assertUuid(input.slotId, 'slotId') }),
+      }
+    );
+    return mapAppointmentRaw(raw);
+  },
+
+  /** Client submits a fresh set of preferred schedules. */
+  replacePreferredSlots: async (input: {
+    bookingId: string;
+    preferredSlots: string[];
+  }): Promise<BookingRequest> => {
+    if (input.preferredSlots.length < 3) {
+      throw new Error('Choose at least 3 preferred schedules.');
+    }
+    const raw = await liveRequest<AppointmentRaw>(
+      `/appointments/${assertUuid(input.bookingId, 'bookingId')}/preferred-slots`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          slots: input.preferredSlots.map(toSlotPreference),
+        }),
+      }
+    );
+    return mapAppointmentRaw(raw);
+  },
+
+  /** Pay for an already-agreed slot. Contact unlocks only after confirmation. */
+  payBooking: async (bookingId: string): Promise<BookingRequest> => {
+    const path = `/appointments/${assertUuid(bookingId, 'bookingId')}/payment`;
+    const payRes = await liveFetch(path, {
       method: 'POST',
       body: JSON.stringify({}),
     });
     if (payRes.status < 200 || payRes.status >= 300) {
-      throw buildBackendError(
-        `/appointments/${input.bookingId}/payment`,
-        payRes.status,
-        payRes.json
-      );
+      throw buildBackendError(path, payRes.status, payRes.json);
     }
     const payment = payRes.json as PaymentRaw | null;
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 500));
-      const appointment = await liveFetch(`/appointments/${input.bookingId}`);
+      const appointment = await liveFetch(`/appointments/${bookingId}`);
       if (appointment.status >= 200 && appointment.status < 300) {
         const raw = appointment.json as AppointmentRaw;
         if (raw.status === 'confirmed') {

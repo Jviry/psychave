@@ -1,25 +1,5 @@
 import { z } from 'zod';
 
-/**
- * Flow C Step 1: Canonical Client Booking Schema
- */
-export const bookingFormSchema = z.object({
-  personaId: z.string().min(1, 'Please select a Persona (Self or Dependent) before submitting.'),
-  serviceId: z.string().min(1, 'Please select a clinical service.'),
-  concernsSummary: z
-    .string()
-    .min(20, 'Please describe your primary concerns or goals (at least 20 characters) to help verified psychologists assess fit.')
-    .max(1200, 'Please keep booking summary under 1,200 characters.'),
-  guardrailAcknowledged: z.boolean().refine((val) => val === true, {
-    message: 'You must acknowledge the clinical scope & duration guardrail for the selected service.',
-  }),
-});
-
-export type BookingFormValues = z.infer<typeof bookingFormSchema>;
-
-/**
- * Flow C Step 3: Verified Psychologist Pick-Up + Price + 3 Date/Time Slots Schema
- */
 const isFutureDate = (val: string) => {
   if (!val) return false;
   // If string has no timezone offset, normalize as Asia/Manila (+08:00)
@@ -29,39 +9,62 @@ const isFutureDate = (val: string) => {
   return !isNaN(d.getTime()) && d.getTime() > Date.now();
 };
 
-export const proposalFormSchema = z
-  .object({
-    pricePhp: z
-      .number({ message: 'Enter a valid PHP session fee.' })
-      .min(500, 'Minimum session fee is ₱500.')
-      .max(25000, 'Maximum session fee is ₱25,000.'),
-    slot1DateTime: z
-      .string()
-      .min(1, 'Slot 1 date and time is required.')
-      .refine(isFutureDate, { message: 'Slot 1 date and time cannot be in the past.' }),
-    slot2DateTime: z
-      .string()
-      .min(1, 'Slot 2 date and time is required.')
-      .refine(isFutureDate, { message: 'Slot 2 date and time cannot be in the past.' }),
-    slot3DateTime: z
-      .string()
-      .min(1, 'Slot 3 date and time is required.')
-      .refine(isFutureDate, { message: 'Slot 3 date and time cannot be in the past.' }),
-  })
-  .refine(
-    (data) => {
-      const s1 = data.slot1DateTime.trim();
-      const s2 = data.slot2DateTime.trim();
-      const s3 = data.slot3DateTime.trim();
-      return s1 !== s2 && s2 !== s3 && s1 !== s3;
-    },
-    {
-      message: 'All 3 proposed date/time slots must be distinct.',
-      path: ['slot3DateTime'],
-    }
-  );
+/**
+ * Flow C Step 1: Client booking with at least 3 preferred schedules.
+ */
+export const preferredScheduleSchema = z.object({
+  dateTime: z
+    .string()
+    .min(1, 'Choose a date and time.')
+    .refine(isFutureDate, { message: 'Preferred schedules must be in the future.' }),
+});
 
-export type ProposalFormValues = z.infer<typeof proposalFormSchema>;
+export type PreferredScheduleValues = z.infer<typeof preferredScheduleSchema>;
+
+export const bookingFormSchema = z
+  .object({
+    personaId: z.string().min(1, 'Please select a Persona (Self or Dependent) before submitting.'),
+    serviceId: z.string().min(1, 'Please select a clinical service.'),
+    concernsSummary: z
+      .string()
+      .min(20, 'Please describe your primary concerns or goals (at least 20 characters) to help verified psychologists assess fit.')
+      .max(1200, 'Please keep booking summary under 1,200 characters.'),
+    guardrailAcknowledged: z.boolean().refine((val) => val === true, {
+      message: 'You must acknowledge the clinical scope & duration guardrail for the selected service.',
+    }),
+    preferredSlots: z
+      .array(preferredScheduleSchema)
+      .min(3, 'Choose at least 3 preferred schedules.')
+      .max(5, 'Choose at most 5 preferred schedules.'),
+  })
+  .superRefine((data, ctx) => {
+    const seen = new Set<string>();
+    data.preferredSlots.forEach((slot, index) => {
+      const key = slot.dateTime.slice(0, 16);
+      if (seen.has(key)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Choose a distinct date and time.',
+          path: ['preferredSlots', index, 'dateTime'],
+        });
+      }
+      seen.add(key);
+    });
+  });
+
+export type BookingFormValues = z.infer<typeof bookingFormSchema>;
+
+/**
+ * Psychologist pickup / scheduling response schema.
+ */
+export const pickupResponseSchema = z.object({
+  pricePhp: z
+    .number({ message: 'Enter a valid PHP session fee.' })
+    .min(500, 'Minimum session fee is ₱500.')
+    .max(25000, 'Maximum session fee is ₱25,000.'),
+});
+
+export type PickupResponseValues = z.infer<typeof pickupResponseSchema>;
 
 /**
  * Psychologist Profile Schema

@@ -73,9 +73,9 @@ describe('service catalog', () => {
 
 describe('live adapters (AppointmentRead → BookingRequest)', () => {
   const SLOT_ROWS = [
-    { slot_id: 'cc3dd4ee-5f60-7182-93a4-b5c6d7e8f9a0', session_date: '2026-12-05', start_time: '10:00:00', end_time: '11:30:00' },
-    { slot_id: 'dd4ee5ff-6071-8293-a4b5-c6d7e8f9a0b1', session_date: '2026-12-06', start_time: '14:00:00', end_time: '15:30:00' },
-    { slot_id: 'ee5ff600-7182-93a4-b5c6-d7e8f9a0b1c2', session_date: '2026-12-08', start_time: '18:00:00', end_time: '19:30:00' },
+    { slot_id: 'cc3dd4ee-5f60-7182-93a4-b5c6d7e8f9a0', session_date: '2026-12-05', start_time: '10:00:00', end_time: '11:30:00', proposed_by: 'client', status: 'proposed', round: 1 },
+    { slot_id: 'dd4ee5ff-6071-8293-a4b5-c6d7e8f9a0b1', session_date: '2026-12-06', start_time: '14:00:00', end_time: '15:30:00', proposed_by: 'client', status: 'proposed', round: 1 },
+    { slot_id: 'ee5ff600-7182-93a4-b5c6-d7e8f9a0b1c2', session_date: '2026-12-08', start_time: '18:00:00', end_time: '19:30:00', proposed_by: 'client', status: 'proposed', round: 1 },
   ];
 
   const APPOINTMENT_CONFIRMED = {
@@ -93,6 +93,9 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
     presenting_concern: 'Anxiety and burnout for two months.',
     status: 'confirmed',
     requested_datetime: '2026-12-01T10:00:00+08:00',
+    scheduling_turn: null,
+    scheduling_round: 1,
+    payment_deadline: null,
     proposed_slots: SLOT_ROWS,
     persona_socmed_platform: 'Facebook',
     persona_socmed_username: '@client.demo',
@@ -179,81 +182,198 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
   });
 
   it('pay flow refuses to fake success when payment stays pending', async () => {
-    mockFetch.mockImplementation(async () =>
-      new Response(
+    mockFetch.mockImplementation(async (url: string) => {
+      if (String(url).includes('/payment')) {
+        return new Response(
+          JSON.stringify({ provider: 'fake', provider_ref: 'ref-123', checkout_url: null }),
+          { status: 200 }
+        );
+      }
+      return new Response(
         JSON.stringify({
-          appointment_id: APPOINTMENT_CONFIRMED.appointment_id,
-          persona_id: APPOINTMENT_CONFIRMED.persona_id,
-          service_id: APPOINTMENT_CONFIRMED.service_id,
-          psychologist_id: null,
+          ...APPOINTMENT_CONFIRMED,
           selected_slot_id: SLOT_ROWS[0].slot_id,
-          price: 2400,
-          presenting_concern: 'x',
           status: 'awaiting_payment',
-          requested_datetime: null,
+          payment_deadline: '2026-12-04T10:00:00',
         }),
         { status: 200 }
-      )
-    );
+      );
+    });
 
     const { api } = await import('../lib/api');
-    await expect(
-      api.confirmSlotAndPay({
-        bookingId: APPOINTMENT_CONFIRMED.appointment_id,
-        selectedSlotId: SLOT_ROWS[0].slot_id,
-      })
-    ).rejects.toThrow(/not yet confirmed|Checkout URL/);
-    expect(mockFetch.mock.calls.some((call) => String(call[0]).includes('/select-slot'))).toBe(
-      true
+    await expect(api.payBooking(APPOINTMENT_CONFIRMED.appointment_id)).rejects.toThrow(
+      /not yet confirmed|Checkout URL/
     );
     expect(mockFetch.mock.calls.some((call) => String(call[0]).includes('/payment'))).toBe(
       true
     );
   });
 
-  it('pickup → 3 distinct SlotProposal rows → mapped booking', async () => {
-    mockFetch.mockImplementation(async (url: string, init?: { body?: string }) => {
-      if (url.includes('/pickup')) {
-        return new Response(
-          JSON.stringify({
-            ...APPOINTMENT_CONFIRMED,
-            psychologist_id: 'aa1bb2cc-3d4e-5f60-7182-93a4b5c6d7e8',
-            status: 'pending',
-            selected_slot_id: null,
-          }),
-          { status: 200 }
-        );
-      }
-      if (url.includes('/slots') && init?.body) {
-        const payload = JSON.parse(init.body) as Array<Record<string, string>>;
-        expect(payload).toHaveLength(3);
-        expect(
-          new Set(payload.map((slot) => `${slot.session_date}T${slot.start_time}`)).size
-        ).toBe(3);
-        return new Response(JSON.stringify(SLOT_ROWS), { status: 200 });
-      }
+  it('pickup atomically claims the request and accepts a preferred slot', async () => {
+    mockFetch.mockImplementationOnce(async (url: string, init?: { method?: string; body?: string }) => {
+      expect(url).toContain(`/appointments/${APPOINTMENT_CONFIRMED.appointment_id}/pickup`);
+      expect(init?.method).toBe('POST');
+      expect(JSON.parse(init?.body ?? '{}')).toEqual({
+        price: 2400,
+        slot_id: SLOT_ROWS[0].slot_id,
+      });
       return new Response(
-        JSON.stringify({ ...APPOINTMENT_CONFIRMED, status: 'awaiting_slot_selection' }),
+        JSON.stringify({
+          ...APPOINTMENT_CONFIRMED,
+          psychologist_id: 'aa1bb2cc-3d4e-5f60-7182-93a4b5c6d7e8',
+          price: 2400,
+          status: 'awaiting_payment',
+          scheduling_turn: null,
+          selected_slot_id: SLOT_ROWS[0].slot_id,
+          payment_deadline: '2026-12-04T10:00:00',
+        }),
         { status: 200 }
       );
     });
 
     const { api } = await import('../lib/api');
-    const booking = await api.pickUpAndProposeSlots({
+    const booking = await api.pickUpBooking({
       bookingId: APPOINTMENT_CONFIRMED.appointment_id,
       pricePhp: 2400,
-      slot1DateTime: '2026-12-01T10:00',
-      slot2DateTime: '2026-12-02T15:00',
-      slot3DateTime: '2026-12-03T18:30',
+      slotId: SLOT_ROWS[0].slot_id,
     });
 
-    expect(booking.status).toBe('proposed');
-    expect(booking.proposedSlots).toHaveLength(3);
+    expect(booking.status).toBe('awaiting-payment');
+    expect(booking.selectedSlotId).toBe(SLOT_ROWS[0].slot_id);
+    expect(booking.paymentDeadline).toBe('2026-12-04T10:00:00');
     expect(booking.psychologistSocialLinks).toBeUndefined();
     expect(booking.clientSocialMedia).toEqual({
       platform: 'Facebook',
       username: '@client.demo',
     });
+  });
+
+  it('pickup atomically claims the request with a counter-offer and surfaces schedule conflicts', async () => {
+    mockFetch.mockImplementationOnce(async (url: string, init?: { method?: string; body?: string }) => {
+      expect(url).toContain(`/appointments/${APPOINTMENT_CONFIRMED.appointment_id}/pickup`);
+      expect(JSON.parse(init?.body ?? '{}')).toEqual({
+        price: 2500,
+        counter_slot: { session_date: '2026-12-09', start_time: '09:00:00' },
+      });
+      return new Response(
+        JSON.stringify({
+          ...APPOINTMENT_CONFIRMED,
+          status: 'awaiting_schedule',
+          scheduling_turn: 'client',
+          scheduling_round: 2,
+          selected_slot_id: null,
+          proposed_slots: [
+            {
+              slot_id: 'ff600071-8293-a4b5-c6d7-e8f9a0b1c2d3',
+              session_date: '2026-12-09',
+              start_time: '09:00:00',
+              end_time: '10:00:00',
+              proposed_by: 'psychologist',
+              status: 'proposed',
+              round: 2,
+            },
+          ],
+        }),
+        { status: 200 }
+      );
+    });
+
+    const { api } = await import('../lib/api');
+    const countered = await api.pickUpBooking({
+      bookingId: APPOINTMENT_CONFIRMED.appointment_id,
+      pricePhp: 2500,
+      counterDateTime: '2026-12-09T09:00',
+    });
+    expect(countered.status).toBe('awaiting-client');
+    expect(countered.schedulingRound).toBe(2);
+
+    mockFetch.mockImplementationOnce(async () => {
+      return new Response(
+        JSON.stringify({
+          detail: 'You already have a session at this time; offer an alternative schedule',
+        }),
+        { status: 409 }
+      );
+    });
+
+    await expect(
+      api.pickUpBooking({
+        bookingId: APPOINTMENT_CONFIRMED.appointment_id,
+        pricePhp: 2500,
+        slotId: SLOT_ROWS[0].slot_id,
+      })
+    ).rejects.toThrow(/You already have a session at this time/);
+  });
+
+  it('psychologist accepts a preferred slot through the dedicated path', async () => {
+    mockFetch.mockImplementationOnce(async (url: string, init?: { method?: string; body?: string }) => {
+      expect(url).toContain('/accept-preferred-slot');
+      expect(init?.method).toBe('POST');
+      expect(JSON.parse(init?.body ?? '{}').slot_id).toBe(SLOT_ROWS[0].slot_id);
+      return new Response(
+        JSON.stringify({
+          ...APPOINTMENT_CONFIRMED,
+          status: 'awaiting_payment',
+          scheduling_turn: null,
+          selected_slot_id: SLOT_ROWS[0].slot_id,
+          payment_deadline: '2026-12-04T10:00:00',
+        }),
+        { status: 200 }
+      );
+    });
+
+    const { api } = await import('../lib/api');
+    const booking = await api.acceptPreferredSlot({
+      bookingId: APPOINTMENT_CONFIRMED.appointment_id,
+      slotId: SLOT_ROWS[0].slot_id,
+    });
+
+    expect(booking.status).toBe('awaiting-payment');
+    expect(booking.selectedSlotId).toBe(SLOT_ROWS[0].slot_id);
+    expect(booking.paymentDeadline).toBe('2026-12-04T10:00:00');
+  });
+
+  it('psychologist counter-offers exactly one alternative time', async () => {
+    mockFetch.mockImplementationOnce(async (url: string, init?: { method?: string; body?: string }) => {
+      expect(url).toContain('/counter-offer');
+      expect(init?.method).toBe('POST');
+      expect(JSON.parse(init?.body ?? '{}')).toEqual({
+        session_date: '2026-12-09',
+        start_time: '09:00:00',
+      });
+      return new Response(
+        JSON.stringify({
+          ...APPOINTMENT_CONFIRMED,
+          status: 'awaiting_schedule',
+          scheduling_turn: 'client',
+          scheduling_round: 2,
+          selected_slot_id: null,
+          proposed_slots: [
+            {
+              slot_id: 'ff600071-8293-a4b5-c6d7-e8f9a0b1c2d3',
+              session_date: '2026-12-09',
+              start_time: '09:00:00',
+              end_time: '10:00:00',
+              proposed_by: 'psychologist',
+              status: 'proposed',
+              round: 2,
+            },
+          ],
+        }),
+        { status: 200 }
+      );
+    });
+
+    const { api } = await import('../lib/api');
+    const booking = await api.counterOffer({
+      bookingId: APPOINTMENT_CONFIRMED.appointment_id,
+      dateTime: '2026-12-09T09:00',
+    });
+
+    expect(booking.status).toBe('awaiting-client');
+    expect(booking.schedulingTurn).toBe('client');
+    expect(booking.schedulingRound).toBe(2);
+    expect(booking.proposedSlots[0]?.proposedBy).toBe('psychologist');
   });
 
   it('maps completed bookings and keeps contact details unlocked', async () => {
@@ -302,6 +422,11 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
         personaId: 'persona-self-01',
         serviceId: 'srv-individual',
         concernsSummary: 'This should fail on uuid validation.',
+        preferredSlots: [
+          '2026-12-01T10:00',
+          '2026-12-02T15:00',
+          '2026-12-03T18:30',
+        ],
       })
     ).rejects.toThrow(/not a backend UUID/);
     expect(mockFetch).not.toHaveBeenCalled();

@@ -440,8 +440,18 @@ export function BookingStatusTag({ status }: { status: BookingStatus }) {
       textClass: 'text-amber-900 font-semibold',
       dotClass: 'bg-amber-600',
     },
-    proposed: {
-      label: 'proposed · 3 slots ready for selection',
+    'awaiting-review': {
+      label: 'in review · psychologist reviewing your schedules',
+      textClass: 'text-pine font-semibold',
+      dotClass: 'bg-sage',
+    },
+    'awaiting-client': {
+      label: 'action needed · accept the counter-offer',
+      textClass: 'text-amber-900 font-semibold',
+      dotClass: 'bg-amber-500',
+    },
+    'awaiting-payment': {
+      label: 'agreed · awaiting payment',
       textClass: 'text-pine font-semibold underline decoration-sage underline-offset-4',
       dotClass: 'bg-sage',
     },
