@@ -1,18 +1,13 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../../lib/api';
-import {
-  proposalFormSchema,
-  ProposalFormValues,
-} from '../../../../lib/schemas';
+import { clientPreferredSlots } from '../../../../lib/booking';
 import { useAppStore } from '../../../../stores/useAppStore';
 import { useActivePsychologist } from '../../../../hooks/useActivePsychologist';
 import { useRouter } from 'next/navigation';
-import { Check, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Check, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import {
   BookingStatusTag,
   Button,
@@ -58,6 +53,27 @@ function displayValue(value: string | null | undefined): string {
   return value && value.trim().length > 0 ? value : '—';
 }
 
+function formatForManilaInput(d: Date): string {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(d);
+  const getPart = (type: string) => parts.find((p) => p.type === type)?.value || '00';
+  const year = getPart('year');
+  const month = getPart('month');
+  const day = getPart('day');
+  let hour = getPart('hour');
+  if (hour === '24') hour = '00';
+  const minute = getPart('minute');
+  return `${year}-${month}-${day}T${hour}:${minute}`;
+}
+
 function ReviewField({
   label,
   value,
@@ -75,6 +91,13 @@ function ReviewField({
   );
 }
 
+type ScheduleAction = {
+  bookingId: string;
+  pricePhp: number;
+  slotId?: string;
+  counterDateTime?: string;
+};
+
 export default function PsychologistQueuePage() {
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -83,10 +106,14 @@ export default function PsychologistQueuePage() {
 
   const [activeModalBookingId, setActiveModalBookingId] = useState<string | null>(null);
   const [reviewBookingId, setReviewBookingId] = useState<string | null>(null);
-  const [recentProposedId, setRecentProposedId] = useState<string | null>(null);
+  const [recentAction, setRecentAction] = useState<{ id: string; message: string } | null>(null);
+  const [pickupPrice, setPickupPrice] = useState('2500');
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+  const [counterDateTime, setCounterDateTime] = useState('');
 
   const hasSocialLinks = (activePsych?.socialMediaLinks?.length ?? 0) > 0;
   const canPickup = hasSocialLinks;
+  const minDateTime = useMemo(() => formatForManilaInput(new Date()), []);
 
   const { data: bookings = [], isLoading, refetch, error: bookingsError } = useQuery({
     queryKey: ['bookings', 'psychologist'],
@@ -107,102 +134,68 @@ export default function PsychologistQueuePage() {
     retry: false,
   });
 
-  // Format datetime for datetime-local input strictly in Philippine Standard Time (Asia/Manila)
-  const formatForManilaInput = (d: Date) => {
-    const formatter = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Manila',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
-    const parts = formatter.formatToParts(d);
-    const getPart = (type: string) => parts.find((p) => p.type === type)?.value || '00';
-    const year = getPart('year');
-    const month = getPart('month');
-    const day = getPart('day');
-    let hour = getPart('hour');
-    if (hour === '24') hour = '00';
-    const minute = getPart('minute');
-    return `${year}-${month}-${day}T${hour}:${minute}`;
-  };
-
-  const serializeManilaIso = (val: string) => {
-    if (!val) return val;
-    const hasTimezone = /[zZ]|([+-]\d{2}:?\d{2})$/.test(val);
-    if (hasTimezone) return val;
-    return val.length === 16 ? `${val}:00+08:00` : `${val}+08:00`;
-  };
-
-  // Generate dynamic future default slots in Asia/Manila
-  const defaultSlots = useMemo(() => {
-    const now = new Date();
-    const d1 = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    const d2 = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-    const d3 = new Date(now.getTime() + 72 * 60 * 60 * 1000);
-
-    return {
-      slot1: formatForManilaInput(d1),
-      slot2: formatForManilaInput(d2),
-      slot3: formatForManilaInput(d3),
-    };
-  }, []);
-
-  const minDateTime = useMemo(() => {
-    return formatForManilaInput(new Date());
-  }, []);
-
-  // React Hook Form with Zod validation
-  const proposalForm = useForm<ProposalFormValues>({
-    resolver: zodResolver(proposalFormSchema),
-    defaultValues: {
-      pricePhp: 2500,
-      slot1DateTime: defaultSlots.slot1,
-      slot2DateTime: defaultSlots.slot2,
-      slot3DateTime: defaultSlots.slot3,
-    },
-  });
-
-  const proposeMutation = useMutation({
-    mutationFn: (values: ProposalFormValues) => {
-      if (!targetBooking) throw new Error('No pending booking selected for proposal.');
-      return api.pickUpAndProposeSlots({
-        bookingId: targetBooking.id,
+  const scheduleMutation = useMutation({
+    mutationFn: async (values: ScheduleAction) => {
+      return await api.pickUpBooking({
+        bookingId: values.bookingId,
         pricePhp: values.pricePhp,
-        slot1DateTime: serializeManilaIso(values.slot1DateTime),
-        slot2DateTime: serializeManilaIso(values.slot2DateTime),
-        slot3DateTime: serializeManilaIso(values.slot3DateTime),
+        slotId: values.slotId,
+        counterDateTime: values.counterDateTime,
       });
     },
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       queryClient.invalidateQueries({ queryKey: ['booking', updated.id] });
-      setRecentProposedId(updated.id);
-      setActiveModalBookingId(null);
+      setRecentAction({
+        id: updated.id,
+        message:
+          updated.status === 'awaiting-payment'
+            ? 'Client preferred schedule accepted. The client has been notified and the payment window is running.'
+            : 'Alternative schedule offered. The client can accept it or propose new times.',
+      });
       publishFlowEvent(
-        '3 Slots & Fee Proposed',
-        `${activePsych?.anonymizedTitle ?? 'Psychologist'} picked up ${updated.id}, set fee to ₱${updated.pricePhp?.toLocaleString()}, and proposed 3 schedule slots. Client alerted.`
+        updated.status === 'awaiting-payment'
+          ? 'Preferred Schedule Accepted'
+          : 'Alternative Schedule Offered',
+        `${activePsych?.anonymizedTitle ?? 'Psychologist'} picked up ${updated.id} and ${
+          updated.status === 'awaiting-payment'
+            ? 'accepted one of the client’s preferred schedules.'
+            : 'offered the nearest available alternative.'
+        }`
       );
+      setActiveModalBookingId(null);
+      setSelectedSlotId(null);
+      setCounterDateTime('');
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
     },
   });
+
+  const preferredForTarget = targetBooking ? clientPreferredSlots(targetBooking) : [];
+  const conflictIds = new Set(targetBooking?.conflictingSlotIds ?? []);
 
   const handleOpenPickupModal = (bookingId: string) => {
     if (!canPickup) return;
     setActiveModalBookingId(bookingId);
-    proposeMutation.reset();
-    proposalForm.reset({
-      pricePhp: 2500,
-      slot1DateTime: defaultSlots.slot1,
-      slot2DateTime: defaultSlots.slot2,
-      slot3DateTime: defaultSlots.slot3,
-    });
+    scheduleMutation.reset();
+    setPickupPrice('2500');
+    setCounterDateTime('');
+
+    const booking = pendingQueue.find((b) => b.id === bookingId);
+    const conflicts = new Set(booking?.conflictingSlotIds ?? []);
+    const firstAvailable =
+      booking?.status === 'pending'
+        ? clientPreferredSlots(booking).find((slot) => !conflicts.has(slot.id))
+        : undefined;
+    setSelectedSlotId(firstAvailable?.id ?? null);
   };
 
   const handleCloseModal = () => {
     setActiveModalBookingId(null);
-    proposeMutation.reset();
+    setSelectedSlotId(null);
+    setCounterDateTime('');
+    scheduleMutation.reset();
   };
 
   const handleOpenReview = (bookingId: string) => {
@@ -213,14 +206,35 @@ export default function PsychologistQueuePage() {
     setReviewBookingId(null);
   };
 
-  const handleReviewToProposal = () => {
+  const handleReviewToScheduling = () => {
     if (!reviewBooking) return;
     const bookingId = reviewBooking.id;
     setReviewBookingId(null);
     handleOpenPickupModal(bookingId);
   };
 
+  const handleScheduleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!targetBooking) return;
+
+    const price = Number(pickupPrice);
+    if (!Number.isFinite(price) || price < 500 || price > 25000) {
+      return;
+    }
+
+    scheduleMutation.mutate({
+      bookingId: targetBooking.id,
+      pricePhp: price,
+      slotId: selectedSlotId ?? undefined,
+      counterDateTime: counterDateTime || undefined,
+    });
+  };
+
   const review = reviewQuery.data;
+  const priceInvalid =
+    !Number.isFinite(Number(pickupPrice)) ||
+    Number(pickupPrice) < 500 ||
+    Number(pickupPrice) > 25000;
 
   return (
     <div className="space-y-8">
@@ -236,11 +250,10 @@ export default function PsychologistQueuePage() {
             Pending Booking Requests
           </h1>
           <p className="text-sm text-pine/80 max-w-2xl">
-            Review incoming persona bookings, evaluate clinical fit, and claim requests by proposing{' '}
-            <strong>session fee and 3 distinct schedule slots</strong>.
+            Review each client&apos;s preferred schedules, then claim the request and accept one
+            time or offer the nearest available alternative.
           </p>
         </div>
-
       </header>
 
       {!hasSocialLinks && (
@@ -267,8 +280,8 @@ export default function PsychologistQueuePage() {
         </div>
       )}
 
-      {/* Success Notification if proposal was just submitted */}
-      {recentProposedId && (
+      {/* Success Notification if a schedule action was just submitted */}
+      {recentAction && (
         <div className="bg-lime-soft/30 border border-sage/50 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-full bg-sage text-white flex items-center justify-center shrink-0">
@@ -276,11 +289,9 @@ export default function PsychologistQueuePage() {
             </div>
             <div>
               <p className="text-xs font-medium text-pine">
-                Proposal Successfully Dispatched for {recentProposedId}
+                Schedule Action Sent for {recentAction.id}
               </p>
-              <p className="text-xs text-pine/80">
-                The booking has transitioned to <strong>proposed</strong>. Client has been notified to select 1 slot and submit payment.
-              </p>
+              <p className="text-xs text-pine/80">{recentAction.message}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -294,7 +305,7 @@ export default function PsychologistQueuePage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setRecentProposedId(null)}
+              onClick={() => setRecentAction(null)}
             >
               Dismiss
             </Button>
@@ -348,115 +359,162 @@ export default function PsychologistQueuePage() {
         ) : (
           /* Pending Requests Cards */
           <div className="grid grid-cols-1 gap-5">
-            {pendingQueue.map((item) => (
-              <div
-                key={item.id}
-                role="button"
-                tabIndex={0}
-                aria-label={`View persona and consent details for booking ${item.id}`}
-                onClick={(event) => {
-                  const target = event.target as HTMLElement;
-                  if (target.closest('button, a, input, select, textarea')) return;
-                  handleOpenReview(item.id);
-                }}
-                onKeyDown={(event) => {
-                  if (event.target !== event.currentTarget) return;
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
+            {pendingQueue.map((item) => {
+              const preferredSlots = clientPreferredSlots(item);
+              const conflicts = new Set(item.conflictingSlotIds ?? []);
+              return (
+                <div
+                  key={item.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`View persona and consent details for booking ${item.id}`}
+                  onClick={(event) => {
+                    const target = event.target as HTMLElement;
+                    if (target.closest('button, a, input, select, textarea')) return;
                     handleOpenReview(item.id);
-                  }
-                }}
-                className="rounded-2xl cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2"
-              >
-                <Card
-                  className="hover:border-sage transition-colors p-6 space-y-5 h-full"
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) return;
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handleOpenReview(item.id);
+                    }
+                  }}
+                  className="rounded-2xl cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2"
                 >
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-mist/70 pb-4">
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-sm font-medium text-pine">
-                        {item.id}
-                      </span>
-                      <span className="text-xs px-2 py-0.5 rounded-sm font-semibold bg-surface-sunken text-accent-ink">
-                        {item.personaType.toUpperCase()}
-                      </span>
-                      <BookingStatusTag status={item.status} />
+                  <Card className="hover:border-sage transition-colors p-6 space-y-5 h-full">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-mist/70 pb-4">
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-sm font-medium text-pine">
+                            {item.id}
+                          </span>
+                          <span className="text-xs px-2 py-0.5 rounded-sm font-semibold bg-surface-sunken text-accent-ink">
+                            {item.personaType.toUpperCase()}
+                          </span>
+                          <BookingStatusTag status={item.status} />
+                        </div>
+                        <h3 className="font-heading text-xl font-medium text-pine">
+                          {item.serviceTitle}
+                        </h3>
+                      </div>
+
+                      {/* Pick Up Action Button: requires a contact link */}
+                      <div>
+                        {canPickup ? (
+                          <Button
+                            variant="primary"
+                            size="md"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleOpenPickupModal(item.id);
+                            }}
+                          >
+                            Pick Up &amp; Review Schedules
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="md"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              router.push('/psych/profile');
+                            }}
+                          >
+                            Add Social Media to Accept
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    <h3 className="font-heading text-xl font-medium text-pine">
-                      {item.serviceTitle}
-                    </h3>
-                  </div>
 
-                  {/* Pick Up Action Button: requires a contact link */}
-                  <div>
-                    {canPickup ? (
-                      <Button
-                        variant="primary"
-                        size="md"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          handleOpenPickupModal(item.id);
-                        }}
-                      >
-                        Pick Up &amp; Propose 3 Slots
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="md"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          router.push('/psych/profile');
-                        }}
-                      >
-                        Add Social Media to Accept
-                      </Button>
-                    )}
-                  </div>
+                    {/* Details Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
+                      {/* Persona Info */}
+                      <div className="space-y-1">
+                        <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                          Client &amp; Persona Information
+                        </span>
+                        <p className="font-heading text-lg font-medium text-pine">{item.personaLabel}</p>
+                        <p className="text-xs text-pine/60">
+                          Submitted: {item.submittedAt}
+                        </p>
+                        <p className="text-[11px] font-medium text-accent-ink">
+                          Click card to view persona &amp; consent form
+                        </p>
+                      </div>
+
+                      {/* Service & Guardrail */}
+                      <div className="space-y-1">
+                        <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                          Service Duration &amp; Clinical Scope
+                        </span>
+                        <p className="font-semibold text-pine">
+                          Duration: <span className="font-mono text-accent-ink font-medium">{item.serviceDuration}</span>
+                        </p>
+                        <p className="text-pine/80 leading-relaxed text-xs">
+                          {item.serviceGuardrail}
+                        </p>
+                      </div>
+
+                      {/* Booking Notes */}
+                      <div className="space-y-1">
+                        <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                          Presenting Concerns
+                        </span>
+                        <p className="text-pine/90 line-clamp-3 leading-relaxed">
+                          {item.concernsSummary}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Client preferred schedules */}
+                    <div className="border-t border-mist/60 pt-4 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                          Client&apos;s Preferred Schedules
+                        </span>
+                        <span className="text-[11px] text-pine/50">
+                          {preferredSlots.length} offered
+                        </span>
+                      </div>
+                      {preferredSlots.length === 0 ? (
+                        <p className="text-xs text-pine/60">
+                          This request has no preferred schedules. You can still offer an
+                          alternative after pickup.
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          {preferredSlots.map((slot, index) => {
+                            const hasConflict = conflicts.has(slot.id);
+                            return (
+                              <div
+                                key={slot.id}
+                                className={`rounded-lg border p-2.5 ${
+                                  hasConflict
+                                    ? 'border-amber-300 bg-amber-50'
+                                    : 'border-mist bg-surface-sunken/40'
+                                }`}
+                              >
+                                <p className="text-[10px] font-semibold uppercase tracking-wider text-pine/50">
+                                  Option {index + 1}
+                                </p>
+                                <p className="text-xs font-medium text-pine">{slot.dateLabel}</p>
+                                <p className="text-xs text-pine/70">{slot.timeLabel}</p>
+                                {hasConflict && (
+                                  <p className="mt-1 text-[10px] font-semibold text-amber-800">
+                                    Conflicts with your schedule
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </Card>
                 </div>
-
-                {/* Details Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs border-t border-mist/60 pt-4">
-                  {/* Persona Info */}
-                  <div className="space-y-1">
-                    <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                      Client &amp; Persona Information
-                    </span>
-                    <p className="font-heading text-lg font-medium text-pine">{item.personaLabel}</p>
-                    <p className="text-xs text-pine/60">
-                      Submitted: {item.submittedAt}
-                    </p>
-                    <p className="text-[11px] font-medium text-accent-ink">
-                      Click card to view persona &amp; consent form
-                    </p>
-                  </div>
-
-                  {/* Service & Guardrail */}
-                  <div className="space-y-1">
-                    <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                      Service Duration &amp; Clinical Scope
-                    </span>
-                    <p className="font-semibold text-pine">
-                      Duration: <span className="font-mono text-accent-ink font-medium">{item.serviceDuration}</span>
-                    </p>
-                    <p className="text-pine/80 leading-relaxed text-xs">
-                      {item.serviceGuardrail}
-                    </p>
-                  </div>
-
-                  {/* Booking Notes */}
-                  <div className="space-y-1">
-                    <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                      Presenting Concerns
-                    </span>
-                    <p className="text-pine/90 line-clamp-3 leading-relaxed">
-                      {item.concernsSummary}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -617,8 +675,8 @@ export default function PsychologistQueuePage() {
                 Close
               </Button>
               {canPickup && (
-                <Button type="button" variant="primary" size="md" onClick={handleReviewToProposal}>
-                  Pick Up &amp; Propose 3 Slots
+                <Button type="button" variant="primary" size="md" onClick={handleReviewToScheduling}>
+                  Pick Up &amp; Review Schedules
                 </Button>
               )}
             </div>
@@ -626,7 +684,7 @@ export default function PsychologistQueuePage() {
         </Modal>
       )}
 
-      {/* Pick-Up Proposal Modal — shared base (Escape close, backdrop click, focus trap) */}
+      {/* Pick-Up & Scheduling Modal */}
       {targetBooking && (
         <Modal
           open
@@ -635,12 +693,13 @@ export default function PsychologistQueuePage() {
           description={`${targetBooking.serviceTitle} (${targetBooking.serviceDuration}) · ${targetBooking.personaLabel}`}
           maxWidth="2xl"
         >
-          <div className="space-y-5">
+          <form onSubmit={handleScheduleSubmit} className="space-y-5">
             <p className="text-xs font-semibold uppercase tracking-widest text-accent-ink">
-              Booking Step 3 · Claim &amp; Propose Slots
+              Booking Step 3 · Claim &amp; Agree a Schedule
             </p>
+
             {/* Race Condition / Error Banner */}
-            {proposeMutation.isError && (
+            {scheduleMutation.isError && (
               <div
                 role="alert"
                 className="bg-red-50 border-l-2 border-red-400 rounded-r-lg p-4 text-red-950 space-y-2"
@@ -648,11 +707,11 @@ export default function PsychologistQueuePage() {
                 <div className="flex items-center gap-2">
                   <AlertCircle className="w-5 h-5 text-red-600 shrink-0" aria-hidden="true" />
                   <p className="font-heading text-base font-medium text-red-950">
-                    Failed to Claim Request (Race Condition Detected)
+                    Could Not Complete the Schedule Action
                   </p>
                 </div>
                 <p className="text-xs text-red-900 leading-relaxed">
-                  {proposeMutation.error?.message ||
+                  {scheduleMutation.error?.message ||
                     'This request may have already been claimed by another psychologist. Please refresh the queue.'}
                 </p>
                 <div className="pt-1 flex gap-2">
@@ -676,120 +735,177 @@ export default function PsychologistQueuePage() {
               {targetBooking.serviceGuardrail}
             </p>
 
-            {/* Proposal Form */}
-            <form
-              onSubmit={proposalForm.handleSubmit((values) => proposeMutation.mutate(values))}
-              className="space-y-5"
-            >
-              {/* Fee Input */}
-              <div>
-                <Label htmlFor="pickup-price">
-                  Proposed Session Fee (PHP · ₱) <span className="text-red-600">*</span>
-                </Label>
-                <Input
-                  id="pickup-price"
-                  type="number"
-                  step={100}
-                  className="font-mono tabular-nums text-base"
-                  placeholder="2500"
-                  {...proposalForm.register('pricePhp', { valueAsNumber: true })}
-                />
-                {proposalForm.formState.errors.pricePhp && (
-                  <p className="text-xs text-red-700 mt-1 font-medium">
-                    {proposalForm.formState.errors.pricePhp.message}
-                  </p>
+            {/* Fee Input */}
+            <div>
+              <Label htmlFor="pickup-price">
+                Proposed Session Fee (PHP · ₱) <span className="text-red-600">*</span>
+              </Label>
+              <Input
+                id="pickup-price"
+                type="number"
+                min={500}
+                max={25000}
+                step={100}
+                className="font-mono tabular-nums text-base"
+                placeholder="2500"
+                value={pickupPrice}
+                onChange={(event) => setPickupPrice(event.target.value)}
+              />
+              {priceInvalid && (
+                <p className="text-xs text-red-700 mt-1 font-medium">
+                  Session fee must be between ₱500 and ₱25,000.
+                </p>
+              )}
+            </div>
+
+            {/* Client preferred schedules */}
+            <div className="space-y-3 pt-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                  Accept One of the Client&apos;s Preferred Schedules
+                </span>
+                <div className="flex items-center gap-3">
+                  {selectedSlotId && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSlotId(null)}
+                      disabled={scheduleMutation.isPending}
+                      className="text-xs font-semibold text-red-700 hover:text-red-800 underline underline-offset-2 cursor-pointer disabled:opacity-50"
+                    >
+                      Clear selection
+                    </button>
+                  )}
+                  <span className="text-xs text-accent-ink font-medium">
+                    Conflicts are disabled
+                  </span>
+                </div>
+              </div>
+
+              {preferredForTarget.length === 0 ? (
+                <p className="rounded-lg border border-mist bg-surface-sunken/40 p-3 text-xs text-pine/70">
+                  This request has no preferred schedules. Offer the nearest available
+                  alternative below.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {preferredForTarget.map((slot, index) => {
+                    const hasConflict = conflictIds.has(slot.id);
+                    const isSelected = selectedSlotId === slot.id;
+                    return (
+                      <label
+                        key={slot.id}
+                        className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${
+                          hasConflict
+                            ? 'border-amber-200 bg-amber-50/60 cursor-not-allowed'
+                            : isSelected
+                              ? 'border-sage bg-surface-sunken cursor-pointer'
+                              : 'border-mist bg-surface-raised hover:bg-parchment cursor-pointer'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="preferred-schedule"
+                          className="mt-0.5 h-4 w-4 accent-sage"
+                          checked={isSelected}
+                          disabled={hasConflict || scheduleMutation.isPending}
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedSlotId(null);
+                            }
+                          }}
+                          onChange={() => {
+                            setSelectedSlotId(slot.id);
+                            setCounterDateTime('');
+                          }}
+                        />
+                        <span className="space-y-0.5">
+                          <span className="block text-[10px] font-semibold uppercase tracking-wider text-pine/50">
+                            Option {index + 1}
+                          </span>
+                          <span className="block text-sm font-medium text-pine">
+                            {slot.dateLabel}
+                          </span>
+                          <span className="block text-xs text-pine/70">{slot.timeLabel}</span>
+                          {hasConflict && (
+                            <span className="block text-[11px] font-semibold text-amber-800">
+                              Conflicts with your scheduled session
+                            </span>
+                          )}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Counter-offer */}
+            <div className="space-y-2 rounded-lg border border-mist bg-surface-sunken/30 p-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-pine/60" aria-hidden="true" />
+                  <Label htmlFor="counter-datetime" className="mb-0">
+                    None of these work? Offer the nearest available alternative
+                  </Label>
+                </div>
+                {counterDateTime && (
+                  <button
+                    type="button"
+                    onClick={() => setCounterDateTime('')}
+                    disabled={scheduleMutation.isPending}
+                    className="text-xs font-semibold text-red-700 hover:text-red-800 underline underline-offset-2 cursor-pointer disabled:opacity-50"
+                  >
+                    Clear
+                  </button>
                 )}
               </div>
+              <Input
+                id="counter-datetime"
+                type="datetime-local"
+                min={minDateTime}
+                className="font-mono tabular-nums text-sm"
+                value={counterDateTime}
+                onChange={(event) => {
+                  setCounterDateTime(event.target.value);
+                  if (event.target.value) setSelectedSlotId(null);
+                }}
+                disabled={scheduleMutation.isPending}
+              />
+              <p className="text-[11px] text-pine/55">
+                You can offer exactly one alternative time. Click a selected slot again or
+                &ldquo;Clear selection&rdquo; above to unselect it.
+              </p>
+            </div>
 
-              {/* Exactly 3 Slots Required with no past dates */}
-              <div className="space-y-3 pt-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                    Propose Exactly 3 Schedule Slots (PST) <span className="text-red-600">*</span>
-                  </span>
-                  <span className="text-xs text-accent-ink font-medium">
-                    Must be distinct &amp; in the future
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {/* Slot 1 */}
-                  <div>
-                    <Label htmlFor="modal-slot-1">Slot 1 (Date &amp; Time)</Label>
-                    <Input
-                      id="modal-slot-1"
-                      type="datetime-local"
-                      min={minDateTime}
-                      className="font-mono tabular-nums text-xs"
-                      {...proposalForm.register('slot1DateTime')}
-                    />
-                    {proposalForm.formState.errors.slot1DateTime && (
-                      <p className="text-xs text-red-700 mt-1 font-medium">
-                        {proposalForm.formState.errors.slot1DateTime.message}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Slot 2 */}
-                  <div>
-                    <Label htmlFor="modal-slot-2">Slot 2 (Date &amp; Time)</Label>
-                    <Input
-                      id="modal-slot-2"
-                      type="datetime-local"
-                      min={minDateTime}
-                      className="font-mono tabular-nums text-xs"
-                      {...proposalForm.register('slot2DateTime')}
-                    />
-                    {proposalForm.formState.errors.slot2DateTime && (
-                      <p className="text-xs text-red-700 mt-1 font-medium">
-                        {proposalForm.formState.errors.slot2DateTime.message}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Slot 3 */}
-                  <div>
-                    <Label htmlFor="modal-slot-3">Slot 3 (Date &amp; Time)</Label>
-                    <Input
-                      id="modal-slot-3"
-                      type="datetime-local"
-                      min={minDateTime}
-                      className="font-mono tabular-nums text-xs"
-                      {...proposalForm.register('slot3DateTime')}
-                    />
-                    {proposalForm.formState.errors.slot3DateTime && (
-                      <p className="text-xs text-red-700 mt-1 font-medium">
-                        {proposalForm.formState.errors.slot3DateTime.message}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Modal Actions */}
-              <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-3 pt-3 border-t border-mist">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="md"
-                  onClick={handleCloseModal}
-                  disabled={proposeMutation.isPending}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="md"
-                  disabled={proposeMutation.isPending}
-                >
-                  {proposeMutation.isPending
-                    ? 'Submitting Proposal...'
-                    : 'Confirm Pick-Up & Send 3 Slots'}
-                </Button>
-              </div>
-            </form>
-          </div>
+            {/* Modal Actions */}
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-3 pt-3 border-t border-mist">
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                onClick={handleCloseModal}
+                disabled={scheduleMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                size="md"
+                disabled={
+                  scheduleMutation.isPending ||
+                  priceInvalid ||
+                  (!selectedSlotId && !counterDateTime)
+                }
+              >
+                {scheduleMutation.isPending
+                  ? 'Claiming & Sending…'
+                  : selectedSlotId
+                    ? 'Claim & Accept Selected Schedule'
+                    : 'Claim & Offer Alternative'}
+              </Button>
+            </div>
+          </form>
         </Modal>
       )}
     </div>
