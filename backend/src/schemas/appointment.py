@@ -2,7 +2,17 @@ import uuid
 from datetime import date, datetime, time
 from sqlmodel import SQLModel, Field
 
-from models.appointment import AppointmentStatus
+from models.appointment import AppointmentStatus, SchedulingTurn
+from models.proposed_slot import SlotProposer, SlotStatus
+
+
+class SlotInput(SQLModel):
+    """A date/start-time preference; end time is derived from the service."""
+
+    session_date: date
+    start_time: time
+
+
 from schemas.psychologist import SocialMediaLink
 
 
@@ -10,6 +20,11 @@ class AppointmentCreate(SQLModel):
     persona_id: uuid.UUID
     service_id: uuid.UUID
     presenting_concern: str
+    preferred_slots: list[SlotInput] = Field(min_length=3, max_length=5)
+
+
+class PreferredSlotsUpdate(SQLModel):
+    slots: list[SlotInput] = Field(min_length=3, max_length=5)
 
 
 class ProposedSlotRead(SQLModel):
@@ -17,6 +32,9 @@ class ProposedSlotRead(SQLModel):
     session_date: date
     start_time: time
     end_time: time | None
+    proposed_by: SlotProposer
+    status: SlotStatus
+    round: int
 
 
 class AppointmentRead(SQLModel):
@@ -34,12 +52,22 @@ class AppointmentRead(SQLModel):
     presenting_concern: str
     status: AppointmentStatus
     requested_datetime: datetime | None
+    scheduling_turn: SchedulingTurn | None = None
+    scheduling_round: int = 1
+    payment_deadline: datetime | None = None
     proposed_slots: list[ProposedSlotRead] = Field(default_factory=list)
+    conflicting_slot_ids: list[uuid.UUID] = Field(default_factory=list)
     # Client contact details are visible to the assigned psychologist at every
     # stage; psychologist contact links only unlock after confirmation.
     persona_socmed_platform: str | None = None
     persona_socmed_username: str | None = None
     psychologist_social_links: list[SocialMediaLink] = Field(default_factory=list)
+
+
+class PendingAppointmentRead(AppointmentRead):
+    """Pending-queue row annotated for the *calling* psychologist."""
+
+    pass
 
 
 class SlotSelect(SQLModel):
