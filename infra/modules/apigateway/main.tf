@@ -40,7 +40,7 @@ resource "aws_apigatewayv2_route" "default" {
   authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
 }
 
-# Public routes (no auth): login/signup/confirm/refresh + health checks.
+# Public routes (no auth): login/signup/confirm/refresh, public services catalog + health checks.
 # Everything else falls through to $default and requires JWT.
 resource "aws_apigatewayv2_route" "public" {
   for_each = toset([
@@ -51,6 +51,8 @@ resource "aws_apigatewayv2_route" "public" {
     "POST /auth/refresh-token",
     "POST /auth/request-forgot-password",
     "POST /auth/confirm-forgot-password",
+    "GET /services",
+    "GET /services/active",
     "GET /health",
     "GET /hello",
   ])
