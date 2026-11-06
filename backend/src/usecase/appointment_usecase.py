@@ -59,9 +59,8 @@ class AppointmentUsecase:
         return self.repo.build_read(appointment)
 
     def list_appointments(self, client_id: uuid.UUID, status: AppointmentStatus | None = None) -> list[AppointmentRead]:
+        self.repo.expire_overdue_for_client(client_id)
         appointments = self.repo.get_for_client(client_id, status)
-        for appointment in appointments:
-            self.repo.expire_if_overdue(appointment)
         return self.repo.build_reads(appointments)
 
     def get_appointment(self, appointment_id: uuid.UUID, client_id: uuid.UUID) -> AppointmentRead:

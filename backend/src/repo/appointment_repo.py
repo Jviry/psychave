@@ -6,6 +6,7 @@ from sqlmodel import Session, select
 
 from common.time import now_manila
 from models.appointment import Appointment, AppointmentStatus, SchedulingTurn
+from models.payment import Payment, PaymentStatus
 from models.persona import Persona
 from models.proposed_slot import ProposedSlot, SlotProposer, SlotStatus
 from models.psychologist_profile import PsychologistProfile
@@ -213,12 +214,49 @@ class AppointmentRepo:
                 self.db.add(slot)
 
         appointment.selected_slot_id = None
+        appointment.payment_deadline = None
         appointment.status = AppointmentStatus.AWAITING_SCHEDULE
         appointment.scheduling_turn = SchedulingTurn.CLIENT
         self.db.add(appointment)
+        self.db.exec(
+            update(Payment)
+            .where(
+                Payment.appointment_id == appointment.appointment_id,
+                Payment.status == PaymentStatus.PENDING,
+            )
+            .values(status=PaymentStatus.FAILED)
+        )
         self.db.commit()
         self.db.refresh(appointment)
         return True
+
+    def expire_overdue_for_client(self, client_id: uuid.UUID) -> None:
+        """Transition any overdue awaiting-payment rows owned by ``client_id``."""
+        overdue = self.db.exec(
+            select(Appointment)
+            .join(Persona, Appointment.persona_id == Persona.persona_id)
+            .where(
+                Persona.client_id == client_id,
+                Appointment.status == AppointmentStatus.AWAITING_PAYMENT,
+                Appointment.payment_deadline.is_not(None),
+                Appointment.payment_deadline <= now_manila(),
+            )
+        ).all()
+        for appointment in overdue:
+            self.expire_if_overdue(appointment)
+
+    def expire_overdue_for_psychologist(self, psychologist_id: uuid.UUID) -> None:
+        """Transition any overdue awaiting-payment rows assigned to ``psychologist_id``."""
+        overdue = self.db.exec(
+            select(Appointment).where(
+                Appointment.psychologist_id == psychologist_id,
+                Appointment.status == AppointmentStatus.AWAITING_PAYMENT,
+                Appointment.payment_deadline.is_not(None),
+                Appointment.payment_deadline <= now_manila(),
+            )
+        ).all()
+        for appointment in overdue:
+            self.expire_if_overdue(appointment)
 
     # ----- enriched read models -----
 

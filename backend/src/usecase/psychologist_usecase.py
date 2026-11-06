@@ -272,9 +272,8 @@ class PsychologistUsecase:
     # ----- own schedule -----
 
     def list_mine(self, psychologist_id: uuid.UUID, status: AppointmentStatus | None = None) -> list[AppointmentRead]:
+        self.appointment_repo.expire_overdue_for_psychologist(psychologist_id)
         appointments = self.repo.list_for_psychologist(psychologist_id, status)
-        for appointment in appointments:
-            self.appointment_repo.expire_if_overdue(appointment)
         reads = self.appointment_repo.build_reads(appointments)
         needs_conflict_check = any(
             r.status == AppointmentStatus.AWAITING_SCHEDULE
