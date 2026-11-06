@@ -22,6 +22,7 @@ resource "aws_lambda_function" "this" {
       COGNITO_APP_CLIENT_ID = var.cognito_app_client_id
       DATABASE_URL          = var.database_url
       DB_SCHEMA             = var.db_schema
+      CORS_ORIGINS          = jsonencode(var.cors_origins)
     }
   }
 }

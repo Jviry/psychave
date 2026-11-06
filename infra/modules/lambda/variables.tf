@@ -35,3 +35,9 @@ variable "db_schema" {
   type        = string
   default     = ""
 }
+
+variable "cors_origins" {
+  description = "Allowed CORS origins passed to FastAPI as a JSON list"
+  type        = list(string)
+  default     = []
+}

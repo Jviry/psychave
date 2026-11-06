@@ -64,6 +64,14 @@ jobs:
         run: |
           tofu plan -var-file="dev.tfvars"
 
+      - name: Run database migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONPATH: package
+        run: |
+          python -m alembic upgrade head
+
       - name: OpenTofu Apply
         working-directory: infra/environments/dev
         env:
