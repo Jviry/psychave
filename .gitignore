@@ -28,6 +28,8 @@ htmlcov/
 frontend/node_modules/
 frontend/dist/
 frontend/.next/
+.vercel/
+frontend/.vercel/
 *.tsbuildinfo
 
 # Editor & OS files
