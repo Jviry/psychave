@@ -12,6 +12,7 @@ permissions:
 env:
   AWS_REGION: ap-southeast-1
   TF_WORKING_DIR: infra/environments/dev
+  PR_SCHEMA: pr_${{ github.event.pull_request.number }}
 
 jobs:
   deploy-and-test:
@@ -66,7 +67,18 @@ jobs:
           tofu plan \
             -var-file="dev.tfvars" \
             -var="environment=pr-${{ github.event.pull_request.number }}" \
-            -var="database_url=${{ secrets.DATABASE_URL }}"
+            -var="database_url=${{ secrets.DATABASE_URL }}" \
+            -var="db_schema=${{ env.PR_SCHEMA }}"
+
+      - name: Migrate and seed PR schema
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DB_SCHEMA: ${{ env.PR_SCHEMA }}
+          PYTHONPATH: package
+        run: |
+          python -m alembic upgrade head
+          python src/seed_services.py
 
       - name: OpenTofu Apply
         working-directory: infra/environments/dev
@@ -75,7 +87,8 @@ jobs:
             -auto-approve \
             -var-file="dev.tfvars" \
             -var="environment=pr-${{ github.event.pull_request.number }}" \
-            -var="database_url=${{ secrets.DATABASE_URL }}"
+            -var="database_url=${{ secrets.DATABASE_URL }}" \
+            -var="db_schema=${{ env.PR_SCHEMA }}"
 
       - name: Get API and Cognito Outputs
         id: api
@@ -91,12 +104,13 @@ jobs:
         with:
           script: |
             const url = "${{ steps.api.outputs.url }}";
+            const schema = "${{ env.PR_SCHEMA }}";
 
             github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `Ephemeral environment deployed\n\nAPI: ${url}`
+              body: `Ephemeral environment deployed\n\nAPI: ${url}\nDB Schema: \`${schema}\``
             });
 
   destroy:
@@ -149,4 +163,15 @@ jobs:
             -auto-approve \
             -var-file="dev.tfvars" \
             -var="environment=pr-${{ github.event.pull_request.number }}" \
-            -var="database_url=${{ secrets.DATABASE_URL }}"
+            -var="database_url=${{ secrets.DATABASE_URL }}" \
+            -var="db_schema=${{ env.PR_SCHEMA }}"
+
+      - name: Drop PR database schema
+        if: always()
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DB_SCHEMA: ${{ env.PR_SCHEMA }}
+          PYTHONPATH: package
+        run: |
+          python src/drop_schema.py

@@ -8,6 +8,7 @@ module "lambda" {
   cognito_app_client_id = module.cognito.client_id
   user_pool_arn         = module.cognito.user_pool_arn
   database_url          = var.database_url
+  db_schema             = var.db_schema
 }
 
 module "apigateway" {
