@@ -2,11 +2,17 @@ export type CognitoRole = 'client' | 'psychologist' | 'admin';
 
 export type BookingStatus =
   | 'pending'
-  | 'proposed'
+  | 'awaiting-review'
+  | 'awaiting-client'
+  | 'awaiting-payment'
   | 'paid-confirmed'
   | 'completed'
   | 'reschedule-requested'
   | 'cancelled';
+
+export type SchedulingTurn = 'client' | 'psychologist';
+export type SlotProposer = 'client' | 'psychologist';
+export type SlotStatus = 'proposed' | 'accepted' | 'declined' | 'expired';
 
 export interface ServiceItem {
   id: string;
@@ -71,11 +77,14 @@ export interface SocialMediaLink {
 
 export interface ProposedSlot {
   id: string;
-  slotNumber: 1 | 2 | 3;
+  slotNumber: number;
   isoDateTime: string;
   endIsoDateTime?: string;
   dateLabel: string;
   timeLabel: string;
+  proposedBy: SlotProposer;
+  status: SlotStatus;
+  round: number;
 }
 
 export interface BookingRequest {
@@ -97,6 +106,10 @@ export interface BookingRequest {
   psychologistSpecialization?: string;
   pricePhp?: number;
   proposedSlots: ProposedSlot[];
+  schedulingTurn?: SchedulingTurn;
+  schedulingRound: number;
+  paymentDeadline?: string;
+  conflictingSlotIds?: string[];
   selectedSlotId?: string;
   paidAt?: string;
   contactUnlocked: boolean;

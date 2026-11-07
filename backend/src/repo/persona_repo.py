@@ -10,7 +10,7 @@ from schemas.persona import PersonaCreate, ConsentCreate
 # CONFIRMED + COMPLETED included: paid history must survive for records.
 ACTIVE_APPOINTMENT_STATUSES = (
     AppointmentStatus.PENDING,
-    AppointmentStatus.AWAITING_SLOT_SELECTION,
+    AppointmentStatus.AWAITING_SCHEDULE,
     AppointmentStatus.AWAITING_PAYMENT,
     AppointmentStatus.CONFIRMED,
     AppointmentStatus.COMPLETED,

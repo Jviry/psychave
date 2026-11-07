@@ -1,5 +1,4 @@
 import uuid
-from datetime import date, time
 from pydantic import field_validator
 from sqlmodel import Field, SQLModel
 
@@ -42,11 +41,10 @@ class PsychologistProfileUpdate(SQLModel):
     social_media_links: list[SocialMediaLink] | None = None
 
 
+from schemas.appointment import SlotInput
+
+
 class PickupRequest(SQLModel):
     price: float
-
-
-class SlotProposal(SQLModel):
-    session_date: date
-    start_time: time
-    end_time: time | None = None
+    slot_id: uuid.UUID | None = None
+    counter_slot: SlotInput | None = None

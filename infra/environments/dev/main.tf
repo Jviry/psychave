@@ -9,6 +9,7 @@ module "lambda" {
   user_pool_arn         = module.cognito.user_pool_arn
   database_url          = var.database_url
   db_schema             = var.db_schema
+  cors_origins          = var.cors_origins
 }
 
 module "apigateway" {

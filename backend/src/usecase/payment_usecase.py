@@ -3,11 +3,12 @@ from datetime import datetime, timezone
 from sqlmodel import Session
 
 from common.exceptions import BadRequestError, NotFoundError
+from common.time import now_manila
 from models.appointment import Appointment, AppointmentStatus
 from models.payment import Payment, PaymentStatus
-from models.persona import Persona
 from repo.appointment_repo import AppointmentRepo
 from repo.payment_repo import PaymentRepo
+from repo.persona_repo import PersonaRepo
 from services.payments.base import PaymentProvider
 
 
@@ -17,6 +18,7 @@ class PaymentUsecase:
         self.provider = provider
         self.appointments = AppointmentRepo(db)
         self.payments = PaymentRepo(db)
+        self.personas = PersonaRepo(db)
 
     def _get_owned_appointment(
         self, appointment_id: uuid.UUID, client_id: uuid.UUID
@@ -24,7 +26,7 @@ class PaymentUsecase:
         appt = self.appointments.get_by_id(appointment_id)
         if appt is None:
             raise NotFoundError("Appointment not found")
-        persona = self.db.get(Persona, appt.persona_id)
+        persona = self.personas.get_by_id(appt.persona_id)
         if persona is None or persona.client_id != client_id:
             raise NotFoundError("Appointment not found")
         return appt
@@ -36,10 +38,17 @@ class PaymentUsecase:
         payment_method: str | None = None,
     ) -> Payment:
         appt = self._get_owned_appointment(appointment_id, client_id)
+        self.appointments.expire_if_overdue(appt)
         if appt.status != AppointmentStatus.AWAITING_PAYMENT:
-            raise BadRequestError("Appointment is not awaiting payment")
+            raise BadRequestError(
+                "Appointment is not awaiting payment. The deadline may have passed; please agree on a new schedule."
+            )
         if appt.price is None:
             raise BadRequestError("Price is not set yet")
+        if appt.payment_deadline is None:
+            raise BadRequestError("Payment deadline is not set")
+        if appt.payment_deadline <= now_manila():
+            raise BadRequestError("Payment deadline has passed")
 
         existing = self.payments.get_pending(appointment_id)
         if existing is not None:
@@ -86,23 +95,30 @@ class PaymentUsecase:
         if not paid:
             return self.payments.mark_failed(payment)
 
+        appt = self.appointments.get_by_id(payment.appointment_id)
+        if appt is not None and self.appointments.expire_if_overdue(appt):
+            self.db.refresh(payment)
+
+        was_pending = payment.status == PaymentStatus.PENDING
         paid_payment = self.payments.mark_paid(
             payment,
             paid_at=datetime.now(timezone.utc),
             payment_method=payment_method,
         )
-        appt = self.appointments.get_by_id(payment.appointment_id)
-        # Only flip from awaiting-payment; a cancelled appointment stays
-        # cancelled even if money arrived (needs manual handling, not auto-confirm).
-        if appt is not None and appt.status == AppointmentStatus.AWAITING_PAYMENT:
-            appt.status = AppointmentStatus.CONFIRMED
-            self.db.add(appt)
-            self.db.commit()
-            self.db.refresh(appt)
+        # Only auto-confirm an active pending checkout whose appointment is still
+        # awaiting payment; cancelled or deadline-expired checkouts keep the paid
+        # ledger entry for manual reconciliation without double-booking.
+        if (
+            was_pending
+            and appt is not None
+            and appt.status == AppointmentStatus.AWAITING_PAYMENT
+        ):
+            self.appointments.confirm(appt)
         return paid_payment
 
     def get_history(
         self, appointment_id: uuid.UUID, client_id: uuid.UUID
     ) -> list[Payment]:
-        self._get_owned_appointment(appointment_id, client_id)
+        appt = self._get_owned_appointment(appointment_id, client_id)
+        self.appointments.expire_if_overdue(appt)
         return self.payments.list_for_appointment(appointment_id)

@@ -30,7 +30,7 @@ async def botocore_error_handler(_: Request, exc: BotoCoreError):
     logger.exception("AWS client-side failure: %s", exc)
     return JSONResponse(
         status_code=503,
-        content={"detail": f"AWS provider error: {exc}"},
+        content={"detail": "Service temporarily unavailable"},
     )
 
 

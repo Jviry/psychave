@@ -23,3 +23,7 @@ variable "db_schema" {
   type    = string
   default = ""
 }
+
+variable "cors_origins" {
+  type = list(string)
+}

@@ -15,20 +15,20 @@
 | Frontend call | Backend |
 |---|---|
 | `GET /services/active` | Public active catalog. |
-| `GET /services` | Authenticated catalog. |
+| `GET /services` | Public active catalog. |
 | `POST /auth/*` | Cognito login, register, confirm, refresh, logout, password reset. |
 | `GET/POST /personas`, `GET /personas/:id/review` | Authenticated persona and consent records. |
-| `POST /appointments`, `GET /appointments`, `GET /appointments/:id` | Client/psychologist appointment reads and booking intake. |
-| `GET /appointments/pending`, `GET /appointments/mine`, `POST /appointments/:id/pickup`, `POST /appointments/:id/slots` | Psychologist queue and 3-slot proposal. |
-| `POST /appointments/:id/select-slot`, `POST /appointments/:id/payment`, `POST /appointments/:id/complete`, `DELETE /appointments/:id` | Payment-gated finalization, completion, cancellation. |
+| `POST /appointments`, `GET /appointments`, `GET /appointments/:id` | Client/psychologist appointment reads and booking intake (with 3–5 client `preferred_slots`). |
+| `GET /appointments/pending`, `GET /appointments/mine`, `POST /appointments/:id/pickup`, `POST /appointments/:id/accept-preferred-slot`, `POST /appointments/:id/counter-offer` | Psychologist queue (with `conflicting_slot_ids`), atomic pickup (`slot_id` or `counter_slot`), and multi-round schedule review. |
+| `POST /appointments/:id/accept-slot`, `POST /appointments/:id/preferred-slots`, `POST /appointments/:id/payment`, `POST /appointments/:id/complete`, `DELETE /appointments/:id` | Client schedule negotiation, payment-gated finalization, completion, cancellation. |
 | `GET/PATCH /psychologist-profile/me` | Authenticated psychologist profile. |
 | `GET /admin/users`, `PATCH /admin/users/:id/role`, `POST /admin/users/:id/promote` | Admin-only user directory and role changes. |
 | CMS (`getCmsContent`, `updateCmsContent`, `getRoster`, `updateServiceGuardrail`) | Local-only marketing preview. Not sent to the backend. |
 
 ## 3. Field Map (Frontend → Backend Column)
 
-- Bookings: `BookingRequest.id` → `appointments.appointment_id`; `personaId` → `persona_id`; `psychologistId` → `psychologist_id`; `pricePhp` → `price`; `selectedSlotId` → `selected_slot_id`; `status: pending / proposed / paid-confirmed / cancelled` → backend `status` string (frontend has 2 extra UI states: `reschedule-requested`; backend has no enum constraint).
-- Slots: frontend `ProposedSlot.id / isoDateTime / slotNumber 1|2|3` → backend `slot_id / session_date + start_time (+end_time)`; official rule “exactly 3 rows per proposal” is enforced in UI (`proposalFormSchema` distinct-slots check) and must later be enforced server-side.
+- Bookings: `BookingRequest.id` → `appointments.appointment_id`; `personaId` → `persona_id`; `psychologistId` → `psychologist_id`; `pricePhp` → `price`; `selectedSlotId` → `selected_slot_id`; `schedulingTurn` → `scheduling_turn` (`client | psychologist | null`); `schedulingRound` → `scheduling_round`; `paymentDeadline` → `payment_deadline`; `status: pending / awaiting-review / awaiting-client / awaiting-payment / paid-confirmed / completed / cancelled` → derived from backend `status` (`pending / awaiting_schedule / awaiting_payment / confirmed / completed / cancelled`) + `scheduling_turn`.
+- Slots: frontend `ProposedSlot` (`id / slotNumber / isoDateTime / endIsoDateTime / proposedBy / status / round`) → backend `proposed_slots` (`slot_id / session_date / start_time / end_time / proposed_by / status / round`). Clients submit 3–5 distinct future preferred schedules (`proposed_by=client`); psychologists either accept one or offer 1 alternative (`proposed_by=psychologist`), enforced in both Zod (`bookingFormSchema`) and backend (`utils/scheduling.py`).
 - Payments: frontend pay-success (`paidAt`, `contactUnlocked`, reminders `scheduled`) → backend `payments(amount, payment_method?, status, paid_at)`; `amount` ↔ `pricePhp`; method enum (`card_visa_4242 / gcash_paymongo_mock / maya_stripe_mock`) is mock-only.
 - Personas: frontend `Persona.id / clientId / type self|dependent / label / ageGroup / relationshipToClient / preferredLanguage` → backend `persona.persona_id / client_id / full_name` only; extra UI fields have no backend column yet.
 - Booking: frontend `concernsSummary / specificNeeds / preferredLanguage / serviceId` → backend `forms(persona_id)` only (content columns missing).
@@ -55,7 +55,7 @@ Conventions for every row below: `api.ts` function → HTTP method + path the UI
 
 ### 6.1 Services
 
-- `getPublicServices` → `GET /services/active` (public) and `getServices` → `GET /services` (authenticated). Success: `ServiceItem[]` (`id / indexNumber / title / categoryGroup / durationLabel / durationMinutes / guardrailTitle / guardrailNotice / description / clinicalFormat / isStandaloneConsultation?`). Errors: surface the backend message to the UI.
+- `getPublicServices` → `GET /services/active` (public) and `getServices` → `GET /services` (public). Success: `ServiceItem[]` (`id / indexNumber / title / categoryGroup / durationLabel / durationMinutes / guardrailTitle / guardrailNotice / description / clinicalFormat / isStandaloneConsultation?`). Errors: surface the backend message to the UI.
 - `updateServiceGuardrail` → `PATCH /api/v1/services/:serviceId`. Auth: admin. Request: `{ durationLabel, guardrailTitle, guardrailNotice, description }` (all strings; durations like `45 mins`, `1 hr (60 mins)`, `1.5 hrs (90 mins)`, `2 hrs (120 mins)` per `services-catalog.md`). Success: updated `ServiceItem[]`. Errors: 403 non-admin; 404 unknown service id; 422 empty guardrail text.
 
 ### 6.2 Roster & Psychologist Promotion
@@ -72,16 +72,17 @@ Conventions for every row below: `api.ts` function → HTTP method + path the UI
 
 ### 6.4 Bookings — Booking & Queue
 
-- `getBookingsForRole(role, psychologistId)` → `GET /api/v1/bookings?role=client|psychologist|admin&psychId=`. Auth: per role. Success: `BookingRequest[]` filtered server-side — client: own `clientId` only with `privateClinicalNote` stripped; psychologist: `status=pending` queue rows plus rows where `psychologist_id` = caller; admin: all rows metadata-only with `privateClinicalNote` stripped. Errors: 403 cross-client/psychologist access.
-- `getBookingById` → `GET /api/v1/bookings/:bookingId`. Auth: role-scoped as above (`privateClinicalNote` only for assigned psychologist). Success: `BookingRequest | null`. Errors: 404 unknown id; 403 unassigned psychologist / other client.
-- `submitBookingRequest` → `POST /api/v1/bookings/intake`. Auth: client. Request: `bookingFormSchema` minus UI-only `guardrailAcknowledged` → `{ personaId / serviceId / preferredLanguage / concernsSummary 20–1200 chars / specificNeeds 5–600 chars }`. Success: `BookingRequest` with `status=pending`, empty `proposedSlots`, `contactUnlocked=false`, reminders `pending/pending`. Backend mapping: `appointments(persona_id, status=pending)` + `forms(persona_id)`; `concernsSummary/specificNeeds/preferredLanguage/serviceId` have no `forms` content columns yet (see §7.3). Errors: 401; 422 booking too short / unknown persona or service.
+- `getBookingsForRole(role)` → client calls `GET /appointments`; psychologist calls `GET /appointments/pending` + `GET /appointments/mine` (`PendingAppointmentRead` includes per-psychologist `conflicting_slot_ids`). Auth: derived strictly from the Cognito token.
+- `getBookingById` → `GET /appointments/:bookingId`. Auth: role-scoped (`404` for unassigned psychologists or other clients).
+- `submitBookingRequest` → `POST /appointments`. Auth: client. Request: `{ persona_id, service_id, presenting_concern, preferred_slots: [{ session_date, start_time }] (3..5) }`. Success: `BookingRequest` with `status=pending`, 3–5 `proposedSlots` (`proposedBy='client'`, `round=1`), `contactUnlocked=false`. Errors: 401; 404 unknown persona; 400/422 duplicate/past/cross-midnight or out-of-range preferred schedules.
 
-### 6.5 Bookings — Proposal, Payment, Lifecycle
+### 6.5 Bookings — Atomic Pickup, Schedule Negotiation, Payment, Lifecycle
 
-- `pickUpAndProposeSlots` → `POST /api/v1/bookings/:bookingId/propose`. Auth: promoted psychologist. Request: `proposalFormSchema` + ids → `{ bookingId / psychologistId / pricePhp 500–25000 / slot1DateTime / slot2DateTime / slot3DateTime (ISO, all distinct) / clinicalPrepNote 10–500 chars }`. Success: booking `status=proposed`, `psychologist_id` set, `price` set, exactly 3 `proposed_slots` rows (`slotNumber 1|2|3`, `isoDateTime` → `session_date + start_time/end_time` from service `durationMinutes`). Errors: 403 non-psychologist (guardrail); 404 unknown booking; 409 already picked-up by another psychologist; 422 non-distinct slots / price out of range.
-- `confirmSlotAndPay` → `POST /appointments/:id/select-slot` then `POST /appointments/:id/payment`. Auth: client (own booking). Request: `{ slot_id }`; the payment endpoint takes an empty body. Success: the appointment becomes `confirmed` after the provider webhook marks the payment paid; contact unlocks only then. The UI polls the appointment briefly and otherwise reports the checkout reference. Errors: the backend's status/detail is surfaced verbatim; contact stays locked.
-- `updateBookingLifecycleStatus` → `PATCH /api/v1/bookings/:bookingId/lifecycle`. Auth: role-scoped (client owns booking; psychologist assigned; admin announcements). Request: `{ bookingId / action: cancel | request-reschedule | dispatch-reminders }`. Success: `cancel → status=cancelled`; `request-reschedule → status=reschedule-requested`; `dispatch-reminders → reminders=dispatched/dispatched`. Errors: 403 unauthorized role; 404 unknown booking; 409 illegal transition (e.g. cancel after `paid-confirmed` per policy decision in §7.5).
-- `updatePrivatePsychNote` → `PATCH /api/v1/bookings/:bookingId/private-note`. Auth: assigned psychologist only. Request: `{ bookingId / privateClinicalNote }`. Success: note stored, never returned to client/admin tiers. Errors: 403 all other roles.
+- `pickUpBooking` → `POST /appointments/:bookingId/pickup`. Auth: promoted psychologist (with ≥1 social media link). Request: `{ price, slot_id? | counter_slot?: { session_date, start_time } }` (exactly one of `slot_id` or `counter_slot`). Success: if `slot_id`, moves atomically to `awaiting_payment` with `selected_slot_id` and `payment_deadline`; if `counter_slot`, moves atomically to `awaiting_schedule` (`scheduling_turn='client'`, `scheduling_round=2`). Errors: 403 non-psychologist; 404 unknown booking; 409 already claimed or overlaps psychologist's held/confirmed session; 422 missing social media link or invalid slot/price.
+- `acceptPreferredSlot` / `counterOffer` → `POST /appointments/:id/accept-preferred-slot` (`{ slot_id }`) and `POST /appointments/:id/counter-offer` (`{ session_date, start_time }`). Auth: assigned psychologist when `status=awaiting_schedule` and `scheduling_turn='psychologist'`.
+- `acceptCounterSlot` / `replacePreferredSlots` → `POST /appointments/:id/accept-slot` (`{ slot_id }`) and `POST /appointments/:id/preferred-slots` (`{ slots: [{ session_date, start_time }] (3..5) }`). Auth: owning client when `status=awaiting_schedule` and `scheduling_turn='client'`.
+- `payBooking` → `POST /appointments/:id/payment` (`{}`). Auth: client (own booking in `awaiting_payment` before `payment_deadline`). Success: the appointment becomes `confirmed` after the provider webhook marks the active pending payment paid; contact unlocks only then. If `payment_deadline` expires before payment completes, the held slot becomes `expired`, pending checkouts are marked `failed`, and the booking returns to `awaiting_schedule` (`scheduling_turn='client'`) for fresh preferred schedules.
+- `cancelBooking` / `completeAppointment` → `DELETE /appointments/:id` (client, pre-confirmation) and `POST /appointments/:id/complete` (assigned psychologist, `confirmed` → `completed`).
 
 ### 6.6 CMS
 

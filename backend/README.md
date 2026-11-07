@@ -70,14 +70,16 @@ Key environment variables:
 
 | Variable | Description | Default |
 | :--- | :--- | :--- |
-| `APP_NAME` | Service title shown in docs | `Psychave API` |
+| `APP_NAME` | Service title shown in docs | `PsychAve API` |
 | `ENV` | Environment name (`development`, `production`) | `development` |
-| `DEBUG` | Enable debug mode and SQL query echo | `true` |
+| `DEBUG` | Enable debug mode and SQL query echo | `false` |
 | `PORT` | Local server port | `8000` |
 | `HOST` | Local server host | `0.0.0.0` |
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://postgres:password@localhost:5432/postgres` |
-| `CORS_ORIGINS` | Allowed CORS origins (JSON array) | `["http://localhost:3000","http://localhost:5173"]` |
-| `SECRET_KEY` | Application secret key | - |
+| `DATABASE_URL` | PostgreSQL connection string | `""` |
+| `CORS_ORIGINS` | Allowed CORS origins (JSON array) | `[]` |
+| `AWS_REGION` | AWS region for Cognito SDK & JWKS | `""` |
+| `COGNITO_USER_POOL_ID` | Cognito User Pool ID | `""` |
+| `COGNITO_APP_CLIENT_ID` | Cognito App Client ID (ID token audience) | `""` |
 
 ### 2. Virtual Environment Setup
 
@@ -148,21 +150,25 @@ Always send the **ID token**: `Authorization: Bearer <id_token>`. `verify_token(
 ### Services catalog endpoints
 
 - `GET /services/active` — public active services catalog; used by the marketing home page before login.
-- `GET /services` — authenticated services catalog (requires client/psychologist/admin role).
+- `GET /services` — public active services catalog (also exposed without JWT at API Gateway).
 
-### Psychologist dashboard endpoints
+### Scheduling & psychologist dashboard endpoints
 
-All routes below require the `psychologist` Cognito group (`require_role(UserRole.PSYCHOLOGIST)`). Psychologists are created by admin promotion, so there is no separate credential-approval gate.
+Clients submit 3–5 preferred schedules with `POST /appointments`. All psychologist routes below require the `psychologist` Cognito group (`require_role(UserRole.PSYCHOLOGIST)`). Psychologists are created by admin promotion, so there is no separate credential-approval gate.
 
-| Route | Notes |
-| :--- | :--- |
-| `GET /appointments/pending` | Unclaimed requests (`psychologist_id IS NULL`, `status = pending`) |
-| `POST /appointments/{id}/pickup` | Sets `psychologist_id` + `price`, moves status to `awaiting_slot_selection` |
-| `POST /appointments/{id}/slots` | Body is a list of exactly 3 `{session_date, start_time, end_time?}` proposals; rejects duplicates/past times and re-proposals |
-| `GET /appointments/mine` | Own appointments, optional `?status=` filter |
-| `GET /appointments/{id}` | Shared with the client route (same path) — branches on the caller's role; psychologists only ever see appointments they own (others → `404`) |
-| `GET /psychologist-profile/me` | Own profile |
-| `PATCH /psychologist-profile/me` | Writable: `specialization`, `license_number`, `bio`, `social_media_links` |
+| Route | Role | Notes |
+| :--- | :--- | :--- |
+| `GET /appointments/pending` | Psychologist | Unclaimed requests (`psychologist_id IS NULL`, `status = pending`), annotated with caller-specific `conflicting_slot_ids` |
+| `POST /appointments/{id}/pickup` | Psychologist | Atomic claim: sets `psychologist_id` + `price` and either accepts a client slot (`slot_id` → `awaiting_payment` + `payment_deadline`) or offers 1 alternative (`counter_slot` → `awaiting_schedule`, `scheduling_turn = client`) |
+| `POST /appointments/{id}/accept-preferred-slot` | Psychologist | Accepts a client-preferred schedule during subsequent rounds (`scheduling_turn = psychologist` → `awaiting_payment`) |
+| `POST /appointments/{id}/counter-offer` | Psychologist | Offers 1 alternative schedule during subsequent rounds (`scheduling_turn = psychologist` → `scheduling_turn = client`) |
+| `POST /appointments/{id}/accept-slot` | Client | Accepts the psychologist's counter-offer (`scheduling_turn = client` → `awaiting_payment` + `payment_deadline`) |
+| `POST /appointments/{id}/preferred-slots` | Client | Submits 3–5 fresh preferred schedules (`scheduling_turn = client` → `scheduling_turn = psychologist`) |
+| `GET /appointments/mine` | Psychologist | Own appointments, optional `?status=` filter (overdue `awaiting_payment` rows transition before filtering) |
+| `GET /appointments/{id}` | Client / Psychologist | Shared path — branches on caller's role; psychologists only see appointments they own (others → `404`) |
+| `POST /appointments/{id}/complete` | Psychologist | Marks a `confirmed` appointment `completed` |
+| `GET /psychologist-profile/me` | Psychologist | Own profile |
+| `PATCH /psychologist-profile/me` | Psychologist | Writable: `specialization`, `license_number`, `bio`, `social_media_links` |
 
 ### Admin role management
 
