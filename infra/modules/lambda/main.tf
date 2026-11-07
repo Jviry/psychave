@@ -6,7 +6,7 @@ resource "aws_lambda_function" "this" {
   runtime = var.runtime
   handler = "main.handler"
 
-  timeout = 25
+  timeout     = 25
   memory_size = 512
 
   filename         = var.lambda_zip_path
@@ -21,6 +21,7 @@ resource "aws_lambda_function" "this" {
       COGNITO_USER_POOL_ID  = var.cognito_user_pool_id
       COGNITO_APP_CLIENT_ID = var.cognito_app_client_id
       DATABASE_URL          = var.database_url
+      DB_SCHEMA             = var.db_schema
     }
   }
 }
