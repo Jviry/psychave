@@ -107,6 +107,22 @@ class AuthService(Protocol):
         """List groups assigned to the given username."""
         ...
 
+    def get_username_by_sub(self, sub: str) -> str | None:
+        """Resolve the provider username for a user's unique sub."""
+        ...
+
+    def get_username_by_email(self, email: str) -> str | None:
+        """Resolve the provider username for a user's email."""
+        ...
+
+    def set_user_groups(self, username: str, groups: set[str]) -> None:
+        """Make the user's managed role groups match ``groups``."""
+        ...
+
+    def set_role_group(self, username: str, role: str) -> None:
+        """Replace any existing role group with a single ``role``."""
+        ...
+
     def logout_user(self, access_token: str) -> None:
         """Revoke user session/tokens."""
         ...
@@ -126,3 +142,11 @@ class AuthService(Protocol):
     def verify_token(self, token: str) -> dict[str, Any]:
         """Validate token signature and return decoded claims."""
         ...
+
+
+__all__ = [
+    "AuthTokens",
+    "AuthUser",
+    "SignUpResult",
+    "AuthService",
+]

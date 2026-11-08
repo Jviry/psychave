@@ -4,13 +4,13 @@ import React, { useEffect } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../../../lib/api';
+import { api } from '@/lib/api';
 import {
   psychologistProfileSchema,
   PsychologistProfileValues,
-} from '../../../../lib/schemas';
-import { useAppStore } from '../../../../stores/useAppStore';
-import { useActivePsychologist } from '../../../../hooks/useActivePsychologist';
+} from '@/lib/schemas';
+import { useAppStore } from '@/stores/useAppStore';
+import { useActivePsychologist } from '@/hooks/useActivePsychologist';
 import { useRouter } from 'next/navigation';
 import { Plus, Trash2 } from 'lucide-react';
 import {
@@ -21,7 +21,7 @@ import {
   Select,
   Skeleton,
   Textarea,
-} from '../../../../components/ui/primitives';
+} from '@/components/ui/primitives';
 
 const SOCIAL_PLATFORMS = [
   'Facebook',
@@ -35,7 +35,7 @@ const SOCIAL_PLATFORMS = [
 export default function PsychologistProfilePage() {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const { publishFlowEvent } = useAppStore();
+  const publishFlowEvent = useAppStore((s) => s.publishFlowEvent);
   const { activePsych, isLoading } = useActivePsychologist();
 
   const profileForm = useForm<PsychologistProfileValues>({

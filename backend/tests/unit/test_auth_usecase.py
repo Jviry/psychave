@@ -59,47 +59,16 @@ def test_create_user_client_success(auth_usecase, fake_auth, session):
     assert fake_auth.list_user_groups("johndoe") == ["client"]
 
 
-def test_create_user_psychologist_success(auth_usecase, fake_auth, session):
-    creds = UserCreate(
-        username="drjane",
-        email="jane@example.com",
-        password="Password123!",
-        role=UserRole.PSYCHOLOGIST,
-        full_name="Dr. Jane Smith",
-    )
-    res = auth_usecase.create_user(creds)
-    assert res == {"message": "register successful, check email for code"}
-
-    user = session.exec(select(User).where(User.email == "jane@example.com")).first()
-    assert user is not None
-    assert user.role == UserRole.PSYCHOLOGIST.value
-    profile = session.get(PsychologistProfile, user.user_id)
-    assert profile is not None
-    assert profile.full_name == "Dr. Jane Smith"
-    assert profile.approval_status == "pending"
-
-
-def test_create_user_admin_not_allowed(auth_usecase):
+def test_create_user_always_creates_client_role(auth_usecase, session):
     creds = UserCreate(
         username="admin1",
         email="admin@example.com",
         password="Password123!",
-        role=UserRole.ADMIN,
     )
-    with pytest.raises(ValidationError, match="Admin role cannot be self-assigned"):
-        auth_usecase.create_user(creds)
-
-
-def test_create_user_psychologist_missing_name(auth_usecase):
-    creds = UserCreate(
-        username="drwho",
-        email="drwho@example.com",
-        password="Password123!",
-        role=UserRole.PSYCHOLOGIST,
-        full_name="",
-    )
-    with pytest.raises(ValidationError, match="Full name is required for psychologists"):
-        auth_usecase.create_user(creds)
+    auth_usecase.create_user(creds)
+    user = session.exec(select(User).where(User.email == "admin@example.com")).first()
+    assert user is not None
+    assert user.role == UserRole.CLIENT.value
 
 
 def test_login_and_refresh_token(auth_usecase, fake_auth):

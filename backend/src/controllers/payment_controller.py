@@ -1,10 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlmodel import Session
+from fastapi import APIRouter, HTTPException, Request
 
-from common.database import get_db
-from dependencies.payments import get_payment_provider
+from dependencies.auth import DbDep
+from dependencies.payments import PaymentProviderDep
 from schemas.payment import PaymentRead
-from interfaces.payment import PaymentProvider
 from usecase.payment_usecase import PaymentUsecase
 
 router = APIRouter()
@@ -13,8 +11,8 @@ router = APIRouter()
 @router.post("/webhook")
 async def payment_webhook(
     request: Request,
-    db: Session = Depends(get_db),
-    provider: PaymentProvider = Depends(get_payment_provider),
+    db: DbDep,
+    provider: PaymentProviderDep,
 ):
     raw_body = await request.body()
     if not provider.verify_signature(raw_body, request.headers):

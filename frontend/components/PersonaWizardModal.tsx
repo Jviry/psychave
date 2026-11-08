@@ -143,10 +143,17 @@ function FieldError({ id, message }: { id: string; message?: string }) {
 
 export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: string) => void }) {
   const queryClient = useQueryClient();
-  const { isOpen, currentStep, draft, returnTo } = usePersonaWizardStore();
-  const { updateDraft, setStep, closeWizard, resetDraft, setLastUsedPersonaId } =
-    usePersonaWizardStore.getState();
-  const { updateBookingDraft, publishFlowEvent } = useAppStore.getState();
+  const isOpen = usePersonaWizardStore((s) => s.isOpen);
+  const currentStep = usePersonaWizardStore((s) => s.currentStep);
+  const draft = usePersonaWizardStore((s) => s.draft);
+  const returnTo = usePersonaWizardStore((s) => s.returnTo);
+  const updateDraft = usePersonaWizardStore((s) => s.updateDraft);
+  const setStep = usePersonaWizardStore((s) => s.setStep);
+  const closeWizard = usePersonaWizardStore((s) => s.closeWizard);
+  const resetDraft = usePersonaWizardStore((s) => s.resetDraft);
+  const setLastUsedPersonaId = usePersonaWizardStore((s) => s.setLastUsedPersonaId);
+  const updateBookingDraft = useAppStore((s) => s.updateBookingDraft);
+  const publishFlowEvent = useAppStore((s) => s.publishFlowEvent);
 
   const [attempted, setAttempted] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -169,8 +176,7 @@ export function PersonaWizardModal({ onCreated }: { onCreated?: (personaId: stri
 
   const liveErrors = useMemo(
     () => (isOpen ? validateStep(currentStep, draft) : {}),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isOpen, currentStep, JSON.stringify(draft)]
+    [isOpen, currentStep, draft]
   );
   const shownErrors: Errors = attempted ? liveErrors : {};
 

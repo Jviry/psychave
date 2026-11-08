@@ -3,15 +3,14 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../../lib/api';
-import { useAppStore } from '../../stores/useAppStore';
-import { Button, Card, CircleArrow } from '../../components/ui/primitives';
-import { AboutGrid } from '../../components/AboutGrid';
-import { ScrollCarousel } from '../../components/ScrollCarousel';
-import { TestimonialsConsentSection } from '../../components/TestimonialsConsentSection';
-import { ServiceItem } from '../../lib/types';
+import { api } from '@/lib/api';
+import { useAppStore } from '@/stores/useAppStore';
+import { Button, Card, CircleArrow } from '@/components/ui/primitives';
+import { AboutGrid } from '@/components/AboutGrid';
+import { ScrollCarousel } from '@/components/ScrollCarousel';
+import { TestimonialsConsentSection } from '@/components/TestimonialsConsentSection';
+import { ServiceItem } from '@/lib/types';
 
-/** Brand-scheme solids (spec palette), rotated across the services cards. */
 /** Brand-scheme solids (spec palette), rotated across the services cards. */
 const SERVICE_TINTS: Array<'sage' | 'mint' | 'lime' | 'mist'> = [
   'sage',
@@ -45,7 +44,7 @@ const SERVICE_SUBTEXTS: Record<string, string> = {
  */
 export default function HomePage() {
   const router = useRouter();
-  const { updateBookingDraft } = useAppStore();
+  const updateBookingDraft = useAppStore((s) => s.updateBookingDraft);
 
   const { data: services = [] } = useQuery({
     queryKey: ['services'],

@@ -2,10 +2,10 @@
 
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../../../lib/api';
-import { clientPreferredSlots } from '../../../../lib/booking';
-import { useAppStore } from '../../../../stores/useAppStore';
-import { useActivePsychologist } from '../../../../hooks/useActivePsychologist';
+import { api } from '@/lib/api';
+import { clientPreferredSlots } from '@/lib/booking';
+import { useAppStore } from '@/stores/useAppStore';
+import { useActivePsychologist } from '@/hooks/useActivePsychologist';
 import { useRouter } from 'next/navigation';
 import { Check, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import {
@@ -17,7 +17,7 @@ import {
   Label,
   Modal,
   Skeleton,
-} from '../../../../components/ui/primitives';
+} from '@/components/ui/primitives';
 
 function formatReviewDate(value: string | null, includeTime = false): string {
   if (!value) return '—';
@@ -101,7 +101,7 @@ type ScheduleAction = {
 export default function PsychologistQueuePage() {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const { publishFlowEvent } = useAppStore();
+  const publishFlowEvent = useAppStore((s) => s.publishFlowEvent);
   const { activePsych } = useActivePsychologist();
 
   const [activeModalBookingId, setActiveModalBookingId] = useState<string | null>(null);

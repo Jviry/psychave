@@ -2,25 +2,25 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../../lib/api';
-import { useAppStore } from '../../../stores/useAppStore';
+import { api } from '@/lib/api';
+import { useAppStore } from '@/stores/useAppStore';
 import { useRouter } from 'next/navigation';
-import { BookingStatus } from '../../../lib/types';
+import { BookingStatus } from '@/lib/types';
 import {
   agreedSlot,
   clientPreferredSlots,
   formatDeadlineCountdown,
   formatManilaDateTime,
   psychologistCounterSlot,
-} from '../../../lib/booking';
+} from '@/lib/booking';
 import { Clock } from 'lucide-react';
-import { SocialLinksList } from '../../../components/SocialLinksList';
+import { SocialLinksList } from '@/components/SocialLinksList';
 import {
   BookingStatusTag,
   Button,
   Card,
   Skeleton,
-} from '../../../components/ui/primitives';
+} from '@/components/ui/primitives';
 
 const FILTER_TABS: { id: 'all' | BookingStatus; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -61,7 +61,7 @@ function PreferredScheduleList({
 export default function ClientBookingsPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const { publishFlowEvent } = useAppStore();
+  const publishFlowEvent = useAppStore((s) => s.publishFlowEvent);
   const [statusFilter, setStatusFilter] = useState<'all' | BookingStatus>('all');
 
   const { data: bookings = [], isLoading } = useQuery({

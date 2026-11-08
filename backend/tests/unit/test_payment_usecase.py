@@ -1,9 +1,11 @@
+from datetime import datetime, timedelta
 import uuid
 from unittest.mock import MagicMock
 from sqlmodel import Session
 import pytest
 
 from common.exceptions import BadRequestError, NotFoundError
+from common.time import now_manila
 from models.appointment import Appointment, AppointmentStatus
 from models.payment import Payment, PaymentStatus
 from models.persona import Persona
@@ -51,6 +53,7 @@ class TestPaymentUsecase:
             psychologist_id=uuid.uuid4(),
             status=AppointmentStatus.AWAITING_PAYMENT,
             price=2000.0,
+            payment_deadline=now_manila() + timedelta(hours=24),
         )
         persona = Persona(persona_id=persona_id, client_id=client_id)
 
@@ -95,6 +98,7 @@ class TestPaymentUsecase:
             psychologist_id=uuid.uuid4(),
             status=AppointmentStatus.AWAITING_PAYMENT,
             price=2500.0,
+            payment_deadline=now_manila() + timedelta(hours=24),
         )
         persona = Persona(persona_id=persona_id, client_id=client_id)
 
@@ -133,6 +137,7 @@ class TestPaymentUsecase:
             psychologist_id=uuid.uuid4(),
             status=AppointmentStatus.AWAITING_PAYMENT,
             price=2000.0,
+            payment_deadline=now_manila() + timedelta(hours=24),
         )
         persona = Persona(persona_id=persona_id, client_id=client_id)
         existing_payment = Payment(

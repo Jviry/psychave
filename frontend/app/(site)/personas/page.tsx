@@ -4,16 +4,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../../lib/api';
+import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, ArrowRight, Clock, Plus, Trash2 } from 'lucide-react';
+import { api } from '@/lib/api';
 import {
   bookingFormSchema,
   BookingFormValues,
-} from '../../../lib/schemas';
-import { useAppStore } from '../../../stores/useAppStore';
-import { useRouter } from 'next/navigation';
-import { usePersonaWizardStore } from '../../../stores/usePersonaWizardStore';
-import { PersonaWizardModal } from '../../../components/PersonaWizardModal';
-import { ArrowLeft, ArrowRight, Clock, Plus, Trash2 } from 'lucide-react';
+} from '@/lib/schemas';
+import { useAppStore } from '@/stores/useAppStore';
+import { usePersonaWizardStore } from '@/stores/usePersonaWizardStore';
 import {
   Button,
   Card,
@@ -21,7 +21,15 @@ import {
   Label,
   Select,
   Textarea,
-} from '../../../components/ui/primitives';
+} from '@/components/ui/primitives';
+
+const PersonaWizardModal = dynamic(
+  () =>
+    import('@/components/PersonaWizardModal').then(
+      (mod) => mod.PersonaWizardModal
+    ),
+  { ssr: false }
+);
 
 function manilaInputMin(): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -46,12 +54,10 @@ const EMPTY_SLOTS = [
 export default function PersonasAndBookingPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const {
-    bookingDraft,
-    updateBookingDraft,
-    resetBookingDraft,
-    publishFlowEvent,
-  } = useAppStore();
+  const bookingDraft = useAppStore((s) => s.bookingDraft);
+  const updateBookingDraft = useAppStore((s) => s.updateBookingDraft);
+  const resetBookingDraft = useAppStore((s) => s.resetBookingDraft);
+  const publishFlowEvent = useAppStore((s) => s.publishFlowEvent);
   const openWizard = usePersonaWizardStore((s) => s.openWizard);
   const wizardOpen = usePersonaWizardStore((s) => s.isOpen);
   const lastUsedPersonaId = usePersonaWizardStore((s) => s.lastUsedPersonaId);

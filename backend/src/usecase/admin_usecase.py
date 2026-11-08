@@ -4,17 +4,17 @@ import uuid
 from sqlmodel import Session
 
 from common.exceptions import ConflictError, NotFoundError, ValidationError
+from interfaces.auth import AuthService
 from models.user import User, UserRole
 from repo.user_repo import UserRepository
 from schemas.admin import AdminUserPage, AdminUserRead, PromotePsychologistRequest
-from services.aws.cognito_service import CognitoService
 
 logger = logging.getLogger("uvicorn.error")
 
 
 class AdminUsecase:
 
-    def __init__(self, service: CognitoService, db: Session):
+    def __init__(self, service: AuthService, db: Session):
         self.auth = service
         self.db = db
         self.user_repo = UserRepository(db)

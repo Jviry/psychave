@@ -4,18 +4,27 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
-import { loginSchema, type LoginFormValues } from '../../../lib/authSchemas';
-import { authApi } from '../../../authApi';
-import { useAuthStore } from '../../../authStore';
-import { ForgotPasswordModal } from '../../../components/auth/ForgotPasswordModal';
-import { Toast } from '../../../components/auth/Toast';
-import { Button, Input, Label } from '../../../components/ui/primitives';
+import { loginSchema, type LoginFormValues } from '@/lib/authSchemas';
+import { authApi } from '@/lib/authApi';
+import { useAuthStore } from '@/stores/authStore';
+import { Toast } from '@/components/auth/Toast';
+import { Button, Input, Label } from '@/components/ui/primitives';
+
+const ForgotPasswordModal = dynamic(
+  () =>
+    import('@/components/auth/ForgotPasswordModal').then(
+      (mod) => mod.ForgotPasswordModal
+    ),
+  { ssr: false }
+);
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, getDashboardPath } = useAuthStore();
+  const login = useAuthStore((s) => s.login);
+  const getDashboardPath = useAuthStore((s) => s.getDashboardPath);
 
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);

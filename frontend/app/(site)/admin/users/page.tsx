@@ -14,10 +14,10 @@ import {
   Search,
   Users,
 } from 'lucide-react';
-import { api } from '../../../../lib/api';
-import { AdminUser, CognitoRole } from '../../../../lib/types';
-import { useAuthStore } from '../../../../authStore';
-import { useAppStore } from '../../../../stores/useAppStore';
+import { api } from '@/lib/api';
+import { AdminUser, CognitoRole } from '@/lib/types';
+import { useAuthStore } from '@/stores/authStore';
+import { useAppStore } from '@/stores/useAppStore';
 import {
   Button,
   Card,
@@ -27,7 +27,7 @@ import {
   Modal,
   Select,
   Skeleton,
-} from '../../../../components/ui/primitives';
+} from '@/components/ui/primitives';
 
 const PAGE_SIZE = 10;
 
@@ -65,7 +65,7 @@ function formatDate(iso: string): string {
 
 export default function AdminUsersPage() {
   const queryClient = useQueryClient();
-  const { publishFlowEvent } = useAppStore();
+  const publishFlowEvent = useAppStore((s) => s.publishFlowEvent);
   const currentEmail = useAuthStore((state) => state.user?.email);
 
   const [searchInput, setSearchInput] = useState('');

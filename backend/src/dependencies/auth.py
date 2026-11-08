@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Any
+from typing import Annotated, Any
 from fastapi import Depends, Header
 from sqlmodel import Session
 
@@ -16,7 +16,20 @@ from repo.user_repo import UserRepository
 from services.auth.cognito_service import CognitoService
 
 
-def get_claims(authorization: str | None = Header(default=None)) -> dict:
+@lru_cache
+def _init_auth_service() -> AuthService:
+    return CognitoService()
+
+
+def get_auth_service() -> AuthService:
+    """Dependency provider for the configured AuthService implementation."""
+    return _init_auth_service()
+
+
+def get_claims(
+    authorization: str | None = Header(default=None),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> dict[str, Any]:
     if not authorization or not authorization.startswith("Bearer "):
         raise UnauthenticatedError("Invalid authorization header")
 
@@ -75,3 +88,27 @@ def get_current_psychologist(
         raise ForbiddenError("Psychologist profile not found")
 
     return profile
+
+
+DbDep = Annotated[Session, Depends(get_db)]
+AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
+CurrentUserDep = Annotated[User, Depends(get_current_user)]
+CurrentPsychologistDep = Annotated[
+    PsychologistProfile, Depends(get_current_psychologist)
+]
+ClientUserDep = Annotated[User, Depends(require_role(UserRole.CLIENT))]
+AdminUserDep = Annotated[User, Depends(require_role(UserRole.ADMIN))]
+
+__all__ = [
+    "get_auth_service",
+    "get_claims",
+    "get_current_user",
+    "require_role",
+    "get_current_psychologist",
+    "DbDep",
+    "AuthServiceDep",
+    "CurrentUserDep",
+    "CurrentPsychologistDep",
+    "ClientUserDep",
+    "AdminUserDep",
+]

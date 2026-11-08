@@ -3,17 +3,20 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAppStore } from '../stores/useAppStore';
-import { useAuthStore } from '../authStore';
-import { CognitoRole } from '../lib/types';
+import { useAppStore } from '@/stores/useAppStore';
+import { useAuthStore } from '@/stores/authStore';
+import { CognitoRole } from '@/lib/types';
 import { LogOut, User, ChevronDown, Bell, Lock } from 'lucide-react';
 
 export function SiteHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const { lastFlowEvent, clearFlowEvent } = useAppStore();
+  const lastFlowEvent = useAppStore((s) => s.lastFlowEvent);
+  const clearFlowEvent = useAppStore((s) => s.clearFlowEvent);
 
-  const { isAuthenticated, user, logout: authLogout } = useAuthStore();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user = useAuthStore((s) => s.user);
+  const authLogout = useAuthStore((s) => s.logout);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   // Home scroll-spy: the nav underline follows Home → Services → About as the
@@ -40,7 +43,7 @@ export function SiteHeader() {
     };
     compute();
     window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
+    window.addEventListener('resize', onScroll, { passive: true });
     return () => {
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);

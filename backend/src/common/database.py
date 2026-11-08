@@ -18,6 +18,7 @@ def configure_engine_schema(target_engine: Engine, schema: str) -> None:
 
 
 engine = create_engine(
+    settings.DATABASE_URL,
     echo=settings.DEBUG,
     poolclass=NullPool,
 )

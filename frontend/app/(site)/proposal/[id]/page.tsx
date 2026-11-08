@@ -2,18 +2,18 @@
 
 import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../../../lib/api';
+import { api } from '@/lib/api';
 import {
   agreedSlot,
   clientPreferredSlots,
   formatDeadlineCountdown,
   formatManilaDateTime,
   psychologistCounterSlot,
-} from '../../../../lib/booking';
+} from '@/lib/booking';
 import { useParams, useRouter } from 'next/navigation';
-import { useAppStore } from '../../../../stores/useAppStore';
+import { useAppStore } from '@/stores/useAppStore';
 import { AlertCircle, Clock, Lock, Plus, Trash2 } from 'lucide-react';
-import { SocialLinksList } from '../../../../components/SocialLinksList';
+import { SocialLinksList } from '@/components/SocialLinksList';
 import {
   BookingStatusTag,
   Button,
@@ -21,7 +21,7 @@ import {
   Input,
   Label,
   Skeleton,
-} from '../../../../components/ui/primitives';
+} from '@/components/ui/primitives';
 
 function DeadlineNotice({ deadline }: { deadline: string }) {
   const [, setNow] = useState(Date.now());
@@ -44,7 +44,7 @@ export default function ScheduleAgreementPage() {
   const routeParams = useParams<{ id: string }>();
   const bookingId = routeParams.id || '';
 
-  const { publishFlowEvent } = useAppStore();
+  const publishFlowEvent = useAppStore((s) => s.publishFlowEvent);
   const [actionError, setActionError] = useState<string | null>(null);
   const [newSlots, setNewSlots] = useState<string[]>(['', '', '']);
 

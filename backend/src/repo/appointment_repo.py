@@ -204,7 +204,11 @@ class AppointmentRepo:
             return False
         if appointment.payment_deadline is None:
             return False
-        if appointment.payment_deadline > now_manila():
+        deadline = appointment.payment_deadline
+        if deadline.tzinfo is not None:
+            from common.time import MANILA_TZ
+            deadline = deadline.astimezone(MANILA_TZ).replace(tzinfo=None)
+        if deadline > now_manila():
             return False
 
         if appointment.selected_slot_id is not None:

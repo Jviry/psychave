@@ -19,8 +19,11 @@ class UserRepository:
 
     def get_by_cognito_sub(self, cognito_sub: str) -> User | None:
         return self.session.exec(
-            select(User).where(User.cognito_sub == sub)
+            select(User).where(User.cognito_sub == cognito_sub)
         ).first()
+
+    def get_by_sub(self, sub: str) -> User | None:
+        return self.get_by_cognito_sub(sub)
 
     def list_users(
         self,

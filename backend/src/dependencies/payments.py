@@ -1,5 +1,8 @@
 """Payment provider wiring. Configures PayMongo or Fake based on environment."""
 from functools import lru_cache
+from typing import Annotated
+
+from fastapi import Depends
 
 from common.settings import settings
 from interfaces.payment import PaymentProvider
@@ -28,3 +31,8 @@ def _init_provider() -> PaymentProvider:
 
 def get_payment_provider() -> PaymentProvider:
     return _init_provider()
+
+
+PaymentProviderDep = Annotated[PaymentProvider, Depends(get_payment_provider)]
+
+__all__ = ["get_payment_provider", "PaymentProviderDep"]

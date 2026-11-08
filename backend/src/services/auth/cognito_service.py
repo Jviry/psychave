@@ -170,6 +170,56 @@ class CognitoService(AuthService):
             )
             return [g["GroupName"] for g in response.get("Groups", [])]
 
+    def get_username_by_sub(self, sub: str) -> str | None:
+        """Resolve the Cognito username for a local user's unique sub."""
+        with _handle_cognito_errors():
+            response = self.client.list_users(
+                UserPoolId=self.user_pool_id,
+                Filter=f'sub = "{sub}"',
+            )
+            users = response.get("Users", [])
+            return users[0]["Username"] if users else None
+
+    def get_username_by_email(self, email: str) -> str | None:
+        """Resolve the Cognito username for a local user's email."""
+        with _handle_cognito_errors():
+            response = self.client.list_users(
+                UserPoolId=self.user_pool_id,
+                Filter=f'email = "{email}"',
+            )
+            users = response.get("Users", [])
+            return users[0]["Username"] if users else None
+
+    def set_user_groups(self, username: str, groups: set[str]) -> None:
+        """Make the user's role groups exactly ``groups``.
+
+        Only the known role groups are managed; unrelated Cognito groups are
+        left untouched. Idempotent, which also makes it safe for restoring a
+        previous state.
+        """
+        role_groups = {"client", "psychologist", "admin"}
+        desired = set(groups) & role_groups
+        current = set(self.list_user_groups(username)) & role_groups
+
+        with _handle_cognito_errors():
+            for group in current - desired:
+                self.client.admin_remove_user_from_group(
+                    UserPoolId=self.user_pool_id,
+                    Username=username,
+                    GroupName=group,
+                )
+
+            for group in desired - current:
+                self.client.admin_add_user_to_group(
+                    UserPoolId=self.user_pool_id,
+                    Username=username,
+                    GroupName=group,
+                )
+
+    def set_role_group(self, username: str, role: str) -> None:
+        """Replace any existing role group with a single ``role``."""
+        self.set_user_groups(username, {role})
+
     def logout_user(self, access_token: str) -> None:
         with _handle_cognito_errors():
             self.client.global_sign_out(AccessToken=access_token)

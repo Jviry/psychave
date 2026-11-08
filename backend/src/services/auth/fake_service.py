@@ -140,6 +140,28 @@ class FakeAuthService(AuthService):
             raise NotFoundError("User not found")
         return list(user["groups"])
 
+    def get_username_by_sub(self, sub: str) -> str | None:
+        user = self.users_by_sub.get(sub)
+        return user["username"] if user else None
+
+    def get_username_by_email(self, email: str) -> str | None:
+        for user in self.users_by_username.values():
+            if user.get("email") == email:
+                return user["username"]
+        return None
+
+    def set_user_groups(self, username: str, groups: set[str]) -> None:
+        user = self.users_by_username.get(username)
+        if not user:
+            raise NotFoundError("User not found")
+        role_groups = {"client", "psychologist", "admin"}
+        unrelated = [g for g in user["groups"] if g not in role_groups]
+        desired = [g for g in groups if g in role_groups]
+        user["groups"] = unrelated + desired
+
+    def set_role_group(self, username: str, role: str) -> None:
+        self.set_user_groups(username, {role})
+
     def logout_user(self, access_token: str) -> None:
         self.tokens_to_sub.pop(access_token, None)
 

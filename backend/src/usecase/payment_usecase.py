@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from sqlmodel import Session
 
 from common.exceptions import BadRequestError, NotFoundError
+from common.settings import settings
 from common.time import now_manila
 from models.appointment import Appointment, AppointmentStatus
 from models.payment import Payment, PaymentStatus
@@ -49,7 +50,11 @@ class PaymentUsecase:
             raise BadRequestError("Price is not set yet")
         if appt.payment_deadline is None:
             raise BadRequestError("Payment deadline is not set")
-        if appt.payment_deadline <= now_manila():
+        deadline = appt.payment_deadline
+        if deadline.tzinfo is not None:
+            from common.time import MANILA_TZ
+            deadline = deadline.astimezone(MANILA_TZ).replace(tzinfo=None)
+        if deadline <= now_manila():
             raise BadRequestError("Payment deadline has passed")
 
         existing = self.payments.get_pending(appointment_id)

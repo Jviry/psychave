@@ -1,12 +1,9 @@
 import uuid
 
-from fastapi import APIRouter, Depends
-from sqlmodel import Session
+from fastapi import APIRouter
 
-from common.database import get_db
-from dependencies.auth import get_current_psychologist
+from dependencies.auth import CurrentPsychologistDep, DbDep
 from models.appointment import AppointmentStatus
-from models.psychologist_profile import PsychologistProfile
 from schemas.appointment import (
     AppointmentRead,
     PendingAppointmentRead,
@@ -26,8 +23,8 @@ router = APIRouter()
 # ----- pending requests / pickup -----
 @router.get("/appointments/pending", response_model=list[PendingAppointmentRead])
 def list_pending_appointments(
-    db: Session = Depends(get_db),
-    current_psychologist: PsychologistProfile = Depends(get_current_psychologist),
+    db: DbDep,
+    current_psychologist: CurrentPsychologistDep,
 ):
     return PsychologistUsecase(db).list_pending(
         current_psychologist.psychologist_id
@@ -38,8 +35,8 @@ def list_pending_appointments(
 def pickup_appointment(
     appointment_id: uuid.UUID,
     payload: PickupRequest,
-    db: Session = Depends(get_db),
-    current_psychologist: PsychologistProfile = Depends(get_current_psychologist),
+    db: DbDep,
+    current_psychologist: CurrentPsychologistDep,
 ):
     return PsychologistUsecase(db).pickup(
         appointment_id,
@@ -53,8 +50,8 @@ def pickup_appointment(
 def accept_preferred_slot(
     appointment_id: uuid.UUID,
     payload: SlotSelect,
-    db: Session = Depends(get_db),
-    current_psychologist: PsychologistProfile = Depends(get_current_psychologist),
+    db: DbDep,
+    current_psychologist: CurrentPsychologistDep,
 ):
     return PsychologistUsecase(db).accept_preferred_slot(
         appointment_id,
@@ -67,8 +64,8 @@ def accept_preferred_slot(
 def counter_offer(
     appointment_id: uuid.UUID,
     payload: SlotInput,
-    db: Session = Depends(get_db),
-    current_psychologist: PsychologistProfile = Depends(get_current_psychologist),
+    db: DbDep,
+    current_psychologist: CurrentPsychologistDep,
 ):
     return PsychologistUsecase(db).counter_offer(
         appointment_id,
@@ -80,9 +77,9 @@ def counter_offer(
 # ----- own schedule -----
 @router.get("/appointments/mine", response_model=list[AppointmentRead])
 def list_my_appointments(
+    db: DbDep,
+    current_psychologist: CurrentPsychologistDep,
     status: AppointmentStatus | None = None,
-    db: Session = Depends(get_db),
-    current_psychologist: PsychologistProfile = Depends(get_current_psychologist),
 ):
     return PsychologistUsecase(db).list_mine(
         current_psychologist.psychologist_id, status
@@ -92,8 +89,8 @@ def list_my_appointments(
 @router.post("/appointments/{appointment_id}/complete", response_model=AppointmentRead)
 def complete_appointment(
     appointment_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_psychologist: PsychologistProfile = Depends(get_current_psychologist),
+    db: DbDep,
+    current_psychologist: CurrentPsychologistDep,
 ):
     return PsychologistUsecase(db).complete_appointment(
         appointment_id, current_psychologist.psychologist_id
@@ -103,8 +100,8 @@ def complete_appointment(
 # ----- profile -----
 @router.get("/psychologist-profile/me", response_model=PsychologistProfileRead)
 def get_my_profile(
-    db: Session = Depends(get_db),
-    current_psychologist: PsychologistProfile = Depends(get_current_psychologist),
+    db: DbDep,
+    current_psychologist: CurrentPsychologistDep,
 ):
     return current_psychologist
 
@@ -112,8 +109,8 @@ def get_my_profile(
 @router.patch("/psychologist-profile/me", response_model=PsychologistProfileRead)
 def update_my_profile(
     payload: PsychologistProfileUpdate,
-    db: Session = Depends(get_db),
-    current_psychologist: PsychologistProfile = Depends(get_current_psychologist),
+    db: DbDep,
+    current_psychologist: CurrentPsychologistDep,
 ):
     updated = PsychologistUsecase(db).update_profile(current_psychologist, payload)
     return updated

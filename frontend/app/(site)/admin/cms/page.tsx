@@ -4,25 +4,25 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../../../lib/api';
+import { api } from '@/lib/api';
 import {
   cmsOverviewSchema,
   CmsOverviewFormValues,
   serviceGuardrailSchema,
   ServiceGuardrailFormValues,
-} from '../../../../lib/schemas';
-import { useAppStore } from '../../../../stores/useAppStore';
+} from '@/lib/schemas';
+import { useAppStore } from '@/stores/useAppStore';
 import {
   Button,
   Card,
   Input,
   Label,
   Textarea,
-} from '../../../../components/ui/primitives';
+} from '@/components/ui/primitives';
 
 export default function AdminCmsPage() {
   const queryClient = useQueryClient();
-  const { publishFlowEvent } = useAppStore();
+  const publishFlowEvent = useAppStore((s) => s.publishFlowEvent);
   const [activeTab, setActiveTab] = useState<'overview' | 'services' | 'structures'>('overview');
   const [editingServiceId, setEditingServiceId] = useState<string>('srv-consultation');
 

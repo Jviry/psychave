@@ -1,35 +1,37 @@
+from typing import Annotated
 import uuid
 
 from fastapi import APIRouter, Depends
-from sqlmodel import Session
 
-from common.database import get_db
-from dependencies.auth import require_role
-from models.user import User, UserRole
+from dependencies.auth import ClientUserDep, DbDep, require_role
+from dependencies.payments import PaymentProviderDep
 from models.appointment import AppointmentStatus
-from usecase.appointment_usecase import AppointmentUsecase
-from usecase.payment_usecase import PaymentUsecase
-from usecase.psychologist_usecase import PsychologistUsecase
-from dependencies.payments import get_payment_provider
-from interfaces.payment import PaymentProvider
-from schemas.payment import PaymentInitiateRequest, PaymentRead
+from models.user import User, UserRole
 from schemas.appointment import (
     AppointmentCreate,
     AppointmentRead,
-    SlotSelect,
     PreferredSlotsUpdate,
     ProposedSlotRead,
+    SlotSelect,
 )
+from schemas.payment import PaymentInitiateRequest, PaymentRead
+from usecase.appointment_usecase import AppointmentUsecase
+from usecase.payment_usecase import PaymentUsecase
+from usecase.psychologist_usecase import PsychologistUsecase
 
 router = APIRouter()
+
+ClientOrPsychUserDep = Annotated[
+    User, Depends(require_role(UserRole.CLIENT, UserRole.PSYCHOLOGIST))
+]
 
 
 # ----- booking -----
 @router.post("", response_model=AppointmentRead)
 def create_appointment(
     payload: AppointmentCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.CLIENT))
+    db: DbDep,
+    current_user: ClientUserDep,
 ):
     uc = AppointmentUsecase(db)
     return uc.create_appointment(payload, current_user.user_id)
@@ -37,9 +39,9 @@ def create_appointment(
 
 @router.get("", response_model=list[AppointmentRead])
 def list_appointments(
+    db: DbDep,
+    current_user: ClientUserDep,
     status: AppointmentStatus | None = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.CLIENT))
 ):
     uc = AppointmentUsecase(db)
     return uc.list_appointments(current_user.user_id, status)
@@ -48,8 +50,8 @@ def list_appointments(
 @router.get("/{appointment_id}", response_model=AppointmentRead)
 def get_appointment(
     appointment_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.CLIENT, UserRole.PSYCHOLOGIST))
+    db: DbDep,
+    current_user: ClientOrPsychUserDep,
 ):
     if current_user.role == UserRole.PSYCHOLOGIST.value:
         return PsychologistUsecase(db).get_detail(appointment_id, current_user.user_id)
@@ -60,8 +62,8 @@ def get_appointment(
 @router.delete("/{appointment_id}", response_model=AppointmentRead)
 def cancel_appointment(
     appointment_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.CLIENT))
+    db: DbDep,
+    current_user: ClientUserDep,
 ):
     uc = AppointmentUsecase(db)
     return uc.cancel_appointment(appointment_id, current_user.user_id)
@@ -71,8 +73,8 @@ def cancel_appointment(
 @router.get("/{appointment_id}/slots", response_model=list[ProposedSlotRead])
 def get_slots(
     appointment_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.CLIENT))
+    db: DbDep,
+    current_user: ClientUserDep,
 ):
     uc = AppointmentUsecase(db)
     return uc.get_slots(appointment_id, current_user.user_id)
@@ -82,8 +84,8 @@ def get_slots(
 def accept_counter_slot(
     appointment_id: uuid.UUID,
     payload: SlotSelect,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.CLIENT))
+    db: DbDep,
+    current_user: ClientUserDep,
 ):
     uc = AppointmentUsecase(db)
     return uc.accept_counter_slot(appointment_id, payload.slot_id, current_user.user_id)
@@ -93,8 +95,8 @@ def accept_counter_slot(
 def replace_preferred_slots(
     appointment_id: uuid.UUID,
     payload: PreferredSlotsUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.CLIENT))
+    db: DbDep,
+    current_user: ClientUserDep,
 ):
     uc = AppointmentUsecase(db)
     return uc.replace_preferences(appointment_id, payload, current_user.user_id)
@@ -104,10 +106,10 @@ def replace_preferred_slots(
 @router.post("/{appointment_id}/payment", response_model=PaymentRead)
 def initiate_payment(
     appointment_id: uuid.UUID,
+    db: DbDep,
+    current_user: ClientUserDep,
+    provider: PaymentProviderDep,
     payload: PaymentInitiateRequest | None = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.CLIENT)),
-    provider: PaymentProvider = Depends(get_payment_provider),
 ):
     uc = PaymentUsecase(db, provider)
     return uc.initiate_payment(
@@ -122,9 +124,9 @@ def initiate_payment(
 @router.get("/{appointment_id}/payment", response_model=list[PaymentRead])
 def get_payments(
     appointment_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.CLIENT)),
-    provider: PaymentProvider = Depends(get_payment_provider),
+    db: DbDep,
+    current_user: ClientUserDep,
+    provider: PaymentProviderDep,
 ):
     uc = PaymentUsecase(db, provider)
     return uc.get_history(appointment_id, current_user.user_id)
