@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = []
 
     AWS_REGION: str = ""
+    AWS_PROFILE: str | None = None
+    AWS_ACCESS_KEY_ID: str | None = None
+    AWS_SECRET_ACCESS_KEY: str | None = None
     COGNITO_USER_POOL_ID: str = ""
     COGNITO_APP_CLIENT_ID: str = ""
 

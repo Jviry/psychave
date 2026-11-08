@@ -56,9 +56,20 @@ class CognitoService(AuthService):
         client_id: str | None = None,
         user_pool_id: str | None = None,
     ):
-        self.client = client or boto3.client(
-            "cognito-idp", region_name=settings.AWS_REGION
-        )
+        if client is not None:
+            self.client = client
+        else:
+            session_kwargs: dict[str, Any] = {}
+            if settings.AWS_PROFILE:
+                session_kwargs["profile_name"] = settings.AWS_PROFILE
+            if settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY:
+                session_kwargs["aws_access_key_id"] = settings.AWS_ACCESS_KEY_ID
+                session_kwargs["aws_secret_access_key"] = settings.AWS_SECRET_ACCESS_KEY
+
+            session = boto3.Session(**session_kwargs)
+            self.client = session.client(
+                "cognito-idp", region_name=settings.AWS_REGION or None
+            )
         self.client_id = client_id or settings.COGNITO_APP_CLIENT_ID
         self.user_pool_id = user_pool_id or settings.COGNITO_USER_POOL_ID
 
