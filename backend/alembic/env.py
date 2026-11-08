@@ -1,10 +1,10 @@
+from common.settings import settings
 import os
 import sys
 from logging.config import fileConfig
 
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import engine_from_config, event, pool
 from sqlmodel import SQLModel
 
 from alembic import context
@@ -14,7 +14,6 @@ if src_dir not in sys.path:
     sys.path.insert(0, src_dir)
 
 import models  # noqa
-from common.settings import settings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -25,10 +24,9 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Use custom sqlalchemy.url from config if explicitly provided (e.g., test suite),
-# otherwise fallback to DATABASE_URL from settings.
-if not config.get_main_option("sqlalchemy.url"):
-    config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+config.set_main_option(
+    "sqlalchemy.url", settings.DATABASE_URL.replace("%", "%%")
+)
 
 # add your model's MetaData object here
 # for 'autogenerate' support
@@ -78,9 +76,27 @@ def run_migrations_online() -> None:
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
+    db_schema = settings.DB_SCHEMA
+
+    if db_schema:
+        with connectable.connect() as bootstrap_conn:
+            bootstrap_conn.exec_driver_sql(
+                f'CREATE SCHEMA IF NOT EXISTS "{db_schema}"'
+            )
+            bootstrap_conn.commit()
+        connectable.dialect.default_schema_name = db_schema
+
+        @event.listens_for(connectable, "begin")
+        def _set_search_path(conn) -> None:
+            if conn.dialect.name == "postgresql":
+                conn.exec_driver_sql(f'SET LOCAL search_path TO "{db_schema}"')
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            version_table_schema=db_schema or None,
+        )
 
         with context.begin_transaction():
             context.run_migrations()

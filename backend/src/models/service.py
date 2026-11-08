@@ -8,3 +8,5 @@ class Service(SQLModel, table=True):
     name: str
     description: str
     is_active: bool = True
+    duration_minutes: int = 60
+    guardrail_notice: str | None = None

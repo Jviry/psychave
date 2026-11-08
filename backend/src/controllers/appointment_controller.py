@@ -1,4 +1,5 @@
 import uuid
+
 from fastapi import APIRouter, Depends
 from sqlmodel import Session
 
@@ -16,7 +17,8 @@ from schemas.appointment import (
     AppointmentCreate,
     AppointmentRead,
     SlotSelect,
-    ProposedSlotRead
+    PreferredSlotsUpdate,
+    ProposedSlotRead,
 )
 
 router = APIRouter()
@@ -65,7 +67,7 @@ def cancel_appointment(
     return uc.cancel_appointment(appointment_id, current_user.user_id)
 
 
-# ----- slot selection -----
+# ----- schedule negotiation -----
 @router.get("/{appointment_id}/slots", response_model=list[ProposedSlotRead])
 def get_slots(
     appointment_id: uuid.UUID,
@@ -76,15 +78,26 @@ def get_slots(
     return uc.get_slots(appointment_id, current_user.user_id)
 
 
-@router.post("/{appointment_id}/select-slot", response_model=AppointmentRead)
-def select_slot(
+@router.post("/{appointment_id}/accept-slot", response_model=AppointmentRead)
+def accept_counter_slot(
     appointment_id: uuid.UUID,
     payload: SlotSelect,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.CLIENT))
 ):
     uc = AppointmentUsecase(db)
-    return uc.select_slot(appointment_id, payload.slot_id, current_user.user_id)
+    return uc.accept_counter_slot(appointment_id, payload.slot_id, current_user.user_id)
+
+
+@router.post("/{appointment_id}/preferred-slots", response_model=AppointmentRead)
+def replace_preferred_slots(
+    appointment_id: uuid.UUID,
+    payload: PreferredSlotsUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.CLIENT))
+):
+    uc = AppointmentUsecase(db)
+    return uc.replace_preferences(appointment_id, payload, current_user.user_id)
 
 
 # ----- payment -----

@@ -6,25 +6,14 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAppStore } from '../stores/useAppStore';
 import { useAuthStore } from '../authStore';
 import { CognitoRole } from '../lib/types';
-import { API_BASE_URL, AUTH_MODE } from '../lib/api';
-import { LogOut, User, ChevronDown, Settings, Info, Bell, Lock } from 'lucide-react';
+import { LogOut, User, ChevronDown, Bell, Lock } from 'lucide-react';
 
 export function SiteHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const {
-    cognitoRole,
-    setCognitoRole,
-    activePsychologistId,
-    setActivePsychologistId,
-    simulatePaymentFailure,
-    setSimulatePaymentFailure,
-    lastFlowEvent,
-    clearFlowEvent,
-  } = useAppStore();
+  const { lastFlowEvent, clearFlowEvent } = useAppStore();
 
   const { isAuthenticated, user, logout: authLogout } = useAuthStore();
-  const [showDevTools, setShowDevTools] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   // Home scroll-spy: the nav underline follows Home → Services → About as the
@@ -59,21 +48,6 @@ export function SiteHeader() {
     };
   }, [isHome]);
 
-  // Mock-mode-only widgets (role switcher, payment simulator, dev panel)
-  // must never appear when the app is pointed at the real backend.
-  const isMock = AUTH_MODE === 'mock';
-
-  const handleRoleSwitch = (nextRole: CognitoRole) => {
-    setCognitoRole(nextRole);
-    if (nextRole === 'client' && (pathname.startsWith('/psych') || pathname.startsWith('/admin'))) {
-      router.push('/bookings');
-    } else if (nextRole === 'psychologist' && (pathname.startsWith('/bookings') || pathname.startsWith('/admin'))) {
-      router.push('/psych/queue');
-    } else if (nextRole === 'admin' && (pathname.startsWith('/bookings') || pathname.startsWith('/psych'))) {
-      router.push('/admin/verifications');
-    }
-  };
-
   const roleNavItems: Record<CognitoRole, { label: string; href: string }[]> = {
     client: [
       { label: 'Personas & Booking', href: '/personas' },
@@ -86,64 +60,13 @@ export function SiteHeader() {
       { label: 'Profile', href: '/psych/profile' },
     ],
     admin: [
-      { label: 'Credential Verifications', href: '/admin/verifications' },
-      { label: 'Payload CMS Editors', href: '/admin/cms' },
+      { label: 'User Management', href: '/admin/users' },
+      { label: 'CMS Editors', href: '/admin/cms' },
     ],
   };
 
   return (
     <div className="sticky top-0 z-40 bg-surface-raised border-b border-mist">
-      {/* Canonical Prototype Demo Banner */}
-      <div className="bg-pine text-white px-4 lg:px-8 py-1.5 text-xs">
-        <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Info className="w-3.5 h-3.5 text-lime-soft shrink-0" aria-hidden="true" />
-            <span className="font-medium text-parchment">
-              {isMock
-                ? 'Frontend prototype — mock mode (in-memory data, no backend calls).'
-                : `Frontend prototype — live mode (NEXT_PUBLIC_API_URL: ${API_BASE_URL}).`}
-            </span>
-          </div>
-
-          {/* Interactive State Simulation Controls — mock mode only (they are fake toggles) */}
-          <div className="flex items-center gap-4 text-xs text-parchment/70">
-            {isMock && cognitoRole === 'psychologist' && (
-              <div className="flex items-center gap-1.5">
-                <span>Psych Identity:</span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setActivePsychologistId(activePsychologistId === 'RP-01' ? 'RP-04' : 'RP-01')
-                  }
-                  className="underline text-lime-soft hover:text-white font-medium cursor-pointer whitespace-nowrap"
-                >
-                  {activePsychologistId === 'RP-01'
-                    ? 'Resident #RP-01 (Verified)'
-                    : 'Associate #RP-04 (Unverified · Cannot Pick Up)'}
-                </button>
-              </div>
-            )}
-
-            {isMock && cognitoRole === 'client' && (
-              <div className="flex items-center gap-1.5">
-                <span>Stripe Gateway Simulation:</span>
-                <button
-                  type="button"
-                  onClick={() => setSimulatePaymentFailure(!simulatePaymentFailure)}
-                  className="underline text-lime-soft hover:text-white font-medium cursor-pointer whitespace-nowrap"
-                >
-                  {simulatePaymentFailure ? 'Simulate Payment Failed' : 'Payment Succeeds'}
-                </button>
-              </div>
-            )}
-
-            <span className="hidden sm:inline text-parchment/60">
-              AUTH_MODE: {AUTH_MODE}
-            </span>
-          </div>
-        </div>
-      </div>
-
       {/* Top Bar Contract: Zone 1 (Single Wordmark) — Zone 2 (Clean Text Nav Links) — Zone 3 (Actions) */}
       <header className="max-w-6xl mx-auto px-4 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Zone 1: Brand Title, single text element in Proxima Nova Condensed */}
@@ -194,21 +117,6 @@ export function SiteHeader() {
           {isAuthenticated && user ? (
             // ── Authenticated: avatar + user menu ──────────────────────
             <div className="flex items-center gap-2">
-              {/* Dev Tools toggle (collapsible mock switcher) — mock mode only */}
-              {isMock && (
-                <button
-                  type="button"
-                  id="dev-tools-toggle"
-                  onClick={() => setShowDevTools((v) => !v)}
-                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg text-pine/60 hover:text-pine hover:bg-mist/50 transition-colors cursor-pointer border border-mist/60"
-                  title="Toggle Dev Tools (prototype mock switcher)"
-                >
-                  <Settings className="w-3.5 h-3.5" />
-                  Dev
-                  <ChevronDown className={`w-3 h-3 transition-transform ${showDevTools ? 'rotate-180' : ''}`} />
-                </button>
-              )}
-
               {/* User avatar dropdown */}
               <div className="relative">
                 <button
@@ -241,7 +149,7 @@ export function SiteHeader() {
                     </div>
                     <Link
                       id="user-menu-dashboard"
-                      href={user.role === 'admin' ? '/admin/verifications' : user.role === 'psychologist' ? '/psych/queue' : '/bookings'}
+                      href={user.role === 'admin' ? '/admin/users' : user.role === 'psychologist' ? '/psych/queue' : '/bookings'}
                       className="flex items-center gap-2 px-4 py-2 text-xs text-pine hover:bg-mist/40 transition-colors"
                       onClick={() => setShowUserMenu(false)}
                     >
@@ -289,49 +197,13 @@ export function SiteHeader() {
 
       {/* Contextual workspace sub-bar — authenticated users only (logged-out
           visitors see the public nav; role nav is meaningless for them) */}
-      {isAuthenticated && (
+      {isAuthenticated && user && (
         <div className="bg-surface-sunken border-t border-mist/70 px-4 lg:px-8 py-2">
           <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
-            {/* Dev Tools panel (only shown when toggled) — mock mode only */}
-            {isMock && showDevTools && (
-            <div className="flex flex-wrap items-center gap-4 text-pine/70">
-              <span className="font-semibold text-pine/50">Dev Tools (prototype mock switcher):</span>
-              <div
-                role="group"
-                aria-label="Mock AWS Cognito Groups Role Switcher"
-                className="flex items-center gap-0.5 p-1 bg-surface-sunken rounded-lg border border-mist"
-              >
-                {(['client', 'psychologist', 'admin'] as CognitoRole[]).map((role) => {
-                  const active = cognitoRole === role;
-                  const labels: Record<CognitoRole, string> = { client: 'Client', psychologist: 'Psychologist', admin: 'Admin' };
-                  return (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => handleRoleSwitch(role)}
-                      className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
-                        active ? 'bg-pine text-white shadow-xs' : 'text-pine/75 hover:text-pine'
-                      }`}
-                    >
-                      {labels[role]}
-                    </button>
-                  );
-                })}
-              </div>
-              <Link href="/personas" className="hidden sm:inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-sage text-white hover:bg-accent-ink transition-colors focus-visible:outline-2 focus-visible:outline-sage focus-visible:outline-offset-2">
-                Start Booking
-              </Link>
-            </div>
-          )}
-
-          {/* Role workspace nav (shown when the dev-tools panel is collapsed) */}
-          {!showDevTools && (
             <div className="flex items-center gap-4 overflow-x-auto">
-              <span className="text-pine/65 font-medium whitespace-nowrap">
-                {isMock ? `Cognito Group (${cognitoRole}) Workspace:` : 'Workspace:'}
-              </span>
+              <span className="text-pine/65 font-medium whitespace-nowrap">Workspace:</span>
               <div className="flex items-center gap-4">
-                {roleNavItems[cognitoRole].map((item) => {
+                {roleNavItems[user.role].map((item) => {
                   const active =
                     pathname === item.href ||
                     (item.href.startsWith('/proposal/') && pathname.startsWith('/proposal/'));
@@ -351,25 +223,24 @@ export function SiteHeader() {
                 })}
               </div>
             </div>
-          )}
 
-          {/* Tiered Access Guardrail Summary */}
-          <div className="hidden lg:flex items-center gap-1.5 text-pine/70">
-            <Lock className="w-3.5 h-3.5 text-sage" aria-hidden="true" />
-            {cognitoRole === 'client' && (
-              <span>Tiered Access: Viewing own Client #C-01 history & personas only</span>
-            )}
-            {cognitoRole === 'psychologist' && (
-              <span>
-                Tiered Access: Pending Queue + Sessions booked under #{activePsychologistId} only
-              </span>
-            )}
-            {cognitoRole === 'admin' && (
-              <span>
-                Tiered Access: Verifications & CMS only · Private clinical session notes redacted
-              </span>
-            )}
-          </div>
+            {/* Tiered Access Guardrail Summary */}
+            <div className="hidden lg:flex items-center gap-1.5 text-pine/70">
+              <Lock className="w-3.5 h-3.5 text-sage" aria-hidden="true" />
+              {user.role === 'client' && (
+                <span>Tiered Access: Viewing own Client #C-01 history & personas only</span>
+              )}
+              {user.role === 'psychologist' && (
+                <span>
+                  Tiered Access: Pending Queue + sessions assigned to your authenticated account
+                </span>
+              )}
+              {user.role === 'admin' && (
+                <span>
+                  Tiered Access: User roles &amp; CMS only · Private clinical session notes redacted
+                </span>
+              )}
+            </div>
           </div>
         </div>
       )}

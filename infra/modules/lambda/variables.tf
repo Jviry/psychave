@@ -26,6 +26,18 @@ variable "user_pool_arn" {
 
 variable "database_url" {
   description = "PostgreSQL conn string passed as DATABASE_URL"
-  type = string
-  sensitive = true
+  type        = string
+  sensitive   = true
+}
+
+variable "db_schema" {
+  description = "Optional PostgreSQL schema for transaction-scoped search_path isolation"
+  type        = string
+  default     = ""
+}
+
+variable "cors_origins" {
+  description = "Allowed CORS origins passed to FastAPI as a JSON list"
+  type        = list(string)
+  default     = []
 }

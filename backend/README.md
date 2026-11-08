@@ -45,6 +45,7 @@ backend/
 │   │   ├── appointment.py        # Consultation appointments
 │   │   ├── proposed_slot.py      # Available / proposed time slots
 │   │   └── payment.py            # Payment records
+│   ├── seed_services.py          # Idempotent services catalog seed
 │   └── main.py                   # FastAPI entry point & Mangum handler
 ├── .env.example                  # Environment variable reference
 ├── alembic.ini                   # Alembic configuration
@@ -69,14 +70,16 @@ Key environment variables:
 
 | Variable | Description | Default |
 | :--- | :--- | :--- |
-| `APP_NAME` | Service title shown in docs | `Psychave API` |
+| `APP_NAME` | Service title shown in docs | `PsychAve API` |
 | `ENV` | Environment name (`development`, `production`) | `development` |
-| `DEBUG` | Enable debug mode and SQL query echo | `true` |
+| `DEBUG` | Enable debug mode and SQL query echo | `false` |
 | `PORT` | Local server port | `8000` |
 | `HOST` | Local server host | `0.0.0.0` |
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://postgres:password@localhost:5432/postgres` |
-| `CORS_ORIGINS` | Allowed CORS origins (JSON array) | `["http://localhost:3000","http://localhost:5173"]` |
-| `SECRET_KEY` | Application secret key | - |
+| `DATABASE_URL` | PostgreSQL connection string | `""` |
+| `CORS_ORIGINS` | Allowed CORS origins (JSON array) | `[]` |
+| `AWS_REGION` | AWS region for Cognito SDK & JWKS | `""` |
+| `COGNITO_USER_POOL_ID` | Cognito User Pool ID | `""` |
+| `COGNITO_APP_CLIENT_ID` | Cognito App Client ID (ID token audience) | `""` |
 
 ### 2. Local Supabase Environment (PostgreSQL & Studio)
 
@@ -123,10 +126,20 @@ Apply Alembic migrations to the running local Supabase database:
 make db-migrate
 ```
 
-To create a new migration from SQLModel models:
+### 4. Seed the Services Catalog
+
+The `services` table ships empty. Seed the seven catalog entries from
+`docs/services-catalog.md` with:
+
 ```bash
-make db-new-migration name="your_migration_name"
+python src/seed_services.py
 ```
+
+The script is idempotent — it upserts by a stable UUID per service slug, so
+re-running updates the copy instead of creating duplicates. Existing
+appointments that reference a seeded service are unaffected.
+
+### 5. Start Development Server
 
 ### 5. Running Tests
 
@@ -182,31 +195,50 @@ Always send the **ID token**: `Authorization: Bearer <id_token>`. `verify_token(
 - `get_current_user()` — maps `claims["sub"]` to the `users` row via `UserRepository`. Raises `UserNotFoundError` (`401`) when the row is missing.
 - `require_role(UserRole.ADMIN, ...)` — checks the `cognito:groups` claim from the pool groups (`admin` / `psychologist` / `client`), not the DB `role` column, then resolves and returns the `users` row (`User`) so handlers can use `current_user.user_id`. Raises `ForbiddenError` (`403`).
 - `get_current_psychologist()` — `require_role(PSYCHOLOGIST)` plus the `psychologist_profiles` row for that user. Raises `ForbiddenError` when the profile is missing.
-- `require_approved_psychologist()` — additionally enforces `psychologist_profiles.approval_status == "approved"`. This is an app-level gate, independent of Cognito group membership.
-- The DB `role` column is a cached copy for queries/joins only; Cognito groups are the source of truth for access.
+- The DB `role` column is a cached copy for queries/joins only; Cognito groups are the source of truth for access. `AuthUsecase` reconciles the cached role from live groups on confirm/login.
 
-### Psychologist dashboard endpoints
+### Services catalog endpoints
 
-All routes below require the `psychologist` Cognito group (`require_role(UserRole.PSYCHOLOGIST)`). Routes marked ✅ approved additionally require `psychologist_profiles.approval_status == "approved"`.
+- `GET /services/active` — public active services catalog; used by the marketing home page before login.
+- `GET /services` — public active services catalog (also exposed without JWT at API Gateway).
+
+### Scheduling & psychologist dashboard endpoints
+
+Clients submit 3–5 preferred schedules with `POST /appointments`. All psychologist routes below require the `psychologist` Cognito group (`require_role(UserRole.PSYCHOLOGIST)`). Psychologists are created by admin promotion, so there is no separate credential-approval gate.
+
+| Route | Role | Notes |
+| :--- | :--- | :--- |
+| `GET /appointments/pending` | Psychologist | Unclaimed requests (`psychologist_id IS NULL`, `status = pending`), annotated with caller-specific `conflicting_slot_ids` |
+| `POST /appointments/{id}/pickup` | Psychologist | Atomic claim: sets `psychologist_id` + `price` and either accepts a client slot (`slot_id` → `awaiting_payment` + `payment_deadline`) or offers 1 alternative (`counter_slot` → `awaiting_schedule`, `scheduling_turn = client`) |
+| `POST /appointments/{id}/accept-preferred-slot` | Psychologist | Accepts a client-preferred schedule during subsequent rounds (`scheduling_turn = psychologist` → `awaiting_payment`) |
+| `POST /appointments/{id}/counter-offer` | Psychologist | Offers 1 alternative schedule during subsequent rounds (`scheduling_turn = psychologist` → `scheduling_turn = client`) |
+| `POST /appointments/{id}/accept-slot` | Client | Accepts the psychologist's counter-offer (`scheduling_turn = client` → `awaiting_payment` + `payment_deadline`) |
+| `POST /appointments/{id}/preferred-slots` | Client | Submits 3–5 fresh preferred schedules (`scheduling_turn = client` → `scheduling_turn = psychologist`) |
+| `GET /appointments/mine` | Psychologist | Own appointments, optional `?status=` filter (overdue `awaiting_payment` rows transition before filtering) |
+| `GET /appointments/{id}` | Client / Psychologist | Shared path — branches on caller's role; psychologists only see appointments they own (others → `404`) |
+| `POST /appointments/{id}/complete` | Psychologist | Marks a `confirmed` appointment `completed` |
+| `GET /psychologist-profile/me` | Psychologist | Own profile |
+| `PATCH /psychologist-profile/me` | Psychologist | Writable: `specialization`, `license_number`, `bio`, `social_media_links` |
+
+### Admin role management
+
+Self-service signup always creates a **client**. Only an admin can turn a client into a psychologist:
 
 | Route | Notes |
 | :--- | :--- |
-| `GET /appointments/pending` | Unclaimed requests (`psychologist_id IS NULL`, `status = pending`) |
-| `POST /appointments/{id}/pickup` ✅ | Sets `psychologist_id` + `price`, moves status to `awaiting_slot_selection` |
-| `POST /appointments/{id}/slots` ✅ | Body is a list of exactly 3 `{session_date, start_time, end_time?}` proposals; rejects duplicates/past times and re-proposals |
-| `GET /appointments/mine` | Own appointments, optional `?status=` filter |
-| `GET /appointments/{id}` | Shared with the client route (same path) — branches on the caller's role; psychologists only ever see appointments they own (others → `404`) |
-| `GET /psychologist-profile/me` | Own profile incl. `approval_status` |
-| `PATCH /psychologist-profile/me` | Writable: `specialization`, `license_number`, `bio`; approval fields are read-only |
+| `GET /admin/users?role=&search=&page=1&page_size=10` | Paginated account directory. `role` is optional (omit for all roles); `search` matches email, psychologist name, or admin name; `page_size` is capped at 100. Returns `{items, total, page, page_size}`. |
+| `PATCH /admin/users/{user_id}/role` | Body: `{role, full_name?}`. Swaps the Cognito group and updates `users.role`, creating the target role's profile row. `full_name` is required when assigning psychologist without an existing profile name; admin falls back to the account email. Admins cannot change their own role or demote the last admin (`409`). |
+| `POST /admin/users/{user_id}/promote` | Body: `full_name` (required), `license_number?`, `specialization?`, `bio?`, `social_media_links?`. Client → psychologist shorthand that also fills the profile fields. Swaps the Cognito group to `psychologist`, updates `users.role`, and creates the `psychologist_profiles` row. The existing `client_profiles` row is kept because personas reference it. |
 
-
+All routes require the `admin` Cognito group. Any role transition is allowed except self-change and demoting the last admin. The affected user must sign in again before their ID token carries the new group claim.
 
 ### Lifecycle
 
-1. `POST /auth/create-user` (`role` defaults to `client`; `admin` cannot be self-assigned; **`full_name` is required when `role = psychologist`**) → Cognito `sign_up` + `admin_add_user_to_group`, then the local `User` row (from the returned `UserSub`) and the role profile row are created immediately — the psychologist's `full_name` lands in `psychologist_profiles` at this point, not at confirm. Lambda needs the `cognito_admin` IAM policy for these Admin APIs.
-2. `POST /auth/confirm` → `confirm_sign_up`, then inserts `User(cognito_sub, email, role-from-groups)` **and the role's profile row** — `client_profiles`, `psychologist_profiles` (with `approval_status = "pending"`), or `admin_profiles` (idempotent; `full_name` falls back to the Cognito username since the pool stores no name attributes).
-3. `POST /auth/login` → returns tokens and lazily inserts the `User` row for users created before sync existed (best-effort; never fails login). Also heals a **missing role profile row** for existing users.
-4. Session endpoints (`/auth/me`, `/auth/logout`, `/auth/delete`) require `Depends(get_current_user)`; the pure auth flows (login/signup/confirm/refresh/password) stay public and are also exempt from the gateway authorizer.
+1. `POST /auth/create-user` (client-only; the payload has no `role` field) → Cognito `sign_up` + `admin_add_user_to_group` for `client`, then the local `User` row (from the returned `UserSub`) and `client_profiles` row are created immediately. Older clients that still send `role`/`full_name` are ignored by the request schema, so a role can never be self-assigned. Lambda needs the `cognito_admin` IAM policy for these Admin APIs.
+2. `POST /auth/confirm` → `confirm_sign_up`, then inserts/reconciles `User(cognito_sub, email, role-from-groups)` **and the role's profile row** (`client_profiles` / `psychologist_profiles` / `admin_profiles`, idempotent). Admin promotion normally creates the psychologist profile before this point.
+3. `POST /auth/login` → returns tokens and lazily inserts the `User` row for users created before local sync existed (best-effort; never fails login). Also heals a **missing role profile row** and reconciles a stale cached role from live Cognito groups.
+4. Admins assign roles with `PATCH /admin/users/{id}/role` (or `POST /admin/users/{id}/promote` to fill psychologist profile details); both update Cognito groups and the local role/profile row in one action.
+5. Session endpoints (`/auth/me`, `/auth/logout`, `/auth/delete`) require `Depends(get_current_user)`; the pure auth flows (login/signup/confirm/refresh/password) stay public and are also exempt from the gateway authorizer.
 
 ---
 

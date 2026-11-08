@@ -1,7 +1,7 @@
 /**
- * Auth API module — dual-mode (live backend ↔ mock fallback)
+ * Auth API module — always talks to the FastAPI/Cognito backend.
  *
- * Maps to backend endpoints from PR #28:
+ * Maps to backend endpoints:
  *   POST /auth/login           → loginUser
  *   POST /auth/create-user     → registerUser
  *   POST /auth/confirm         → confirmUser
@@ -12,13 +12,7 @@
  *   POST /auth/logout          → logoutUser
  */
 
-const getEnv = (key: string, fallback: string): string => {
-  if (typeof process !== 'undefined' && process.env?.[key]) return process.env[key] as string;
-  return fallback;
-};
-
-const API_BASE_URL = getEnv('NEXT_PUBLIC_API_URL', 'http://localhost:8000');
-const AUTH_MODE = getEnv('NEXT_PUBLIC_AUTH_MODE', 'mock');
+import { API_BASE_URL } from './lib/api';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -37,7 +31,6 @@ export interface RegisterCredentials {
   email: string;
   username: string;
   password: string;
-  role: 'client' | 'psychologist';
 }
 
 export interface ConfirmCredentials {
@@ -87,18 +80,6 @@ async function post<T>(endpoint: string, body: unknown, headers?: Record<string,
   }
 }
 
-// ─── Mock delay ──────────────────────────────────────────────────────────────
-
-const mockDelay = () => new Promise((r) => setTimeout(r, 200));
-
-// ─── Mock session (deterministic for prototype) ──────────────────────────────
-
-const MOCK_SESSION: LoginResponse = {
-  accessToken: 'mock-access-token-psychave-prototype',
-  idToken: 'mock-id-token-psychave-prototype',
-  refreshToken: 'mock-refresh-token-psychave-prototype',
-};
-
 // ─── API ─────────────────────────────────────────────────────────────────────
 
 export const authApi = {
@@ -107,12 +88,6 @@ export const authApi = {
    * Cognito returns AccessToken/IdToken/RefreshToken (capital-case keys).
    */
   loginUser: async (credentials: LoginCredentials): Promise<LoginResponse> => {
-    if (AUTH_MODE === 'mock') {
-      await mockDelay();
-      return { ...MOCK_SESSION };
-    }
-
-    // Cognito via backend returns AuthenticationResult with capital-case keys
     const raw = await post<{ AccessToken: string; IdToken: string; RefreshToken: string }>(
       '/auth/login',
       credentials
@@ -128,87 +103,53 @@ export const authApi = {
   /**
    * Create a new Cognito user. Returns a message directing user to check email.
    */
-  registerUser: async (credentials: RegisterCredentials): Promise<MessageResponse> => {
-    if (AUTH_MODE === 'mock') {
-      await mockDelay();
-      return { message: 'register successful, check email for code' };
-    }
-
-    return post<MessageResponse>('/auth/create-user', {
+  registerUser: async (credentials: RegisterCredentials): Promise<MessageResponse> =>
+    post<MessageResponse>('/auth/create-user', {
       email: credentials.email,
       username: credentials.username,
       password: credentials.password,
-      role: credentials.role,
-    });
-  },
+    }),
 
   /**
    * Confirm the user's account with the Cognito verification code sent to email.
    */
-  confirmUser: async (credentials: ConfirmCredentials): Promise<MessageResponse> => {
-    if (AUTH_MODE === 'mock') {
-      await mockDelay();
-      return { message: 'user confirmed' };
-    }
-
-    return post<MessageResponse>('/auth/confirm', {
+  confirmUser: async (credentials: ConfirmCredentials): Promise<MessageResponse> =>
+    post<MessageResponse>('/auth/confirm', {
       username: credentials.username,
       confirmation_code: credentials.confirmationCode,
-    });
-  },
+    }),
 
   /**
    * Resend the Cognito confirmation code to the user's email.
    */
-  resendCode: async (username: string): Promise<MessageResponse> => {
-    if (AUTH_MODE === 'mock') {
-      await mockDelay();
-      return { message: 'confirmation code sent' };
-    }
-
-    return post<MessageResponse>(`/auth/resend-code?username=${encodeURIComponent(username)}`, {});
-  },
+  resendCode: async (username: string): Promise<MessageResponse> =>
+    post<MessageResponse>(`/auth/resend-code?username=${encodeURIComponent(username)}`, {}),
 
   /**
    * Request a forgot-password verification code (step 1).
    */
-  requestForgotPassword: async (username: string): Promise<MessageResponse> => {
-    if (AUTH_MODE === 'mock') {
-      await mockDelay();
-      return { message: 'confirmation code sent to email' };
-    }
-
-    return post<MessageResponse>(
+  requestForgotPassword: async (username: string): Promise<MessageResponse> =>
+    post<MessageResponse>(
       `/auth/request-forgot-password?username=${encodeURIComponent(username)}`,
       {}
-    );
-  },
+    ),
 
   /**
    * Confirm a new password with the verification code (step 2).
    */
-  confirmForgotPassword: async (credentials: ForgotPasswordConfirmCredentials): Promise<MessageResponse> => {
-    if (AUTH_MODE === 'mock') {
-      await mockDelay();
-      return { message: 'password change successful' };
-    }
-
-    return post<MessageResponse>('/auth/confirm-forgot-password', {
+  confirmForgotPassword: async (
+    credentials: ForgotPasswordConfirmCredentials
+  ): Promise<MessageResponse> =>
+    post<MessageResponse>('/auth/confirm-forgot-password', {
       username: credentials.username,
       new_password: credentials.newPassword,
       confirmation_code: credentials.confirmationCode,
-    });
-  },
+    }),
 
   /**
    * Refresh access token using the stored refresh token.
    */
   refreshAccessToken: async (refreshToken: string): Promise<{ accessToken: string }> => {
-    if (AUTH_MODE === 'mock') {
-      await mockDelay();
-      return { accessToken: MOCK_SESSION.accessToken };
-    }
-
     const raw = await post<{ AccessToken: string }>(
       `/auth/refresh-token?refresh_token=${encodeURIComponent(refreshToken)}`,
       {}
@@ -219,14 +160,8 @@ export const authApi = {
   /**
    * Sign out the user from Cognito (invalidates the access token).
    */
-  logoutUser: async (accessToken: string): Promise<MessageResponse> => {
-    if (AUTH_MODE === 'mock') {
-      await mockDelay();
-      return { message: 'logout successful' };
-    }
-
-    return post<MessageResponse>(`/auth/logout?access_token=${encodeURIComponent(accessToken)}`, {}, {
+  logoutUser: async (accessToken: string): Promise<MessageResponse> =>
+    post<MessageResponse>(`/auth/logout?access_token=${encodeURIComponent(accessToken)}`, {}, {
       Authorization: `Bearer ${accessToken}`,
-    });
-  },
+    }),
 };

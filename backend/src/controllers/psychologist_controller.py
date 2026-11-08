@@ -1,20 +1,22 @@
 import uuid
+
 from fastapi import APIRouter, Depends
 from sqlmodel import Session
 
 from common.database import get_db
-from dependencies.auth import (
-    get_current_psychologist,
-    require_approved_psychologist,
-)
+from dependencies.auth import get_current_psychologist
 from models.appointment import AppointmentStatus
 from models.psychologist_profile import PsychologistProfile
-from schemas.appointment import AppointmentRead, ProposedSlotRead
+from schemas.appointment import (
+    AppointmentRead,
+    PendingAppointmentRead,
+    SlotInput,
+    SlotSelect,
+)
 from schemas.psychologist import (
     PickupRequest,
     PsychologistProfileRead,
     PsychologistProfileUpdate,
-    SlotProposal,
 )
 from usecase.psychologist_usecase import PsychologistUsecase
 
@@ -22,12 +24,14 @@ router = APIRouter()
 
 
 # ----- pending requests / pickup -----
-@router.get("/appointments/pending", response_model=list[AppointmentRead])
+@router.get("/appointments/pending", response_model=list[PendingAppointmentRead])
 def list_pending_appointments(
     db: Session = Depends(get_db),
     current_psychologist: PsychologistProfile = Depends(get_current_psychologist),
 ):
-    return PsychologistUsecase(db).list_pending()
+    return PsychologistUsecase(db).list_pending(
+        current_psychologist.psychologist_id
+    )
 
 
 @router.post("/appointments/{appointment_id}/pickup", response_model=AppointmentRead)
@@ -35,20 +39,42 @@ def pickup_appointment(
     appointment_id: uuid.UUID,
     payload: PickupRequest,
     db: Session = Depends(get_db),
-    current_psychologist: PsychologistProfile = Depends(require_approved_psychologist),
+    current_psychologist: PsychologistProfile = Depends(get_current_psychologist),
 ):
-    return PsychologistUsecase(db).pickup(appointment_id, current_psychologist.psychologist_id, payload.price)
+    return PsychologistUsecase(db).pickup(
+        appointment_id,
+        current_psychologist.psychologist_id,
+        payload,
+    )
 
 
-# ----- slot proposal -----
-@router.post("/appointments/{appointment_id}/slots", response_model=list[ProposedSlotRead])
-def propose_slots(
+# ----- schedule negotiation -----
+@router.post("/appointments/{appointment_id}/accept-preferred-slot", response_model=AppointmentRead)
+def accept_preferred_slot(
     appointment_id: uuid.UUID,
-    payload: list[SlotProposal],
+    payload: SlotSelect,
     db: Session = Depends(get_db),
-    current_psychologist: PsychologistProfile = Depends(require_approved_psychologist),
+    current_psychologist: PsychologistProfile = Depends(get_current_psychologist),
 ):
-    return PsychologistUsecase(db).propose_slots(appointment_id, current_psychologist.psychologist_id, payload)
+    return PsychologistUsecase(db).accept_preferred_slot(
+        appointment_id,
+        payload.slot_id,
+        current_psychologist.psychologist_id,
+    )
+
+
+@router.post("/appointments/{appointment_id}/counter-offer", response_model=AppointmentRead)
+def counter_offer(
+    appointment_id: uuid.UUID,
+    payload: SlotInput,
+    db: Session = Depends(get_db),
+    current_psychologist: PsychologistProfile = Depends(get_current_psychologist),
+):
+    return PsychologistUsecase(db).counter_offer(
+        appointment_id,
+        payload,
+        current_psychologist.psychologist_id,
+    )
 
 
 # ----- own schedule -----
@@ -58,7 +84,20 @@ def list_my_appointments(
     db: Session = Depends(get_db),
     current_psychologist: PsychologistProfile = Depends(get_current_psychologist),
 ):
-    return PsychologistUsecase(db).list_mine(current_psychologist.psychologist_id, status)
+    return PsychologistUsecase(db).list_mine(
+        current_psychologist.psychologist_id, status
+    )
+
+
+@router.post("/appointments/{appointment_id}/complete", response_model=AppointmentRead)
+def complete_appointment(
+    appointment_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_psychologist: PsychologistProfile = Depends(get_current_psychologist),
+):
+    return PsychologistUsecase(db).complete_appointment(
+        appointment_id, current_psychologist.psychologist_id
+    )
 
 
 # ----- profile -----

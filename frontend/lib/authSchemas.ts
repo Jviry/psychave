@@ -28,9 +28,6 @@ export const registerSchema = z
     username: usernameSchema,
     password: passwordSchema,
     confirmPassword: z.string(),
-    role: z.enum(['client', 'psychologist'], {
-      required_error: 'Please select a role',
-    }),
     privacyConsent: z.literal(true, {
       errorMap: () => ({ message: 'You must accept the Data Privacy Policy to continue' }),
     }),

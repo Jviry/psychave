@@ -18,3 +18,12 @@ variable "database_url" {
   type      = string
   sensitive = true
 }
+
+variable "db_schema" {
+  type    = string
+  default = ""
+}
+
+variable "cors_origins" {
+  type = list(string)
+}

@@ -1,160 +1,44 @@
 import {
+  AdminUser,
+  AdminUserPage,
   BookingRequest,
+  BookingStatus,
   CmsContent,
   CognitoRole,
   Persona,
+  PersonaReview,
   ResidentPsychologist,
   ServiceItem,
+  SlotProposer,
+  SlotStatus,
+  SocialMediaLink,
 } from './types';
-import {
-  CONSENT_VERSION,
-  isFutureDob,
-  isMinorDob,
-  isValidPhone,
-  normalizeName,
-  type PersonaWizardPayload,
-} from './consent';
+import { useAuthStore } from '../authStore';
+import { isMinorDob, type PersonaWizardPayload } from './consent';
 
 /**
  * Single canonical API client for PsychAvenuePH (PSYCHAVE PH).
- * Targets NEXT_PUBLIC_API_URL (default http://localhost:8000) and automatically falls back
- * to deterministic in-memory mock state when the FastAPI/Mangum backend is offline.
+ *
+ * Every operational request goes to the authenticated FastAPI backend. The
+ * only local-only content is the CMS/roster marketing payload below, which
+ * has no backend yet and is clearly isolated from auth, users, personas,
+ * appointments, services, and payments.
+ *
+ * NEXT_PUBLIC_* vars are read as literal member expressions on purpose:
+ * the bundler statically inlines exact `process.env.NEXT_PUBLIC_*` accesses
+ * into both the server and client bundles, so every runtime sees the same
+ * compile-time value.
  */
-const getEnvVar = (key: string, fallback: string): string => {
-  if (typeof process !== 'undefined' && process.env && process.env[key]) {
-    return process.env[key] as string;
-  }
-  return fallback;
-};
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(
+  /\/+$/,
+  ''
+);
 
-export const API_BASE_URL = getEnvVar('NEXT_PUBLIC_API_URL', 'http://localhost:8000');
-export const AUTH_MODE = getEnvVar('NEXT_PUBLIC_AUTH_MODE', 'mock');
-
-const INITIAL_SERVICES: ServiceItem[] = [
-  {
-    id: 'srv-consultation',
-    indexNumber: '01',
-    title: 'Standalone Clinical Consultation',
-    categoryGroup: 'Initial Assessment & Triage',
-    durationLabel: '45 mins',
-    durationMinutes: 45,
-    guardrailTitle: 'Screening-Only · Not Full Therapy',
-    guardrailNotice:
-      'Consultation (45 min) is strictly for initial clinical screening, booking clarification, and care navigation. It does not constitute a full psychotherapy session.',
-    description:
-      'Structured initial consultation to clarify presenting concerns, evaluate clinical urgency, and match the client or dependent with the appropriate therapeutic modality.',
-    clinicalFormat: '1-on-1 Booking Screening (Telehealth)',
-    isStandaloneConsultation: true,
-  },
-  {
-    id: 'srv-individual',
-    indexNumber: '02',
-    title: 'Individual Counseling & Psychotherapy',
-    categoryGroup: 'Core Clinical Practice',
-    durationLabel: '1 hr (60 mins)',
-    durationMinutes: 60,
-    guardrailTitle: 'Standard 1-Hour Evidence-Based Psychotherapy',
-    guardrailNotice:
-      'Individual sessions run for 1 hour (60 minutes) with a PRC-licensed resident psychologist. Not for acute emergency psychiatric crisis stabilization.',
-    description:
-      'Confidential one-on-one psychotherapy addressing anxiety, mood concerns, trauma recovery, life transitions, and emotional regulation through evidence-based modalities.',
-    clinicalFormat: '1-on-1 Clinical Session (60 mins)',
-  },
-  {
-    id: 'srv-couples',
-    indexNumber: '03',
-    title: 'Couples Counseling',
-    categoryGroup: 'Relational & Systems Practice',
-    durationLabel: '1.5 hrs (90 mins)',
-    durationMinutes: 90,
-    guardrailTitle: '1.5 Hours Total · Includes 15-Min Individual Breakouts',
-    guardrailNotice:
-      'Couples sessions are structured across 90 minutes and explicitly incorporate two 15-minute individual breakout check-ins (one per partner) alongside joint relational work.',
-    description:
-      'Structured relational therapy for partners navigating communication ruptures, trust reconstruction, life-stage transitions, and collaborative conflict resolution.',
-    clinicalFormat: '60m Joint + Two 15m Individual Breakouts',
-  },
-  {
-    id: 'srv-family-group',
-    indexNumber: '04',
-    title: 'Family & Group Counseling',
-    categoryGroup: 'Relational & Systems Practice',
-    durationLabel: '2 hrs (120 mins)',
-    durationMinutes: 120,
-    guardrailTitle: '2 Hours Total · Psychologist Clinical Autonomy on Structure',
-    guardrailNotice:
-      'Family and Group sessions run for 2 hours (120 minutes). Plenary vs. sub-group pacing and interval structure are governed under full psychologist clinical autonomy.',
-    description:
-      'Multi-participant systemic counseling for family units or therapeutic process groups, paced dynamically by the assigned verified psychologist.',
-    clinicalFormat: 'Multi-Participant Session (Psychologist-Paced)',
-  },
-  {
-    id: 'srv-coaching',
-    indexNumber: '05',
-    title: 'Life Coaching',
-    categoryGroup: 'Personal & Executive Development',
-    durationLabel: '1 hr (60 mins)',
-    durationMinutes: 60,
-    guardrailTitle: 'Non-Clinical · Explicitly Not Psychotherapy',
-    guardrailNotice:
-      'Life Coaching is strictly future-focused and goal-oriented. It is NOT psychotherapy, does not diagnose or treat mental health disorders, and is not a substitute for clinical care.',
-    description:
-      'Action-oriented coaching for career transitions, executive habits, academic accountability, and personal milestone execution.',
-    clinicalFormat: '1-on-1 Goal & Habit Architecture (60 mins)',
-  },
-  {
-    id: 'srv-supervision',
-    indexNumber: '06',
-    title: 'Clinical Supervision for Early Career Psychologists',
-    categoryGroup: 'Professional & Peer Development',
-    durationLabel: '1 hr (60 mins)',
-    durationMinutes: 60,
-    guardrailTitle: 'Open to Internal Residents + External Early-Career Psychologists',
-    guardrailNotice:
-      'Clinical Supervision supports both internal PsychAvenuePH residents and external early-career psychologists. All discussed case material must be strictly de-identified.',
-    description:
-      'Reflective clinical case conceptualization, ethical boundary navigation, and modality skill-building led by senior supervising psychologists.',
-    clinicalFormat: 'Internal & External Practitioner Supervision',
-  },
-  {
-    id: 'srv-academic',
-    indexNumber: '07',
-    title: 'Academic & Research Services',
-    categoryGroup: 'Research & Psychometrics',
-    durationLabel: '1 hr Consultation / Scoped Advisory',
-    durationMinutes: 60,
-    guardrailTitle: 'Thesis Supervision & Data Analysis Only · NO Full-Write',
-    guardrailNotice:
-      'Strictly limited to thesis/dissertation methodology supervision, psychometric validation, and statistical data analysis. Ghostwriting or full-write authoring is strictly prohibited.',
-    description:
-      'Methodological mentorship, research design review, and quantitative/qualitative data analysis guidance for psychology and social science researchers.',
-    clinicalFormat: 'Supervision & Statistical Advisory (No Ghostwriting)',
-  },
-];
-
-const INITIAL_PERSONAS: Persona[] = [
-  {
-    id: 'persona-self-01',
-    clientId: 'client-01',
-    type: 'self',
-    label: 'Primary Account Holder (Self)',
-    ageGroup: 'Adult (25–34)',
-    relationshipToClient: 'Self',
-    preferredLanguage: 'English / Taglish',
-    createdAt: '2026-08-14',
-  },
-  {
-    id: 'persona-dep-02',
-    clientId: 'client-01',
-    type: 'dependent',
-    label: 'Dependent Ward #D-01 (Adolescent)',
-    ageGroup: 'Adolescent (13–17)',
-    relationshipToClient: 'Legal Guardian / Parent',
-    preferredLanguage: 'Filipino / Taglish',
-    createdAt: '2026-09-02',
-  },
-];
-
+/**
+ * Local-only CMS/marketing content. There is no CMS backend yet, so these
+ * records intentionally stay in memory and are not presented as persisted
+ * data. Operational data never uses this path.
+ */
 const INITIAL_ROSTER: ResidentPsychologist[] = [
   {
     id: 'RP-01',
@@ -168,9 +52,11 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
     ],
     languages: ['English', 'Filipino / Taglish'],
     yearsPractice: '8+ Years Clinical Practice',
-    verificationStatus: 'verified',
     visibleOnPublicRoster: true,
-    assignedBookingsCount: 2,
+    socialMediaLinks: [
+      { platform: 'Facebook', url: 'https://www.facebook.com/psychaveph' },
+      { platform: 'Instagram', url: 'https://www.instagram.com/psychaveph' },
+    ],
     bio: 'Licensed clinical psychologist specializing in cognitive behavioral therapy, anxiety disorders, and trauma-informed care for adults. Committed to culturally sensitive and evidence-based mental healthcare.',
   },
   {
@@ -185,9 +71,10 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
     ],
     languages: ['English', 'Filipino / Taglish', 'Cebuano'],
     yearsPractice: '10+ Years Clinical Practice',
-    verificationStatus: 'verified',
     visibleOnPublicRoster: true,
-    assignedBookingsCount: 1,
+    socialMediaLinks: [
+      { platform: 'Facebook', url: 'https://www.facebook.com/psychaveph' },
+    ],
     bio: 'Dedicated relational therapist trained in systemic and Emotion-Focused Therapy for couples and families navigating transitional stress, communication breakdowns, and attachment repair.',
   },
   {
@@ -202,9 +89,10 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
     ],
     languages: ['English', 'Filipino'],
     yearsPractice: '6+ Years Academic & Applied Practice',
-    verificationStatus: 'verified',
     visibleOnPublicRoster: true,
-    assignedBookingsCount: 0,
+    socialMediaLinks: [
+      { platform: 'LinkedIn', url: 'https://www.linkedin.com/company/psychaveph' },
+    ],
     bio: 'Academic researcher and certified behavioral coach specializing in psychological test construction, quantitative statistical methodology, and executive performance coaching.',
   },
   {
@@ -218,150 +106,12 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
     ],
     languages: ['English', 'Filipino / Taglish'],
     yearsPractice: '3 Years Clinical Practice',
-    verificationStatus: 'waiting_approval',
     visibleOnPublicRoster: false,
-    assignedBookingsCount: 0,
-    bio: 'Associate practitioner focusing on child and adolescent emotional regulation, academic adjustment, and parent-child communication dynamics. Awaiting administrative credential verification.',
+    socialMediaLinks: [],
+    bio: 'Associate practitioner focusing on child and adolescent emotional regulation, academic adjustment, and parent-child communication dynamics.',
   },
 ];
 
-/**
- * Clearly-labeled demo seeds. Only two bookings are kept and each is flagged
- * with `demoSeed: true` (UI-only, see BookingRequest) so cards render a
- * "Demo data" tag instead of passing invented narratives off as real content:
- *  - BK-2026-102 (proposed): demos Flow C step 4 — 3-slot proposal review.
- *  - BK-2026-103 (paid-confirmed): demos step 5 — pay-gated contact unlock.
- * All seeded copy is neutral synthetic filler; pending-state Flow C step 1 is
- * demoed by submitting the intake form, not by fake queue data.
- */
-const INITIAL_BOOKINGS: BookingRequest[] = [
-  {
-    id: 'BK-2026-102',
-    clientId: 'client-01',
-    personaId: 'persona-self-01',
-    personaType: 'self',
-    personaLabel: 'Primary Account Holder (Self)',
-    serviceId: 'srv-couples',
-    serviceTitle: 'Couples Counseling',
-    serviceDuration: '1.5 hrs (90 mins)',
-    serviceGuardrail: '1.5 hr session with two 15-min individual breakouts.',
-    demoSeed: true,
-    concernsSummary:
-      'Demo booking — synthetic content for prototype preview. Real submissions arrive via POST /api/v1/bookings/intake.',
-    specificNeeds:
-      'Synthetic demo text — replaced by live client scheduling preferences.',
-    preferredLanguage: 'English / Taglish',
-    submittedAt: '2026-09-25 09:45 PST',
-    status: 'proposed',
-    psychologistId: 'RP-01',
-    psychologistCode: 'Resident Psychologist #RP-01',
-    psychologistSpecialization: 'Adult Psychotherapy, Anxiety Disorders & Trauma-Informed CBT',
-    pricePhp: 3200,
-    clinicalPrepNote:
-      'Demo booking — synthetic preparation note; replaced by the assigned psychologist’s clinical instructions.',
-    proposedSlots: [
-      {
-        id: 'slot-102-a',
-        slotNumber: 1,
-        isoDateTime: '2026-10-02T10:00',
-        dateLabel: 'Fri, Oct 2, 2026',
-        timeLabel: '10:00 AM – 11:30 AM PST',
-      },
-      {
-        id: 'slot-102-b',
-        slotNumber: 2,
-        isoDateTime: '2026-10-03T14:00',
-        dateLabel: 'Sat, Oct 3, 2026',
-        timeLabel: '2:00 PM – 3:30 PM PST',
-      },
-      {
-        id: 'slot-102-c',
-        slotNumber: 3,
-        isoDateTime: '2026-10-05T18:00',
-        dateLabel: 'Mon, Oct 5, 2026',
-        timeLabel: '6:00 PM – 7:30 PM PST',
-      },
-    ],
-    contactUnlocked: false,
-    reminders: {
-      reminder24h: 'pending',
-      reminder1h: 'pending',
-    },
-    privateClinicalNote:
-      'CONFIDENTIAL PSYCHOLOGIST NOTE: Demo seed — synthetic content; replaced by real private notes from the psychologist dashboard.',
-  },
-  {
-    id: 'BK-2026-103',
-    clientId: 'client-01',
-    personaId: 'persona-self-01',
-    personaType: 'self',
-    personaLabel: 'Primary Account Holder (Self)',
-    serviceId: 'srv-individual',
-    serviceTitle: 'Individual Counseling & Psychotherapy',
-    serviceDuration: '1 hr (60 mins)',
-    serviceGuardrail: 'Standard 1-hour evidence-based psychotherapy.',
-    demoSeed: true,
-    concernsSummary:
-      'Demo booking — synthetic content for prototype preview. Real submissions arrive via POST /api/v1/bookings/intake.',
-    specificNeeds: 'Synthetic demo text — replaced by live client scheduling preferences.',
-    preferredLanguage: 'English',
-    submittedAt: '2026-09-20 11:10 PST',
-    status: 'paid-confirmed',
-    psychologistId: 'RP-01',
-    psychologistCode: 'Resident Psychologist #RP-01',
-    psychologistSpecialization: 'Adult Psychotherapy, Anxiety Disorders & Trauma-Informed CBT',
-    pricePhp: 2200,
-    clinicalPrepNote:
-      'Demo booking — synthetic preparation note; replaced by the assigned psychologist’s clinical instructions.',
-    proposedSlots: [
-      {
-        id: 'slot-103-a',
-        slotNumber: 1,
-        isoDateTime: '2026-09-29T17:00',
-        dateLabel: 'Tue, Sep 29, 2026',
-        timeLabel: '5:00 PM – 6:00 PM PST',
-      },
-      {
-        id: 'slot-103-b',
-        slotNumber: 2,
-        isoDateTime: '2026-09-30T17:00',
-        dateLabel: 'Wed, Sep 30, 2026',
-        timeLabel: '5:00 PM – 6:00 PM PST',
-      },
-      {
-        id: 'slot-103-c',
-        slotNumber: 3,
-        isoDateTime: '2026-10-01T19:00',
-        dateLabel: 'Thu, Oct 1, 2026',
-        timeLabel: '7:00 PM – 8:00 PM PST',
-      },
-    ],
-    selectedSlotId: 'slot-103-b',
-    paidAt: '2026-09-22 16:04 PST',
-    contactUnlocked: true,
-    unlockedContact: {
-      teletherapyUrl: 'https://session.psychaveph.clinical/room/BK-2026-103-RP01',
-      coordinationEmail: 'psychaveph.info@gmail.com',
-      sessionReferenceCode: 'CONF-RP01-103B',
-      emergencyProtocolNote:
-        'Direct session channel unlocked post-payment. Automated 24h and 1h reminders are active.',
-    },
-    reminders: {
-      reminder24h: 'scheduled',
-      reminder1h: 'scheduled',
-    },
-    privateClinicalNote:
-      'CONFIDENTIAL PSYCHOLOGIST NOTE: Demo seed — synthetic content; replaced by real private notes from the psychologist dashboard. Hidden from Admin tier.',
-  },
-];
-
-/**
- * CMS content starts empty — public pages render quiet "awaiting copy" notes
- * instead of invented institutional claims. Admin CMS edits re-populate these
- * in memory (PATCH /api/v1/cms owner edits land with the backend). The consent
- * governance banner keys stay populated: that notice is a privacy rule, not
- * placeholder content (RA 10173).
- */
 const INITIAL_CMS: CmsContent = {
   vision: '',
   mission: '',
@@ -377,19 +127,9 @@ const INITIAL_CMS: CmsContent = {
   },
 };
 
-// In-memory store for prototype persistence across route changes
-let mockServices: ServiceItem[] = [...INITIAL_SERVICES];
-let mockPersonas: Persona[] = [...INITIAL_PERSONAS];
-let mockRoster: ResidentPsychologist[] = [...INITIAL_ROSTER];
-let mockBookings: BookingRequest[] = [...INITIAL_BOOKINGS];
-let mockCms: CmsContent = JSON.parse(JSON.stringify(INITIAL_CMS));
-
-/**
- * Monotonic mock booking sequence — continue past the seeded BK-2026-102..103
- * so newly created bookings never collide with seed data (or each other).
- * The random range previously reused ids on short sessions.
- */
-let nextMockBookingSeq = 104;
+let localRoster: ResidentPsychologist[] = [...INITIAL_ROSTER];
+let localCms: CmsContent = JSON.parse(JSON.stringify(INITIAL_CMS));
+let localServiceEdits: Record<string, Partial<ServiceItem>> = {};
 
 /**
  * Shared fetch helper with AbortController timeout to prevent hung requests.
@@ -418,49 +158,104 @@ async function fetchWithTimeout(
 }
 
 /**
- * Helper to attempt real backend fetch against NEXT_PUBLIC_API_URL.
- * - When AUTH_MODE === 'mock', immediately resolves using in-memory mock state.
- * - When AUTH_MODE !== 'mock', executes real HTTP requests.
- *   HTTP errors (4xx, 5xx) and network transport failures are surfaced directly
- *   to avoid masking missing endpoints or producing false success on mutations.
+ * Token refresh single-flight state: a concurrent 401 burst shares one
+ * POST /auth/refresh-token call (backend-dependent — see AGENTS.md).
  */
-async function requestWithMockFallback<T>(
-  endpoint: string,
-  options: RequestInit | undefined,
-  mockResolver: () => T | Promise<T>
-): Promise<T> {
-  if (AUTH_MODE === 'mock') {
-    await new Promise((r) => setTimeout(r, 120));
-    return mockResolver();
-  }
+let refreshInFlight: Promise<string | null> | null = null;
 
-  const response = await fetchWithTimeout(
-    `${API_BASE_URL}${endpoint}`,
-    {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options?.headers || {}),
-      },
-    },
-    8000
-  );
-
-  if (!response.ok) {
-    let errDetail = `HTTP ${response.status} ${response.statusText}`;
-    try {
-      const data = await response.json();
-      if (data?.message) errDetail = data.message;
-      else if (data?.detail) {
-        errDetail = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = useAuthStore.getState()?.refreshToken ?? null;
+  if (!refreshToken) return null;
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const res = await fetchWithTimeout(
+          `${API_BASE_URL}/auth/refresh-token?refresh_token=${encodeURIComponent(refreshToken)}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+          },
+          8000
+        );
+        if (!res.ok) return null;
+        // REFRESH_TOKEN_AUTH returns a brand-new AccessToken AND IdToken
+        // (the RefreshToken stays the original one). Both must be updated —
+        // the backend's verify_token() accepts ID tokens only.
+        const data = (await res.json().catch(() => null)) as
+          { AccessToken?: string; IdToken?: string } | null;
+        const newAccess = data?.AccessToken ?? null;
+        const newIdToken = data?.IdToken ?? null;
+        if (newAccess && newIdToken) {
+          useAuthStore.setState({ accessToken: newAccess, idToken: newIdToken });
+          return newIdToken;
+        }
+        return null;
+      } catch {
+        return null;
+      } finally {
+        refreshInFlight = null;
       }
-    } catch {
-      // Body not JSON
-    }
-    throw new Error(`Backend Error (${response.status}) on ${endpoint}: ${errDetail}`);
+    })();
   }
+  return refreshInFlight;
+}
 
-  return (await response.json()) as T;
+/**
+ * Builds the loud backend error format used across the live client.
+ */
+function buildBackendError(endpoint: string, status: number, json: unknown): Error {
+  let errDetail = `HTTP ${status}`;
+  if (json && typeof json === 'object') {
+    const obj = json as { message?: string; detail?: string | unknown };
+    if (obj.message) errDetail = obj.message;
+    else if (obj.detail) {
+      errDetail = typeof obj.detail === 'string' ? obj.detail : JSON.stringify(obj.detail);
+    }
+  }
+  return new Error(`Backend Error (${status}) on ${endpoint}: ${errDetail}`);
+}
+
+/**
+ * Low-level live request: injects the Bearer token from the real session,
+ * retries once on 401 via the backend refresh endpoint, and returns the
+ * status plus the parsed JSON body WITHOUT throwing — callers decide how
+ * each status maps to UI behavior (404-as-null reads, claimed-booking 409s…).
+ */
+async function liveFetch(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<{ status: number; json: unknown }> {
+  const callOnce = () => {
+    // Backend contract (backend/README.md): verify_token() requires the **ID
+    // token** (aud = COGNITO_APP_CLIENT_ID); access tokens are rejected.
+    const token = useAuthStore.getState()?.idToken ?? null;
+    return fetchWithTimeout(
+      `${API_BASE_URL}${endpoint}`,
+      {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(options.headers || {}),
+        },
+      },
+      8000
+    );
+  };
+
+  let response = await callOnce();
+  if (response.status === 401) {
+    const newToken = await refreshAccessToken();
+    if (newToken) response = await callOnce();
+  }
+  let json: unknown = null;
+  try {
+    json = await response.json();
+  } catch {
+    // Body not JSON (e.g. 204) — surfaced as null JSON under its real status.
+  }
+  return { status: response.status, json };
 }
 
 function formatSlotDateAndTime(isoString: string, durationMinutes = 60): { dateLabel: string; timeLabel: string } {
@@ -499,551 +294,772 @@ function formatSlotDateAndTime(isoString: string, durationMinutes = 60): { dateL
   };
 }
 
+// ─── Real-backend response adapters (backend/src/schemas + controllers) ──────
+// Response shapes live here ONLY. UI components keep consuming UI types
+// (BookingRequest etc.); UUIDs → UI values, backend enum statuses → UI
+// statuses, and anonymized display codes are derived in this block.
+
+interface AppointmentRaw {
+  appointment_id: string;
+  persona_id: string;
+  persona_name: string;
+  persona_relation: string;
+  service_id: string;
+  service_name: string;
+  service_duration_minutes: number | null;
+  service_guardrail: string | null;
+  psychologist_id: string | null;
+  selected_slot_id: string | null;
+  price: number | null;
+  presenting_concern: string;
+  status: string;
+  requested_datetime: string | null;
+  scheduling_turn: string | null;
+  scheduling_round: number;
+  payment_deadline: string | null;
+  proposed_slots: ProposedSlotRaw[];
+  conflicting_slot_ids?: string[];
+  persona_socmed_platform: string | null;
+  persona_socmed_username: string | null;
+  psychologist_social_links: SocialMediaLink[];
+}
+
+interface ProposedSlotRaw {
+  slot_id: string;
+  session_date: string;
+  start_time: string;
+  end_time: string | null;
+  proposed_by: string;
+  status: string;
+  round: number;
+}
+
+interface ServiceRaw {
+  service_id: string;
+  name: string;
+  description: string;
+  is_active: boolean;
+  duration_minutes: number;
+  guardrail_notice: string | null;
+}
+
+interface PersonaRaw {
+  persona_id: string;
+  relation_to_account_holder: string;
+  persona_name: string;
+  date_of_birth: string;
+}
+
+interface PersonaReviewRaw {
+  persona: {
+    persona_id: string;
+    relation_to_account_holder: string;
+    persona_name: string;
+    date_of_birth: string;
+    occupation: string | null;
+    nationality: string;
+    permanent_address: string;
+    present_address: string;
+    contact_number: string;
+    socmed_platform: string | null;
+    socmed_username: string | null;
+    preferred_contact_mode: string;
+    emergency_contact_name: string;
+    emergency_contact_relation: string;
+    emergency_contact_number: string;
+  };
+  consent: {
+    consent_version: string;
+    terms_signer_name: string;
+    terms_signer_relation: string;
+    scope_acknowledged: boolean;
+    is_overseas_or_foreign: boolean;
+    overseas_acknowledged: boolean;
+    information_confirmed: boolean;
+    consent_signer_name: string;
+    signed_at: string | null;
+  };
+}
+
+interface PaymentRaw {
+  payment_id: string;
+  appointment_id: string;
+  amount: number;
+  payment_method: string | null;
+  provider: string;
+  provider_ref: string | null;
+  checkout_url: string | null;
+  status: string;
+  paid_at: string | null;
+  created_at: string;
+}
+
+interface PsychologistProfileRaw {
+  psychologist_id: string;
+  full_name: string;
+  license_number: string | null;
+  specialization: string | null;
+  bio: string | null;
+  social_media_links: SocialMediaLink[];
+}
+
+interface AdminUserRaw {
+  user_id: string;
+  email: string;
+  role: CognitoRole;
+  full_name: string | null;
+  created_at: string;
+}
+
+interface AdminUserPageRaw {
+  items: AdminUserRaw[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+function mapAdminUserRaw(raw: AdminUserRaw): AdminUser {
+  return {
+    userId: raw.user_id,
+    email: raw.email,
+    role: raw.role,
+    fullName: raw.full_name ?? null,
+    createdAt: raw.created_at,
+  };
+}
+
+/**
+ * Anonymized display codes (RP-0x) mapped from real UUIDs at this boundary
+ * only. RP-01..RP-04 belong to the local marketing roster, so live codes start
+ * at RP-11. Full names from the backend never reach the UI.
+ */
+const anonymizedCodeByUuid = new Map<string, string>();
+let nextAnonymizedCode = 11;
+
+export function anonymizedPsychCode(uuid: string | null): string {
+  if (!uuid) return '';
+  const existing = anonymizedCodeByUuid.get(uuid);
+  if (existing) return existing;
+  const code = `RP-${String(nextAnonymizedCode++).padStart(2, '0')}`;
+  anonymizedCodeByUuid.set(uuid, code);
+  return code;
+}
+
+function durationLabel(minutes: number | null | undefined): string {
+  if (!minutes) return '—';
+  if (minutes < 60) return `${minutes} mins`;
+  if (minutes === 60) return '1 hr (60 mins)';
+  if (minutes === 90) return '1.5 hr (90 mins)';
+  if (minutes % 60 === 0) return `${minutes / 60} hrs`;
+  return `${Math.floor(minutes / 60)} hr ${minutes % 60} mins`;
+}
+
+function mapStatusToBookingStatus(
+  raw: string,
+  schedulingTurn: string | null
+): BookingStatus {
+  switch (raw) {
+    case 'awaiting_schedule':
+      return schedulingTurn === 'client' ? 'awaiting-client' : 'awaiting-review';
+    case 'awaiting_payment':
+      return 'awaiting-payment';
+    case 'confirmed':
+      return 'paid-confirmed';
+    case 'completed':
+      return 'completed';
+    case 'cancelled':
+      return 'cancelled';
+    default:
+      return 'pending';
+  }
+}
+
+function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
+  const status = mapStatusToBookingStatus(raw.status, raw.scheduling_turn);
+  const code = anonymizedPsychCode(raw.psychologist_id);
+  const contactUnlocked =
+    raw.status === 'confirmed' || raw.status === 'completed';
+  const durationMinutes = raw.service_duration_minutes ?? 60;
+
+  const psychologistSocialLinks = contactUnlocked
+    ? (raw.psychologist_social_links ?? [])
+    : undefined;
+  const clientSocialMedia =
+    raw.persona_socmed_platform || raw.persona_socmed_username
+      ? {
+          platform: raw.persona_socmed_platform ?? '',
+          username: raw.persona_socmed_username ?? '',
+        }
+      : undefined;
+
+  const proposedSlots = (raw.proposed_slots ?? []).map((slot, index) => {
+    const time =
+      slot.start_time.length === 5 ? slot.start_time : slot.start_time.slice(0, 5);
+    const iso = `${slot.session_date.slice(0, 10)}T${time}`;
+    const endTime = slot.end_time
+      ? slot.end_time.length === 5
+        ? slot.end_time
+        : slot.end_time.slice(0, 5)
+      : null;
+    const endIso = endTime ? `${slot.session_date.slice(0, 10)}T${endTime}` : undefined;
+    const { dateLabel, timeLabel } = formatSlotDateAndTime(iso, durationMinutes);
+    const slotStatus: SlotStatus =
+      slot.status === 'accepted' ||
+      slot.status === 'declined' ||
+      slot.status === 'expired'
+        ? slot.status
+        : 'proposed';
+    const proposedBy: SlotProposer =
+      slot.proposed_by === 'client' ? 'client' : 'psychologist';
+    return {
+      id: slot.slot_id,
+      slotNumber: index + 1,
+      isoDateTime: iso,
+      endIsoDateTime: endIso,
+      dateLabel,
+      timeLabel,
+      proposedBy,
+      status: slotStatus,
+      round: slot.round ?? 1,
+    };
+  });
+
+  return {
+    id: raw.appointment_id,
+    clientId: 'client-01',
+    personaId: raw.persona_id,
+    personaType: raw.persona_relation === 'self' ? 'self' : 'dependent',
+    personaLabel: raw.persona_name,
+    serviceId: raw.service_id,
+    serviceTitle: raw.service_name,
+    serviceDuration: durationLabel(raw.service_duration_minutes),
+    serviceDurationMinutes: durationMinutes,
+    serviceGuardrail: raw.service_guardrail ?? '',
+    concernsSummary: raw.presenting_concern,
+    submittedAt: raw.requested_datetime ? raw.requested_datetime.slice(0, 10) : '—',
+    status,
+    psychologistId: raw.psychologist_id ?? undefined,
+    psychologistCode: code ? `Resident Psychologist #${code}` : undefined,
+    pricePhp: raw.price ?? undefined,
+    proposedSlots,
+    schedulingTurn:
+      raw.scheduling_turn === 'client' || raw.scheduling_turn === 'psychologist'
+        ? raw.scheduling_turn
+        : undefined,
+    schedulingRound: raw.scheduling_round ?? 1,
+    paymentDeadline: raw.payment_deadline ?? undefined,
+    conflictingSlotIds: raw.conflicting_slot_ids ?? [],
+    selectedSlotId: raw.selected_slot_id ?? undefined,
+    contactUnlocked,
+    psychologistSocialLinks,
+    clientSocialMedia,
+    reminders: contactUnlocked
+      ? { reminder24h: 'scheduled', reminder1h: 'scheduled' }
+      : { reminder24h: 'pending', reminder1h: 'pending' },
+  };
+}
+
+function mapServiceRaw(raw: ServiceRaw, index: number): ServiceItem {
+  return {
+    id: raw.service_id,
+    indexNumber: String(index + 1).padStart(2, '0'),
+    title: raw.name ?? 'Service',
+    categoryGroup: '',
+    durationLabel: durationLabel(raw.duration_minutes),
+    durationMinutes: raw.duration_minutes || 60,
+    guardrailTitle: '',
+    guardrailNotice: raw.guardrail_notice ?? '',
+
+    description: raw.description ?? '',
+    clinicalFormat: '',
+  };
+}
+
+function mapPersonaRaw(raw: PersonaRaw): Persona {
+  const dob = String(raw.date_of_birth ?? '').slice(0, 10);
+  return {
+    id: raw.persona_id,
+    clientId: 'client-01',
+    type: raw.relation_to_account_holder === 'self' ? 'self' : 'dependent',
+    label: raw.persona_name,
+    ageGroup: isMinorDob(dob) ? 'Minor (<18)' : 'Adult (18+)',
+    relationshipToClient: raw.relation_to_account_holder ?? '',
+    preferredLanguage: '',
+    createdAt: '',
+  };
+}
+
+function mapPersonaReviewRaw(raw: PersonaReviewRaw): PersonaReview {
+  return {
+    persona: {
+      id: raw.persona.persona_id,
+      name: raw.persona.persona_name,
+      relationToAccountHolder: raw.persona.relation_to_account_holder,
+      dateOfBirth: raw.persona.date_of_birth,
+      occupation: raw.persona.occupation,
+      nationality: raw.persona.nationality,
+      permanentAddress: raw.persona.permanent_address,
+      presentAddress: raw.persona.present_address,
+      contactNumber: raw.persona.contact_number,
+      socmedPlatform: raw.persona.socmed_platform,
+      socmedUsername: raw.persona.socmed_username,
+      preferredContactMode: raw.persona.preferred_contact_mode,
+      emergencyContactName: raw.persona.emergency_contact_name,
+      emergencyContactRelation: raw.persona.emergency_contact_relation,
+      emergencyContactNumber: raw.persona.emergency_contact_number,
+    },
+    consent: {
+      version: raw.consent.consent_version,
+      termsSignerName: raw.consent.terms_signer_name,
+      termsSignerRelation: raw.consent.terms_signer_relation,
+      scopeAcknowledged: raw.consent.scope_acknowledged,
+      isOverseasOrForeign: raw.consent.is_overseas_or_foreign,
+      overseasAcknowledged: raw.consent.overseas_acknowledged,
+      informationConfirmed: raw.consent.information_confirmed,
+      consentSignerName: raw.consent.consent_signer_name,
+      signedAt: raw.consent.signed_at,
+    },
+  };
+}
+
+/** Guards against posting non-UUID ids where the backend parses UUIDs. */
+function assertUuid(value: string | undefined, label: string): string {
+  const isUuid =
+    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(value ?? '');
+  if (!isUuid) {
+    throw new Error(
+      `${label} is not a backend UUID (got "${value}"). Reload the page and select a server-loaded record.`
+    );
+  }
+  return value as string;
+}
+
+/** ISO datetime ('YYYY-MM-DDTHH:mm[...]') → SlotInput body row. */
+function toSlotPreference(isoDateTime: string) {
+  const clean = isoDateTime.slice(0, 16);
+  const sessionDate = clean.slice(0, 10);
+  const timePart = clean.slice(11, 16);
+  const [h, m] = timePart.split(':').map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) {
+    throw new Error(`Invalid slot datetime format: "${isoDateTime}"`);
+  }
+  return { session_date: sessionDate, start_time: `${timePart}:00` };
+}
+
+async function liveRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const { status, json } = await liveFetch(endpoint, options);
+  if (status < 200 || status >= 300) {
+    throw buildBackendError(endpoint, status, json);
+  }
+  return json as T;
+}
+
+function mapPsychologistProfileRaw(raw: PsychologistProfileRaw): ResidentPsychologist {
+  return {
+    id: raw.psychologist_id,
+    anonymizedTitle: `Resident Psychologist #${anonymizedPsychCode(raw.psychologist_id)}`,
+    prcCredentialCode: raw.license_number ?? '',
+    specialization: raw.specialization ?? '',
+    serviceEligibility: [],
+    languages: [],
+    yearsPractice: '',
+    visibleOnPublicRoster: true,
+    socialMediaLinks: raw.social_media_links ?? [],
+    bio: raw.bio ?? '',
+  };
+}
+
+async function fetchServices(endpoint: string): Promise<ServiceItem[]> {
+  const raw = await liveRequest<ServiceRaw[]>(endpoint);
+  const list = Array.isArray(raw) ? raw : [];
+  return list.map((service, index) => ({
+    ...mapServiceRaw(service, index),
+    ...(localServiceEdits[service.service_id] ?? {}),
+  }));
+}
+
 export const api = {
-  getConfigInfo: () => ({
-    apiUrl: API_BASE_URL,
-    authMode: AUTH_MODE,
-    flowVersion: 'Flow C Canonical',
-  }),
+  /**
+   * Public catalog — no authentication required. Booking surfaces use the
+   * authenticated getServices() below.
+   */
+  getPublicServices: async (): Promise<ServiceItem[]> => fetchServices('/services/active'),
 
   /**
-   * Services API
+   * Authenticated services API.
    */
-  getServices: async (): Promise<ServiceItem[]> =>
-    requestWithMockFallback('/api/v1/services', undefined, () => [...mockServices]),
+  getServices: async (): Promise<ServiceItem[]> => fetchServices('/services'),
 
+  /**
+   * Local-only CMS edit. The backend has no service mutation endpoint yet, so
+   * this keeps edits in memory for the CMS editor preview.
+   */
   updateServiceGuardrail: async (
     serviceId: string,
     payload: { durationLabel: string; guardrailTitle: string; guardrailNotice: string; description: string }
-  ): Promise<ServiceItem[]> =>
-    requestWithMockFallback(
-      `/api/v1/services/${serviceId}`,
-      { method: 'PATCH', body: JSON.stringify(payload) },
-      () => {
-        mockServices = mockServices.map((s) =>
-          s.id === serviceId ? { ...s, ...payload } : s
-        );
-        return [...mockServices];
-      }
-    ),
+  ): Promise<ServiceItem[]> => {
+    localServiceEdits = {
+      ...localServiceEdits,
+      [serviceId]: payload,
+    };
+    return fetchServices('/services');
+  },
 
   /**
-   * Resident Roster & Admin Credential Verification API
+   * Local-only marketing roster. No backend roster endpoint exists yet.
    */
-  getRoster: async (includeHiddenForAdmin = false): Promise<ResidentPsychologist[]> =>
-    requestWithMockFallback('/api/v1/roster', undefined, () =>
-      includeHiddenForAdmin
-        ? [...mockRoster]
-        : mockRoster.filter((r) => r.verificationStatus === 'verified' && r.visibleOnPublicRoster)
-    ),
+  getRoster: async (includeHiddenForAdmin = false): Promise<ResidentPsychologist[]> => {
+    const roster = includeHiddenForAdmin
+      ? localRoster
+      : localRoster.filter((resident) => resident.visibleOnPublicRoster);
+    return roster.map((resident) => ({ ...resident }));
+  },
 
-  updatePsychologistVerification: async (
-    psychId: string,
-    updates: Partial<Pick<ResidentPsychologist, 'verificationStatus' | 'visibleOnPublicRoster'>>
-  ): Promise<ResidentPsychologist[]> =>
-    requestWithMockFallback(
-      `/api/v1/admin/verifications/${psychId}`,
-      { method: 'PATCH', body: JSON.stringify(updates) },
-      () => {
-        mockRoster = mockRoster.map((r) => (r.id === psychId ? { ...r, ...updates } : r));
-        return [...mockRoster];
-      }
-    ),
+  /**
+   * Current psychologist's own profile.
+   */
+  getMyPsychologistProfile: async (): Promise<ResidentPsychologist> => {
+    const raw = await liveRequest<PsychologistProfileRaw>('/psychologist-profile/me');
+    return mapPsychologistProfileRaw(raw);
+  },
 
   updatePsychologistProfile: async (
-    psychId: string,
-    updates: Partial<Pick<ResidentPsychologist, 'specialization' | 'prcCredentialCode' | 'bio' | 'languages' | 'yearsPractice'>>
-  ): Promise<ResidentPsychologist> =>
-    requestWithMockFallback(
-      `/api/v1/psychologists/${psychId}/profile`,
-      { method: 'PATCH', body: JSON.stringify(updates) },
-      () => {
-        const idx = mockRoster.findIndex((r) => r.id === psychId);
-        if (idx === -1) throw new Error('Psychologist profile not found.');
-        mockRoster[idx] = { ...mockRoster[idx], ...updates };
-        return { ...mockRoster[idx] };
-      }
-    ),
+    updates: Partial<
+      Pick<
+        ResidentPsychologist,
+        'specialization' | 'prcCredentialCode' | 'bio' | 'socialMediaLinks'
+      >
+    >
+  ): Promise<ResidentPsychologist> => {
+    const raw = await liveRequest<PsychologistProfileRaw>('/psychologist-profile/me', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        specialization: updates.specialization,
+        bio: updates.bio,
+        license_number: updates.prcCredentialCode,
+        social_media_links: updates.socialMediaLinks,
+      }),
+    });
+    return mapPsychologistProfileRaw(raw);
+  },
 
   /**
    * Client Personas API
    */
-  getPersonas: async (): Promise<Persona[]> =>
-    requestWithMockFallback('/api/v1/personas', undefined, () => [...mockPersonas]),
+  getPersonas: async (): Promise<Persona[]> => {
+    const raw = await liveRequest<PersonaRaw[]>('/personas');
+    const list = Array.isArray(raw) ? raw : [];
+    return list.map(mapPersonaRaw);
+  },
 
-  createPersona: async (input: Partial<Omit<Persona, 'id' | 'clientId' | 'createdAt'>>): Promise<Persona> =>
-    requestWithMockFallback(
-      '/api/v1/personas',
-      { method: 'POST', body: JSON.stringify(input) },
-      () => {
-        const created: Persona = {
-          type: input.type ?? 'dependent',
-          label: input.label ?? 'Dependent Ward (Unlabeled)',
-          ageGroup: input.ageGroup ?? 'Adult (25–34)',
-          relationshipToClient: input.relationshipToClient ?? 'Self',
-          preferredLanguage: input.preferredLanguage ?? 'English / Taglish',
-          id: `persona-${input.type}-${Date.now().toString().slice(-4)}`,
-          clientId: 'client-01',
-          createdAt: new Date().toISOString().slice(0, 10),
-        };
-        mockPersonas = [...mockPersonas, created];
-        return created;
-      }
-    ),
+  getPersonaReview: async (personaId: string): Promise<PersonaReview> => {
+    const raw = await liveRequest<PersonaReviewRaw>(`/personas/${personaId}/review`);
+    return mapPersonaReviewRaw(raw);
+  },
 
   /**
-   * Persona creation wizard: single POST /personas creating persona + consent
-   * rows in one transaction. Backend remains source of truth; the mock below
-   * mirrors server validation so UI errors map to the right field/page.
-   * Nothing is sent until the wizard's final submit calls this once.
+   * Persona creation wizard: single POST creating persona + consent rows.
    */
-  createPersonaWithConsent: async (payload: PersonaWizardPayload): Promise<Persona> =>
-    requestWithMockFallback(
-      '/api/v1/personas',
-      { method: 'POST', body: JSON.stringify(payload) },
-      () => {
-        const fieldErrors: Record<string, string> = {};
-        const { persona, consent } = payload;
-        if (consent.consent_version !== CONSENT_VERSION) {
-          throw new Error(
-            'Consent version mismatch: reload the latest terms and re-sign before submitting.'
-          );
-        }
-        if (consent.scope_acknowledged !== true)
-          fieldErrors['consent.scope_acknowledged'] = 'Scope acknowledgement is required.';
-        if (consent.information_confirmed !== true)
-          fieldErrors['consent.information_confirmed'] = 'Information confirmation is required.';
-        if (consent.is_overseas_or_foreign && consent.overseas_acknowledged !== true)
-          fieldErrors['consent.overseas_acknowledged'] =
-            'Overseas acknowledgement is required for overseas clients.';
-        if (!persona.persona_name || persona.persona_name.trim().length < 2)
-          fieldErrors['persona.persona_name'] = 'Enter the persona full name.';
-        if (!persona.date_of_birth) fieldErrors['persona.date_of_birth'] = 'Date of birth is required.';
-        else if (isFutureDob(persona.date_of_birth))
-          fieldErrors['persona.date_of_birth'] = 'Date of birth cannot be in the future.';
-        else if (isMinorDob(persona.date_of_birth) && consent.terms_signer_relation === 'self')
-          fieldErrors['consent.terms_signer_relation'] =
-            'A minor cannot use signer relation "self".';
-        if (
-          normalizeName(consent.terms_signer_name).length > 0 &&
-          normalizeName(consent.consent_signer_name).length > 0 &&
-          normalizeName(consent.terms_signer_name) !== normalizeName(consent.consent_signer_name)
-        )
-          fieldErrors['consent.consent_signer_name'] =
-            'consent_signer_name must match terms_signer_name.';
-        if (!isValidPhone(persona.contact_number || '', consent.is_overseas_or_foreign))
-          fieldErrors['persona.contact_number'] = 'Enter a valid contact number.';
-        if (!isValidPhone(persona.emergency_contact_number || '', consent.is_overseas_or_foreign))
-          fieldErrors['persona.emergency_contact_number'] =
-            'Enter a valid emergency contact number.';
-        if (!persona.nationality || persona.nationality.trim().length < 2)
-          fieldErrors['persona.nationality'] = 'Enter nationality.';
-        if (!persona.permanent_address || persona.permanent_address.trim().length < 5)
-          fieldErrors['persona.permanent_address'] = 'Enter the permanent address.';
-        if (!persona.present_address || persona.present_address.trim().length < 5)
-          fieldErrors['persona.present_address'] = 'Enter the present address.';
-        if (Object.keys(fieldErrors).length > 0) {
-          throw new Error(`Persona validation failed. FIELDS:${JSON.stringify(fieldErrors)}`);
-        }
-        const created: Persona = {
-          id: `persona-wiz-${Date.now().toString().slice(-6)}`,
-          clientId: 'client-01',
-          type: persona.relation_to_account_holder === 'self' ? 'self' : 'dependent',
-          label: persona.persona_name,
-          ageGroup: `DOB ${persona.date_of_birth}`,
-          relationshipToClient: persona.relation_to_account_holder,
-          preferredLanguage: 'English / Taglish',
-          createdAt: new Date().toISOString().slice(0, 10),
-        };
-        mockPersonas = [...mockPersonas, created];
-        return created;
-      }
-    ),
+  createPersonaWithConsent: async (payload: PersonaWizardPayload): Promise<Persona> => {
+    const raw = await liveRequest<PersonaRaw>('/personas', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return mapPersonaRaw(raw);
+  },
 
   /**
-   * Flow C Bookings API with Tiered Role Filtering:
-   * - Client: sees only their own client-01 bookings (without private clinical notes)
-   * - Psychologist:
-   *    - queue: sees all 'pending' bookings
-   *    - schedule: sees ONLY bookings booked/picked-up under their psychologistId
-   * - Admin: sees preliminary booking metadata ONLY; privateClinicalNote is strictly redacted.
+   * Flow C Bookings API. The backend derives the caller's scope from the
+   * authenticated token — never from client-supplied role ids.
    */
   getBookingsForRole: async (
-    role: CognitoRole,
-    psychologistId = 'RP-01'
-  ): Promise<BookingRequest[]> =>
-    requestWithMockFallback(
-      `/api/v1/bookings?role=${role}&psychId=${psychologistId}`,
-      undefined,
-      () => {
-        if (role === 'client') {
-          return mockBookings
-            .filter((b) => b.clientId === 'client-01')
-            .map(({ privateClinicalNote: _redacted, ...rest }) => rest);
-        }
-        if (role === 'psychologist') {
-          return mockBookings.filter(
-            (b) => b.status === 'pending' || b.psychologistId === psychologistId
-          );
-        }
-        // Admin tier: strictly strip privateClinicalNote
-        return mockBookings.map(({ privateClinicalNote: _redacted, ...rest }) => rest);
-      }
-    ),
+    role: 'client' | 'psychologist'
+  ): Promise<BookingRequest[]> => {
+    if (role === 'client') {
+      const raw = await liveRequest<AppointmentRaw[]>('/appointments');
+      return (Array.isArray(raw) ? raw : []).map((appointment) =>
+        mapAppointmentRaw(appointment)
+      );
+    }
 
-  getBookingById: async (bookingId: string, role: CognitoRole = 'client'): Promise<BookingRequest | null> =>
-    requestWithMockFallback(`/api/v1/bookings/${bookingId}`, undefined, () => {
-      const found = mockBookings.find((b) => b.id === bookingId);
-      if (!found) return null;
-      if (role !== 'psychologist') {
-        const { privateClinicalNote: _redacted, ...safeBooking } = found;
-        return safeBooking;
-      }
-      return { ...found };
-    }),
+    const [pendingRows, mineRows] = await Promise.all([
+      liveRequest<AppointmentRaw[]>('/appointments/pending'),
+      liveRequest<AppointmentRaw[]>('/appointments/mine'),
+    ]);
+    const merged: BookingRequest[] = [];
+    const seen = new Set<string>();
+    for (const raw of [
+      ...(Array.isArray(pendingRows) ? pendingRows : []),
+      ...(Array.isArray(mineRows) ? mineRows : []),
+    ]) {
+      if (seen.has(raw.appointment_id)) continue;
+      seen.add(raw.appointment_id);
+      merged.push(mapAppointmentRaw(raw));
+    }
+    return merged;
+  },
+
+  getBookingById: async (bookingId: string): Promise<BookingRequest | null> => {
+    const { status, json } = await liveFetch(`/appointments/${bookingId}`);
+    if (status === 404) return null;
+    if (status < 200 || status >= 300) {
+      throw buildBackendError(`/appointments/${bookingId}`, status, json);
+    }
+    return mapAppointmentRaw(json as AppointmentRaw);
+  },
 
   /**
-   * Flow C Step 1: Client submits Persona + Booking Form -> enters 'pending' queue
+   * Flow C Step 1: Client submits Persona + Booking Form → pending queue.
    */
   submitBookingRequest: async (input: {
     personaId: string;
     serviceId: string;
-    preferredLanguage: string;
     concernsSummary: string;
-    specificNeeds: string;
-  }): Promise<BookingRequest> =>
-    requestWithMockFallback(
-      '/api/v1/bookings/intake',
-      { method: 'POST', body: JSON.stringify(input) },
-      () => {
-        const persona =
-          mockPersonas.find((p) => p.id === input.personaId) || mockPersonas[0];
-        const service =
-          mockServices.find((s) => s.id === input.serviceId) || mockServices[0];
-
-        const newBooking: BookingRequest = {
-          id: `BK-2026-${nextMockBookingSeq++}`,
-          clientId: 'client-01',
-          personaId: persona.id,
-          personaType: persona.type,
-          personaLabel: persona.label,
-          serviceId: service.id,
-          serviceTitle: service.title,
-          serviceDuration: service.durationLabel,
-          serviceGuardrail: service.guardrailNotice,
-          concernsSummary: input.concernsSummary,
-          specificNeeds: input.specificNeeds,
-          preferredLanguage: input.preferredLanguage,
-          submittedAt: new Date().toLocaleString('en-US', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-          }),
-          status: 'pending',
-          proposedSlots: [],
-          contactUnlocked: false,
-          reminders: {
-            reminder24h: 'pending',
-            reminder1h: 'pending',
-          },
-        };
-
-        mockBookings = [newBooking, ...mockBookings];
-        return newBooking;
-      }
-    ),
-
-  /**
-   * Flow C Step 3: Verified Psychologist picks up pending request + sets price + proposes 3 slots
-   */
-  pickUpAndProposeSlots: async (input: {
-    bookingId: string;
-    psychologistId: string;
-    pricePhp: number;
-    slot1DateTime: string;
-    slot2DateTime: string;
-    slot3DateTime: string;
-    clinicalPrepNote: string;
+    preferredSlots: string[];
   }): Promise<BookingRequest> => {
-    // If backend is active and using /appointments REST routes, execute dual pickup + slots endpoints
-    if (AUTH_MODE !== 'mock') {
-      const pickupRes = await fetchWithTimeout(
-        `${API_BASE_URL}/appointments/${input.bookingId}/pickup`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            psychologistId: input.psychologistId,
-            pricePhp: input.pricePhp,
-          }),
-        },
-        8000
-      );
-
-      if (pickupRes.status === 409 || pickupRes.status === 400) {
-        const errData = await pickupRes.json().catch(() => ({}));
-        throw new Error(
-          errData.message ||
-            `Request already claimed: Booking ${input.bookingId} has already been claimed by another psychologist.`
-        );
-      }
-      if (pickupRes.status === 403) {
-        throw new Error(
-          'Credential Guardrail: Unverified psychologists cannot pick up booking requests or propose slots.'
-        );
-      }
-
-      // If /appointments endpoint is not implemented (404), fail clearly without masking contract absence
-      if (pickupRes.status === 404) {
-        return requestWithMockFallback(
-          `/api/v1/bookings/${input.bookingId}/propose`,
-          { method: 'POST', body: JSON.stringify(input) },
-          () => {
-            throw new Error(
-              `Backend contract missing: neither /appointments/${input.bookingId}/pickup nor /api/v1/bookings/${input.bookingId}/propose are implemented on ${API_BASE_URL}.`
-            );
-          }
-        );
-      }
-
-      if (!pickupRes.ok) {
-        throw new Error(
-          `Pickup failed with HTTP ${pickupRes.status}: Unable to claim booking ${input.bookingId}.`
-        );
-      }
-
-      // CRITICAL (Copilot Finding 2): Pickup was successful! The appointment is now claimed.
-      // We MUST NOT fall back to legacy /propose or mock if slot submission fails,
-      // as that would leave the booking claimed without slots or double-claim.
-      const slotsRes = await fetchWithTimeout(
-        `${API_BASE_URL}/appointments/${input.bookingId}/slots`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            slots: [
-              { slotNumber: 1, dateTime: input.slot1DateTime },
-              { slotNumber: 2, dateTime: input.slot2DateTime },
-              { slotNumber: 3, dateTime: input.slot3DateTime },
-            ],
-            clinicalPrepNote: input.clinicalPrepNote,
-          }),
-        },
-        8000
-      );
-
-      if (!slotsRes.ok) {
-        let slotErr = `HTTP ${slotsRes.status}`;
-        try {
-          const slotData = await slotsRes.json();
-          if (slotData?.message) slotErr = slotData.message;
-        } catch {
-          // ignore
-        }
-        throw new Error(
-          `Appointment ${input.bookingId} was successfully claimed, but proposing slots failed (${slotErr}). Please check My Schedule or contact admin.`
-        );
-      }
-
-      return (await slotsRes.json()) as BookingRequest;
+    if (input.preferredSlots.length < 3) {
+      throw new Error('Choose at least 3 preferred schedules.');
     }
-
-    return requestWithMockFallback(
-      `/api/v1/bookings/${input.bookingId}/propose`,
-      { method: 'POST', body: JSON.stringify(input) },
-      () => {
-        const psych = mockRoster.find((r) => r.id === input.psychologistId);
-        if (!psych || psych.verificationStatus !== 'verified') {
-          throw new Error(
-            'Credential Guardrail: Unverified psychologists cannot pick up booking requests or propose slots.'
-          );
-        }
-
-        const target = mockBookings.find((b) => b.id === input.bookingId);
-        if (!target) {
-          throw new Error('Booking request not found.');
-        }
-
-        if (target.status !== 'pending') {
-          throw new Error(
-            `Request already claimed: Booking ${input.bookingId} has already been claimed by another psychologist (current status: ${target.status}). Please refresh your queue.`
-          );
-        }
-
-        const serviceObj = mockServices.find((s) => s.id === target.serviceId);
-        const durationMins = serviceObj?.durationMinutes || 60;
-
-        const s1 = formatSlotDateAndTime(input.slot1DateTime, durationMins);
-        const s2 = formatSlotDateAndTime(input.slot2DateTime, durationMins);
-        const s3 = formatSlotDateAndTime(input.slot3DateTime, durationMins);
-
-        const updated: BookingRequest = {
-          ...target,
-          status: 'proposed',
-          psychologistId: psych.id,
-          psychologistCode: psych.anonymizedTitle,
-          psychologistSpecialization: psych.specialization,
-          pricePhp: input.pricePhp,
-          clinicalPrepNote: input.clinicalPrepNote,
-          proposedSlots: [
-            {
-              id: `slot-${target.id}-1`,
-              slotNumber: 1,
-              isoDateTime: input.slot1DateTime,
-              dateLabel: s1.dateLabel,
-              timeLabel: s1.timeLabel,
-            },
-            {
-              id: `slot-${target.id}-2`,
-              slotNumber: 2,
-              isoDateTime: input.slot2DateTime,
-              dateLabel: s2.dateLabel,
-              timeLabel: s2.timeLabel,
-            },
-            {
-              id: `slot-${target.id}-3`,
-              slotNumber: 3,
-              isoDateTime: input.slot3DateTime,
-              dateLabel: s3.dateLabel,
-              timeLabel: s3.timeLabel,
-            },
-          ],
-          privateClinicalNote: `CONFIDENTIAL PSYCHOLOGIST NOTE (${psych.anonymizedTitle}): Booking reviewed and 3 slots proposed. Hidden from Admin tier.`,
-        };
-
-        mockBookings = mockBookings.map((b) => (b.id === input.bookingId ? updated : b));
-        return updated;
-      }
-    );
+    const body = {
+      persona_id: assertUuid(input.personaId, 'personaId'),
+      service_id: assertUuid(input.serviceId, 'serviceId'),
+      presenting_concern: input.concernsSummary,
+      preferred_slots: input.preferredSlots.map(toSlotPreference),
+    };
+    const raw = await liveRequest<AppointmentRaw>('/appointments', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    return mapAppointmentRaw(raw);
   },
 
   /**
-   * Flow C Step 4: Client selects 1 of 3 slots and completes payment.
-   * Finalized ONLY on payment success -> unlocks contact + schedules 24h/1h reminders.
+   * Psychologist atomically claims a pending request, sets the session price,
+   * and either accepts a client-preferred schedule or offers one alternative.
    */
-  confirmSlotAndPay: async (input: {
+  pickUpBooking: async (input: {
     bookingId: string;
-    selectedSlotId: string;
-    simulateFailure?: boolean;
-  }): Promise<BookingRequest> =>
-    requestWithMockFallback(
-      `/api/v1/bookings/${input.bookingId}/pay`,
-      { method: 'POST', body: JSON.stringify(input) },
-      () => {
-        if (input.simulateFailure) {
-          throw new Error(
-            'Payment Declined (Simulated Stripe Error): Booking is NOT finalized and contact channels remain locked until payment succeeds.'
-          );
-        }
+    pricePhp: number;
+    slotId?: string;
+    counterDateTime?: string;
+  }): Promise<BookingRequest> => {
+    const hasSlot = Boolean(input.slotId);
+    const hasCounter = Boolean(input.counterDateTime);
+    if (hasSlot === hasCounter) {
+      throw new Error('Choose a preferred schedule or offer an alternative.');
+    }
 
-        const target = mockBookings.find((b) => b.id === input.bookingId);
-        if (!target) {
-          throw new Error('Booking not found.');
-        }
+    const body: Record<string, unknown> = { price: input.pricePhp };
+    if (input.slotId) {
+      body.slot_id = assertUuid(input.slotId, 'slotId');
+    } else if (input.counterDateTime) {
+      body.counter_slot = toSlotPreference(input.counterDateTime);
+    }
 
-        const updated: BookingRequest = {
-          ...target,
-          status: 'paid-confirmed',
-          selectedSlotId: input.selectedSlotId,
-          paidAt: new Date().toLocaleString('en-US', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-          }),
-          contactUnlocked: true,
-          unlockedContact: {
-            teletherapyUrl: `https://session.psychaveph.clinical/room/${target.id}-${target.psychologistId || 'RP01'}`,
-            coordinationEmail: 'psychaveph.info@gmail.com',
-            sessionReferenceCode: `CONF-${target.psychologistId || 'RP01'}-${target.id.slice(-3)}`,
-            emergencyProtocolNote:
-              'Contact unlocked for both Client and Assigned Psychologist. Automated 24h and 1h reminders are scheduled.',
-          },
-          reminders: {
-            reminder24h: 'scheduled',
-            reminder1h: 'scheduled',
-          },
-        };
+    const path = `/appointments/${assertUuid(input.bookingId, 'bookingId')}/pickup`;
+    const pickupRes = await liveFetch(path, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
 
-        mockBookings = mockBookings.map((b) => (b.id === input.bookingId ? updated : b));
-        return updated;
+    if (pickupRes.status === 404) {
+      throw new Error(
+        `Booking ${input.bookingId} was not found on ${API_BASE_URL} — it may belong to another client or no longer be on the queue.`
+      );
+    }
+    if (pickupRes.status === 409 || pickupRes.status === 400) {
+      const detail = (pickupRes.json as { detail?: unknown } | null)?.detail;
+      const detailText = typeof detail === 'string' ? detail : '';
+      if (
+        /already been picked up|no longer pending/i.test(detailText) ||
+        !detailText
+      ) {
+        throw new Error(
+          `Request already claimed: Booking ${input.bookingId} has already been claimed by another psychologist. Please refresh your queue.`
+        );
       }
-    ),
+      throw new Error(detailText);
+    }
+    if (pickupRes.status === 422) {
+      const detail =
+        (pickupRes.json as { detail?: unknown } | null)?.detail ??
+        'Add at least one social media link to your profile before accepting booking requests.';
+      throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+    }
+    if (pickupRes.status < 200 || pickupRes.status >= 300) {
+      throw buildBackendError(path, pickupRes.status, pickupRes.json);
+    }
+
+    return mapAppointmentRaw(pickupRes.json as AppointmentRaw);
+  },
+
+  /** Psychologist accepts one of the client's preferred schedules. */
+  acceptPreferredSlot: async (input: {
+    bookingId: string;
+    slotId: string;
+  }): Promise<BookingRequest> => {
+    const raw = await liveRequest<AppointmentRaw>(
+      `/appointments/${assertUuid(input.bookingId, 'bookingId')}/accept-preferred-slot`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ slot_id: assertUuid(input.slotId, 'slotId') }),
+      }
+    );
+    return mapAppointmentRaw(raw);
+  },
+
+  /** Psychologist offers exactly one nearest/earliest alternative. */
+  counterOffer: async (input: {
+    bookingId: string;
+    dateTime: string;
+  }): Promise<BookingRequest> => {
+    const raw = await liveRequest<AppointmentRaw>(
+      `/appointments/${assertUuid(input.bookingId, 'bookingId')}/counter-offer`,
+      {
+        method: 'POST',
+        body: JSON.stringify(toSlotPreference(input.dateTime)),
+      }
+    );
+    return mapAppointmentRaw(raw);
+  },
+
+  /** Client accepts the psychologist's counter-offer. */
+  acceptCounterSlot: async (input: {
+    bookingId: string;
+    slotId: string;
+  }): Promise<BookingRequest> => {
+    const raw = await liveRequest<AppointmentRaw>(
+      `/appointments/${assertUuid(input.bookingId, 'bookingId')}/accept-slot`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ slot_id: assertUuid(input.slotId, 'slotId') }),
+      }
+    );
+    return mapAppointmentRaw(raw);
+  },
+
+  /** Client submits a fresh set of preferred schedules. */
+  replacePreferredSlots: async (input: {
+    bookingId: string;
+    preferredSlots: string[];
+  }): Promise<BookingRequest> => {
+    if (input.preferredSlots.length < 3) {
+      throw new Error('Choose at least 3 preferred schedules.');
+    }
+    const raw = await liveRequest<AppointmentRaw>(
+      `/appointments/${assertUuid(input.bookingId, 'bookingId')}/preferred-slots`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          slots: input.preferredSlots.map(toSlotPreference),
+        }),
+      }
+    );
+    return mapAppointmentRaw(raw);
+  },
+
+  /** Pay for an already-agreed slot. Contact unlocks only after confirmation. */
+  payBooking: async (bookingId: string): Promise<BookingRequest> => {
+    const path = `/appointments/${assertUuid(bookingId, 'bookingId')}/payment`;
+    const payRes = await liveFetch(path, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+    if (payRes.status < 200 || payRes.status >= 300) {
+      throw buildBackendError(path, payRes.status, payRes.json);
+    }
+    const payment = payRes.json as PaymentRaw | null;
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const appointment = await liveFetch(`/appointments/${bookingId}`);
+      if (appointment.status >= 200 && appointment.status < 300) {
+        const raw = appointment.json as AppointmentRaw;
+        if (raw.status === 'confirmed') {
+          return mapAppointmentRaw(raw);
+        }
+        if (raw.status === 'cancelled') break;
+      }
+    }
+
+    throw new Error(
+      `Payment initiated (provider: ${payment?.provider ?? 'gateway'}, ref: ${payment?.provider_ref ?? 'n/a'}) but not yet confirmed — contact stays locked until the provider webhook marks it paid.${payment?.checkout_url ? ` Checkout URL: ${payment.checkout_url}` : ''}`
+    );
+  },
+
+  cancelBooking: async (bookingId: string): Promise<BookingRequest> => {
+    const raw = await liveRequest<AppointmentRaw>(`/appointments/${bookingId}`, {
+      method: 'DELETE',
+    });
+    return mapAppointmentRaw(raw);
+  },
+
+  completeAppointment: async (bookingId: string): Promise<BookingRequest> => {
+    const raw = await liveRequest<AppointmentRaw>(
+      `/appointments/${bookingId}/complete`,
+      { method: 'POST' }
+    );
+    return mapAppointmentRaw(raw);
+  },
 
   /**
-   * Flow C Step 5: Real-time status updates for Reschedule / Cancel / Reminder dispatch
+   * Admin user directory & role management API.
    */
-  updateBookingLifecycleStatus: async (input: {
-    bookingId: string;
-    action: 'cancel' | 'request-reschedule' | 'dispatch-reminders';
-  }): Promise<BookingRequest> =>
-    requestWithMockFallback(
-      `/api/v1/bookings/${input.bookingId}/lifecycle`,
-      { method: 'PATCH', body: JSON.stringify(input) },
-      () => {
-        const target = mockBookings.find((b) => b.id === input.bookingId);
-        if (!target) throw new Error('Booking not found');
+  getAdminUsers: async ({
+    search = '',
+    role,
+    page = 1,
+    pageSize = 10,
+  }: {
+    search?: string;
+    role?: CognitoRole | 'all';
+    page?: number;
+    pageSize?: number;
+  } = {}): Promise<AdminUserPage> => {
+    const safePage = Math.max(1, Math.floor(page));
+    const safePageSize = Math.min(100, Math.max(1, Math.floor(pageSize)));
+    const params = new URLSearchParams({
+      page: String(safePage),
+      page_size: String(safePageSize),
+    });
+    if (search.trim()) params.set('search', search.trim());
+    if (role && role !== 'all') params.set('role', role);
 
-        let updated: BookingRequest = { ...target };
-        if (input.action === 'cancel') {
-          updated.status = 'cancelled';
-        } else if (input.action === 'request-reschedule') {
-          updated.status = 'reschedule-requested';
-        } else if (input.action === 'dispatch-reminders') {
-          updated.reminders = {
-            reminder24h: 'dispatched',
-            reminder1h: 'dispatched',
-          };
-        }
+    const data = await liveRequest<AdminUserPageRaw>(
+      `/admin/users?${params.toString()}`
+    );
+    return {
+      items: data.items.map(mapAdminUserRaw),
+      total: data.total,
+      page: data.page,
+      pageSize: data.page_size,
+    };
+  },
 
-        mockBookings = mockBookings.map((b) => (b.id === input.bookingId ? updated : b));
-        return updated;
-      }
-    ),
+  updateAdminUserRole: async (
+    userId: string,
+    payload: { role: CognitoRole; fullName?: string }
+  ): Promise<AdminUser> => {
+    const raw = await liveRequest<AdminUserRaw>(`/admin/users/${userId}/role`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        role: payload.role,
+        full_name: payload.fullName,
+      }),
+    });
+    return mapAdminUserRaw(raw);
+  },
 
   /**
-   * Update psychologist-only private note (strictly hidden from Admin/Client)
+   * Local-only CMS content. There is no CMS backend yet.
    */
-  updatePrivatePsychNote: async (input: {
-    bookingId: string;
-    privateClinicalNote: string;
-  }): Promise<BookingRequest> =>
-    requestWithMockFallback(
-      `/api/v1/bookings/${input.bookingId}/private-note`,
-      { method: 'PATCH', body: JSON.stringify(input) },
-      () => {
-        const target = mockBookings.find((b) => b.id === input.bookingId);
-        if (!target) throw new Error('Booking not found');
-        const updated: BookingRequest = {
-          ...target,
-          privateClinicalNote: input.privateClinicalNote,
-        };
-        mockBookings = mockBookings.map((b) => (b.id === input.bookingId ? updated : b));
-        return updated;
-      }
-    ),
+  getCmsContent: async (): Promise<CmsContent> => JSON.parse(JSON.stringify(localCms)),
 
-  /**
-   * Admin Payload CMS Content API
-   */
-  getCmsContent: async (): Promise<CmsContent> =>
-    requestWithMockFallback('/api/v1/cms', undefined, () =>
-      JSON.parse(JSON.stringify(mockCms))
-    ),
-
-  updateCmsContent: async (partial: Partial<CmsContent>): Promise<CmsContent> =>
-    requestWithMockFallback(
-      '/api/v1/cms',
-      { method: 'PATCH', body: JSON.stringify(partial) },
-      () => {
-        mockCms = {
-          ...mockCms,
-          ...partial,
-        };
-        return JSON.parse(JSON.stringify(mockCms));
-      }
-    ),
+  updateCmsContent: async (partial: Partial<CmsContent>): Promise<CmsContent> => {
+    localCms = {
+      ...localCms,
+      ...partial,
+    };
+    return JSON.parse(JSON.stringify(localCms));
+  },
 };

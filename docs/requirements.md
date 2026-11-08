@@ -17,8 +17,8 @@
 
 ### 1.3 Psychologist Pick-Up & Proposal (Official)
 
-- A verified psychologist picks up a pending request, sets the session price, and proposes exactly 3 candidate date/time options.
-- Gate: hidden roster + no pick-up until admin approves credentials.
+- A psychologist promoted by an admin picks up a pending request, sets the session price, and proposes exactly 3 candidate date/time options.
+- Gate: no pick-up until an admin promotes the client account and supplies the psychologist profile.
 
 ### 1.4 Client Selection & Payment (Official)
 
@@ -48,28 +48,28 @@
 ## 3. Psychiatric Services & Information Hub
 
 - **About PsychAvenuePH (Main Page):** Landing page introducing mission, purpose connecting clients with trusted local specialists, and overview of scheduling system. About Us children per sitemap: resident roster section, Vision & Mission (copy pending), Clinic Overview and Impact (copy pending). See `site-map.md`.
-- **Doctor Profiles:** Roster section only in docs (individual profiles omitted). Each verified profile shows specialization, spoken languages, and general availability; visible publicly only after admin verification.
+- **Doctor Profiles:** Roster section only in docs (individual profiles omitted). Each promoted psychologist profile shows specialization, spoken languages, and general availability; visible publicly once the admin promotes the account.
 - **Service Catalog:** Canonical details live in `services-catalog.md` — Consultation 45min (screening, not full therapy), Individual 1hr, Couples 1.5hr (15-min breakouts), Family/Group 2hr (psychologist autonomy), Life Coaching (not a therapy substitute), Clinical Supervision (internal + external), Academic & Research (thesis supervision + data analysis, no full-write). Admin CMS manages catalog entries (official plan also lists teleconsultation / face-to-face / evaluations / prescription refills as examples; deck catalog is normative).
 - **Testimonials:** Section exists per deck; personal quotes omitted from docs. CMS must support add/hide with consent flag.
 
 ## 4. Platform Security & Guardrails (Official)
 
-- **Credential Verification Gate:** Psychologist accounts remain hidden from public roster and cannot pick up appointment requests until the System Administrator manually reviews and approves credentials.
+- **Role Assignment Gate:** Self-service registration always creates a client account. Only an administrator can promote a client to psychologist, supplying the psychologist profile (full name required). Promoted psychologists can pick up appointment requests.
 - **Tiered Access Control:**
   - Clients can only view their own booking history across all personas linked to their account.
   - Psychologists can only access schedules and details of clients/personas booked under them.
-  - Administrators manage user roles, psychologist approvals, and platform CMS content — without accessing private consultation details or session notes.
+  - Administrators promote clients to psychologists, manage user roles, and platform CMS content — without accessing private consultation details or session notes.
 - **Authentication:** Identity and login via AWS Cognito; role membership (client / psychologist / admin) enforced through Cognito Groups and verified on every request.
 
 ## 5. Functional Requirements Summary (Official)
 
 - FR-1: Client can submit booking for self or persona; booking forms recorded; request enters pending queue.
-- FR-2: Verified psychologist can pick up pending request, set price, propose exactly 3 times. Unverified cannot pick up.
+- FR-2: Promoted psychologist can pick up a pending request, set price, and propose exactly 3 times. Non-promoted users cannot pick up.
 - FR-3: Client can review 3 proposals, select 1, complete payment; appointment finalized only on payment success.
 - FR-4: System sends new-request → psychologists, proposal → client, payment confirmation → both; 24h/1h reminders; real-time status updates.
 - FR-5: Psychologist sees only own picked-up/booked schedules; client sees only own history across personas.
-- FR-6: Public sees landing, services, verified roster section only.
-- FR-7: Admin verifies credentials to unhide roster + enable pick-up; manages roles/CMS without session-note access.
+- FR-6: Public sees landing, services, promoted roster section only.
+- FR-7: Admin promotes clients to psychologists with profile details; manages roles/CMS without session-note access.
 - FR-8: Auth via Cognito Groups verified per request.
 - FR-9: Contact info unlock only after verified payment.
 - FR-10: Public Book-a-session fallback shows Facebook link + `psychaveph.info@gmail.com` (permanent, external). See `site-map.md`.
@@ -78,7 +78,7 @@
 ## 6. Non-Functional / Guardrails
 
 - Secure handling of booking forms and consultation details per tiered access; no admin session-note access.
-- Auditability of pick-up/approvals/assignments (currently missing in models — see conflict doc).
+- Auditability of pick-up/role-promotions/assignments (currently missing in models — see conflict doc).
 - Usability goal from Sept 9: make it easier for both client and admins; visible history; clinic info; easier booking/payment; calendar.
 
 ## Sources

@@ -1,18 +1,17 @@
 # PSYCHAVE PH (`PsychAvenuePH`) — Frontend Prototype (`frontend/`)
 
-Clickable Next.js (App Router) + TypeScript frontend prototype for **PsychAvenuePH**, implementing **Official Booking Flow C**, tiered AWS Cognito Groups role views (`client` / `psychologist` / `admin`), React Hook Form + Zod validation, Zustand state, and TanStack Query with automatic mock fallback in `frontend/lib/api.ts`.
+Next.js (App Router) + TypeScript frontend for **PsychAvenuePH**, implementing **Official Booking Flow C**, tiered AWS Cognito Groups role views (`client` / `psychologist` / `admin`), React Hook Form + Zod validation, Zustand state, and TanStack Query against the authenticated FastAPI backend.
 
 ---
 
 ## Quick Start (`npm install && npm run dev`)
 
 1. Copy the `frontend/` directory into the root of your repository alongside `backend/`.
-2. Configure environment variables (or rely on built-in mock defaults):
+2. Configure environment variables:
 
 ```bash
 # frontend/.env.local
 NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_AUTH_MODE=mock
 ```
 
 3. Install dependencies and start the development server:
@@ -47,18 +46,18 @@ frontend/
 │   │   ├── queue/page.tsx          # /psych/queue (Pending queue + verified pick-up + 3-slot proposal)
 │   │   └── schedule/page.tsx       # /psych/schedule (Booked-under-them only + private clinical notes)
 │   └── admin/
-│       ├── verifications/page.tsx  # /admin/verifications (Approve/Hide roster, session notes redacted)
-│       └── cms/page.tsx            # /admin/cms (Payload CMS editors for services, roster, testimonials, Vision/Mission)
+│       ├── users/page.tsx          # /admin/users (Authenticated user directory + role changes)
+│       └── cms/page.tsx            # /admin/cms (local-only CMS preview until a backend exists)
 ├── components/
-│   ├── SiteHeader.tsx              # Brand wordmark, public nav, Cognito role switcher, demo banner
+│   ├── SiteHeader.tsx              # Brand wordmark, public nav, authenticated workspace links
 │   ├── SiteFooter.tsx              # Quiet clinical footer
 │   ├── TestimonialsConsentSection.tsx # Empty testimonial cards + consent-flag governance note
 │   └── ui/primitives.tsx           # Shadcn-style accessible primitives
 ├── lib/
-│   ├── api.ts                      # Single API client hitting NEXT_PUBLIC_API_URL with mock fallback
+│   ├── api.ts                      # Single authenticated API client hitting NEXT_PUBLIC_API_URL
 │   ├── navigation.tsx              # Universal App Router navigation wrapper
 │   ├── schemas.ts                  # Zod validation schemas for Persona, Booking, 3-Slot Proposal, Payment, CMS
 │   └── types.ts                    # Domain TypeScript interfaces
 └── stores/
-    └── useAppStore.ts              # Zustand store for Cognito role switch, booking draft, and Flow C events
+    └── useAppStore.ts              # Zustand store for booking draft and Flow C events
 ```

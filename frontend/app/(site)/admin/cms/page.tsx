@@ -132,7 +132,7 @@ export default function AdminCmsPage() {
     <div className="space-y-10">
       <header className="space-y-2 border-b border-mist pb-6">
         <div className="flex items-center gap-2 text-xs text-accent-ink font-semibold">
-          <span>Admin Role Dashboard</span>
+          <span>Admin Dashboard</span>
           <span aria-hidden="true">·</span>
           <span>Payload CMS Content &amp; Guardrail Editors</span>
         </div>
@@ -144,6 +144,14 @@ export default function AdminCmsPage() {
           structure, and consent-flagged testimonial cards. No private session notes are accessible.
         </p>
       </header>
+
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-xs text-amber-950">
+        <p className="font-semibold">Local preview only</p>
+        <p className="mt-1 leading-relaxed">
+          CMS content is stored in this browser session and is not persisted until a CMS backend is
+          added. The Users page and all operational data are fully backed by the authenticated API.
+        </p>
+      </div>
 
       {/* Segmented CMS Section Switcher */}
       <div
@@ -188,7 +196,8 @@ export default function AdminCmsPage() {
               Vision, Mission, Clinic Overview &amp; Consent-Flag Governance
             </h2>
             <p className="text-xs text-pine/70">
-              Changes made here update the <code>/about</code> and <code>/</code> public pages immediately.
+              Changes made here update the local <code>/about</code> and <code>/</code> preview
+              immediately, but are not persisted across reloads.
             </p>
           </div>
 

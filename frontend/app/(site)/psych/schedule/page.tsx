@@ -1,56 +1,158 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../../lib/api';
-import { useAppStore } from '../../../../stores/useAppStore';
+import { useActivePsychologist } from '../../../../hooks/useActivePsychologist';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, Video, ShieldCheck, CalendarDays } from 'lucide-react';
-import { PractitionerSwitcher } from '../../../../components/dashboard/PractitionerSwitcher';
-import { UnverifiedBanner } from '../../../../components/dashboard/UnverifiedBanner';
-import { DemoDataTag } from '../../../../components/DemoDataTag';
+import { AlertCircle, AlertTriangle, ChevronDown, CalendarDays, Clock } from 'lucide-react';
+import type { BookingRequest } from '../../../../lib/types';
+import {
+  agreedSlot,
+  clientPreferredSlots,
+  formatDeadlineCountdown,
+  formatManilaDateTime,
+  psychologistCounterSlot,
+} from '../../../../lib/booking';
 import {
   BookingStatusTag,
   Button,
   Card,
+  Checkbox,
   EmptyState,
+  Input,
+  Label,
+  Modal,
   Skeleton,
-  Textarea,
 } from '../../../../components/ui/primitives';
 
-type ScheduleTab = 'upcoming' | 'past' | 'proposed' | 'all';
+function formatForManilaInput(d: Date): string {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(d);
+  const getPart = (type: string) => parts.find((p) => p.type === type)?.value || '00';
+  const year = getPart('year');
+  const month = getPart('month');
+  const day = getPart('day');
+  let hour = getPart('hour');
+  if (hour === '24') hour = '00';
+  const minute = getPart('minute');
+  return `${year}-${month}-${day}T${hour}:${minute}`;
+}
+
+type ScheduleTab =
+  | 'upcoming'
+  | 'past'
+  | 'negotiating'
+  | 'awaiting-payment'
+  | 'all';
 
 export default function PsychologistSchedulePage() {
-  const queryClient = useQueryClient();
   const router = useRouter();
-  const {
-    activePsychologistId,
-    publishFlowEvent,
-  } = useAppStore();
+  const queryClient = useQueryClient();
+  const { activePsych } = useActivePsychologist();
 
   const [activeTab, setActiveTab] = useState<ScheduleTab>('upcoming');
   const [expandedBookingIds, setExpandedBookingIds] = useState<Record<string, boolean>>({});
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [noteDraft, setNoteDraft] = useState<string>('');
+  const [completionTarget, setCompletionTarget] = useState<BookingRequest | null>(null);
+  const [earlyCompletionAcknowledged, setEarlyCompletionAcknowledged] = useState(false);
+  const [reviewTargetId, setReviewTargetId] = useState<string | null>(null);
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+  const [counterDateTime, setCounterDateTime] = useState('');
 
-  const { data: roster = [] } = useQuery({
-    queryKey: ['roster', 'admin'],
-    queryFn: () => api.getRoster(true),
+  const minDateTime = useMemo(() => formatForManilaInput(new Date()), []);
+
+  const { data: bookings = [], isLoading, error: bookingsError } = useQuery({
+    queryKey: ['bookings', 'psychologist'],
+    queryFn: () => api.getBookingsForRole('psychologist'),
   });
 
-  const activePsych =
-    roster.find((r) => r.id === activePsychologistId) || roster[0];
-  const isVerified = activePsych?.verificationStatus === 'verified';
-
-  const { data: bookings = [], isLoading } = useQuery({
-    queryKey: ['bookings', 'psychologist', activePsychologistId],
-    queryFn: () => api.getBookingsForRole('psychologist', activePsychologistId),
+  const completeMutation = useMutation({
+    mutationFn: (bookingId: string) => api.completeAppointment(bookingId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      setCompletionTarget(null);
+      setEarlyCompletionAcknowledged(false);
+    },
   });
 
-  // Strictly filter to sessions booked/picked-up under the active psychologist
-  const myAssignedSessions = useMemo(() => {
-    return bookings.filter((b) => b.psychologistId === activePsychologistId);
-  }, [bookings, activePsychologistId]);
+  const reviewMutation = useMutation({
+    mutationFn: async (values: {
+      bookingId: string;
+      slotId?: string;
+      counterDateTime?: string;
+    }) => {
+      if (values.slotId) {
+        return await api.acceptPreferredSlot({
+          bookingId: values.bookingId,
+          slotId: values.slotId,
+        });
+      }
+      if (values.counterDateTime) {
+        return await api.counterOffer({
+          bookingId: values.bookingId,
+          dateTime: values.counterDateTime,
+        });
+      }
+      throw new Error('Choose a preferred schedule or offer an alternative.');
+    },
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['booking', updated.id] });
+      setReviewTargetId(null);
+      setSelectedSlotId(null);
+      setCounterDateTime('');
+    },
+  });
+
+  // getBookingsForRole('psychologist') also returns the open pending queue.
+  // This page only owns requests already claimed by this psychologist.
+  const myAssignedSessions = bookings.filter((session) => session.psychologistId);
+  const reviewTarget =
+    myAssignedSessions.find(
+      (session) =>
+        session.id === reviewTargetId && session.status === 'awaiting-review'
+    ) ?? null;
+  const reviewPreferredSlots = reviewTarget
+    ? clientPreferredSlots(reviewTarget)
+    : [];
+  const reviewConflictIds = new Set(reviewTarget?.conflictingSlotIds ?? []);
+
+  const openReviewModal = (session: BookingRequest) => {
+    reviewMutation.reset();
+    setReviewTargetId(session.id);
+    setCounterDateTime('');
+    const conflicts = new Set(session.conflictingSlotIds ?? []);
+    const firstAvailable = clientPreferredSlots(session).find(
+      (slot) => !conflicts.has(slot.id)
+    );
+    setSelectedSlotId(firstAvailable?.id ?? null);
+  };
+
+  const closeReviewModal = () => {
+    if (reviewMutation.isPending) return;
+    reviewMutation.reset();
+    setReviewTargetId(null);
+    setSelectedSlotId(null);
+    setCounterDateTime('');
+  };
+
+  const handleReviewSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!reviewTarget) return;
+    reviewMutation.mutate({
+      bookingId: reviewTarget.id,
+      slotId: selectedSlotId ?? undefined,
+      counterDateTime: counterDateTime || undefined,
+    });
+  };
 
   const [currentTime, setCurrentTime] = useState(() => Date.now());
 
@@ -62,42 +164,94 @@ export default function PsychologistSchedulePage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Determine if a session slot is upcoming or past based on current clock (Asia/Manila)
-  const isSlotPast = (isoString?: string) => {
-    if (!isoString) return false;
+  const parseSlotDate = (isoString?: string) => {
+    if (!isoString) return null;
     const hasTimezone = /[zZ]|([+-]\d{2}:?\d{2})$/.test(isoString);
     const normalized = hasTimezone ? isoString : `${isoString}+08:00`;
     const slotDate = new Date(normalized);
-    return !isNaN(slotDate.getTime()) && slotDate.getTime() < currentTime;
+    return Number.isNaN(slotDate.getTime()) ? null : slotDate;
   };
 
-  // Categorize sessions into upcoming, past, and proposed
+  // Determine if a session slot is upcoming or past based on current clock (Asia/Manila)
+  const isSlotPast = (isoString?: string) => {
+    const slotDate = parseSlotDate(isoString);
+    return slotDate !== null && slotDate.getTime() < currentTime;
+  };
+
+  const selectedSlotFor = (session: BookingRequest) =>
+    session.proposedSlots.find((slot) => slot.id === session.selectedSlotId);
+
+  const slotEndTime = (session: BookingRequest) => {
+    const slot = selectedSlotFor(session);
+    if (!slot) return null;
+    const exactEnd = parseSlotDate(slot.endIsoDateTime);
+    if (exactEnd) return exactEnd.getTime();
+    const start = parseSlotDate(slot.isoDateTime);
+    if (!start) return null;
+    return start.getTime() + session.serviceDurationMinutes * 60_000;
+  };
+
+  // Categorize sessions into upcoming, past, negotiating, and awaiting payment.
   const categorizedSessions = useMemo(() => {
     const upcoming: typeof myAssignedSessions = [];
     const past: typeof myAssignedSessions = [];
-    const proposed: typeof myAssignedSessions = [];
+    const negotiating: typeof myAssignedSessions = [];
+    const awaitingPayment: typeof myAssignedSessions = [];
 
     myAssignedSessions.forEach((session) => {
-      if (session.status === 'paid-confirmed') {
-        const confirmedSlot = session.proposedSlots.find(
-          (s) => s.id === session.selectedSlotId
-        );
+      if (session.status === 'completed') {
+        past.push(session);
+      } else if (session.status === 'paid-confirmed') {
+        const confirmedSlot = agreedSlot(session);
         if (confirmedSlot && isSlotPast(confirmedSlot.isoDateTime)) {
           past.push(session);
         } else {
           upcoming.push(session);
         }
-      } else if (session.status === 'proposed') {
-        proposed.push(session);
+      } else if (session.status === 'awaiting-payment') {
+        awaitingPayment.push(session);
+      } else if (
+        session.status === 'awaiting-review' ||
+        session.status === 'awaiting-client'
+      ) {
+        negotiating.push(session);
       }
-      // Note: reschedule-requested and cancelled sessions are kept out of Past Confirmed
-      // and remain cataloged under 'all' (All Assigned).
+      // Note: cancelled sessions remain cataloged under 'all' (All Assigned).
     });
 
-    return { upcoming, past, proposed, all: myAssignedSessions };
+    return {
+      upcoming,
+      past,
+      negotiating,
+      awaitingPayment,
+      all: myAssignedSessions,
+    };
   }, [myAssignedSessions, currentTime]);
 
-  const displayedSessions = categorizedSessions[activeTab];
+  const displayedSessions =
+    activeTab === 'awaiting-payment'
+      ? categorizedSessions.awaitingPayment
+      : activeTab === 'negotiating'
+        ? categorizedSessions.negotiating
+        : activeTab === 'upcoming'
+          ? categorizedSessions.upcoming
+          : activeTab === 'past'
+            ? categorizedSessions.past
+            : categorizedSessions.all;
+
+  const completionSlot = completionTarget
+    ? selectedSlotFor(completionTarget)
+    : undefined;
+  const completionEndsAt = completionTarget ? slotEndTime(completionTarget) : null;
+  const isEarlyCompletion =
+    completionEndsAt !== null && completionEndsAt > currentTime;
+
+  const closeCompletionModal = () => {
+    if (completeMutation.isPending) return;
+    completeMutation.reset();
+    setCompletionTarget(null);
+    setEarlyCompletionAcknowledged(false);
+  };
 
   const toggleExpand = (id: string) => {
     setExpandedBookingIds((prev) => ({
@@ -105,33 +259,6 @@ export default function PsychologistSchedulePage() {
       [id]: !prev[id],
     }));
   };
-
-  const noteMutation = useMutation({
-    mutationFn: (payload: { bookingId: string; privateClinicalNote: string }) =>
-      api.updatePrivatePsychNote(payload),
-    onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ['bookings'] });
-      setEditingNoteId(null);
-      publishFlowEvent(
-        'Private Clinical Note Updated',
-        `Saved confidential note on ${updated.id} (Visible to ${activePsychologistId} only; redacted from Admin & Client).`
-      );
-    },
-  });
-
-  const lifecycleMutation = useMutation({
-    mutationFn: (payload: {
-      bookingId: string;
-      action: 'cancel' | 'request-reschedule' | 'dispatch-reminders';
-    }) => api.updateBookingLifecycleStatus(payload),
-    onSuccess: (updated, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['bookings'] });
-      publishFlowEvent(
-        'Psychologist Schedule Updated',
-        `Booking ${updated.id} lifecycle action (${vars.action}) synced in real time.`
-      );
-    },
-  });
 
   return (
     <div className="space-y-8">
@@ -147,22 +274,18 @@ export default function PsychologistSchedulePage() {
             My Practice Schedule
           </h1>
           <p className="text-sm text-pine/80 max-w-2xl">
-            Track confirmed appointments separated into upcoming and past sessions, review client booking details,
-            and manage confidential clinical notes.
+            Track schedule negotiations, agreed sessions awaiting payment, and confirmed
+            appointments separated into upcoming and past sessions.
           </p>
         </div>
 
-        {/* Practitioner State Switcher */}
-        <PractitionerSwitcher />
       </header>
 
-      {/* Non-Approved Psychologist Banner */}
-      {!isVerified && (
-        <UnverifiedBanner
-          title="Pending Approval Notice"
-          note={`${activePsych?.prcCredentialCode} · WAITING_APPROVAL`}
-          body="You are currently operating in unverified status. You cannot accept new bookings or claim requests until your clinical credentials are fully approved by clinic administration."
-        />
+      {bookingsError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-xs text-red-900">
+          <p className="font-semibold">Could not load your schedule.</p>
+          <p className="mt-1 break-words">{(bookingsError as Error).message}</p>
+        </div>
       )}
 
       {/* Tabs Navigation for Schedule Separation */}
@@ -175,8 +298,9 @@ export default function PsychologistSchedulePage() {
           {(
             [
               { id: 'upcoming', label: 'Upcoming Confirmed', count: categorizedSessions.upcoming.length },
+              { id: 'negotiating', label: 'In Negotiation', count: categorizedSessions.negotiating.length },
+              { id: 'awaiting-payment', label: 'Awaiting Client Payment', count: categorizedSessions.awaitingPayment.length },
               { id: 'past', label: 'Past Confirmed', count: categorizedSessions.past.length },
-              { id: 'proposed', label: 'Proposals Awaiting Payment', count: categorizedSessions.proposed.length },
               { id: 'all', label: `All Assigned (${categorizedSessions.all.length})`, count: null },
             ] as const
           ).map((tab) => (
@@ -207,7 +331,7 @@ export default function PsychologistSchedulePage() {
         </div>
 
         <div className="text-xs text-pine/70 font-mono">
-          Psychologist Roster ID: <span className="font-semibold text-accent-ink">{activePsychologistId}</span>
+          Psychologist: <span className="font-semibold text-accent-ink">{activePsych?.anonymizedTitle ?? 'Authenticated psychologist'}</span>
         </div>
       </div>
 
@@ -225,17 +349,20 @@ export default function PsychologistSchedulePage() {
           title={
             activeTab === 'upcoming' && 'No Upcoming Confirmed Sessions'
             || activeTab === 'past' && 'No Past Sessions Recorded'
-            || activeTab === 'proposed' && 'No Active Proposals Pending Payment'
+            || activeTab === 'negotiating' && 'No Active Schedule Negotiations'
+            || activeTab === 'awaiting-payment' && 'No Agreed Sessions Awaiting Payment'
             || 'No Sessions Assigned to this Account Yet'
           }
           description={
             activeTab === 'upcoming' &&
-              'When clients accept one of your 3 proposed slots and finalize payment, confirmed sessions appear here.'
+              'When a client pays for an agreed schedule, the confirmed session appears here.'
             || activeTab === 'past' &&
               'Completed or past appointments will be cataloged in this archive view.'
-            || activeTab === 'proposed' &&
-              'You have no proposed slot packages currently waiting for client slot selection.'
-            || 'Visit the Pending Requests queue to pick up new bookings and schedule appointments.'
+            || activeTab === 'negotiating' &&
+              'Requests waiting on your review or the client’s response appear here.'
+            || activeTab === 'awaiting-payment' &&
+              'Agreed schedules stay here until the client pays or the payment deadline releases the slot.'
+            || 'Visit the Pending Requests queue to pick up new bookings and agree on schedules.'
           }
           action={
             <Button variant="primary" size="sm" onClick={() => router.push('/psych/queue')}>
@@ -248,10 +375,16 @@ export default function PsychologistSchedulePage() {
         <div className="space-y-6">
           {displayedSessions.map((session) => {
             const isExpanded = !!expandedBookingIds[session.id];
-            const confirmedSlot = session.proposedSlots.find(
-              (s) => s.id === session.selectedSlotId
-            );
-            const isConfirmed = session.status === 'paid-confirmed';
+            const confirmedSlot = agreedSlot(session);
+            const isCompleted = session.status === 'completed';
+            const isConfirmed =
+              session.status === 'paid-confirmed' || isCompleted;
+            const isAwaitingPayment = session.status === 'awaiting-payment';
+            const isNegotiating =
+              session.status === 'awaiting-review' ||
+              session.status === 'awaiting-client';
+            const preferredSlots = clientPreferredSlots(session);
+            const counterSlot = psychologistCounterSlot(session);
 
             return (
               <Card
@@ -264,7 +397,6 @@ export default function PsychologistSchedulePage() {
                     <span className="font-mono font-medium text-pine text-sm">
                       {session.id}
                     </span>
-                    {session.demoSeed && <DemoDataTag />}
                     <span className="text-mist">·</span>
                     <span className="font-semibold text-accent-ink">
                       {session.personaLabel} ({session.personaType})
@@ -293,7 +425,7 @@ export default function PsychologistSchedulePage() {
                       </p>
                     </div>
 
-                    {/* Selected Slot or Proposed Slots Preview */}
+                    {/* Selected Slot, Agreed Slot, or Negotiation Preview */}
                     {isConfirmed && confirmedSlot ? (
                       <div className="p-3.5 rounded-lg bg-surface-raised border border-mist flex flex-wrap items-center justify-between gap-3 text-xs">
                         <div className="space-y-0.5">
@@ -311,26 +443,104 @@ export default function PsychologistSchedulePage() {
                           Slot 0{confirmedSlot.slotNumber} Selected
                         </span>
                       </div>
-                    ) : (
+                    ) : isAwaitingPayment && confirmedSlot ? (
+                      <div className="p-3.5 rounded-lg bg-surface-raised border border-mist text-xs space-y-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="space-y-0.5">
+                            <p className="font-semibold text-accent-ink uppercase tracking-wide text-xs">
+                              Agreed Schedule · Awaiting Client Payment
+                            </p>
+                            <p className="font-medium text-pine text-sm">
+                              {confirmedSlot.dateLabel}
+                            </p>
+                            <p className="font-mono text-accent-ink font-medium">
+                              {confirmedSlot.timeLabel}
+                            </p>
+                          </div>
+                          {session.paymentDeadline && (
+                            <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold text-amber-900 bg-amber-50 border border-amber-200">
+                              {formatDeadlineCountdown(session.paymentDeadline)}
+                            </span>
+                          )}
+                        </div>
+                        {session.paymentDeadline && (
+                          <p className="text-pine/65">
+                            Deadline: {formatManilaDateTime(session.paymentDeadline)}
+                          </p>
+                        )}
+                      </div>
+                    ) : isNegotiating ? (
                       <div className="p-3.5 rounded-lg bg-surface-raised border border-mist text-xs space-y-2">
                         <p className="font-semibold text-pine">
-                          3 Proposed Slots (Client Has Not Finalized Payment Yet):
+                          {session.status === 'awaiting-review'
+                            ? 'Client Preferred Schedules — Awaiting Your Review'
+                            : 'Your Alternative Schedule — Awaiting Client Response'}
                         </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          {session.proposedSlots.map((s) => (
-                            <div key={s.id} className="p-2 bg-surface-raised rounded-md border border-mist/70">
-                              <p className="font-semibold text-xs text-pine">Slot 0{s.slotNumber}</p>
-                              <p className="text-pine/80 text-xs">{s.dateLabel}</p>
-                              <p className="font-mono text-xs text-accent-ink">{s.timeLabel}</p>
-                            </div>
-                          ))}
-                        </div>
+                        {session.status === 'awaiting-review' &&
+                        preferredSlots.length > 0 ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            {preferredSlots.map((slot, index) => (
+                              <div
+                                key={slot.id}
+                                className="p-2 bg-surface-raised rounded-md border border-mist/70"
+                              >
+                                <p className="font-semibold text-xs text-pine">
+                                  Option {index + 1}
+                                </p>
+                                <p className="text-pine/80 text-xs">{slot.dateLabel}</p>
+                                <p className="font-mono text-xs text-accent-ink">
+                                  {slot.timeLabel}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : counterSlot ? (
+                          <div className="p-2 bg-surface-raised rounded-md border border-mist/70 max-w-xs">
+                            <p className="text-pine/80 text-xs">{counterSlot.dateLabel}</p>
+                            <p className="font-mono text-xs text-accent-ink">
+                              {counterSlot.timeLabel}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="text-pine/65">
+                            Waiting for the other party to submit a new schedule.
+                          </p>
+                        )}
                       </div>
-                    )}
+                    ) : null}
                   </div>
 
                   {/* Actions & Expand Details Button */}
                   <div className="lg:col-span-4 flex flex-col items-start lg:items-end justify-between gap-3 h-full">
+                    {session.status === 'awaiting-review' && (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        className="w-full sm:w-auto"
+                        onClick={() => openReviewModal(session)}
+                      >
+                        Review Preferred Schedules
+                      </Button>
+                    )}
+                    {session.status === 'paid-confirmed' && (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        className="w-full sm:w-auto"
+                        onClick={() => {
+                          completeMutation.reset();
+                          setEarlyCompletionAcknowledged(false);
+                          setCompletionTarget(session);
+                        }}
+                      >
+                        Mark Session Completed
+                      </Button>
+                    )}
+                    {isCompleted && (
+                      <span className="text-xs font-medium text-pine/70">
+                        Session marked completed
+                      </span>
+                    )}
                     <Button
                       variant={isExpanded ? 'dark' : 'outline'}
                       size="sm"
@@ -343,20 +553,6 @@ export default function PsychologistSchedulePage() {
                         aria-hidden="true"
                       />
                     </Button>
-
-                    {isConfirmed && session.unlockedContact && (
-                      <div className="w-full text-right text-xs">
-                        <a
-                          href={session.unlockedContact.teletherapyUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sage text-white rounded-lg font-semibold hover:bg-accent-ink transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-sage focus-visible:outline-offset-2"
-                        >
-                          <Video className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                          Open Teletherapy Room
-                        </a>
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -380,13 +576,15 @@ export default function PsychologistSchedulePage() {
                             <span className="font-semibold text-pine uppercase">{session.personaType}</span>
                           </div>
                           <div className="flex justify-between border-b border-mist/50 pb-1.5">
-                            <span className="text-pine/70">Session Language:</span>
-                            <span className="font-semibold text-pine">{session.preferredLanguage}</span>
-                          </div>
-                          <div className="flex justify-between border-b border-mist/50 pb-1.5">
                             <span className="text-pine/70">Payment Status:</span>
                             <span className="font-semibold text-pine">
-                              {isConfirmed ? `Paid (₱${session.pricePhp?.toLocaleString()})` : 'Pending Client Payment'}
+                              {isCompleted
+                                ? `Completed (Paid ₱${session.pricePhp?.toLocaleString()})`
+                                : isConfirmed
+                                  ? `Paid (₱${session.pricePhp?.toLocaleString()})`
+                                  : isAwaitingPayment
+                                    ? 'Agreed · Awaiting Client Payment'
+                                    : 'Scheduling in progress'}
                             </span>
                           </div>
                           {session.paidAt && (
@@ -405,168 +603,43 @@ export default function PsychologistSchedulePage() {
                             {session.concernsSummary}
                           </p>
                         </div>
-
-                        {session.specificNeeds && (
-                          <div className="space-y-1">
-                            <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                              Specific Needs / Scheduling Preferences
-                            </span>
-                            <p className="text-pine/80 italic pt-0.5">
-                              {session.specificNeeds}
-                            </p>
-                          </div>
-                        )}
                       </div>
 
-                      {/* Right Column: Unlocked Teletherapy & Lifecycle Actions */}
+                      {/* Right Column: Client Contact & Coordination */}
                       <div className="space-y-4">
                         <h3 className="font-heading text-lg font-medium text-pine border-b border-mist pb-2">
-                          Session Channel &amp; Coordination
+                          Client Contact &amp; Coordination
                         </h3>
 
-                        {isConfirmed && session.unlockedContact ? (
+                        {session.clientSocialMedia ? (
                           <div className="space-y-3">
                             <div className="space-y-1">
                               <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                                Direct Teletherapy URL
+                                Client&apos;s Preferred Social Media
                               </span>
-                              <a
-                                href={session.unlockedContact.teletherapyUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-mono text-accent-ink hover:underline break-all block text-xs"
-                              >
-                                {session.unlockedContact.teletherapyUrl}
-                              </a>
-                            </div>
-
-                            <div className="space-y-1">
-                              <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                                Clinic Coordination Email
-                              </span>
-                              <p className="font-medium text-pine">
-                                {session.unlockedContact.coordinationEmail}
+                              <p className="text-sm font-medium text-pine">
+                                {session.clientSocialMedia.platform || 'Social media'}
+                                {session.clientSocialMedia.username
+                                  ? ` · ${session.clientSocialMedia.username}`
+                                  : ''}
                               </p>
                             </div>
-
-                            <div className="space-y-1">
-                              <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                                Session Reference Code
-                              </span>
-                              <p className="font-mono font-medium text-accent-ink">
-                                {session.unlockedContact.sessionReferenceCode}
-                              </p>
-                            </div>
-
-                            <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-mist/60 text-xs">
-                              <span className="text-pine/75">
-                                Reminders: 24h (<strong>{session.reminders.reminder24h}</strong>) · 1h (
-                                <strong>{session.reminders.reminder1h}</strong>)
-                              </span>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    lifecycleMutation.mutate({
-                                      bookingId: session.id,
-                                      action: 'dispatch-reminders',
-                                    })
-                                  }
-                                  className="underline text-accent-ink font-semibold cursor-pointer"
-                                >
-                                  Dispatch Reminders
-                                </button>
-                                <span>·</span>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    lifecycleMutation.mutate({
-                                      bookingId: session.id,
-                                      action: 'request-reschedule',
-                                    })
-                                  }
-                                  className="underline text-pine cursor-pointer"
-                                >
-                                  Request Reschedule
-                                </button>
-                              </div>
-                            </div>
+                            <p className="text-pine/75 leading-relaxed">
+                              Coordinate the session directly through the client&apos;s preferred
+                              channel.
+                            </p>
                           </div>
                         ) : (
                           <div className="p-4 rounded-xl bg-surface-sunken border border-dashed border-mist space-y-2">
-                            <p className="font-semibold text-amber-900">
-                              Direct Teletherapy Link Locked
+                            <p className="font-semibold text-pine/80">
+                              No Client Social Media Provided
                             </p>
                             <p className="text-pine/75 leading-relaxed">
-                              This booking has not yet been paid by the client. The direct teletherapy video link,
-                              coordination email, and automated reminders unlock automatically upon payment confirmation.
+                              The client did not provide social media contact details.
                             </p>
                           </div>
                         )}
                       </div>
-                    </div>
-
-                    {/* Private Clinical Session Notes (Confidential: Hidden from Admin & Client) */}
-                    <div className="border-t border-mist/80 pt-5 space-y-3 text-xs">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 font-medium text-pine">
-                          <ShieldCheck className="w-4 h-4 text-accent-ink shrink-0" aria-hidden="true" />
-                          <span className="font-heading text-base font-medium">Private Clinical Notes (Psychologist Only)</span>
-                        </div>
-                        <span className="px-2 py-0.5 rounded-sm bg-surface-sunken text-accent-ink font-semibold text-xs">
-                          Confidential · Hidden from Admin &amp; Client
-                        </span>
-                      </div>
-
-                      {editingNoteId === session.id ? (
-                        <div className="space-y-2">
-                          <Textarea
-                            rows={4}
-                            value={noteDraft}
-                            onChange={(e) => setNoteDraft(e.target.value)}
-                            placeholder="Enter confidential clinical observations, therapeutic formulations, or prep notes..."
-                          />
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="primary"
-                              size="sm"
-                              disabled={noteMutation.isPending}
-                              onClick={() =>
-                                noteMutation.mutate({
-                                  bookingId: session.id,
-                                  privateClinicalNote: noteDraft,
-                                })
-                              }
-                            >
-                              {noteMutation.isPending ? 'Saving...' : 'Save Private Note'}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setEditingNoteId(null)}
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <p className="text-pine/90 leading-relaxed font-mono text-xs">
-                            {session.privateClinicalNote ||
-                              'No confidential clinical notes recorded for this case yet.'}
-                          </p>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setEditingNoteId(session.id);
-                              setNoteDraft(session.privateClinicalNote || '');
-                            }}
-                          >
-                            Edit Confidential Note
-                          </Button>
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}
@@ -574,6 +647,280 @@ export default function PsychologistSchedulePage() {
             );
           })}
         </div>
+      )}
+
+      <Modal
+        open={completionTarget !== null}
+        onClose={closeCompletionModal}
+        title={
+          isEarlyCompletion
+            ? 'Complete this session early?'
+            : 'Mark this session as completed?'
+        }
+        description="This closes the appointment and moves it to the Past tab."
+        maxWidth="lg"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={closeCompletionModal}
+              disabled={completeMutation.isPending}
+            >
+              Keep Open
+            </Button>
+            <Button
+              variant={isEarlyCompletion ? 'danger' : 'primary'}
+              size="sm"
+              onClick={() => {
+                if (!completionTarget) return;
+                completeMutation.mutate(completionTarget.id);
+              }}
+              disabled={
+                completeMutation.isPending ||
+                (isEarlyCompletion && !earlyCompletionAcknowledged)
+              }
+            >
+              {completeMutation.isPending
+                ? 'Completing…'
+                : isEarlyCompletion
+                ? 'Confirm Early Completion'
+                : 'Mark Completed'}
+            </Button>
+          </>
+        }
+      >
+        {completionTarget && (
+          <div className="space-y-4 text-sm text-pine/85">
+            <div className="rounded-lg border border-mist bg-surface-raised p-3 text-xs">
+              <p className="font-semibold text-pine">
+                {completionTarget.personaLabel} · {completionTarget.serviceTitle}
+              </p>
+              {completionSlot && (
+                <p className="mt-1 text-pine/75">
+                  {completionSlot.dateLabel} · {completionSlot.timeLabel}
+                </p>
+              )}
+            </div>
+
+            {isEarlyCompletion ? (
+              <>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950 space-y-1.5">
+                  <p className="flex items-center gap-1.5 font-semibold">
+                    <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    This session has not ended yet.
+                  </p>
+                  <p>
+                    It is scheduled to run through{' '}
+                    <strong>{completionSlot?.timeLabel ?? 'the proposed end time'}</strong>.
+                    Completing it now will close the session early.
+                  </p>
+                </div>
+
+                <label className="flex items-start gap-2.5 text-xs text-pine/85 cursor-pointer">
+                  <Checkbox
+                    checked={earlyCompletionAcknowledged}
+                    onChange={(event) =>
+                      setEarlyCompletionAcknowledged(event.target.checked)
+                    }
+                  />
+                  <span>
+                    I understand this session is still in progress and want to mark it as
+                    completed now.
+                  </span>
+                </label>
+              </>
+            ) : (
+              <p className="text-xs text-pine/75">
+                The session slot has ended. Confirm only if the appointment took place and is
+                ready to be archived.
+              </p>
+            )}
+
+            {completeMutation.error && (
+              <p className="text-xs text-red-700">
+                {(completeMutation.error as Error).message}
+              </p>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {reviewTarget && (
+        <Modal
+          open
+          onClose={closeReviewModal}
+          title={`Review Schedules — #${reviewTarget.id}`}
+          description={`${reviewTarget.serviceTitle} (${reviewTarget.serviceDuration}) · ${reviewTarget.personaLabel} · Fee: ₱${reviewTarget.pricePhp?.toLocaleString() ?? '—'}`}
+          maxWidth="2xl"
+        >
+          <form onSubmit={handleReviewSubmit} className="space-y-5">
+            <p className="text-xs font-semibold uppercase tracking-widest text-accent-ink">
+              Round {reviewTarget.schedulingRound} · Respond to Client&apos;s Preferred Schedules
+            </p>
+
+            {reviewMutation.isError && (
+              <div
+                role="alert"
+                className="bg-red-50 border-l-2 border-red-400 rounded-r-lg p-4 text-red-950 space-y-1.5"
+              >
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" aria-hidden="true" />
+                  <p className="font-heading text-sm font-medium text-red-950">
+                    Could Not Save Schedule Decision
+                  </p>
+                </div>
+                <p className="text-xs text-red-900 leading-relaxed">
+                  {(reviewMutation.error as Error)?.message ||
+                    'Unable to update schedule right now. Please try again.'}
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                  Accept One of the Client&apos;s Preferred Schedules
+                </span>
+                <div className="flex items-center gap-3">
+                  {selectedSlotId && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSlotId(null)}
+                      disabled={reviewMutation.isPending}
+                      className="text-xs font-semibold text-red-700 hover:text-red-800 underline underline-offset-2 cursor-pointer disabled:opacity-50"
+                    >
+                      Clear selection
+                    </button>
+                  )}
+                  <span className="text-xs text-accent-ink font-medium">
+                    Conflicts are disabled
+                  </span>
+                </div>
+              </div>
+
+              {reviewPreferredSlots.length === 0 ? (
+                <p className="rounded-lg border border-mist bg-surface-sunken/40 p-3 text-xs text-pine/70">
+                  No open preferred schedules found in this round. Offer the nearest available
+                  alternative below.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {reviewPreferredSlots.map((slot, index) => {
+                    const hasConflict = reviewConflictIds.has(slot.id);
+                    const isSelected = selectedSlotId === slot.id;
+                    return (
+                      <label
+                        key={slot.id}
+                        className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${
+                          hasConflict
+                            ? 'border-amber-200 bg-amber-50/60 cursor-not-allowed'
+                            : isSelected
+                              ? 'border-sage bg-surface-sunken cursor-pointer'
+                              : 'border-mist bg-surface-raised hover:bg-parchment cursor-pointer'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="review-preferred-schedule"
+                          className="mt-0.5 h-4 w-4 accent-sage"
+                          checked={isSelected}
+                          disabled={hasConflict || reviewMutation.isPending}
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedSlotId(null);
+                            }
+                          }}
+                          onChange={() => {
+                            setSelectedSlotId(slot.id);
+                            setCounterDateTime('');
+                          }}
+                        />
+                        <span className="space-y-0.5">
+                          <span className="block text-[10px] font-semibold uppercase tracking-wider text-pine/50">
+                            Option {index + 1}
+                          </span>
+                          <span className="block text-sm font-medium text-pine">
+                            {slot.dateLabel}
+                          </span>
+                          <span className="block text-xs text-pine/70">{slot.timeLabel}</span>
+                          {hasConflict && (
+                            <span className="block text-[11px] font-semibold text-amber-800">
+                              Conflicts with your scheduled session
+                            </span>
+                          )}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 rounded-lg border border-mist bg-surface-sunken/30 p-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-pine/60" aria-hidden="true" />
+                  <Label htmlFor="schedule-counter-datetime" className="mb-0">
+                    None of these work? Offer the nearest available alternative
+                  </Label>
+                </div>
+                {counterDateTime && (
+                  <button
+                    type="button"
+                    onClick={() => setCounterDateTime('')}
+                    disabled={reviewMutation.isPending}
+                    className="text-xs font-semibold text-red-700 hover:text-red-800 underline underline-offset-2 cursor-pointer disabled:opacity-50"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <Input
+                id="schedule-counter-datetime"
+                type="datetime-local"
+                min={minDateTime}
+                className="font-mono tabular-nums text-sm"
+                value={counterDateTime}
+                onChange={(event) => {
+                  setCounterDateTime(event.target.value);
+                  if (event.target.value) setSelectedSlotId(null);
+                }}
+                disabled={reviewMutation.isPending}
+              />
+              <p className="text-[11px] text-pine/55">
+                You can offer exactly one alternative time. Click a selected slot again or
+                &ldquo;Clear selection&rdquo; above to unselect it.
+              </p>
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-3 pt-3 border-t border-mist">
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                onClick={closeReviewModal}
+                disabled={reviewMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                size="md"
+                disabled={
+                  reviewMutation.isPending || (!selectedSlotId && !counterDateTime)
+                }
+              >
+                {reviewMutation.isPending
+                  ? 'Saving…'
+                  : selectedSlotId
+                    ? 'Accept Selected Schedule'
+                    : 'Offer Alternative'}
+              </Button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );

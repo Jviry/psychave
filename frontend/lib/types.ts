@@ -2,10 +2,17 @@ export type CognitoRole = 'client' | 'psychologist' | 'admin';
 
 export type BookingStatus =
   | 'pending'
-  | 'proposed'
+  | 'awaiting-review'
+  | 'awaiting-client'
+  | 'awaiting-payment'
   | 'paid-confirmed'
+  | 'completed'
   | 'reschedule-requested'
   | 'cancelled';
+
+export type SchedulingTurn = 'client' | 'psychologist';
+export type SlotProposer = 'client' | 'psychologist';
+export type SlotStatus = 'proposed' | 'accepted' | 'declined' | 'expired';
 
 export interface ServiceItem {
   id: string;
@@ -32,19 +39,52 @@ export interface Persona {
   createdAt: string;
 }
 
-export interface ProposedSlot {
-  id: string;
-  slotNumber: 1 | 2 | 3;
-  isoDateTime: string;
-  dateLabel: string;
-  timeLabel: string;
+export interface PersonaReview {
+  persona: {
+    id: string;
+    name: string;
+    relationToAccountHolder: string;
+    dateOfBirth: string;
+    occupation: string | null;
+    nationality: string;
+    permanentAddress: string;
+    presentAddress: string;
+    contactNumber: string;
+    socmedPlatform: string | null;
+    socmedUsername: string | null;
+    preferredContactMode: string;
+    emergencyContactName: string;
+    emergencyContactRelation: string;
+    emergencyContactNumber: string;
+  };
+  consent: {
+    version: string;
+    termsSignerName: string;
+    termsSignerRelation: string;
+    scopeAcknowledged: boolean;
+    isOverseasOrForeign: boolean;
+    overseasAcknowledged: boolean;
+    informationConfirmed: boolean;
+    consentSignerName: string;
+    signedAt: string | null;
+  };
 }
 
-export interface UnlockedContact {
-  teletherapyUrl: string;
-  coordinationEmail: string;
-  sessionReferenceCode: string;
-  emergencyProtocolNote: string;
+export interface SocialMediaLink {
+  platform: string;
+  url: string;
+}
+
+export interface ProposedSlot {
+  id: string;
+  slotNumber: number;
+  isoDateTime: string;
+  endIsoDateTime?: string;
+  dateLabel: string;
+  timeLabel: string;
+  proposedBy: SlotProposer;
+  status: SlotStatus;
+  round: number;
 }
 
 export interface BookingRequest {
@@ -56,10 +96,9 @@ export interface BookingRequest {
   serviceId: string;
   serviceTitle: string;
   serviceDuration: string;
+  serviceDurationMinutes: number;
   serviceGuardrail: string;
   concernsSummary: string;
-  specificNeeds: string;
-  preferredLanguage: string;
   submittedAt: string;
   status: BookingStatus;
   psychologistId?: string;
@@ -67,11 +106,18 @@ export interface BookingRequest {
   psychologistSpecialization?: string;
   pricePhp?: number;
   proposedSlots: ProposedSlot[];
-  clinicalPrepNote?: string;
+  schedulingTurn?: SchedulingTurn;
+  schedulingRound: number;
+  paymentDeadline?: string;
+  conflictingSlotIds?: string[];
   selectedSlotId?: string;
   paidAt?: string;
   contactUnlocked: boolean;
-  unlockedContact?: UnlockedContact;
+  psychologistSocialLinks?: SocialMediaLink[];
+  clientSocialMedia?: {
+    platform: string;
+    username: string;
+  };
   reminders: {
     reminder24h: 'pending' | 'scheduled' | 'dispatched';
     reminder1h: 'pending' | 'scheduled' | 'dispatched';
@@ -81,13 +127,6 @@ export interface BookingRequest {
    * Redacted in Admin and Client payloads.
    */
   privateClinicalNote?: string;
-  /**
-   * UI-only mock flag: marks the clearly-labeled demo seed bookings kept in
-   * lib/api.ts (INITIAL_BOOKINGS) so cards render a "Demo data" tag. Never
-   * sent to, or stored by, the backend — contract §2 flags UI-only fields and
-   * they must NOT become backend columns.
-   */
-  demoSeed?: boolean;
 }
 
 export interface ResidentPsychologist {
@@ -98,10 +137,24 @@ export interface ResidentPsychologist {
   serviceEligibility: string[];
   languages: string[];
   yearsPractice: string;
-  verificationStatus: 'verified' | 'waiting_approval';
   visibleOnPublicRoster: boolean;
-  assignedBookingsCount: number;
+  socialMediaLinks: SocialMediaLink[];
   bio?: string;
+}
+
+export interface AdminUser {
+  userId: string;
+  email: string;
+  role: CognitoRole;
+  fullName: string | null;
+  createdAt: string;
+}
+
+export interface AdminUserPage {
+  items: AdminUser[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface TestimonialSlot {

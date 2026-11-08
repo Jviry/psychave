@@ -6,6 +6,9 @@ resource "aws_lambda_function" "this" {
   runtime = var.runtime
   handler = "main.handler"
 
+  timeout     = 25
+  memory_size = 512
+
   filename         = var.lambda_zip_path
   source_code_hash = filebase64sha256(var.lambda_zip_path)
 
@@ -18,6 +21,8 @@ resource "aws_lambda_function" "this" {
       COGNITO_USER_POOL_ID  = var.cognito_user_pool_id
       COGNITO_APP_CLIENT_ID = var.cognito_app_client_id
       DATABASE_URL          = var.database_url
+      DB_SCHEMA             = var.db_schema
+      CORS_ORIGINS          = jsonencode(var.cors_origins)
     }
   }
 }
@@ -66,6 +71,8 @@ resource "aws_iam_role_policy" "cognito_admin" {
           "cognito-idp:AdminAddUserToGroup",
           "cognito-idp:AdminGetUser",
           "cognito-idp:AdminListGroupsForUser",
+          "cognito-idp:AdminRemoveUserFromGroup",
+          "cognito-idp:ListUsers",
         ]
 
         Resource = var.user_pool_arn

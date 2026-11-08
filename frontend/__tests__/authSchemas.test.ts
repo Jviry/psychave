@@ -25,16 +25,11 @@ describe('registerSchema', () => {
     username: 'test_user-01',
     password: 'Secure@123',
     confirmPassword: 'Secure@123',
-    role: 'client' as const,
     privacyConsent: true as const,
   };
 
   it('accepts a fully valid client registration', () => {
     expect(registerSchema.safeParse(valid).success).toBe(true);
-  });
-
-  it('accepts psychologist role', () => {
-    expect(registerSchema.safeParse({ ...valid, role: 'psychologist' }).success).toBe(true);
   });
 
   it('rejects invalid email', () => {
@@ -98,11 +93,6 @@ describe('registerSchema', () => {
 
   it('rejects when privacy consent is false', () => {
     const result = registerSchema.safeParse({ ...valid, privacyConsent: false });
-    expect(result.success).toBe(false);
-  });
-
-  it('rejects admin role (not self-assignable)', () => {
-    const result = registerSchema.safeParse({ ...valid, role: 'admin' });
     expect(result.success).toBe(false);
   });
 });

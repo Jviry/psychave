@@ -16,21 +16,8 @@ from repo.user_repo import UserRepository
 from services.auth.cognito_service import CognitoService
 
 
-@lru_cache
-def _init_auth_service() -> AuthService:
-    return CognitoService()
-
-
-def get_auth_service() -> AuthService:
-    """Dependency provider for the configured AuthService implementation."""
-    return _init_auth_service()
-
-
-def get_claims(
-    authorization: str = Header(...),
-    auth_service: AuthService = Depends(get_auth_service),
-) -> dict[str, Any]:
-    if not authorization.startswith("Bearer "):
+def get_claims(authorization: str | None = Header(default=None)) -> dict:
+    if not authorization or not authorization.startswith("Bearer "):
         raise UnauthenticatedError("Invalid authorization header")
 
     token = authorization.removeprefix("Bearer ").strip()
@@ -67,7 +54,8 @@ def require_role(*allowed_roles: UserRole):
         claims: dict[str, Any] = Depends(get_claims),
         user: User = Depends(get_current_user),
     ) -> User:
-        groups = set(claims.get("cognito:groups", []) or claims.get("groups", []))
+        groups = set(claims.get("cognito:groups", [])
+                     or claims.get("groups", []))
 
         if not allowed & groups:
             raise ForbiddenError()
@@ -85,15 +73,5 @@ def get_current_psychologist(
 
     if profile is None:
         raise ForbiddenError("Psychologist profile not found")
-
-    return profile
-
-
-def require_approved_psychologist(
-    profile: PsychologistProfile = Depends(get_current_psychologist),
-) -> PsychologistProfile:
-    """App-level approval gate — independent of auth group membership."""
-    if profile.approval_status != "approved":
-        raise ForbiddenError("Psychologist profile is not approved")
 
     return profile

@@ -1,10 +1,10 @@
-from sqlmodel import Session
-
-from common.exceptions import ValidationError
-from interfaces.auth import AuthService, AuthTokens, AuthUser
-from models.admin_profile import AdminProfile
-from models.client_profile import ClientProfile
-from models.psychologist_profile import PsychologistProfile
+from common.security.cognito import verify_token
+from schemas.auth_model import (
+    UserLogin,
+    UserCreate,
+    ConfirmUserRequest,
+    ForgotPasswordConfirm
+)
 from models.user import User, UserRole
 from repo.user_repo import UserRepository
 from schemas.auth_model import (
@@ -14,7 +14,15 @@ from schemas.auth_model import (
     UserLogin,
 )
 
-SELF_ASSIGNABLE_ROLES = {UserRole.CLIENT, UserRole.PSYCHOLOGIST}
+# Admin wins over psychologist if a user somehow belongs to both groups.
+ROLE_PRIORITY = (UserRole.ADMIN, UserRole.PSYCHOLOGIST)
+
+
+def role_from_groups(groups: list[str]) -> str:
+    for role in ROLE_PRIORITY:
+        if role.value in groups:
+            return role.value
+    return UserRole.CLIENT.value
 
 
 class AuthUsecase:
@@ -36,12 +44,9 @@ class AuthUsecase:
         return self.auth.refresh_access_token(refresh_token)
 
     def create_user(self, credentials: UserCreate):
-        if credentials.role not in SELF_ASSIGNABLE_ROLES:
-            raise ValidationError("Admin role cannot be self-assigned")
+        """Create a Cognito account and its local rows.
 
-        if credentials.role == UserRole.PSYCHOLOGIST and not credentials.full_name:
-            raise ValidationError("Full name is required for psychologists")
-
+<<<<<<< HEAD
         signup_result = self.auth.create_user(credentials)
         self.auth.add_user_to_group(
             credentials.username, credentials.role.value
@@ -62,6 +67,30 @@ class AuthUsecase:
             self._ensure_role_profile(
                 user, display_name=credentials.full_name or credentials.username
             )
+=======
+        Self-service signup is always a client. Psychologist and admin roles
+        can only be assigned by an existing admin after registration.
+        """
+        response = self.auth.create_user(credentials)
+        self.auth.add_user_to_group(
+            credentials.username, UserRole.CLIENT.value)
+
+        # create the local rows right away — sign_up hands us the UserSub,
+        # so the profile exists before confirm
+        cognito_sub = response.get("UserSub") if response else None
+        if cognito_sub:
+            user = self.user_repo.get_by_cognito_sub(cognito_sub)
+            if user is None:
+                user = self.user_repo.create(User(
+                    cognito_sub=cognito_sub,
+                    email=credentials.email,
+                    role=UserRole.CLIENT.value,
+                ))
+            self._ensure_role_profile(
+                user, display_name=credentials.username)
+
+
+>>>>>> > 5b92107a6d8d46235235e2bf29eed3fd181e3296
 
         return {"message": "register successful, check email for code"}
 
@@ -100,10 +129,11 @@ class AuthUsecase:
         """Create the local User + role profile rows from auth provider state. Idempotent."""
         profile = self.auth.describe_user(username)
         groups = self.auth.list_user_groups(username)
-        role = groups[0] if groups else UserRole.CLIENT.value
+        role = role_from_groups(groups)
 
         user = self.user_repo.get_by_sub(profile.sub)
         if user is None:
+<<<<<<< HEAD
             user = self.user_repo.create(
                 User(
                     cognito_sub=profile.sub,
@@ -111,14 +141,26 @@ class AuthUsecase:
                     role=role,
                 )
             )
+=======
+            user = self.user_repo.create(User(
+                cognito_sub=profile["sub"],
+                email=profile["email"],
+                role=role,
+            ))
+        elif user.role != role:
+            user.role = role
+            self.user_repo.update(user)
+
+>>>>>>> 5b92107a6d8d46235235e2bf29eed3fd181e3296
         self._ensure_role_profile(user, display_name=username)
 
     def _ensure_role_profile(self, user: User, display_name: str):
         """Create the role's profile row when missing.
 
-        The profile rows are FK targets (persona -> client_profiles) and gate
-        psychologist dashboard access, so every user needs one. Idempotent.
+        The profile rows are FK targets (persona -> client_profiles), so every
+        user needs one. Idempotent.
         """
+<<<<<<< HEAD
         name = display_name or user.email
 
         if user.role == UserRole.CLIENT.value:
@@ -140,6 +182,9 @@ class AuthUsecase:
                 )
 
         self.db.commit()
+=======
+        self.user_repo.ensure_role_profile(user, display_name)
+>>>>>>> 5b92107a6d8d46235235e2bf29eed3fd181e3296
 
     def _ensure_local_user(self, id_token: str | None):
         """Heal rows for users created before local sync existed.
@@ -168,6 +213,7 @@ class AuthUsecase:
 
             if user is None:
                 groups = self.auth.list_user_groups(username) if username else []
+<<<<<<< HEAD
                 role = groups[0] if groups else UserRole.CLIENT.value
                 user = self.user_repo.create(
                     User(
@@ -176,6 +222,20 @@ class AuthUsecase:
                         role=role,
                     )
                 )
+=======
+                user = self.user_repo.create(User(
+                    cognito_sub=sub,
+                    email=claims.get("email", ""),
+                    role=role_from_groups(groups),
+                ))
+            elif username:
+                # Cognito groups are the source of truth; heal a stale local
+                # role after an admin promotion or an out-of-band group edit.
+                role = role_from_groups(self.auth.list_user_groups(username))
+                if user.role != role:
+                    user.role = role
+                    self.user_repo.update(user)
+>>>>>>> 5b92107a6d8d46235235e2bf29eed3fd181e3296
 
             self._ensure_role_profile(user, display_name=username or user.email)
         except Exception:
