@@ -432,3 +432,90 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 });
+
+function makeJwtWithExp(expSeconds: number): string {
+  const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({ sub: 'sub-123', exp: expSeconds })).toString('base64url');
+  return `${header}.${payload}.sig`;
+}
+
+describe('proactive JWT expiry & refresh handling', () => {
+  it('proactively refreshes an expired idToken before calling a protected route', async () => {
+    const expiredIdToken = makeJwtWithExp(Math.floor(Date.now() / 1000) - 3600);
+    const freshIdToken = makeJwtWithExp(Math.floor(Date.now() / 1000) + 3600);
+
+    const { useAuthStore } = await import('../authStore');
+    useAuthStore.getState().login({
+      accessToken: 'old-access',
+      idToken: expiredIdToken,
+      refreshToken: 'valid-refresh-token',
+      user: {
+        email: 'admin@example.com',
+        username: 'admin',
+        role: 'admin',
+        cognitoSub: 'sub-123',
+      },
+    });
+
+    mockFetch
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            AccessToken: 'new-access',
+            IdToken: freshIdToken,
+          }),
+          { status: 200 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            items: [],
+            total: 0,
+            page: 1,
+            page_size: 10,
+          }),
+          { status: 200 }
+        )
+      );
+
+    const { api } = await import('../lib/api');
+    const res = await api.getAdminUsers();
+
+    expect(res.items).toEqual([]);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(String(mockFetch.mock.calls[0][0])).toContain('/auth/refresh-token');
+    expect(String(mockFetch.mock.calls[1][0])).toContain('/admin/users');
+    expect(mockFetch.mock.calls[1][1]?.headers?.Authorization).toBe(`Bearer ${freshIdToken}`);
+    expect(useAuthStore.getState().idToken).toBe(freshIdToken);
+  });
+
+  it('logs out automatically when an expired idToken cannot be refreshed', async () => {
+    const expiredIdToken = makeJwtWithExp(Math.floor(Date.now() / 1000) - 3600);
+
+    const { useAuthStore } = await import('../authStore');
+    useAuthStore.getState().login({
+      accessToken: 'old-access',
+      idToken: expiredIdToken,
+      refreshToken: 'expired-refresh-token',
+      user: {
+        email: 'admin@example.com',
+        username: 'admin',
+        role: 'admin',
+        cognitoSub: 'sub-123',
+      },
+    });
+
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ detail: 'Refresh token expired' }), { status: 401 })
+    );
+
+    const { api } = await import('../lib/api');
+    await expect(api.getAdminUsers()).rejects.toThrow(/Session expired/i);
+
+    expect(mockFetch).toHaveBeenCalledOnce();
+    expect(String(mockFetch.mock.calls[0][0])).toContain('/auth/refresh-token');
+    expect(useAuthStore.getState().isAuthenticated).toBe(false);
+    expect(useAuthStore.getState().idToken).toBeNull();
+  });
+});
