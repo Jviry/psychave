@@ -217,15 +217,50 @@ function buildBackendError(endpoint: string, status: number, json: unknown): Err
 }
 
 /**
+ * Checks whether a JWT's `exp` claim is expired (or within `skewSeconds` of
+ * expiring). Non-JWT placeholder strings in tests return `false`.
+ */
+function isJwtExpired(token: string, skewSeconds = 60): boolean {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+    const payload = JSON.parse(atob(padded)) as { exp?: unknown };
+    if (typeof payload.exp !== 'number') return false;
+    return payload.exp * 1000 <= Date.now() + skewSeconds * 1000;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Low-level live request: injects the Bearer token from the real session,
- * retries once on 401 via the backend refresh endpoint, and returns the
- * status plus the parsed JSON body WITHOUT throwing — callers decide how
- * each status maps to UI behavior (404-as-null reads, claimed-booking 409s…).
+ * proactively refreshes expired ID tokens before hitting API Gateway's JWT
+ * authorizer, retries once on 401 via the backend refresh endpoint, and
+ * returns the status plus the parsed JSON body WITHOUT throwing — callers
+ * decide how each status maps to UI behavior (404-as-null reads, claimed-booking 409s…).
  */
 async function liveFetch(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<{ status: number; json: unknown }> {
+  const initialToken = useAuthStore.getState()?.idToken ?? null;
+  if (initialToken && isJwtExpired(initialToken)) {
+    const refreshed = await refreshAccessToken();
+    if (!refreshed) {
+      if (useAuthStore.getState()?.isAuthenticated) {
+        useAuthStore.getState().logout();
+      }
+      if (!endpoint.startsWith('/services/active')) {
+        return {
+          status: 401,
+          json: { detail: 'Session expired. Please sign in again.' },
+        };
+      }
+    }
+  }
+
   const callOnce = () => {
     // Backend contract (backend/README.md): verify_token() requires the **ID
     // token** (aud = COGNITO_APP_CLIENT_ID); access tokens are rejected.
@@ -244,10 +279,39 @@ async function liveFetch(
     );
   };
 
-  let response = await callOnce();
+  let response: Response;
+  try {
+    response = await callOnce();
+  } catch (err) {
+    // API Gateway's JWT authorizer returns 401 without CORS headers when a
+    // token is rejected at the edge, which surfaces in browsers as a network
+    // TypeError. If we have a refresh token, attempt one refresh + retry.
+    const canTryRefresh =
+      Boolean(useAuthStore.getState()?.idToken) &&
+      Boolean(useAuthStore.getState()?.refreshToken) &&
+      !(err instanceof Error && /timed out/i.test(err.message));
+    if (!canTryRefresh) throw err;
+
+    const newToken = await refreshAccessToken();
+    if (!newToken) {
+      if (useAuthStore.getState()?.isAuthenticated) {
+        useAuthStore.getState().logout();
+      }
+      return {
+        status: 401,
+        json: { detail: 'Session expired. Please sign in again.' },
+      };
+    }
+    response = await callOnce();
+  }
+
   if (response.status === 401) {
     const newToken = await refreshAccessToken();
-    if (newToken) response = await callOnce();
+    if (newToken) {
+      response = await callOnce();
+    } else if (useAuthStore.getState()?.isAuthenticated) {
+      useAuthStore.getState().logout();
+    }
   }
   let json: unknown = null;
   try {
