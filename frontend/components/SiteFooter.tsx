@@ -6,7 +6,8 @@ import { useAuthStore } from '../authStore';
 
 const WORKSPACE_LINKS = {
   client: [
-    { href: '/personas', label: 'Client Personas & Booking Form' },
+    { href: '/book', label: 'Book a Session' },
+    { href: '/personas', label: 'Client Personas & Consent' },
     { href: '/bookings', label: 'Client Bookings & Proposal Picker' },
   ],
   psychologist: [
@@ -91,7 +92,7 @@ export function SiteFooter() {
                   <FooterLink href="/#about">About Us &amp; Anonymized Roster</FooterLink>
                 </li>
                 <li>
-                  <FooterLink href="/book">Book a Session (Fallback &amp; Booking)</FooterLink>
+                  <FooterLink href="/book">Book a Session</FooterLink>
                 </li>
               </ul>
             </div>

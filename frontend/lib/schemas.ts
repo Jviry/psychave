@@ -146,7 +146,7 @@ export type ServiceGuardrailFormValues = z.infer<typeof serviceGuardrailSchema>;
 export const wizardStep1Schema = z.object({
   whoFor: z.enum(['myself', 'someone_else']),
   relation_to_account_holder: z.enum(['child', 'spouse', 'parent', 'sibling', 'other', 'self']),
-  terms_signer_name: z.string().min(2, 'Type the full name of the person signing consent.'),
+  terms_signer_name: z.string().trim().min(2, 'Type the full name of the person signing consent.'),
   terms_signer_relation: z.enum(['parent', 'legal guardian', 'spouse', 'other', 'self']),
 });
 
@@ -173,30 +173,32 @@ export type WizardStep2Values = z.infer<typeof wizardStep2Schema>;
 const PHONE_LOOSE = /^\+?[0-9\s\-()]{7,20}$/;
 
 export const wizardStep3Schema = z.object({
-  persona_name: z.string().min(2, 'Enter the persona full name.'),
+  persona_name: z.string().trim().min(2, 'Enter the persona full name.'),
   date_of_birth: z
     .string()
     .min(1, 'Select a date of birth.')
     .refine((v) => !Number.isNaN(new Date(v).getTime()), 'Enter a valid date of birth.')
     .refine((v) => new Date(v).getTime() <= Date.now(), 'Date of birth cannot be in the future.'),
   occupation: z.string().optional().default(''),
-  nationality: z.string().min(2, 'Enter nationality.'),
-  permanent_address: z.string().min(5, 'Enter the permanent address.'),
-  present_address: z.string().min(5, 'Enter the present address.'),
+  nationality: z.string().trim().min(2, 'Enter nationality.'),
+  permanent_address: z.string().trim().min(5, 'Enter the permanent address.'),
+  present_address: z.string().trim().min(5, 'Enter the present address.'),
   sameAsPermanent: z.boolean(),
   contact_number: z
     .string()
+    .trim()
     .min(7, 'Enter a contact number.')
-    .refine((v) => PHONE_LOOSE.test(v.trim()), 'Enter a valid phone number.'),
+    .refine((v) => PHONE_LOOSE.test(v), 'Enter a valid phone number.'),
   socmed_platform: z.string().optional().default(''),
   socmed_username: z.string().optional().default(''),
   preferred_contact_mode: z.enum(['phone', 'email', 'messenger', 'instagram']),
-  emergency_contact_name: z.string().min(2, 'Enter an emergency contact name.'),
-  emergency_contact_relation: z.string().min(2, 'Enter the emergency contact relation.'),
+  emergency_contact_name: z.string().trim().min(2, 'Enter an emergency contact name.'),
+  emergency_contact_relation: z.string().trim().min(2, 'Enter the emergency contact relation.'),
   emergency_contact_number: z
     .string()
+    .trim()
     .min(7, 'Enter an emergency contact number.')
-    .refine((v) => PHONE_LOOSE.test(v.trim()), 'Enter a valid emergency contact number.'),
+    .refine((v) => PHONE_LOOSE.test(v), 'Enter a valid emergency contact number.'),
 });
 
 export type WizardStep3Values = z.infer<typeof wizardStep3Schema>;
@@ -205,7 +207,7 @@ export const wizardStep4Schema = z.object({
   information_confirmed: z.boolean().refine((v) => v === true, {
     message: 'Please confirm the information is accurate and complete.',
   }),
-  consent_signer_name: z.string().min(2, 'Type your full name to sign.'),
+  consent_signer_name: z.string().trim().min(2, 'Type your full name to sign.'),
 });
 
 export type WizardStep4Values = z.infer<typeof wizardStep4Schema>;

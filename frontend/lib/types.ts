@@ -37,6 +37,18 @@ export interface Persona {
   relationshipToClient: string;
   preferredLanguage: string;
   createdAt: string;
+  dateOfBirth?: string;
+  occupation?: string | null;
+  nationality?: string;
+  permanentAddress?: string;
+  presentAddress?: string;
+  contactNumber?: string;
+  socmedPlatform?: string | null;
+  socmedUsername?: string | null;
+  preferredContactMode?: 'phone' | 'email' | 'messenger' | 'instagram';
+  emergencyContactName?: string;
+  emergencyContactRelation?: string;
+  emergencyContactNumber?: string;
 }
 
 export interface PersonaReview {

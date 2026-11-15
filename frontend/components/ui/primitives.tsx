@@ -33,7 +33,6 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const base =
       'inline-flex items-center justify-center gap-2 font-medium rounded-full transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap shrink-0 cursor-pointer group/btn';
 
-    // Directional hover lift shared by filled/outline variants (ghost stays flat).
     const lift = 'motion-safe:hover:-translate-y-0.5 hover:shadow-lift';
 
     const variants: Record<NonNullable<ButtonProps['variant']>, string> = {
@@ -227,7 +226,6 @@ export function Skeleton({ className = '' }: { className?: string }) {
 /* ─── SectionHeading ──────────────────────────────────────────────────── */
 
 export function SectionHeading({
-  eyebrow,
   title,
   description,
   align = 'left',
@@ -241,16 +239,11 @@ export function SectionHeading({
 }) {
   return (
     <div className={align === 'center' ? `text-center mx-auto max-w-2xl ${className}` : className}>
-      {eyebrow ? (
-        <span className="inline-flex items-center rounded-full border border-mint px-3 py-1 text-xs font-semibold uppercase tracking-widest text-accent-ink">
-          {eyebrow}
-        </span>
-      ) : null}
-      <h2 className="font-heading text-2xl sm:text-3xl font-medium text-pine mt-3">
+      <h2 className="font-heading text-3xl sm:text-4xl font-semibold tracking-tight text-pine">
         {title}
       </h2>
       {description ? (
-        <p className="text-sm sm:text-base text-pine/60 leading-relaxed mt-2">
+        <p className="text-sm sm:text-base text-pine/65 leading-relaxed mt-2">
           {description}
         </p>
       ) : null}

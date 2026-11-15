@@ -278,7 +278,7 @@ export default function ScheduleAgreementPage() {
           <p className="text-sm text-red-900/80">
             Start a new request when you are ready to book again.
           </p>
-          <Button variant="outline" size="sm" onClick={() => router.push('/personas')}>
+          <Button variant="outline" size="sm" onClick={() => router.push('/book')}>
             Start a new booking
           </Button>
         </Card>

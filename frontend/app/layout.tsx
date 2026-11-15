@@ -1,25 +1,25 @@
 import React from 'react';
 import type { Metadata } from 'next';
-import { Fraunces, Inter } from 'next/font/google';
+import { Barlow, Barlow_Condensed } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 
 /**
- * Fonts are self-hosted at build time via next/font (no runtime CDN, no FOUT
- * without swap). Display face: Fraunces — a soft serif used at regular/medium
- * weight for editorial headings (design refresh). Body: Inter (OFL).
- * Historical: "Proxima Nova Condensed" -> Inter (pre-v2); Archivo expanded
- * (minimal pass) -> reverted to Fraunces at the user's call.
+ * Fonts are self-hosted at build time via next/font (no runtime CDN).
+ * Display face: Barlow Condensed (clean condensed sans matching Proxima Nova Condensed).
+ * Body/UI face: Barlow (crisp grotesque sans matching Aileron).
  */
-const headingFont = Fraunces({
+const headingFont = Barlow_Condensed({
   subsets: ['latin'],
-  variable: '--font-fraunces',
+  weight: ['500', '600', '700'],
+  variable: '--font-barlow-condensed',
   display: 'swap',
 });
 
-const bodyFont = Inter({
+const bodyFont = Barlow({
   subsets: ['latin'],
-  variable: '--font-inter',
+  weight: ['400', '500', '600'],
+  variable: '--font-barlow',
   display: 'swap',
 });
 

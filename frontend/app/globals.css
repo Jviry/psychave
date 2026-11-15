@@ -6,20 +6,17 @@
   --color-sage: #5d8b69;
   --color-mint: #8fbe8f;
   --color-mist: #c0d3c3;
-  --color-parchment: #f6f8f1;
+  --color-parchment: #fafcfa;
 
-  /* Semantic surfaces (de-vibe coding pass) */
+  /* Semantic surfaces (Swiss clinical minimal) */
   --color-surface-raised: #ffffff;
-  --color-surface-sunken: #ebf2ec;
-  /* Sage darkened so small text on parchment/white clears WCAG 4.5:1 (sage alone is ~3.9:1) */
-  --color-accent-ink: #47714f;
+  --color-surface-sunken: #f2f6f3;
+  /* Deepened sage so small text on white/cool-sage clears WCAG 4.5:1 */
+  --color-accent-ink: #3d6347;
 
-  /* Sage-tinted hover-lift elevation (functional, not a glow) */
-  --shadow-lift: 0 6px 16px rgba(37, 55, 45, 0.12);
-
-  /* Whisper-level field elevation: lifts form fields off white cards / parchment
-     without ever reading as a drop shadow (form-prominence pass). */
-  --shadow-field: 0 1px 2px rgba(37, 55, 45, 0.05);
+  /* Restrained elevation */
+  --shadow-lift: 0 2px 8px rgba(37, 55, 45, 0.08);
+  --shadow-field: 0 1px 2px rgba(37, 55, 45, 0.04);
 
   /* toast surfaces — extracted from Toast.tsx inline styles (success / danger) */
   --color-success-soft: #f0f9f2;
@@ -53,18 +50,25 @@
     }
   }
 
-  --font-heading: var(--font-fraunces), ui-serif, Georgia, serif;
-  --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-barlow-condensed), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
 }
 
 html {
   scroll-behavior: smooth;
+  scrollbar-color: var(--color-mist) transparent;
 }
 
 body {
   background-color: var(--color-parchment);
   color: var(--color-pine);
   font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background-color: var(--color-lime-soft);
+  color: var(--color-pine);
 }
 
 /*

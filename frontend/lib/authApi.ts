@@ -55,12 +55,22 @@ async function post<T>(endpoint: string, body: unknown, headers?: Record<string,
   const timer = setTimeout(() => controller.abort(), 10_000);
 
   try {
-    const res = await fetch(`${API_BASE_URL}${endpoint}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(headers || {}) },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(headers || {}) },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        throw new Error('Request timed out. Please check that the backend server is running.');
+      }
+      throw new Error(
+        `Unable to reach the server (${API_BASE_URL}). Please ensure the backend API is running.`
+      );
+    }
 
     if (!res.ok) {
       let detail = `HTTP ${res.status}`;

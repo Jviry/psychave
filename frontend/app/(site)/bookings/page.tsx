@@ -113,9 +113,9 @@ export default function ClientBookingsPage() {
         <Button
           variant="primary"
           size="md"
-          onClick={() => router.push('/personas')}
+          onClick={() => router.push('/book')}
         >
-          + New Persona Booking Request
+          + New Booking Request
         </Button>
       </header>
 
@@ -201,7 +201,7 @@ export default function ClientBookingsPage() {
             <Button variant="outline" size="sm" onClick={() => setStatusFilter('all')}>
               Reset Filter
             </Button>
-            <Button variant="primary" size="sm" onClick={() => router.push('/personas')}>
+            <Button variant="primary" size="sm" onClick={() => router.push('/book')}>
               Start Booking
             </Button>
           </div>

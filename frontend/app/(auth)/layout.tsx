@@ -30,7 +30,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
         {/* Center content */}
         <div className="space-y-6 mt-4">
-          <h1 className="font-heading text-4xl xl:text-5xl font-medium leading-tight tracking-tight text-parchment">
+          <h1 className="font-heading text-4xl xl:text-5xl font-semibold leading-tight tracking-tight text-parchment">
             Your mental health
             <br />
             journey starts
@@ -52,7 +52,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="flex-1 flex flex-col justify-center items-center px-6 py-12 lg:px-12 overflow-y-auto">
         {/* Mobile-only logo */}
         <Link href="/" className="lg:hidden mb-8">
-          <span className="font-heading text-xl font-medium tracking-tight text-pine">
+          <span className="font-heading text-2xl font-semibold tracking-wide uppercase text-pine">
             PSYCHAVE PH
           </span>
         </Link>

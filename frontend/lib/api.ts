@@ -412,6 +412,17 @@ interface PersonaRaw {
   relation_to_account_holder: string;
   persona_name: string;
   date_of_birth: string;
+  occupation?: string | null;
+  nationality?: string;
+  permanent_address?: string;
+  present_address?: string;
+  contact_number?: string;
+  socmed_platform?: string | null;
+  socmed_username?: string | null;
+  preferred_contact_mode?: 'phone' | 'email' | 'messenger' | 'instagram';
+  emergency_contact_name?: string;
+  emergency_contact_relation?: string;
+  emergency_contact_number?: string;
 }
 
 interface PersonaReviewRaw {
@@ -650,6 +661,18 @@ function mapPersonaRaw(raw: PersonaRaw): Persona {
     relationshipToClient: raw.relation_to_account_holder ?? '',
     preferredLanguage: '',
     createdAt: '',
+    dateOfBirth: dob,
+    occupation: raw.occupation ?? null,
+    nationality: raw.nationality ?? '',
+    permanentAddress: raw.permanent_address ?? '',
+    presentAddress: raw.present_address ?? '',
+    contactNumber: raw.contact_number ?? '',
+    socmedPlatform: raw.socmed_platform ?? null,
+    socmedUsername: raw.socmed_username ?? null,
+    preferredContactMode: raw.preferred_contact_mode ?? 'phone',
+    emergencyContactName: raw.emergency_contact_name ?? '',
+    emergencyContactRelation: raw.emergency_contact_relation ?? '',
+    emergencyContactNumber: raw.emergency_contact_number ?? '',
   };
 }
 
@@ -828,6 +851,24 @@ export const api = {
     const raw = await liveRequest<PersonaRaw>('/personas', {
       method: 'POST',
       body: JSON.stringify(payload),
+    });
+    return mapPersonaRaw(raw);
+  },
+
+  updatePersona: async (
+    personaId: string,
+    payload: PersonaWizardPayload['persona']
+  ): Promise<Persona> => {
+    const raw = await liveRequest<PersonaRaw>(`/personas/${assertUuid(personaId, 'personaId')}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    return mapPersonaRaw(raw);
+  },
+
+  deletePersona: async (personaId: string): Promise<Persona> => {
+    const raw = await liveRequest<PersonaRaw>(`/personas/${assertUuid(personaId, 'personaId')}`, {
+      method: 'DELETE',
     });
     return mapPersonaRaw(raw);
   },
