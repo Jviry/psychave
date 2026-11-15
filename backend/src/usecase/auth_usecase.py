@@ -1,6 +1,7 @@
 from sqlmodel import Session
 
 from common.exceptions import ConflictError, ValidationError
+from common.rate_limit import verification_rate_limiter
 from interfaces.auth import AuthService, AuthTokens, AuthUser
 from models.user import User, UserRole
 from repo.profile_repo import ProfileRepo
@@ -86,12 +87,62 @@ class AuthUsecase:
 
         return {"message": "register successful, check email for code"}
 
-    def confirm_user(self, request: ConfirmUserRequest):
+    def confirm_user(self, request: ConfirmUserRequest, client_ip: str | None = None):
+        username_key = f"confirm:user:{request.username.strip().lower()}"
+        checks: list[tuple[str, int, int, str]] = [
+            (
+                username_key,
+                5,
+                900,
+                "Too many verification attempts. Please wait 15 minutes before trying again.",
+            ),
+        ]
+        if client_ip:
+            checks.append(
+                (
+                    f"confirm:ip:{client_ip}",
+                    10,
+                    900,
+                    "Too many verification attempts from this network. Please try again later.",
+                )
+            )
+        verification_rate_limiter.check_and_record(checks=checks)
+
         self.auth.confirm_user(request)
+        verification_rate_limiter.reset(username_key)
         self._sync_user(request.username)
         return {"message": "user confirmed"}
 
-    def resend_confirmation_code(self, username: str):
+    def resend_confirmation_code(self, username: str, client_ip: str | None = None):
+        norm_username = username.strip().lower()
+        checks: list[tuple[str, int, int, str]] = [
+            (
+                f"resend:user:{norm_username}",
+                5,
+                900,
+                "Too many verification code requests. Please wait before requesting another code.",
+            ),
+        ]
+        if client_ip:
+            checks.append(
+                (
+                    f"resend:ip:{client_ip}",
+                    10,
+                    900,
+                    "Too many verification code requests from this network. Please try again later.",
+                )
+            )
+        verification_rate_limiter.check_and_record(
+            checks=checks,
+            cooldown_checks=[
+                (
+                    f"resend:user:{norm_username}",
+                    60,
+                    "Please wait 60 seconds before requesting another verification code.",
+                )
+            ],
+        )
+
         self.auth.resend_confirmation_code(username)
         return {"message": "confirmation code sent"}
 
@@ -103,12 +154,64 @@ class AuthUsecase:
         self.auth.logout_user(access_token)
         return {"message": "logout successful"}
 
-    def request_forgot_password(self, username: str):
+    def request_forgot_password(self, username: str, client_ip: str | None = None):
+        norm_username = username.strip().lower()
+        checks: list[tuple[str, int, int, str]] = [
+            (
+                f"forgot:user:{norm_username}",
+                5,
+                900,
+                "Too many password reset requests. Please wait before requesting another code.",
+            ),
+        ]
+        if client_ip:
+            checks.append(
+                (
+                    f"forgot:ip:{client_ip}",
+                    10,
+                    900,
+                    "Too many password reset requests from this network. Please try again later.",
+                )
+            )
+        verification_rate_limiter.check_and_record(
+            checks=checks,
+            cooldown_checks=[
+                (
+                    f"forgot:user:{norm_username}",
+                    60,
+                    "Please wait 60 seconds before requesting another reset code.",
+                )
+            ],
+        )
+
         self.auth.request_forgot_password(username)
         return {"message": "confirmation code sent to email"}
 
-    def confirm_forgot_password(self, request: ForgotPasswordConfirm):
+    def confirm_forgot_password(
+        self, request: ForgotPasswordConfirm, client_ip: str | None = None
+    ):
+        username_key = f"forgot_confirm:user:{request.username.strip().lower()}"
+        checks: list[tuple[str, int, int, str]] = [
+            (
+                username_key,
+                5,
+                900,
+                "Too many password reset attempts. Please wait 15 minutes before trying again.",
+            ),
+        ]
+        if client_ip:
+            checks.append(
+                (
+                    f"forgot_confirm:ip:{client_ip}",
+                    10,
+                    900,
+                    "Too many password reset attempts from this network. Please try again later.",
+                )
+            )
+        verification_rate_limiter.check_and_record(checks=checks)
+
         self.auth.confirm_forgot_password(request)
+        verification_rate_limiter.reset(username_key)
         return {"message": "password change successful"}
 
     def _sync_user(self, username: str):

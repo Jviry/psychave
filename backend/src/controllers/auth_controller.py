@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 from dependencies.auth import AuthServiceDep, CurrentUserDep, DbDep
 from schemas.auth_model import (
@@ -56,24 +56,33 @@ def create_user(
     return uc.create_user(credentials)
 
 
+def _client_ip(http_request: Request) -> str:
+    forwarded_for = http_request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return http_request.client.host if http_request.client else "unknown"
+
+
 @router.post("/confirm")
 def confirm_user(
     request: ConfirmUserRequest,
+    http_request: Request,
     auth_service: AuthServiceDep,
     db: DbDep,
 ):
     uc = AuthUsecase(auth_service, db)
-    return uc.confirm_user(request)
+    return uc.confirm_user(request, client_ip=_client_ip(http_request))
 
 
 @router.post("/resend-code")
 def resend_confirmation_code(
     username: str,
+    http_request: Request,
     auth_service: AuthServiceDep,
     db: DbDep,
 ):
     uc = AuthUsecase(auth_service, db)
-    return uc.resend_confirmation_code(username)
+    return uc.resend_confirmation_code(username, client_ip=_client_ip(http_request))
 
 
 @router.post("/logout")
@@ -90,21 +99,23 @@ def logout_user(
 @router.post("/request-forgot-password")
 def request_forgot_password(
     username: str,
+    http_request: Request,
     auth_service: AuthServiceDep,
     db: DbDep,
 ):
     uc = AuthUsecase(auth_service, db)
-    return uc.request_forgot_password(username)
+    return uc.request_forgot_password(username, client_ip=_client_ip(http_request))
 
 
 @router.post("/confirm-forgot-password")
 def confirm_forgot_password(
     request: ForgotPasswordConfirm,
+    http_request: Request,
     auth_service: AuthServiceDep,
     db: DbDep,
 ):
     uc = AuthUsecase(auth_service, db)
-    return uc.confirm_forgot_password(request)
+    return uc.confirm_forgot_password(request, client_ip=_client_ip(http_request))
 
 
 @router.delete("/delete")

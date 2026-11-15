@@ -160,4 +160,49 @@ describe('auth API — real fetch', () => {
     const [url] = mockFetch.mock.calls[0];
     expect(url).toContain('/auth/confirm-forgot-password');
   });
+
+  it('loginUser throws AuthApiError with USER_NOT_CONFIRMED on 403 unverified response', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      statusText: 'Forbidden',
+      headers: new Headers(),
+      json: async () => ({
+        detail: 'Account email is not verified.',
+        code: 'USER_NOT_CONFIRMED',
+      }),
+    });
+
+    const { authApi, AuthApiError } = await import('../authApi');
+    try {
+      await authApi.loginUser({ username: 'unverified', password: 'wrong' });
+      expect.unreachable('Expected AuthApiError');
+    } catch (err) {
+      expect(err).toBeInstanceOf(AuthApiError);
+      expect((err as InstanceType<typeof AuthApiError>).status).toBe(403);
+      expect((err as InstanceType<typeof AuthApiError>).code).toBe('USER_NOT_CONFIRMED');
+    }
+  });
+
+  it('resendCode throws AuthApiError with retryAfter on 429 rate-limit response', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 429,
+      statusText: 'Too Many Requests',
+      headers: new Headers({ 'Retry-After': '45' }),
+      json: async () => ({
+        detail: 'Please wait 60 seconds before requesting another verification code.',
+      }),
+    });
+
+    const { authApi, AuthApiError } = await import('../authApi');
+    try {
+      await authApi.resendCode('unverified');
+      expect.unreachable('Expected AuthApiError');
+    } catch (err) {
+      expect(err).toBeInstanceOf(AuthApiError);
+      expect((err as InstanceType<typeof AuthApiError>).status).toBe(429);
+      expect((err as InstanceType<typeof AuthApiError>).retryAfter).toBe(45);
+    }
+  });
 });

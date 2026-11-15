@@ -2,7 +2,15 @@ import pytest
 from sqlmodel import SQLModel, Session, create_engine, select
 from sqlmodel.pool import StaticPool
 
-from common.exceptions import ConflictError, ValidationError
+from common.exceptions import (
+    BadRequestError,
+    ConflictError,
+    RateLimitError,
+    UnauthenticatedError,
+    UserNotConfirmedError,
+    ValidationError,
+)
+from common.rate_limit import verification_rate_limiter
 from models.admin_profile import AdminProfile
 from models.client_profile import ClientProfile
 from models.forms import Forms
@@ -74,6 +82,13 @@ def _make_user_create(
         profile=_valid_profile_payload(dob=dob, relation=relation),
         consent=_valid_consent_payload(signer_relation=signer_relation),
     )
+
+
+@pytest.fixture(autouse=True)
+def clear_rate_limiter():
+    verification_rate_limiter.clear_all()
+    yield
+    verification_rate_limiter.clear_all()
 
 
 @pytest.fixture
@@ -153,6 +168,9 @@ def test_create_user_always_creates_client_role(auth_usecase, session):
 def test_login_and_refresh_token(auth_usecase, fake_auth):
     creds = _make_user_create(username="testlogin", email="testlogin@example.com")
     auth_usecase.create_user(creds)
+    auth_usecase.confirm_user(
+        ConfirmUserRequest(username="testlogin", confirmation_code="123456")
+    )
 
     login_creds = UserLogin(username="testlogin", password="Password123!")
     tokens = auth_usecase.login_user(login_creds)
@@ -187,6 +205,9 @@ def test_forgot_password_flow(auth_usecase, fake_auth):
         password="OldPassword123!",
     )
     auth_usecase.create_user(creds)
+    auth_usecase.confirm_user(
+        ConfirmUserRequest(username="forgotuser", confirmation_code="123456")
+    )
 
     res1 = auth_usecase.request_forgot_password("forgotuser")
     assert res1 == {"message": "confirmation code sent to email"}
@@ -210,6 +231,9 @@ def test_forgot_password_flow(auth_usecase, fake_auth):
 def test_logout(auth_usecase, fake_auth):
     creds = _make_user_create(username="logoutuser", email="logout@example.com")
     auth_usecase.create_user(creds)
+    auth_usecase.confirm_user(
+        ConfirmUserRequest(username="logoutuser", confirmation_code="123456")
+    )
 
     tokens = auth_usecase.login_user(
         UserLogin(username="logoutuser", password="Password123!")
@@ -221,6 +245,9 @@ def test_logout(auth_usecase, fake_auth):
 def test_delete_user(auth_usecase, fake_auth):
     creds = _make_user_create(username="deleteuser", email="delete@example.com")
     auth_usecase.create_user(creds)
+    auth_usecase.confirm_user(
+        ConfirmUserRequest(username="deleteuser", confirmation_code="123456")
+    )
 
     tokens = auth_usecase.login_user(
         UserLogin(username="deleteuser", password="Password123!")
@@ -298,4 +325,152 @@ def test_profile_usecase_blocks_self_creation_and_deletion_and_allows_self_edit(
                 **_valid_profile_payload(profile_name="Child Doe", relation="self")
             ),
             user.user_id,
+        )
+
+
+def test_unverified_user_login_blocked_even_with_wrong_password(auth_usecase):
+    creds = _make_user_create(username="unverified1", email="unverified1@example.com")
+    auth_usecase.create_user(creds)
+
+    with pytest.raises(UserNotConfirmedError):
+        auth_usecase.login_user(
+            UserLogin(username="unverified1", password="Password123!")
+        )
+
+    with pytest.raises(UserNotConfirmedError):
+        auth_usecase.login_user(
+            UserLogin(username="unverified1", password="WrongPassword!")
+        )
+
+
+def test_resend_confirmation_code_anti_enumeration_and_rate_limit(auth_usecase):
+    creds = _make_user_create(username="resenduser", email="resend@example.com")
+    auth_usecase.create_user(creds)
+
+    # First resend succeeds
+    assert auth_usecase.resend_confirmation_code("resenduser", client_ip="1.2.3.4") == {
+        "message": "confirmation code sent"
+    }
+
+    # Immediate second resend hits 60s cooldown
+    with pytest.raises(RateLimitError) as exc_info:
+        auth_usecase.resend_confirmation_code("resenduser", client_ip="1.2.3.4")
+    assert exc_info.value.retry_after is not None
+
+    # Non-existent user returns generic 200 success (no enumeration)
+    assert auth_usecase.resend_confirmation_code("ghost_user", client_ip="1.2.3.5") == {
+        "message": "confirmation code sent"
+    }
+
+    # Confirmed user also returns generic 200 success
+    auth_usecase.confirm_user(
+        ConfirmUserRequest(username="resenduser", confirmation_code="123456"),
+        client_ip="1.2.3.4",
+    )
+    verification_rate_limiter.clear_all()
+    assert auth_usecase.resend_confirmation_code("resenduser", client_ip="1.2.3.4") == {
+        "message": "confirmation code sent"
+    }
+
+
+def test_confirm_user_rate_limited_after_five_attempts(auth_usecase):
+    creds = _make_user_create(username="bruteuser", email="brute@example.com")
+    auth_usecase.create_user(creds)
+
+    for _ in range(5):
+        with pytest.raises(BadRequestError):
+            auth_usecase.confirm_user(
+                ConfirmUserRequest(username="bruteuser", confirmation_code="000000"),
+                client_ip="10.0.0.1",
+            )
+
+    with pytest.raises(RateLimitError):
+        auth_usecase.confirm_user(
+            ConfirmUserRequest(username="bruteuser", confirmation_code="123456"),
+            client_ip="10.0.0.1",
+        )
+
+
+def test_cognito_service_login_unconfirmed_even_on_not_authorized():
+    from botocore.exceptions import ClientError
+    from services.auth.cognito_service import CognitoService
+
+    class StubCognitoClient:
+        def __init__(self, status: str):
+            self.status = status
+
+        def initiate_auth(self, **_kwargs):
+            raise ClientError(
+                {
+                    "Error": {
+                        "Code": "NotAuthorizedException",
+                        "Message": "Incorrect username or password.",
+                    }
+                },
+                "InitiateAuth",
+            )
+
+        def admin_get_user(self, **_kwargs):
+            return {"UserStatus": self.status}
+
+    unconfirmed_svc = CognitoService(
+        client=StubCognitoClient("UNCONFIRMED"),
+        client_id="cid",
+        user_pool_id="pid",
+    )
+    with pytest.raises(UserNotConfirmedError):
+        unconfirmed_svc.login_user(UserLogin(username="u1", password="wrong"))
+
+    confirmed_svc = CognitoService(
+        client=StubCognitoClient("CONFIRMED"),
+        client_id="cid",
+        user_pool_id="pid",
+    )
+    with pytest.raises(UnauthenticatedError):
+        confirmed_svc.login_user(UserLogin(username="u1", password="wrong"))
+
+
+def test_forgot_password_anti_enumeration_unconfirmed_and_rate_limit(auth_usecase):
+    # 1. Non-existent user returns generic 200 success (no enumeration)
+    assert auth_usecase.request_forgot_password("nonexistent_fp", client_ip="1.2.3.4") == {
+        "message": "confirmation code sent to email"
+    }
+
+    # 2. Unconfirmed user raises UserNotConfirmedError
+    creds = _make_user_create(username="fp_unconfirmed", email="fp_unconf@example.com")
+    auth_usecase.create_user(creds)
+    with pytest.raises(UserNotConfirmedError):
+        auth_usecase.request_forgot_password("fp_unconfirmed", client_ip="1.2.3.4")
+
+    # 3. Confirmed user succeeds, then hits 60s cooldown on immediate retry
+    auth_usecase.confirm_user(
+        ConfirmUserRequest(username="fp_unconfirmed", confirmation_code="123456"),
+        client_ip="1.2.3.4",
+    )
+    verification_rate_limiter.clear_all()
+    assert auth_usecase.request_forgot_password("fp_unconfirmed", client_ip="1.2.3.4") == {
+        "message": "confirmation code sent to email"
+    }
+    with pytest.raises(RateLimitError):
+        auth_usecase.request_forgot_password("fp_unconfirmed", client_ip="1.2.3.4")
+
+    # 4. confirm_forgot_password locks after 5 failed attempts
+    for _ in range(5):
+        with pytest.raises(BadRequestError):
+            auth_usecase.confirm_forgot_password(
+                ForgotPasswordConfirm(
+                    username="fp_unconfirmed",
+                    confirmation_code="000000",
+                    new_password="NewPassword123!",
+                ),
+                client_ip="1.2.3.4",
+            )
+    with pytest.raises(RateLimitError):
+        auth_usecase.confirm_forgot_password(
+            ForgotPasswordConfirm(
+                username="fp_unconfirmed",
+                confirmation_code="654321",
+                new_password="NewPassword123!",
+            ),
+            client_ip="1.2.3.4",
         )

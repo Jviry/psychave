@@ -51,6 +51,22 @@ interface MessageResponse {
   message: string;
 }
 
+// ─── Error Type ───────────────────────────────────────────────────────────────
+
+export class AuthApiError extends Error {
+  status: number;
+  code?: string;
+  retryAfter?: number;
+
+  constructor(message: string, status: number, code?: string, retryAfter?: number) {
+    super(message);
+    this.name = 'AuthApiError';
+    this.status = status;
+    this.code = code;
+    this.retryAfter = retryAfter;
+  }
+}
+
 // ─── HTTP helper ─────────────────────────────────────────────────────────────
 
 async function post<T>(endpoint: string, body: unknown, headers?: Record<string, string>): Promise<T> {
@@ -77,14 +93,19 @@ async function post<T>(endpoint: string, body: unknown, headers?: Record<string,
 
     if (!res.ok) {
       let detail = `HTTP ${res.status}`;
+      let code: string | undefined;
       try {
         const data = await res.json();
         if (data?.detail) detail = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
         else if (data?.message) detail = data.message;
+        if (typeof data?.code === 'string') code = data.code;
       } catch {
         /* body not JSON */
       }
-      throw new Error(detail);
+      const retryHeader = res.headers?.get?.('Retry-After');
+      const parsedRetry = retryHeader ? Number.parseInt(retryHeader, 10) : NaN;
+      const retryAfter = Number.isFinite(parsedRetry) && parsedRetry > 0 ? parsedRetry : undefined;
+      throw new AuthApiError(detail, res.status, code, retryAfter);
     }
 
     return (await res.json()) as T;

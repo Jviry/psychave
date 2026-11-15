@@ -8,7 +8,9 @@ from common.exceptions import (
     BadRequestError,
     ConflictError,
     NotFoundError,
+    RateLimitError,
     UnauthenticatedError,
+    UserNotConfirmedError,
 )
 from common.security.cognito import verify_token as cognito_verify_token
 from common.settings import settings
@@ -31,6 +33,13 @@ def _handle_cognito_errors():
         code = error.get("Code", "")
         message = error.get("Message", "Authentication error")
 
+        if code == "UserNotConfirmedException":
+            raise UserNotConfirmedError("Account email is not verified.") from exc
+        if code in ("LimitExceededException", "TooManyRequestsException"):
+            raise RateLimitError(
+                "Too many verification requests. Please wait before trying again.",
+                retry_after=60,
+            ) from exc
         if code == "NotAuthorizedException":
             raise UnauthenticatedError(message) from exc
         if code == "UserNotFoundException":
@@ -84,16 +93,37 @@ class CognitoService(AuthService):
                 attributes=attrs,
             )
 
+    def _is_user_unconfirmed(self, username: str) -> bool:
+        """Check Cognito user status without exposing existence/details on error."""
+        try:
+            response = self.client.admin_get_user(
+                UserPoolId=self.user_pool_id,
+                Username=username,
+            )
+            return response.get("UserStatus") == "UNCONFIRMED"
+        except ClientError:
+            return False
+
     def login_user(self, credentials: UserLogin) -> AuthTokens:
         with _handle_cognito_errors():
-            response = self.client.initiate_auth(
-                ClientId=self.client_id,
-                AuthFlow="USER_PASSWORD_AUTH",
-                AuthParameters={
-                    "USERNAME": credentials.username,
-                    "PASSWORD": credentials.password,
-                },
-            )
+            try:
+                response = self.client.initiate_auth(
+                    ClientId=self.client_id,
+                    AuthFlow="USER_PASSWORD_AUTH",
+                    AuthParameters={
+                        "USERNAME": credentials.username,
+                        "PASSWORD": credentials.password,
+                    },
+                )
+            except ClientError as exc:
+                code = exc.response.get("Error", {}).get("Code", "")
+                if code == "NotAuthorizedException" and self._is_user_unconfirmed(
+                    credentials.username
+                ):
+                    raise UserNotConfirmedError(
+                        "Account email is not verified."
+                    ) from exc
+                raise
             auth_result = response["AuthenticationResult"]
             return AuthTokens(
                 access_token=auth_result["AccessToken"],
@@ -146,10 +176,22 @@ class CognitoService(AuthService):
 
     def resend_confirmation_code(self, username: str) -> None:
         with _handle_cognito_errors():
-            self.client.resend_confirmation_code(
-                ClientId=self.client_id,
-                Username=username,
-            )
+            try:
+                self.client.resend_confirmation_code(
+                    ClientId=self.client_id,
+                    Username=username,
+                )
+            except ClientError as exc:
+                error = exc.response.get("Error", {})
+                code = error.get("Code", "")
+                message = error.get("Message", "")
+                # Anti-enumeration: suppress missing or already-confirmed user errors.
+                if code == "UserNotFoundException" or (
+                    code == "InvalidParameterException"
+                    and "already confirmed" in message.lower()
+                ):
+                    return
+                raise
 
     def add_user_to_group(self, username: str, group: str) -> None:
         with _handle_cognito_errors():
@@ -237,10 +279,24 @@ class CognitoService(AuthService):
 
     def request_forgot_password(self, username: str) -> None:
         with _handle_cognito_errors():
-            self.client.forgot_password(
-                ClientId=self.client_id,
-                Username=username,
-            )
+            try:
+                self.client.forgot_password(
+                    ClientId=self.client_id,
+                    Username=username,
+                )
+            except ClientError as exc:
+                error = exc.response.get("Error", {})
+                code = error.get("Code", "")
+                if code == "UserNotFoundException":
+                    # Anti-enumeration: behave identically to a valid username.
+                    return
+                if code == "InvalidParameterException" and self._is_user_unconfirmed(
+                    username
+                ):
+                    raise UserNotConfirmedError(
+                        "Account email is not verified."
+                    ) from exc
+                raise
 
     def confirm_forgot_password(self, request: ForgotPasswordConfirm) -> None:
         with _handle_cognito_errors():

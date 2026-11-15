@@ -12,7 +12,9 @@ from common.database import engine
 from common.exceptions import (
     DomainError,
     ForbiddenError,
+    RateLimitError,
     UnauthenticatedError,
+    UserNotConfirmedError,
     UserNotFoundError,
 )
 from common.settings import settings
@@ -107,6 +109,22 @@ def create_app() -> FastAPI:
 
     @application.exception_handler(DomainError)
     async def domain_error_handler(_: Request, exc: DomainError):
+        if isinstance(exc, UserNotConfirmedError):
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"detail": exc.detail, "code": exc.code},
+            )
+        if isinstance(exc, RateLimitError):
+            headers = (
+                {"Retry-After": str(exc.retry_after)}
+                if exc.retry_after is not None
+                else None
+            )
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"detail": exc.detail},
+                headers=headers,
+            )
         return JSONResponse(
             status_code=exc.status_code, content={"detail": exc.detail}
         )

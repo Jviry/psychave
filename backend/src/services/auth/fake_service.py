@@ -7,6 +7,7 @@ from common.exceptions import (
     ConflictError,
     NotFoundError,
     UnauthenticatedError,
+    UserNotConfirmedError,
 )
 from interfaces.auth import AuthService, AuthTokens, AuthUser, SignUpResult
 from schemas.auth_model import (
@@ -60,12 +61,15 @@ class FakeAuthService(AuthService):
         user["confirmed"] = True
 
     def resend_confirmation_code(self, username: str) -> None:
-        if username not in self.users_by_username:
-            raise NotFoundError("User not found")
+        user = self.users_by_username.get(username)
+        if not user or user.get("confirmed"):
+            return
         self.confirmation_codes[username] = "123456"
 
     def login_user(self, credentials: UserLogin) -> AuthTokens:
         user = self.users_by_username.get(credentials.username)
+        if user and not user.get("confirmed", True):
+            raise UserNotConfirmedError("Account email is not verified.")
         if not user or user["password"] != credentials.password:
             raise UnauthenticatedError("Incorrect username or password")
 
@@ -166,8 +170,11 @@ class FakeAuthService(AuthService):
         self.tokens_to_sub.pop(access_token, None)
 
     def request_forgot_password(self, username: str) -> None:
-        if username not in self.users_by_username:
-            raise NotFoundError("User not found")
+        user = self.users_by_username.get(username)
+        if not user:
+            return
+        if not user.get("confirmed", True):
+            raise UserNotConfirmedError("Account email is not verified.")
         self.reset_codes[username] = "654321"
 
     def confirm_forgot_password(self, request: ForgotPasswordConfirm) -> None:
