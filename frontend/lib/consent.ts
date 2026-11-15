@@ -1,14 +1,14 @@
 /**
- * Persona wizard constants + helpers (frontend-only).
+ * Profile wizard constants + helpers (frontend-only).
  *
  * Source: firm booking forms (consent v2). Logic reads CONSENT_VERSION from this
- * single constant and sends it in the POST /personas payload.
+ * single constant and sends it in the POST /profiles payload.
  */
 
 export const CONSENT_VERSION = 'v2';
 
-export const WIZARD_DRAFT_KEY = 'psychave.personaWizard.v1';
-export const LAST_USED_PERSONA_KEY = 'psychave.lastUsedPersonaId';
+export const WIZARD_DRAFT_KEY = 'psychave.profileWizard.v1';
+export const LAST_USED_PROFILE_KEY = 'psychave.lastUsedProfileId';
 
 /** Informed consent + data privacy agreement (wizard page 1, scrollable). */
 export const INFORMED_CONSENT_TEXT = `INFORMED CONSENT AND DATA PRIVACY AGREEMENT
@@ -80,9 +80,9 @@ export type TermsSignerRelation =
 
 export type PreferredContactMode = 'phone' | 'email' | 'messenger' | 'instagram';
 
-export interface PersonaWizardPersona {
+export interface ProfileWizardProfile {
   relation_to_account_holder: RelationToAccountHolder;
-  persona_name: string;
+  profile_name: string;
   date_of_birth: string;
   occupation: string | null;
   nationality: string;
@@ -97,7 +97,7 @@ export interface PersonaWizardPersona {
   emergency_contact_number: string;
 }
 
-export interface PersonaWizardConsent {
+export interface ProfileWizardConsent {
   consent_version: string;
   terms_signer_name: string;
   terms_signer_relation: TermsSignerRelation;
@@ -108,9 +108,9 @@ export interface PersonaWizardConsent {
   consent_signer_name: string;
 }
 
-export interface PersonaWizardPayload {
-  persona: PersonaWizardPersona;
-  consent: PersonaWizardConsent;
+export interface ProfileWizardPayload {
+  profile: ProfileWizardProfile;
+  consent: ProfileWizardConsent;
 }
 
 /** Compute minor status (<18y) from an ISO date string. Returns false on invalid input. */
@@ -167,12 +167,12 @@ export function parseApiFieldErrors(err: unknown): Record<string, string> {
 /** Which wizard step (1–4) owns a given payload field, for jumping to the right page. */
 export function stepForField(field: string): 1 | 2 | 3 | 4 {
   if (
-    field.startsWith('persona.') &&
+    field.startsWith('profile.') &&
     !['scope_acknowledged', 'is_overseas_or_foreign', 'overseas_acknowledged'].includes(field)
   ) {
     if (
       [
-        'persona.relation_to_account_holder',
+        'profile.relation_to_account_holder',
         'consent.terms_signer_name',
         'consent.terms_signer_relation',
       ].includes(field)

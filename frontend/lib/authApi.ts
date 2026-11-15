@@ -13,6 +13,7 @@
  */
 
 import { API_BASE_URL } from './api';
+import type { ProfileWizardConsent, ProfileWizardProfile } from './consent';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -31,6 +32,8 @@ export interface RegisterCredentials {
   email: string;
   username: string;
   password: string;
+  profile: ProfileWizardProfile;
+  consent: ProfileWizardConsent;
 }
 
 export interface ConfirmCredentials {
@@ -111,13 +114,16 @@ export const authApi = {
   },
 
   /**
-   * Create a new Cognito user. Returns a message directing user to check email.
+   * Create a new Cognito user along with their primary 'self' profile and signed consent.
+   * Returns a message directing user to check email.
    */
   registerUser: async (credentials: RegisterCredentials): Promise<MessageResponse> =>
     post<MessageResponse>('/auth/create-user', {
       email: credentials.email,
       username: credentials.username,
       password: credentials.password,
+      profile: credentials.profile,
+      consent: credentials.consent,
     }),
 
   /**

@@ -5,8 +5,8 @@ import {
   BookingStatus,
   CmsContent,
   CognitoRole,
-  Persona,
-  PersonaReview,
+  Profile,
+  ProfileReview,
   ResidentPsychologist,
   ServiceItem,
   SlotProposer,
@@ -14,14 +14,14 @@ import {
   SocialMediaLink,
 } from './types';
 import { useAuthStore } from '../authStore';
-import { isMinorDob, type PersonaWizardPayload } from './consent';
+import { isMinorDob, type ProfileWizardPayload } from './consent';
 
 /**
  * Single canonical API client for PsychAvenuePH (PSYCHAVE PH).
  *
  * Every operational request goes to the authenticated FastAPI backend. The
  * only local-only content is the CMS/roster marketing payload below, which
- * has no backend yet and is clearly isolated from auth, users, personas,
+ * has no backend yet and is clearly isolated from auth, users, profiles,
  * appointments, services, and payments.
  *
  * NEXT_PUBLIC_* vars are read as literal member expressions on purpose:
@@ -365,9 +365,9 @@ function formatSlotDateAndTime(isoString: string, durationMinutes = 60): { dateL
 
 interface AppointmentRaw {
   appointment_id: string;
-  persona_id: string;
-  persona_name: string;
-  persona_relation: string;
+  profile_id: string;
+  profile_name: string;
+  profile_relation: string;
   service_id: string;
   service_name: string;
   service_duration_minutes: number | null;
@@ -383,8 +383,8 @@ interface AppointmentRaw {
   payment_deadline: string | null;
   proposed_slots: ProposedSlotRaw[];
   conflicting_slot_ids?: string[];
-  persona_socmed_platform: string | null;
-  persona_socmed_username: string | null;
+  profile_socmed_platform: string | null;
+  profile_socmed_username: string | null;
   psychologist_social_links: SocialMediaLink[];
 }
 
@@ -407,10 +407,10 @@ interface ServiceRaw {
   guardrail_notice: string | null;
 }
 
-interface PersonaRaw {
-  persona_id: string;
+interface ProfileRaw {
+  profile_id: string;
   relation_to_account_holder: string;
-  persona_name: string;
+  profile_name: string;
   date_of_birth: string;
   occupation?: string | null;
   nationality?: string;
@@ -425,11 +425,11 @@ interface PersonaRaw {
   emergency_contact_number?: string;
 }
 
-interface PersonaReviewRaw {
-  persona: {
-    persona_id: string;
+interface ProfileReviewRaw {
+  profile: {
+    profile_id: string;
     relation_to_account_holder: string;
-    persona_name: string;
+    profile_name: string;
     date_of_birth: string;
     occupation: string | null;
     nationality: string;
@@ -560,10 +560,10 @@ function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
     ? (raw.psychologist_social_links ?? [])
     : undefined;
   const clientSocialMedia =
-    raw.persona_socmed_platform || raw.persona_socmed_username
+    raw.profile_socmed_platform || raw.profile_socmed_username
       ? {
-          platform: raw.persona_socmed_platform ?? '',
-          username: raw.persona_socmed_username ?? '',
+          platform: raw.profile_socmed_platform ?? '',
+          username: raw.profile_socmed_username ?? '',
         }
       : undefined;
 
@@ -602,9 +602,9 @@ function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
   return {
     id: raw.appointment_id,
     clientId: 'client-01',
-    personaId: raw.persona_id,
-    personaType: raw.persona_relation === 'self' ? 'self' : 'dependent',
-    personaLabel: raw.persona_name,
+    profileId: raw.profile_id,
+    profileType: raw.profile_relation === 'self' ? 'self' : 'dependent',
+    profileLabel: raw.profile_name,
     serviceId: raw.service_id,
     serviceTitle: raw.service_name,
     serviceDuration: durationLabel(raw.service_duration_minutes),
@@ -650,13 +650,13 @@ function mapServiceRaw(raw: ServiceRaw, index: number): ServiceItem {
   };
 }
 
-function mapPersonaRaw(raw: PersonaRaw): Persona {
+function mapProfileRaw(raw: ProfileRaw): Profile {
   const dob = String(raw.date_of_birth ?? '').slice(0, 10);
   return {
-    id: raw.persona_id,
+    id: raw.profile_id,
     clientId: 'client-01',
     type: raw.relation_to_account_holder === 'self' ? 'self' : 'dependent',
-    label: raw.persona_name,
+    label: raw.profile_name,
     ageGroup: isMinorDob(dob) ? 'Minor (<18)' : 'Adult (18+)',
     relationshipToClient: raw.relation_to_account_holder ?? '',
     preferredLanguage: '',
@@ -676,24 +676,24 @@ function mapPersonaRaw(raw: PersonaRaw): Persona {
   };
 }
 
-function mapPersonaReviewRaw(raw: PersonaReviewRaw): PersonaReview {
+function mapProfileReviewRaw(raw: ProfileReviewRaw): ProfileReview {
   return {
-    persona: {
-      id: raw.persona.persona_id,
-      name: raw.persona.persona_name,
-      relationToAccountHolder: raw.persona.relation_to_account_holder,
-      dateOfBirth: raw.persona.date_of_birth,
-      occupation: raw.persona.occupation,
-      nationality: raw.persona.nationality,
-      permanentAddress: raw.persona.permanent_address,
-      presentAddress: raw.persona.present_address,
-      contactNumber: raw.persona.contact_number,
-      socmedPlatform: raw.persona.socmed_platform,
-      socmedUsername: raw.persona.socmed_username,
-      preferredContactMode: raw.persona.preferred_contact_mode,
-      emergencyContactName: raw.persona.emergency_contact_name,
-      emergencyContactRelation: raw.persona.emergency_contact_relation,
-      emergencyContactNumber: raw.persona.emergency_contact_number,
+    profile: {
+      id: raw.profile.profile_id,
+      name: raw.profile.profile_name,
+      relationToAccountHolder: raw.profile.relation_to_account_holder,
+      dateOfBirth: raw.profile.date_of_birth,
+      occupation: raw.profile.occupation,
+      nationality: raw.profile.nationality,
+      permanentAddress: raw.profile.permanent_address,
+      presentAddress: raw.profile.present_address,
+      contactNumber: raw.profile.contact_number,
+      socmedPlatform: raw.profile.socmed_platform,
+      socmedUsername: raw.profile.socmed_username,
+      preferredContactMode: raw.profile.preferred_contact_mode,
+      emergencyContactName: raw.profile.emergency_contact_name,
+      emergencyContactRelation: raw.profile.emergency_contact_relation,
+      emergencyContactNumber: raw.profile.emergency_contact_number,
     },
     consent: {
       version: raw.consent.consent_version,
@@ -831,46 +831,46 @@ export const api = {
   },
 
   /**
-   * Client Personas API
+   * Client Profiles API
    */
-  getPersonas: async (): Promise<Persona[]> => {
-    const raw = await liveRequest<PersonaRaw[]>('/personas');
+  getProfiles: async (): Promise<Profile[]> => {
+    const raw = await liveRequest<ProfileRaw[]>('/profiles');
     const list = Array.isArray(raw) ? raw : [];
-    return list.map(mapPersonaRaw);
+    return list.map(mapProfileRaw);
   },
 
-  getPersonaReview: async (personaId: string): Promise<PersonaReview> => {
-    const raw = await liveRequest<PersonaReviewRaw>(`/personas/${personaId}/review`);
-    return mapPersonaReviewRaw(raw);
+  getProfileReview: async (profileId: string): Promise<ProfileReview> => {
+    const raw = await liveRequest<ProfileReviewRaw>(`/profiles/${profileId}/review`);
+    return mapProfileReviewRaw(raw);
   },
 
   /**
-   * Persona creation wizard: single POST creating persona + consent rows.
+   * Profile creation wizard: single POST creating profile + consent rows.
    */
-  createPersonaWithConsent: async (payload: PersonaWizardPayload): Promise<Persona> => {
-    const raw = await liveRequest<PersonaRaw>('/personas', {
+  createProfileWithConsent: async (payload: ProfileWizardPayload): Promise<Profile> => {
+    const raw = await liveRequest<ProfileRaw>('/profiles', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
-    return mapPersonaRaw(raw);
+    return mapProfileRaw(raw);
   },
 
-  updatePersona: async (
-    personaId: string,
-    payload: PersonaWizardPayload['persona']
-  ): Promise<Persona> => {
-    const raw = await liveRequest<PersonaRaw>(`/personas/${assertUuid(personaId, 'personaId')}`, {
+  updateProfile: async (
+    profileId: string,
+    payload: ProfileWizardPayload['profile']
+  ): Promise<Profile> => {
+    const raw = await liveRequest<ProfileRaw>(`/profiles/${assertUuid(profileId, 'profileId')}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
     });
-    return mapPersonaRaw(raw);
+    return mapProfileRaw(raw);
   },
 
-  deletePersona: async (personaId: string): Promise<Persona> => {
-    const raw = await liveRequest<PersonaRaw>(`/personas/${assertUuid(personaId, 'personaId')}`, {
+  deleteProfile: async (profileId: string): Promise<Profile> => {
+    const raw = await liveRequest<ProfileRaw>(`/profiles/${assertUuid(profileId, 'profileId')}`, {
       method: 'DELETE',
     });
-    return mapPersonaRaw(raw);
+    return mapProfileRaw(raw);
   },
 
   /**
@@ -914,10 +914,10 @@ export const api = {
   },
 
   /**
-   * Flow C Step 1: Client submits Persona + Booking Form → pending queue.
+   * Flow C Step 1: Client submits Profile + Booking Form → pending queue.
    */
   submitBookingRequest: async (input: {
-    personaId: string;
+    profileId: string;
     serviceId: string;
     concernsSummary: string;
     preferredSlots: string[];
@@ -926,7 +926,7 @@ export const api = {
       throw new Error('Choose at least 3 preferred schedules.');
     }
     const body = {
-      persona_id: assertUuid(input.personaId, 'personaId'),
+      profile_id: assertUuid(input.profileId, 'profileId'),
       service_id: assertUuid(input.serviceId, 'serviceId'),
       presenting_concern: input.concernsSummary,
       preferred_slots: input.preferredSlots.map(toSlotPreference),

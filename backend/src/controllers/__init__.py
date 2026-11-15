@@ -6,7 +6,7 @@ __all__ = [
     "app_router",
     "auth_controller",
     "payment_controller",
-    "persona_controller",
+    "profile_controller",
     "psychologist_controller",
     "service_controller",
 ]

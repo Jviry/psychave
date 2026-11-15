@@ -9,7 +9,7 @@ from models.appointment import Appointment, AppointmentStatus
 from models.payment import Payment, PaymentStatus
 from repo.appointment_repo import AppointmentRepo
 from repo.payment_repo import PaymentRepo
-from repo.persona_repo import PersonaRepo
+from repo.profile_repo import ProfileRepo
 from services.payments.base import PaymentProvider
 
 
@@ -19,7 +19,7 @@ class PaymentUsecase:
         self.provider = provider
         self.appointments = AppointmentRepo(db)
         self.payments = PaymentRepo(db)
-        self.personas = PersonaRepo(db)
+        self.profiles = ProfileRepo(db)
 
     def _get_owned_appointment(
         self, appointment_id: uuid.UUID, client_id: uuid.UUID
@@ -27,8 +27,8 @@ class PaymentUsecase:
         appt = self.appointments.get_by_id(appointment_id)
         if appt is None:
             raise NotFoundError("Appointment not found")
-        persona = self.personas.get_by_id(appt.persona_id)
-        if persona is None or persona.client_id != client_id:
+        profile = self.profiles.get_by_id(appt.profile_id)
+        if profile is None or profile.client_id != client_id:
             raise NotFoundError("Appointment not found")
         return appt
 

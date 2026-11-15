@@ -28,7 +28,7 @@ export interface ServiceItem {
   isStandaloneConsultation?: boolean;
 }
 
-export interface Persona {
+export interface Profile {
   id: string;
   clientId: string;
   type: 'self' | 'dependent';
@@ -51,8 +51,8 @@ export interface Persona {
   emergencyContactNumber?: string;
 }
 
-export interface PersonaReview {
-  persona: {
+export interface ProfileReview {
+  profile: {
     id: string;
     name: string;
     relationToAccountHolder: string;
@@ -102,9 +102,9 @@ export interface ProposedSlot {
 export interface BookingRequest {
   id: string;
   clientId: string;
-  personaId: string;
-  personaType: 'self' | 'dependent';
-  personaLabel: string;
+  profileId: string;
+  profileType: 'self' | 'dependent';
+  profileLabel: string;
   serviceId: string;
   serviceTitle: string;
   serviceDuration: string;

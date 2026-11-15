@@ -11,7 +11,7 @@ from models.user import User, UserRole
 from models.admin_profile import AdminProfile
 from models.psychologist_profile import PsychologistProfile
 from models.client_profile import ClientProfile
-from models.persona import Persona, PersonaRelation, ContactMode
+from models.profile import Profile, ProfileRelation, ContactMode
 from models.forms import Forms
 from models.service import Service
 from models.appointment import Appointment, AppointmentStatus
@@ -257,19 +257,19 @@ def create_service(db_session: Session) -> Callable[..., Service]:
 
 
 @pytest.fixture
-def create_persona(db_session: Session) -> Callable[..., Persona]:
+def create_profile(db_session: Session) -> Callable[..., Profile]:
     def _create(
         client_id: uuid.UUID,
-        persona_name: str = "Juan Test Persona",
-        relation: PersonaRelation = PersonaRelation.self_,
+        profile_name: str = "Juan Test Profile",
+        relation: ProfileRelation = ProfileRelation.self_,
         preferred_contact_mode: ContactMode = ContactMode.email,
         contact_number: str = "+639171112222",
-    ) -> Persona:
-        persona = Persona(
-            persona_id=uuid.uuid4(),
+    ) -> Profile:
+        profile = Profile(
+            profile_id=uuid.uuid4(),
             client_id=client_id,
             relation_to_account_holder=relation,
-            persona_name=persona_name,
+            profile_name=profile_name,
             date_of_birth=date(1995, 5, 20),
             nationality="Filipino",
             permanent_address="123 Test St, Manila",
@@ -280,10 +280,10 @@ def create_persona(db_session: Session) -> Callable[..., Persona]:
             emergency_contact_relation="Sibling",
             emergency_contact_number="+639189998888",
         )
-        db_session.add(persona)
+        db_session.add(profile)
         db_session.commit()
-        db_session.refresh(persona)
-        return persona
+        db_session.refresh(profile)
+        return profile
 
     return _create
 
@@ -291,7 +291,7 @@ def create_persona(db_session: Session) -> Callable[..., Persona]:
 @pytest.fixture
 def create_appointment(db_session: Session) -> Callable[..., Appointment]:
     def _create(
-        persona_id: uuid.UUID,
+        profile_id: uuid.UUID,
         service_id: uuid.UUID,
         psychologist_id: uuid.UUID | None = None,
         price: float = 1500.0,
@@ -300,7 +300,7 @@ def create_appointment(db_session: Session) -> Callable[..., Appointment]:
     ) -> Appointment:
         appointment = Appointment(
             appointment_id=uuid.uuid4(),
-            persona_id=persona_id,
+            profile_id=profile_id,
             service_id=service_id,
             psychologist_id=psychologist_id,
             price=price,

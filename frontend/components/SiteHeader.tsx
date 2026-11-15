@@ -11,7 +11,7 @@ import { LogOut, User, ChevronDown, Bell, Settings } from 'lucide-react';
 const ROLE_NAV_ITEMS: Record<CognitoRole, { label: string; href: string }[]> = {
   client: [
     { label: 'Bookings', href: '/bookings' },
-    { label: 'Personas', href: '/personas' },
+    { label: 'Profiles', href: '/profiles' },
   ],
   psychologist: [
     { label: 'Pending Bookings', href: '/psych/queue' },

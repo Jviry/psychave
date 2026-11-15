@@ -3,7 +3,7 @@ from usecase.admin_usecase import AdminUsecase
 from usecase.appointment_usecase import AppointmentUsecase
 from usecase.auth_usecase import AuthUsecase
 from usecase.payment_usecase import PaymentUsecase
-from usecase.persona_usecase import PersonaUsecase
+from usecase.profile_usecase import ProfileUsecase
 from usecase.psychologist_usecase import PsychologistUsecase
 from usecase.service_usecase import ServiceUsecase
 
@@ -12,7 +12,7 @@ __all__ = [
     "AppointmentUsecase",
     "AuthUsecase",
     "PaymentUsecase",
-    "PersonaUsecase",
+    "ProfileUsecase",
     "PsychologistUsecase",
     "ServiceUsecase",
 ]

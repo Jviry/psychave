@@ -2,27 +2,27 @@
 
 import React, { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { PersonaWizard } from '@/components/PersonaWizard';
+import { ProfileWizard } from '@/components/ProfileWizard';
 import { Skeleton } from '@/components/ui/primitives';
 import { useAppStore } from '@/stores/useAppStore';
-import { usePersonaWizardStore } from '@/stores/usePersonaWizardStore';
+import { useProfileWizardStore } from '@/stores/useProfileWizardStore';
 
-function NewPersonaContent() {
+function NewProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get('returnTo');
   const wizardReturnTo = returnTo === '/book' ? 'booking' : 'manage';
-  const destination = returnTo === '/book' ? '/book' : '/personas';
+  const destination = returnTo === '/book' ? '/book' : '/profiles';
 
   const updateBookingDraft = useAppStore((s) => s.updateBookingDraft);
-  const setLastUsedPersonaId = usePersonaWizardStore((s) => s.setLastUsedPersonaId);
+  const setLastUsedProfileId = useProfileWizardStore((s) => s.setLastUsedProfileId);
 
   return (
-    <PersonaWizard
+    <ProfileWizard
       returnTo={wizardReturnTo}
       onCreated={(id) => {
-        updateBookingDraft({ personaId: id });
-        setLastUsedPersonaId(id);
+        updateBookingDraft({ profileId: id });
+        setLastUsedProfileId(id);
         router.push(destination);
       }}
       onCancel={() => router.push(destination)}
@@ -30,7 +30,7 @@ function NewPersonaContent() {
   );
 }
 
-export default function NewPersonaPage() {
+export default function NewProfilePage() {
   return (
     <Suspense
       fallback={
@@ -40,7 +40,7 @@ export default function NewPersonaPage() {
         </div>
       }
     >
-      <NewPersonaContent />
+      <NewProfileContent />
     </Suspense>
   );
 }

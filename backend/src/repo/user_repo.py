@@ -120,7 +120,7 @@ class UserRepository:
     ) -> User:
         """Upsert the target role's profile row and update the cached role.
 
-        Existing profile rows are intentionally kept on demotion: personas and
+        Existing profile rows are intentionally kept on demotion: client profiles and
         appointments reference them, and they preserve historical data.
         Rolls back on error so callers can undo upstream Cognito group changes.
         """

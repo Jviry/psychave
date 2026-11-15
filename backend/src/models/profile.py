@@ -4,7 +4,7 @@ import uuid
 from sqlmodel import SQLModel, Field
 
 
-class PersonaRelation(str, Enum):
+class ProfileRelation(str, Enum):
     self_ = "self"
     child = "child"
     spouse = "spouse"
@@ -20,13 +20,13 @@ class ContactMode(str, Enum):
     instagram = "instagram"
 
 
-class Persona(SQLModel, table=True):
-    __tablename__: str = "persona"
-    persona_id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+class Profile(SQLModel, table=True):
+    __tablename__: str = "profiles"
+    profile_id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     client_id: uuid.UUID = Field(foreign_key="client_profiles.client_id")
-    relation_to_account_holder: PersonaRelation = PersonaRelation.self_
+    relation_to_account_holder: ProfileRelation = ProfileRelation.self_
 
-    persona_name: str
+    profile_name: str
     date_of_birth: date
     occupation: str | None = None
     nationality: str

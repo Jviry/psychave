@@ -7,7 +7,7 @@ import { useAuthStore } from '../authStore';
 const WORKSPACE_LINKS = {
   client: [
     { href: '/book', label: 'Book a Session' },
-    { href: '/personas', label: 'Client Personas & Consent' },
+    { href: '/profiles', label: 'Client Profiles & Consent' },
     { href: '/bookings', label: 'Client Bookings & Proposal Picker' },
   ],
   psychologist: [

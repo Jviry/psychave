@@ -59,7 +59,7 @@ describe('auth API — real fetch', () => {
     );
   });
 
-  it('registerUser calls POST /auth/create-user', async () => {
+  it('registerUser calls POST /auth/create-user with self-profile and consent', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ message: 'register successful, check email for code' }),
@@ -70,10 +70,39 @@ describe('auth API — real fetch', () => {
       email: 'user@example.com',
       username: 'username1',
       password: 'Pass@123',
+      profile: {
+        relation_to_account_holder: 'self',
+        profile_name: 'User One',
+        date_of_birth: '1994-08-12',
+        occupation: null,
+        nationality: 'Filipino',
+        permanent_address: '123 St, Manila',
+        present_address: '123 St, Manila',
+        contact_number: '09171234567',
+        socmed_platform: null,
+        socmed_username: null,
+        preferred_contact_mode: 'phone',
+        emergency_contact_name: 'Jane One',
+        emergency_contact_relation: 'Spouse',
+        emergency_contact_number: '09181234567',
+      },
+      consent: {
+        consent_version: 'v2',
+        terms_signer_name: 'User One',
+        terms_signer_relation: 'self',
+        scope_acknowledged: true,
+        is_overseas_or_foreign: false,
+        overseas_acknowledged: false,
+        information_confirmed: true,
+        consent_signer_name: 'User One',
+      },
     });
 
-    const [url] = mockFetch.mock.calls[0];
+    const [url, opts] = mockFetch.mock.calls[0];
     expect(url).toContain('/auth/create-user');
+    const body = JSON.parse(opts.body);
+    expect(body.profile.relation_to_account_holder).toBe('self');
+    expect(body.consent.terms_signer_relation).toBe('self');
   });
 
   it('confirmUser calls POST /auth/confirm', async () => {

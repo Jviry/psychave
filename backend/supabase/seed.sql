@@ -35,9 +35,9 @@ VALUES
   ('00000000-0000-0000-0000-000000000003')
 ON CONFLICT (client_id) DO NOTHING;
 
--- 3. Personas
-INSERT INTO persona (
-  persona_id, client_id, relation_to_account_holder, persona_name, date_of_birth,
+-- 3. Profiles
+INSERT INTO profiles (
+  profile_id, client_id, relation_to_account_holder, profile_name, date_of_birth,
   occupation, nationality, permanent_address, present_address, contact_number,
   preferred_contact_mode, emergency_contact_name, emergency_contact_relation, emergency_contact_number
 )
@@ -58,7 +58,7 @@ VALUES
     'Spouse',
     '+639189876543'
   )
-ON CONFLICT (persona_id) DO NOTHING;
+ON CONFLICT (profile_id) DO NOTHING;
 
 -- 4. Services
 INSERT INTO services (service_id, name, description, is_active)

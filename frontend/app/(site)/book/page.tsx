@@ -11,7 +11,7 @@ import { api } from '@/lib/api';
 import { bookingFormSchema, BookingFormValues } from '@/lib/schemas';
 import { useAuthStore } from '@/stores/authStore';
 import { useAppStore } from '@/stores/useAppStore';
-import { usePersonaWizardStore } from '@/stores/usePersonaWizardStore';
+import { useProfileWizardStore } from '@/stores/useProfileWizardStore';
 import {
   Button,
   Card,
@@ -42,7 +42,7 @@ const EMPTY_SLOTS = [{ dateTime: '' }, { dateTime: '' }, { dateTime: '' }];
 const CLINIC_EMAIL = 'psychaveph.info@gmail.com';
 const FACEBOOK_URL = 'https://facebook.com/PsychAvenuePH';
 const INQUIRY_TEMPLATE = `Subject: PsychAvenuePH Session Inquiry
-Persona Type: [Self / Dependent]
+Profile Type: [Self / Dependent]
 Requested Service: [Consultation 45m / Individual 1hr / Couples 1.5hr / Family-Group 2hr / Life Coaching / Clinical Supervision / Academic Advisory]
 Preferred Language: [English / Filipino / Taglish]
 General Availability Window: [Days & Times]`;
@@ -116,17 +116,17 @@ function ClientBookingFlow() {
   const updateBookingDraft = useAppStore((s) => s.updateBookingDraft);
   const resetBookingDraft = useAppStore((s) => s.resetBookingDraft);
   const publishFlowEvent = useAppStore((s) => s.publishFlowEvent);
-  const lastUsedPersonaId = usePersonaWizardStore((s) => s.lastUsedPersonaId);
-  const setLastUsedPersonaId = usePersonaWizardStore((s) => s.setLastUsedPersonaId);
+  const lastUsedProfileId = useProfileWizardStore((s) => s.lastUsedProfileId);
+  const setLastUsedProfileId = useProfileWizardStore((s) => s.setLastUsedProfileId);
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [submittedBookingId, setSubmittedBookingId] = useState<string | null>(null);
   const stepFocus = useRef(false);
   const minDateTime = useRef(manilaInputMin());
 
-  const { data: personas = [], isLoading: personasLoading } = useQuery({
-    queryKey: ['personas'],
-    queryFn: () => api.getPersonas(),
+  const { data: profiles = [], isLoading: profilesLoading } = useQuery({
+    queryKey: ['profiles'],
+    queryFn: () => api.getProfiles(),
   });
 
   const { data: services = [] } = useQuery({
@@ -137,7 +137,7 @@ function ClientBookingFlow() {
   const bookingForm = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
-      personaId: bookingDraft.personaId,
+      profileId: bookingDraft.profileId,
       serviceId: bookingDraft.serviceId,
       concernsSummary: bookingDraft.concernsSummary || '',
       guardrailAcknowledged: false,
@@ -154,10 +154,10 @@ function ClientBookingFlow() {
     if (bookingDraft.serviceId) {
       bookingForm.setValue('serviceId', bookingDraft.serviceId);
     }
-    if (bookingDraft.personaId) {
-      bookingForm.setValue('personaId', bookingDraft.personaId);
+    if (bookingDraft.profileId) {
+      bookingForm.setValue('profileId', bookingDraft.profileId);
     }
-  }, [bookingDraft.serviceId, bookingDraft.personaId, bookingForm]);
+  }, [bookingDraft.serviceId, bookingDraft.profileId, bookingForm]);
 
   useEffect(() => {
     if (!stepFocus.current) {
@@ -170,14 +170,17 @@ function ClientBookingFlow() {
   }, [step]);
 
   useEffect(() => {
-    if (personasLoading || personas.length === 0) return;
-    const current = bookingForm.getValues('personaId');
-    if (personas.some((p) => p.id === current)) return;
+    if (profilesLoading || profiles.length === 0) return;
+    const current = bookingForm.getValues('profileId');
+    if (profiles.some((p) => p.id === current)) return;
 
-    const fallback = personas.find((p) => p.id === lastUsedPersonaId) ?? personas[0];
-    bookingForm.setValue('personaId', fallback.id, { shouldValidate: true });
-    updateBookingDraft({ personaId: fallback.id });
-  }, [personas, personasLoading, lastUsedPersonaId, bookingForm, updateBookingDraft]);
+    const fallback =
+      profiles.find((p) => p.id === lastUsedProfileId) ??
+      profiles.find((p) => p.type === 'self') ??
+      profiles[0];
+    bookingForm.setValue('profileId', fallback.id, { shouldValidate: true });
+    updateBookingDraft({ profileId: fallback.id });
+  }, [profiles, profilesLoading, lastUsedProfileId, bookingForm, updateBookingDraft]);
 
   useEffect(() => {
     if (services.length === 0) return;
@@ -190,19 +193,19 @@ function ClientBookingFlow() {
   }, [services, bookingDraft.serviceId, bookingForm, updateBookingDraft]);
 
   const selectedServiceId = bookingForm.watch('serviceId');
-  const selectedPersonaId = bookingForm.watch('personaId');
+  const selectedProfileId = bookingForm.watch('profileId');
   const activeService = services.find((s) => s.id === selectedServiceId) || services[0];
   const preferredSlotErrors = bookingForm.formState.errors.preferredSlots;
 
-  const selectPersona = (personaId: string) => {
-    bookingForm.setValue('personaId', personaId, { shouldValidate: true });
-    updateBookingDraft({ personaId });
-    setLastUsedPersonaId(personaId);
+  const selectProfile = (profileId: string) => {
+    bookingForm.setValue('profileId', profileId, { shouldValidate: true });
+    updateBookingDraft({ profileId });
+    setLastUsedProfileId(profileId);
   };
 
   const goToStep = async (next: 1 | 2 | 3) => {
     if (next === 2) {
-      const valid = await bookingForm.trigger(['personaId', 'serviceId']);
+      const valid = await bookingForm.trigger(['profileId', 'serviceId']);
       if (!valid) return;
     }
     if (next === 3) {
@@ -215,17 +218,17 @@ function ClientBookingFlow() {
   const submitBookingMutation = useMutation({
     mutationFn: (values: BookingFormValues) =>
       api.submitBookingRequest({
-        personaId: values.personaId,
+        profileId: values.profileId,
         serviceId: values.serviceId,
         concernsSummary: values.concernsSummary,
         preferredSlots: values.preferredSlots.map((slot) => slot.dateTime),
       }),
     onSuccess: (createdBooking) => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
-      setLastUsedPersonaId(createdBooking.personaId);
+      setLastUsedProfileId(createdBooking.profileId);
       resetBookingDraft();
       bookingForm.reset({
-        personaId: createdBooking.personaId,
+        profileId: createdBooking.profileId,
         serviceId: createdBooking.serviceId,
         concernsSummary: '',
         guardrailAcknowledged: false,
@@ -264,7 +267,7 @@ function ClientBookingFlow() {
     );
   }
 
-  if (personasLoading) {
+  if (profilesLoading) {
     return (
       <Card className="p-6 sm:p-8 space-y-4">
         <Skeleton className="h-6 w-40" />
@@ -274,12 +277,12 @@ function ClientBookingFlow() {
     );
   }
 
-  if (personas.length === 0) {
+  if (profiles.length === 0) {
     return (
       <Card className="p-6 sm:p-8 space-y-5">
         <div className="space-y-1.5">
           <h2 className="font-heading text-2xl font-medium text-pine">
-            Create a client persona first
+            Create a client profile first
           </h2>
           <p className="text-sm text-pine/75 leading-relaxed">
             Every booking needs a profile with signed informed consent for yourself or a dependent.
@@ -288,9 +291,9 @@ function ClientBookingFlow() {
         <div>
           <Button
             variant="primary"
-            onClick={() => router.push('/personas/new?returnTo=/book')}
+            onClick={() => router.push('/profiles/new?returnTo=/book')}
           >
-            Create a persona
+            Create a profile
             <ArrowRight className="w-4 h-4" aria-hidden="true" />
           </Button>
         </div>
@@ -332,23 +335,25 @@ function ClientBookingFlow() {
               <div className="flex items-center justify-between gap-3">
                 <Label className="mb-0">Booking for</Label>
                 <Link
-                  href="/personas?returnTo=/book"
+                  href="/profiles?returnTo=/book"
                   className="text-xs font-medium text-accent-ink underline underline-offset-4 hover:text-pine transition-colors"
                 >
-                  + Add / manage personas
+                  + Add / manage profiles
                 </Link>
               </div>
               <div role="radiogroup" aria-label="Booking for" className="space-y-2">
-                {personas.map((persona) => {
-                  const isSelected = selectedPersonaId === persona.id;
-                  const isLastUsed = lastUsedPersonaId === persona.id;
+                {[...profiles]
+                  .sort((a, b) => (a.type === 'self' ? -1 : b.type === 'self' ? 1 : 0))
+                  .map((profile) => {
+                  const isSelected = selectedProfileId === profile.id;
+                  const isLastUsed = lastUsedProfileId === profile.id;
                   return (
                     <button
-                      key={persona.id}
+                      key={profile.id}
                       type="button"
                       role="radio"
                       aria-checked={isSelected}
-                      onClick={() => selectPersona(persona.id)}
+                      onClick={() => selectProfile(profile.id)}
                       className={`w-full text-left px-4 py-3 rounded-xl border transition-colors duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage ${
                         isSelected
                           ? 'border-sage bg-surface-sunken'
@@ -356,17 +361,17 @@ function ClientBookingFlow() {
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <span className="font-medium text-sm text-pine">{persona.label}</span>
-                        <span className="text-xs text-pine/65 tabular-nums">{persona.ageGroup}</span>
+                        <span className="font-medium text-sm text-pine">{profile.label}</span>
+                        <span className="text-xs text-pine/65 tabular-nums">{profile.ageGroup}</span>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 text-xs text-pine/65 mt-0.5">
                         <span className="font-medium text-accent-ink">
-                          {persona.type === 'self' ? 'Self (Primary)' : 'Dependent'}
+                          {profile.type === 'self' ? 'Self (Primary)' : 'Dependent'}
                         </span>
-                        {persona.type !== 'self' && persona.relationshipToClient && (
+                        {profile.type !== 'self' && profile.relationshipToClient && (
                           <>
                             <span aria-hidden="true">·</span>
-                            <span className="capitalize">{persona.relationshipToClient}</span>
+                            <span className="capitalize">{profile.relationshipToClient}</span>
                           </>
                         )}
                         {isLastUsed && (
@@ -380,9 +385,9 @@ function ClientBookingFlow() {
                   );
                 })}
               </div>
-              {bookingForm.formState.errors.personaId && (
+              {bookingForm.formState.errors.profileId && (
                 <p className="text-xs text-red-700">
-                  {bookingForm.formState.errors.personaId.message}
+                  {bookingForm.formState.errors.profileId.message}
                 </p>
               )}
             </div>

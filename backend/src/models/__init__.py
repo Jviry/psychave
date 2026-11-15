@@ -4,7 +4,7 @@ from models.appointment import Appointment, AppointmentStatus, SchedulingTurn
 from models.client_profile import ClientProfile
 from models.forms import Forms
 from models.payment import Payment, PaymentStatus
-from models.persona import ContactMode, Persona, PersonaRelation
+from models.profile import ContactMode, Profile, ProfileRelation
 from models.proposed_slot import ProposedSlot, SlotProposer, SlotStatus
 from models.psychologist_profile import PsychologistProfile
 from models.service import Service
@@ -16,8 +16,8 @@ __all__ = [
     "AdminProfile",
     "PsychologistProfile",
     "ClientProfile",
-    "Persona",
-    "PersonaRelation",
+    "Profile",
+    "ProfileRelation",
     "ContactMode",
     "Forms",
     "ProposedSlot",

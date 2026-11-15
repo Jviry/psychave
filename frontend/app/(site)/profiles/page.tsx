@@ -9,13 +9,14 @@ import { api } from '@/lib/api';
 import {
   type PreferredContactMode,
   type RelationToAccountHolder,
+  isMinorDob,
   isValidPhone,
   normalizeName,
 } from '@/lib/consent';
 import { wizardStep3Schema } from '@/lib/schemas';
-import type { Persona } from '@/lib/types';
+import type { Profile } from '@/lib/types';
 import { useAppStore } from '@/stores/useAppStore';
-import { usePersonaWizardStore } from '@/stores/usePersonaWizardStore';
+import { useProfileWizardStore } from '@/stores/useProfileWizardStore';
 import {
   Button,
   Card,
@@ -26,7 +27,7 @@ import {
 } from '@/components/ui/primitives';
 
 interface EditFormState {
-  persona_name: string;
+  profile_name: string;
   relation_to_account_holder: RelationToAccountHolder;
   date_of_birth: string;
   occupation: string;
@@ -42,10 +43,10 @@ interface EditFormState {
   emergency_contact_number: string;
 }
 
-function toEditState(p: Persona): EditFormState {
+function toEditState(p: Profile): EditFormState {
   const relation = (p.relationshipToClient || (p.type === 'self' ? 'self' : 'child')) as RelationToAccountHolder;
   return {
-    persona_name: p.label,
+    profile_name: p.label,
     relation_to_account_holder: relation,
     date_of_birth: p.dateOfBirth ?? '',
     occupation: p.occupation ?? '',
@@ -62,17 +63,17 @@ function toEditState(p: Persona): EditFormState {
   };
 }
 
-function PersonasContent() {
+function ProfilesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const returnTo = searchParams.get('returnTo');
   const shouldOpenNew = searchParams.get('new') === '1';
-  const newPersonaHref = returnTo === '/book' ? '/personas/new?returnTo=/book' : '/personas/new';
+  const newProfileHref = returnTo === '/book' ? '/profiles/new?returnTo=/book' : '/profiles/new';
 
   const updateBookingDraft = useAppStore((s) => s.updateBookingDraft);
-  const lastUsedPersonaId = usePersonaWizardStore((s) => s.lastUsedPersonaId);
-  const setLastUsedPersonaId = usePersonaWizardStore((s) => s.setLastUsedPersonaId);
+  const lastUsedProfileId = useProfileWizardStore((s) => s.lastUsedProfileId);
+  const setLastUsedProfileId = useProfileWizardStore((s) => s.setLastUsedProfileId);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditFormState | null>(null);
@@ -80,22 +81,22 @@ function PersonasContent() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const { data: personas = [], isLoading: personasLoading } = useQuery({
-    queryKey: ['personas'],
-    queryFn: () => api.getPersonas(),
+  const { data: profiles = [], isLoading: profilesLoading } = useQuery({
+    queryKey: ['profiles'],
+    queryFn: () => api.getProfiles(),
   });
 
   useEffect(() => {
     if (shouldOpenNew) {
-      router.replace(newPersonaHref);
+      router.replace(newProfileHref);
     }
-  }, [shouldOpenNew, newPersonaHref, router]);
+  }, [shouldOpenNew, newProfileHref, router]);
 
   const updateMutation = useMutation({
     mutationFn: ({ id, form }: { id: string; form: EditFormState }) =>
-      api.updatePersona(id, {
+      api.updateProfile(id, {
         relation_to_account_holder: form.relation_to_account_holder,
-        persona_name: normalizeName(form.persona_name),
+        profile_name: normalizeName(form.profile_name),
         date_of_birth: form.date_of_birth,
         occupation: form.occupation.trim() || null,
         nationality: form.nationality.trim(),
@@ -110,45 +111,45 @@ function PersonasContent() {
         emergency_contact_number: form.emergency_contact_number.trim(),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['personas'] });
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
       setEditingId(null);
       setEditForm(null);
       setEditErrors({});
       setActionError(null);
     },
     onError: (err) => {
-      setActionError(err instanceof Error ? err.message : 'Could not update persona.');
+      setActionError(err instanceof Error ? err.message : 'Could not update profile.');
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.deletePersona(id),
+    mutationFn: (id: string) => api.deleteProfile(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['personas'] });
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
       setConfirmDeleteId(null);
       setActionError(null);
     },
     onError: (err) => {
-      setActionError(err instanceof Error ? err.message : 'Could not delete persona.');
+      setActionError(err instanceof Error ? err.message : 'Could not delete profile.');
       setConfirmDeleteId(null);
     },
   });
 
-  const handleBookWithPersona = (personaId: string) => {
-    updateBookingDraft({ personaId });
-    setLastUsedPersonaId(personaId);
+  const handleBookWithProfile = (profileId: string) => {
+    updateBookingDraft({ profileId });
+    setLastUsedProfileId(profileId);
     router.push('/book');
   };
 
-  const startEditing = (persona: Persona) => {
+  const startEditing = (profile: Profile) => {
     setActionError(null);
     setConfirmDeleteId(null);
     setEditErrors({});
-    setEditingId(persona.id);
-    setEditForm(toEditState(persona));
+    setEditingId(profile.id);
+    setEditForm(toEditState(profile));
   };
 
-  const handleSaveEdit = (e: React.FormEvent, personaId: string) => {
+  const handleSaveEdit = (e: React.FormEvent, profileId: string) => {
     e.preventDefault();
     if (!editForm) return;
     setActionError(null);
@@ -175,6 +176,13 @@ function PersonasContent() {
     ) {
       errs.emergency_contact_number = 'Enter a valid emergency contact number.';
     }
+    if (
+      editForm.relation_to_account_holder === 'self' &&
+      editForm.date_of_birth &&
+      isMinorDob(editForm.date_of_birth)
+    ) {
+      errs.date_of_birth = 'Primary account holder must be at least 18 years old.';
+    }
 
     if (Object.keys(errs).length > 0) {
       setEditErrors(errs);
@@ -182,7 +190,7 @@ function PersonasContent() {
     }
 
     setEditErrors({});
-    updateMutation.mutate({ id: personaId, form: editForm });
+    updateMutation.mutate({ id: profileId, form: editForm });
   };
 
   return (
@@ -200,7 +208,7 @@ function PersonasContent() {
 
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div className="space-y-1.5">
-            <h1 className="font-heading text-4xl font-medium text-pine">Client Personas</h1>
+            <h1 className="font-heading text-4xl font-medium text-pine">Client Profiles</h1>
             <p className="text-sm text-pine/75">
               Profiles with signed informed consent for yourself or a dependent.
             </p>
@@ -208,10 +216,10 @@ function PersonasContent() {
           <Button
             variant="primary"
             size="md"
-            onClick={() => router.push(newPersonaHref)}
+            onClick={() => router.push(newProfileHref)}
           >
             <Plus className="w-4 h-4" aria-hidden="true" />
-            New persona
+            New profile
           </Button>
         </div>
       </header>
@@ -225,47 +233,47 @@ function PersonasContent() {
         </div>
       )}
 
-      {personasLoading ? (
+      {profilesLoading ? (
         <div className="space-y-3">
           <Skeleton className="h-24" />
           <Skeleton className="h-24" />
         </div>
-      ) : personas.length === 0 ? (
+      ) : profiles.length === 0 ? (
         <Card className="p-6 sm:p-8 space-y-4">
           <div className="space-y-1.5">
-            <h2 className="font-heading text-2xl font-medium text-pine">No personas yet</h2>
+            <h2 className="font-heading text-2xl font-medium text-pine">No profiles yet</h2>
             <p className="text-sm text-pine/75 leading-relaxed">
-              Create a persona with signed informed consent before booking a session.
+              Create a profile with signed informed consent before booking a session.
             </p>
           </div>
           <Button
             variant="primary"
-            onClick={() => router.push(newPersonaHref)}
+            onClick={() => router.push(newProfileHref)}
           >
-            Create a persona
+            Create a profile
           </Button>
         </Card>
       ) : (
         <div className="space-y-4">
-          {personas.map((persona) => {
-            const isLastUsed = lastUsedPersonaId === persona.id;
-            const isEditing = editingId === persona.id && editForm !== null;
-            const isConfirmingDelete = confirmDeleteId === persona.id;
+          {profiles.map((profile) => {
+            const isLastUsed = lastUsedProfileId === profile.id;
+            const isEditing = editingId === profile.id && editForm !== null;
+            const isConfirmingDelete = confirmDeleteId === profile.id;
 
             return (
-              <Card key={persona.id} className="p-5 space-y-4">
+              <Card key={profile.id} className="p-5 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2 text-xs text-pine/70">
                       <span className="font-semibold text-accent-ink">
-                        {persona.type === 'self' ? 'Self (Primary)' : 'Dependent'}
+                        {profile.type === 'self' ? 'Self (Primary)' : 'Dependent'}
                       </span>
                       <span aria-hidden="true">·</span>
-                      <span className="tabular-nums">{persona.ageGroup}</span>
-                      {persona.type !== 'self' && persona.relationshipToClient && (
+                      <span className="tabular-nums">{profile.ageGroup}</span>
+                      {profile.type !== 'self' && profile.relationshipToClient && (
                         <>
                           <span aria-hidden="true">·</span>
-                          <span className="capitalize">{persona.relationshipToClient}</span>
+                          <span className="capitalize">{profile.relationshipToClient}</span>
                         </>
                       )}
                       {isLastUsed && (
@@ -275,11 +283,11 @@ function PersonasContent() {
                         </>
                       )}
                     </div>
-                    <p className="font-heading text-xl font-medium text-pine">{persona.label}</p>
-                    {persona.contactNumber && (
+                    <p className="font-heading text-xl font-medium text-pine">{profile.label}</p>
+                    {profile.contactNumber && (
                       <p className="text-xs text-pine/65 tabular-nums">
-                        {persona.contactNumber}
-                        {persona.preferredContactMode ? ` · Prefers ${persona.preferredContactMode}` : ''}
+                        {profile.contactNumber}
+                        {profile.preferredContactMode ? ` · Prefers ${profile.preferredContactMode}` : ''}
                       </p>
                     )}
                   </div>
@@ -288,47 +296,49 @@ function PersonasContent() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => (isEditing ? setEditingId(null) : startEditing(persona))}
+                      onClick={() => (isEditing ? setEditingId(null) : startEditing(profile))}
                     >
                       <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
                       {isEditing ? 'Close' : 'Edit'}
                     </Button>
-                    {!isConfirmingDelete ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setActionError(null);
-                          setEditingId(null);
-                          setConfirmDeleteId(persona.id);
-                        }}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-                        Delete
-                      </Button>
-                    ) : (
-                      <div className="flex items-center gap-1.5">
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          disabled={deleteMutation.isPending}
-                          onClick={() => deleteMutation.mutate(persona.id)}
-                        >
-                          {deleteMutation.isPending ? 'Deleting…' : 'Confirm delete'}
-                        </Button>
+                    {profile.type !== 'self' && (
+                      !isConfirmingDelete ? (
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setConfirmDeleteId(null)}
+                          onClick={() => {
+                            setActionError(null);
+                            setEditingId(null);
+                            setConfirmDeleteId(profile.id);
+                          }}
                         >
-                          Cancel
+                          <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                          Delete
                         </Button>
-                      </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            disabled={deleteMutation.isPending}
+                            onClick={() => deleteMutation.mutate(profile.id)}
+                          >
+                            {deleteMutation.isPending ? 'Deleting…' : 'Confirm delete'}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setConfirmDeleteId(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      )
                     )}
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleBookWithPersona(persona.id)}
+                      onClick={() => handleBookWithProfile(profile.id)}
                     >
                       Book a session
                       <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
@@ -338,30 +348,31 @@ function PersonasContent() {
 
                 {isEditing && editForm && (
                   <form
-                    onSubmit={(e) => handleSaveEdit(e, persona.id)}
+                    onSubmit={(e) => handleSaveEdit(e, profile.id)}
                     className="border-t border-mist pt-4 space-y-4"
                   >
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor={`edit-name-${persona.id}`}>Full name</Label>
+                        <Label htmlFor={`edit-name-${profile.id}`}>Full name</Label>
                         <Input
-                          id={`edit-name-${persona.id}`}
-                          value={editForm.persona_name}
+                          id={`edit-name-${profile.id}`}
+                          value={editForm.profile_name}
                           onChange={(e) =>
-                            setEditForm({ ...editForm, persona_name: e.target.value })
+                            setEditForm({ ...editForm, profile_name: e.target.value })
                           }
-                          aria-invalid={editErrors.persona_name ? true : undefined}
+                          aria-invalid={editErrors.profile_name ? true : undefined}
                         />
-                        {editErrors.persona_name && (
-                          <p className="text-xs text-red-700 mt-1">{editErrors.persona_name}</p>
+                        {editErrors.profile_name && (
+                          <p className="text-xs text-red-700 mt-1">{editErrors.profile_name}</p>
                         )}
                       </div>
 
                       <div>
-                        <Label htmlFor={`edit-relation-${persona.id}`}>Relation to account</Label>
+                        <Label htmlFor={`edit-relation-${profile.id}`}>Relation to account</Label>
                         <Select
-                          id={`edit-relation-${persona.id}`}
+                          id={`edit-relation-${profile.id}`}
                           value={editForm.relation_to_account_holder}
+                          disabled={profile.type === 'self'}
                           onChange={(e) =>
                             setEditForm({
                               ...editForm,
@@ -369,19 +380,24 @@ function PersonasContent() {
                             })
                           }
                         >
-                          <option value="self">Self</option>
-                          <option value="child">Child</option>
-                          <option value="spouse">Spouse</option>
-                          <option value="parent">Parent</option>
-                          <option value="sibling">Sibling</option>
-                          <option value="other">Other</option>
+                          {profile.type === 'self' ? (
+                            <option value="self">Self (Primary)</option>
+                          ) : (
+                            <>
+                              <option value="child">Child</option>
+                              <option value="spouse">Spouse</option>
+                              <option value="parent">Parent</option>
+                              <option value="sibling">Sibling</option>
+                              <option value="other">Other</option>
+                            </>
+                          )}
                         </Select>
                       </div>
 
                       <div>
-                        <Label htmlFor={`edit-dob-${persona.id}`}>Date of birth</Label>
+                        <Label htmlFor={`edit-dob-${profile.id}`}>Date of birth</Label>
                         <Input
-                          id={`edit-dob-${persona.id}`}
+                          id={`edit-dob-${profile.id}`}
                           type="date"
                           value={editForm.date_of_birth}
                           onChange={(e) =>
@@ -395,9 +411,9 @@ function PersonasContent() {
                       </div>
 
                       <div>
-                        <Label htmlFor={`edit-nationality-${persona.id}`}>Nationality</Label>
+                        <Label htmlFor={`edit-nationality-${profile.id}`}>Nationality</Label>
                         <Input
-                          id={`edit-nationality-${persona.id}`}
+                          id={`edit-nationality-${profile.id}`}
                           value={editForm.nationality}
                           onChange={(e) =>
                             setEditForm({ ...editForm, nationality: e.target.value })
@@ -410,9 +426,9 @@ function PersonasContent() {
                       </div>
 
                       <div>
-                        <Label htmlFor={`edit-occupation-${persona.id}`}>Occupation (optional)</Label>
+                        <Label htmlFor={`edit-occupation-${profile.id}`}>Occupation (optional)</Label>
                         <Input
-                          id={`edit-occupation-${persona.id}`}
+                          id={`edit-occupation-${profile.id}`}
                           value={editForm.occupation}
                           onChange={(e) =>
                             setEditForm({ ...editForm, occupation: e.target.value })
@@ -421,9 +437,9 @@ function PersonasContent() {
                       </div>
 
                       <div>
-                        <Label htmlFor={`edit-contact-${persona.id}`}>Contact number</Label>
+                        <Label htmlFor={`edit-contact-${profile.id}`}>Contact number</Label>
                         <Input
-                          id={`edit-contact-${persona.id}`}
+                          id={`edit-contact-${profile.id}`}
                           value={editForm.contact_number}
                           onChange={(e) =>
                             setEditForm({ ...editForm, contact_number: e.target.value })
@@ -436,9 +452,9 @@ function PersonasContent() {
                       </div>
 
                       <div>
-                        <Label htmlFor={`edit-mode-${persona.id}`}>Preferred contact mode</Label>
+                        <Label htmlFor={`edit-mode-${profile.id}`}>Preferred contact mode</Label>
                         <Select
-                          id={`edit-mode-${persona.id}`}
+                          id={`edit-mode-${profile.id}`}
                           value={editForm.preferred_contact_mode}
                           onChange={(e) =>
                             setEditForm({
@@ -455,11 +471,11 @@ function PersonasContent() {
                       </div>
 
                       <div>
-                        <Label htmlFor={`edit-socmed-${persona.id}`}>
+                        <Label htmlFor={`edit-socmed-${profile.id}`}>
                           Social media handle (optional)
                         </Label>
                         <Input
-                          id={`edit-socmed-${persona.id}`}
+                          id={`edit-socmed-${profile.id}`}
                           placeholder="@handle"
                           value={editForm.socmed_username}
                           onChange={(e) =>
@@ -471,9 +487,9 @@ function PersonasContent() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor={`edit-perm-${persona.id}`}>Permanent address</Label>
+                        <Label htmlFor={`edit-perm-${profile.id}`}>Permanent address</Label>
                         <Input
-                          id={`edit-perm-${persona.id}`}
+                          id={`edit-perm-${profile.id}`}
                           value={editForm.permanent_address}
                           onChange={(e) =>
                             setEditForm({ ...editForm, permanent_address: e.target.value })
@@ -488,9 +504,9 @@ function PersonasContent() {
                       </div>
 
                       <div>
-                        <Label htmlFor={`edit-pres-${persona.id}`}>Present address</Label>
+                        <Label htmlFor={`edit-pres-${profile.id}`}>Present address</Label>
                         <Input
-                          id={`edit-pres-${persona.id}`}
+                          id={`edit-pres-${profile.id}`}
                           value={editForm.present_address}
                           onChange={(e) =>
                             setEditForm({ ...editForm, present_address: e.target.value })
@@ -507,9 +523,9 @@ function PersonasContent() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
-                        <Label htmlFor={`edit-ec-name-${persona.id}`}>Emergency contact</Label>
+                        <Label htmlFor={`edit-ec-name-${profile.id}`}>Emergency contact</Label>
                         <Input
-                          id={`edit-ec-name-${persona.id}`}
+                          id={`edit-ec-name-${profile.id}`}
                           value={editForm.emergency_contact_name}
                           onChange={(e) =>
                             setEditForm({ ...editForm, emergency_contact_name: e.target.value })
@@ -524,9 +540,9 @@ function PersonasContent() {
                       </div>
 
                       <div>
-                        <Label htmlFor={`edit-ec-rel-${persona.id}`}>Relation</Label>
+                        <Label htmlFor={`edit-ec-rel-${profile.id}`}>Relation</Label>
                         <Input
-                          id={`edit-ec-rel-${persona.id}`}
+                          id={`edit-ec-rel-${profile.id}`}
                           value={editForm.emergency_contact_relation}
                           onChange={(e) =>
                             setEditForm({
@@ -544,9 +560,9 @@ function PersonasContent() {
                       </div>
 
                       <div>
-                        <Label htmlFor={`edit-ec-num-${persona.id}`}>Emergency number</Label>
+                        <Label htmlFor={`edit-ec-num-${profile.id}`}>Emergency number</Label>
                         <Input
-                          id={`edit-ec-num-${persona.id}`}
+                          id={`edit-ec-num-${profile.id}`}
                           value={editForm.emergency_contact_number}
                           onChange={(e) =>
                             setEditForm({
@@ -598,7 +614,7 @@ function PersonasContent() {
   );
 }
 
-export default function PersonasPage() {
+export default function ProfilesPage() {
   return (
     <Suspense
       fallback={
@@ -608,7 +624,7 @@ export default function PersonasPage() {
         </div>
       }
     >
-      <PersonasContent />
+      <ProfilesContent />
     </Suspense>
   );
 }

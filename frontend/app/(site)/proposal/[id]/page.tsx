@@ -302,8 +302,8 @@ export default function ScheduleAgreementPage() {
 
             <div className="space-y-3 text-xs">
               <div className="flex justify-between py-1.5 border-b border-mist/50">
-                <span className="text-pine/70">Persona</span>
-                <span className="font-semibold text-pine">{booking.personaLabel}</span>
+                <span className="text-pine/70">Profile</span>
+                <span className="font-semibold text-pine">{booking.profileLabel}</span>
               </div>
               <div className="flex justify-between py-1.5 border-b border-mist/50">
                 <span className="text-pine/70">Service</span>

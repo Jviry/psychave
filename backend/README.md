@@ -40,7 +40,7 @@ backend/
 │   │   ├── admin_profile.py      # Admin profile extension
 │   │   ├── psychologist_profile.py # Psychologist profile & verification
 │   │   ├── client_profile.py     # Client profile extension
-│   │   ├── persona.py            # Client personas (multiple personas per client)
+│   │   ├── profile.py            # Client profiles (multiple profiles per client)
 │   │   ├── forms.py              # Intake / consultation forms
 │   │   ├── appointment.py        # Consultation appointments
 │   │   ├── proposed_slot.py      # Available / proposed time slots
@@ -228,7 +228,7 @@ Self-service signup always creates a **client**. Only an admin can turn a client
 | :--- | :--- |
 | `GET /admin/users?role=&search=&page=1&page_size=10` | Paginated account directory. `role` is optional (omit for all roles); `search` matches email, psychologist name, or admin name; `page_size` is capped at 100. Returns `{items, total, page, page_size}`. |
 | `PATCH /admin/users/{user_id}/role` | Body: `{role, full_name?}`. Swaps the Cognito group and updates `users.role`, creating the target role's profile row. `full_name` is required when assigning psychologist without an existing profile name; admin falls back to the account email. Admins cannot change their own role or demote the last admin (`409`). |
-| `POST /admin/users/{user_id}/promote` | Body: `full_name` (required), `license_number?`, `specialization?`, `bio?`, `social_media_links?`. Client → psychologist shorthand that also fills the profile fields. Swaps the Cognito group to `psychologist`, updates `users.role`, and creates the `psychologist_profiles` row. The existing `client_profiles` row is kept because personas reference it. |
+| `POST /admin/users/{user_id}/promote` | Body: `full_name` (required), `license_number?`, `specialization?`, `bio?`, `social_media_links?`. Client → psychologist shorthand that also fills the profile fields. Swaps the Cognito group to `psychologist`, updates `users.role`, and creates the `psychologist_profiles` row. The existing `client_profiles` row is kept because profiles reference it. |
 
 All routes require the `admin` Cognito group. Any role transition is allowed except self-change and demoting the last admin. The affected user must sign in again before their ID token carries the new group claim.
 

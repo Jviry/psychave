@@ -3,7 +3,7 @@ from datetime import date, datetime
 from pydantic import field_validator, model_validator
 from sqlmodel import SQLModel
 
-from models.persona import ContactMode, PersonaRelation
+from models.profile import ContactMode, ProfileRelation
 
 MINOR_CUTOFF_AGE = 18
 
@@ -13,9 +13,9 @@ def _calculate_age(dob: date) -> int:
     return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
 
 
-class PersonaCreate(SQLModel):
-    relation_to_account_holder: PersonaRelation
-    persona_name: str
+class ProfileCreate(SQLModel):
+    relation_to_account_holder: ProfileRelation
+    profile_name: str
     date_of_birth: date
     occupation: str | None = None
     nationality: str
@@ -63,14 +63,14 @@ class ConsentCreate(SQLModel):
         return self
 
 
-class PersonaWithConsentCreate(SQLModel):
-    persona: PersonaCreate
+class ProfileWithConsentCreate(SQLModel):
+    profile: ProfileCreate
     consent: ConsentCreate
 
     @model_validator(mode="after")
     def check_minor_signer(self):
         is_minor = _calculate_age(
-            self.persona.date_of_birth) < MINOR_CUTOFF_AGE
+            self.profile.date_of_birth) < MINOR_CUTOFF_AGE
         if is_minor and self.consent.terms_signer_relation == "self":
             raise ValueError(
                 "A minor's consent cannot be signed as 'self' — provide the signer's relation"
@@ -78,10 +78,10 @@ class PersonaWithConsentCreate(SQLModel):
         return self
 
 
-class PersonaRead(SQLModel):
-    persona_id: uuid.UUID
-    relation_to_account_holder: PersonaRelation
-    persona_name: str
+class ProfileRead(SQLModel):
+    profile_id: uuid.UUID
+    relation_to_account_holder: ProfileRelation
+    profile_name: str
     date_of_birth: date
     occupation: str | None = None
     nationality: str
@@ -108,6 +108,6 @@ class ConsentRead(SQLModel):
     signed_at: datetime | None = None
 
 
-class PersonaReviewResponse(SQLModel):
-    persona: PersonaRead
+class ProfileReviewResponse(SQLModel):
+    profile: ProfileRead
     consent: ConsentRead

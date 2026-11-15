@@ -1,8 +1,9 @@
 from sqlmodel import Session
 
-from common.exceptions import ValidationError
+from common.exceptions import ConflictError, ValidationError
 from interfaces.auth import AuthService, AuthTokens, AuthUser
 from models.user import User, UserRole
+from repo.profile_repo import ProfileRepo
 from repo.user_repo import UserRepository
 from schemas.auth_model import (
     ConfirmUserRequest,
@@ -10,6 +11,7 @@ from schemas.auth_model import (
     UserCreate,
     UserLogin,
 )
+from usecase.profile_usecase import CURRENT_CONSENT_VERSION
 
 ROLE_PRIORITY = (UserRole.ADMIN, UserRole.PSYCHOLOGIST)
 
@@ -27,6 +29,7 @@ class AuthUsecase:
         self.auth = service
         self.db = db
         self.user_repo = UserRepository(db)
+        self.profile_repo = ProfileRepo(db)
 
     def get_user(self, access_token: str) -> AuthUser:
         return self.auth.get_user(access_token)
@@ -41,11 +44,16 @@ class AuthUsecase:
         return self.auth.refresh_access_token(refresh_token)
 
     def create_user(self, credentials: UserCreate):
-        """Create a Cognito account and its local rows.
+        """Create a Cognito account, its local rows, and its primary 'self' profile.
 
         Self-service signup is always a client. Psychologist and admin roles
         can only be assigned by an existing admin after registration.
         """
+        if credentials.consent.consent_version != CURRENT_CONSENT_VERSION:
+            raise ConflictError(
+                f"Consent form is outdated — current version is {CURRENT_CONSENT_VERSION}"
+            )
+
         signup_result = self.auth.create_user(credentials)
         self.auth.add_user_to_group(
             credentials.username, UserRole.CLIENT.value
@@ -69,8 +77,12 @@ class AuthUsecase:
                     )
                 )
             self._ensure_role_profile(
-                user, display_name=credentials.username
+                user, display_name=credentials.profile.profile_name
             )
+            if self.profile_repo.get_self_profile(user.user_id) is None:
+                self.profile_repo.create_with_consent(
+                    user.user_id, credentials.profile, credentials.consent
+                )
 
         return {"message": "register successful, check email for code"}
 
@@ -126,7 +138,7 @@ class AuthUsecase:
     def _ensure_role_profile(self, user: User, display_name: str):
         """Create the role's profile row when missing.
 
-        The profile rows are FK targets (persona -> client_profiles), so every
+        The profile rows are FK targets (profiles -> client_profiles), so every
         user needs one. Idempotent.
         """
         self.user_repo.ensure_role_profile(user, display_name)

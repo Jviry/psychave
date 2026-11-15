@@ -92,7 +92,7 @@ class TestPaymentController:
         )
         appointment_record = Appointment(
             appointment_id=appt_id,
-            persona_id=uuid.uuid4(),
+            profile_id=uuid.uuid4(),
             psychologist_id=uuid.uuid4(),
             status=AppointmentStatus.AWAITING_PAYMENT,
             price=1500.0,

@@ -23,7 +23,7 @@ export type PreferredScheduleValues = z.infer<typeof preferredScheduleSchema>;
 
 export const bookingFormSchema = z
   .object({
-    personaId: z.string().min(1, 'Please select a Persona (Self or Dependent) before submitting.'),
+    profileId: z.string().min(1, 'Please select a Profile (Self or Dependent) before submitting.'),
     serviceId: z.string().min(1, 'Please select a clinical service.'),
     concernsSummary: z
       .string()
@@ -136,18 +136,17 @@ export const serviceGuardrailSchema = z.object({
 export type ServiceGuardrailFormValues = z.infer<typeof serviceGuardrailSchema>;
 
 /* ------------------------------------------------------------------ */
-/* Persona creation wizard (4 pages, single POST /personas at submit).  */
+/* Profile creation wizard (4 pages, single POST /profiles at submit).  */
 /* Page schemas validate their own slice; cross-page rules (minor/self, */
 /* signer-name match, phone-vs-overseas) are enforced in               */
-/* personaWizardPayloadSchema + lib/consent.ts helpers, mirroring the   */
+/* profileWizardPayloadSchema + lib/consent.ts helpers, mirroring the   */
 /* backend as source of truth.                                          */
 /* ------------------------------------------------------------------ */
 
 export const wizardStep1Schema = z.object({
-  whoFor: z.enum(['myself', 'someone_else']),
-  relation_to_account_holder: z.enum(['child', 'spouse', 'parent', 'sibling', 'other', 'self']),
+  relation_to_account_holder: z.enum(['child', 'spouse', 'parent', 'sibling', 'other']),
   terms_signer_name: z.string().trim().min(2, 'Type the full name of the person signing consent.'),
-  terms_signer_relation: z.enum(['parent', 'legal guardian', 'spouse', 'other', 'self']),
+  terms_signer_relation: z.enum(['parent', 'legal guardian', 'spouse', 'other']),
 });
 
 export type WizardStep1Values = z.infer<typeof wizardStep1Schema>;
@@ -173,7 +172,7 @@ export type WizardStep2Values = z.infer<typeof wizardStep2Schema>;
 const PHONE_LOOSE = /^\+?[0-9\s\-()]{7,20}$/;
 
 export const wizardStep3Schema = z.object({
-  persona_name: z.string().trim().min(2, 'Enter the persona full name.'),
+  profile_name: z.string().trim().min(2, 'Enter the profile full name.'),
   date_of_birth: z
     .string()
     .min(1, 'Select a date of birth.')
@@ -213,11 +212,11 @@ export const wizardStep4Schema = z.object({
 export type WizardStep4Values = z.infer<typeof wizardStep4Schema>;
 
 /** Full-payload validation mirroring the backend (source of truth). */
-export const personaWizardPayloadSchema = z
+export const profileWizardPayloadSchema = z
   .object({
-    persona: z.object({
-      relation_to_account_holder: z.enum(['child', 'spouse', 'parent', 'sibling', 'other', 'self']),
-      persona_name: z.string().min(2),
+    profile: z.object({
+      relation_to_account_holder: z.enum(['child', 'spouse', 'parent', 'sibling', 'other']),
+      profile_name: z.string().min(2),
       date_of_birth: z.string().min(1),
       occupation: z.string().nullable(),
       nationality: z.string().min(2),
@@ -234,7 +233,7 @@ export const personaWizardPayloadSchema = z
     consent: z.object({
       consent_version: z.string().min(1),
       terms_signer_name: z.string().min(2),
-      terms_signer_relation: z.enum(['parent', 'legal guardian', 'spouse', 'other', 'self']),
+      terms_signer_relation: z.enum(['parent', 'legal guardian', 'spouse', 'other']),
       scope_acknowledged: z.boolean(),
       is_overseas_or_foreign: z.boolean(),
       overseas_acknowledged: z.boolean(),
@@ -256,25 +255,11 @@ export const personaWizardPayloadSchema = z
         path: ['consent', 'overseas_acknowledged'],
       });
     }
-    const dob = new Date(val.persona.date_of_birth);
+    const dob = new Date(val.profile.date_of_birth);
     if (Number.isNaN(dob.getTime())) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Invalid date_of_birth.', path: ['persona', 'date_of_birth'] });
-    } else {
-      if (dob.getTime() > Date.now()) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'date_of_birth cannot be in the future.', path: ['persona', 'date_of_birth'] });
-      } else {
-        const now = new Date();
-        let age = now.getFullYear() - dob.getFullYear();
-        const m = now.getMonth() - dob.getMonth();
-        if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age -= 1;
-        if (age < 18 && val.consent.terms_signer_relation === 'self') {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'A minor cannot use signer relation "self".',
-            path: ['consent', 'terms_signer_relation'],
-          });
-        }
-      }
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Invalid date_of_birth.', path: ['profile', 'date_of_birth'] });
+    } else if (dob.getTime() > Date.now()) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'date_of_birth cannot be in the future.', path: ['profile', 'date_of_birth'] });
     }
     const a = val.consent.terms_signer_name.trim().toLowerCase().replace(/\s+/g, ' ');
     const b = val.consent.consent_signer_name.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -287,4 +272,4 @@ export const personaWizardPayloadSchema = z
     }
   });
 
-export type PersonaWizardPayloadValues = z.infer<typeof personaWizardPayloadSchema>;
+export type ProfileWizardPayloadValues = z.infer<typeof profileWizardPayloadSchema>;

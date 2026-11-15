@@ -25,13 +25,13 @@ from schemas.payment import (
     PaymentRead,
     PaymentWebhookRequest,
 )
-from schemas.persona import (
+from schemas.profile import (
     ConsentCreate,
     ConsentRead,
-    PersonaCreate,
-    PersonaRead,
-    PersonaReviewResponse,
-    PersonaWithConsentCreate,
+    ProfileCreate,
+    ProfileRead,
+    ProfileReviewResponse,
+    ProfileWithConsentCreate,
 )
 from schemas.psychologist import (
     PickupRequest,
@@ -62,10 +62,10 @@ __all__ = [
     "PaymentWebhookRequest",
     "ConsentCreate",
     "ConsentRead",
-    "PersonaCreate",
-    "PersonaRead",
-    "PersonaReviewResponse",
-    "PersonaWithConsentCreate",
+    "ProfileCreate",
+    "ProfileRead",
+    "ProfileReviewResponse",
+    "ProfileWithConsentCreate",
     "PickupRequest",
     "PsychologistProfileRead",
     "PsychologistProfileUpdate",

@@ -5,10 +5,10 @@ from sqlmodel import Session
 from common.exceptions import BadRequestError, NotFoundError
 from common.time import now_manila, payment_deadline_for, slot_start
 from models.appointment import Appointment, AppointmentStatus, SchedulingTurn
-from models.persona import Persona
+from models.profile import Profile
 from models.proposed_slot import ProposedSlot, SlotProposer, SlotStatus
 from repo.appointment_repo import AppointmentRepo
-from repo.persona_repo import PersonaRepo
+from repo.profile_repo import ProfileRepo
 from repo.service_repo import ServiceRepo
 from schemas.appointment import (
     AppointmentCreate,
@@ -23,27 +23,27 @@ class AppointmentUsecase:
     def __init__(self, db: Session):
         self.db = db
         self.repo = AppointmentRepo(db)
-        self.persona_repo = PersonaRepo(db)
+        self.profile_repo = ProfileRepo(db)
         self.service_repo = ServiceRepo(db)
 
-    def _get_owned_persona(self, persona_id: uuid.UUID, client_id: uuid.UUID) -> Persona:
-        persona = self.persona_repo.get_by_id(persona_id)
-        if persona is None or persona.client_id != client_id:
-            raise NotFoundError("Persona not found")
-        return persona
+    def _get_owned_profile(self, profile_id: uuid.UUID, client_id: uuid.UUID) -> Profile:
+        profile = self.profile_repo.get_by_id(profile_id)
+        if profile is None or profile.client_id != client_id:
+            raise NotFoundError("Profile not found")
+        return profile
 
     def _get_owned_appointment(self, appointment_id: uuid.UUID, client_id: uuid.UUID) -> Appointment:
         appt = self.repo.get_by_id(appointment_id)
         if appt is None:
             raise NotFoundError("Appointment not found")
-        persona = self.persona_repo.get_by_id(appt.persona_id)
-        if persona is None or persona.client_id != client_id:
+        profile = self.profile_repo.get_by_id(appt.profile_id)
+        if profile is None or profile.client_id != client_id:
             raise NotFoundError("Appointment not found")
         self.repo.expire_if_overdue(appt)
         return appt
 
     def create_appointment(self, payload: AppointmentCreate, client_id: uuid.UUID) -> AppointmentRead:
-        self._get_owned_persona(payload.persona_id, client_id)
+        self._get_owned_profile(payload.profile_id, client_id)
 
         service = self.service_repo.get_by_id(payload.service_id)
         if service is None or not service.is_active:
@@ -51,7 +51,7 @@ class AppointmentUsecase:
 
         slot_rows = validate_slot_inputs(payload.preferred_slots, service.duration_minutes)
         appointment = self.repo.create(
-            payload.persona_id,
+            payload.profile_id,
             payload.service_id,
             payload.presenting_concern,
             slot_rows,

@@ -10,7 +10,7 @@ from usecase.payment_usecase import PaymentUsecase
 
 
 def test_initiate_payment_persists_in_supabase(
-    client, auth_override, db_session: Session, create_client_user, create_persona, create_service, create_appointment
+    client, auth_override, db_session: Session, create_client_user, create_profile, create_service, create_appointment
 ):
     """
     Test initiating payment for an appointment:
@@ -19,10 +19,10 @@ def test_initiate_payment_persists_in_supabase(
     - Verifies GET /appointments/{id}/payment returns the payment history
     """
     client_user, _ = create_client_user()
-    persona = create_persona(client_id=client_user.user_id)
+    profile = create_profile(client_id=client_user.user_id)
     service = create_service()
     appt = create_appointment(
-        persona_id=persona.persona_id,
+        profile_id=profile.profile_id,
         service_id=service.service_id,
         price=2500.0,
         status=AppointmentStatus.AWAITING_PAYMENT,
@@ -55,7 +55,7 @@ def test_initiate_payment_persists_in_supabase(
 
 
 def test_payment_webhook_fulfillment_confirms_appointment(
-    db_session: Session, create_client_user, create_persona, create_service, create_appointment
+    db_session: Session, create_client_user, create_profile, create_service, create_appointment
 ):
     """
     Integration test for webhook fulfillment:
@@ -64,10 +64,10 @@ def test_payment_webhook_fulfillment_confirms_appointment(
     - The linked appointment transitions from AWAITING_PAYMENT to CONFIRMED
     """
     client_user, _ = create_client_user()
-    persona = create_persona(client_id=client_user.user_id)
+    profile = create_profile(client_id=client_user.user_id)
     service = create_service()
     appt = create_appointment(
-        persona_id=persona.persona_id,
+        profile_id=profile.profile_id,
         service_id=service.service_id,
         price=1800.0,
         status=AppointmentStatus.AWAITING_PAYMENT,

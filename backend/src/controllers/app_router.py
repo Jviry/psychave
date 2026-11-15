@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from controllers.admin_controller import router as admin_router
 from controllers.auth_controller import router as auth_router
-from controllers.persona_controller import router as persona_router
+from controllers.profile_controller import router as profile_router
 from controllers.appointment_controller import router as appointment_router
 from controllers.payment_controller import router as payment_router
 from controllers.psychologist_controller import router as psychologist_router
@@ -12,7 +12,7 @@ app_router = APIRouter()
 app_router.include_router(admin_router, prefix="/admin", tags=["admin"])
 app_router.include_router(auth_router, prefix="/auth", tags=["auth"])
 app_router.include_router(
-    persona_router, prefix="/personas", tags=["personas"])
+    profile_router, prefix="/profiles", tags=["profiles"])
 app_router.include_router(
     psychologist_router, tags=["psychologist"])
 app_router.include_router(

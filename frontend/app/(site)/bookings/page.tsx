@@ -194,7 +194,7 @@ export default function ClientBookingsPage() {
             No Bookings Matching Selected Status
           </p>
           <p className="text-sm text-pine/75 max-w-md mx-auto">
-            Start a new booking under a Self or Dependent persona, or switch the filter above
+            Start a new booking under a Self or Dependent profile, or switch the filter above
             to view all existing bookings.
           </p>
           <div className="flex justify-center gap-3">
@@ -228,7 +228,7 @@ export default function ClientBookingsPage() {
                       {booking.id}
                     </span>
                     <span aria-hidden="true">·</span>
-                    <span>Persona: {booking.personaLabel}</span>
+                    <span>Profile: {booking.profileLabel}</span>
                     <span aria-hidden="true">·</span>
                     <span>Submitted {booking.submittedAt}</span>
                   </div>

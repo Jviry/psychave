@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 from common.time import now_manila
 from models.appointment import Appointment, AppointmentStatus, SchedulingTurn
 from models.payment import Payment, PaymentStatus
-from models.persona import Persona
+from models.profile import Profile
 from models.proposed_slot import ProposedSlot, SlotProposer, SlotStatus
 from models.psychologist_profile import PsychologistProfile
 from models.service import Service
@@ -21,13 +21,13 @@ class AppointmentRepo:
 
     def create(
         self,
-        persona_id: uuid.UUID,
+        profile_id: uuid.UUID,
         service_id: uuid.UUID,
         presenting_concern: str,
         slot_rows: list[tuple],
     ) -> Appointment:
         appt = Appointment(
-            persona_id=persona_id,
+            profile_id=profile_id,
             service_id=service_id,
             presenting_concern=presenting_concern,
             requested_datetime=datetime.now(timezone.utc).replace(tzinfo=None),
@@ -61,8 +61,8 @@ class AppointmentRepo:
     def get_for_client(self, client_id: uuid.UUID, status: AppointmentStatus | None = None) -> list[Appointment]:
         statement = (
             select(Appointment)
-            .join(Persona, Appointment.persona_id == Persona.persona_id)
-            .where(Persona.client_id == client_id)
+            .join(Profile, Appointment.profile_id == Profile.profile_id)
+            .where(Profile.client_id == client_id)
         )
         if status:
             statement = statement.where(Appointment.status == status)
@@ -238,9 +238,9 @@ class AppointmentRepo:
         """Transition any overdue awaiting-payment rows owned by ``client_id``."""
         overdue = self.db.exec(
             select(Appointment)
-            .join(Persona, Appointment.persona_id == Persona.persona_id)
+            .join(Profile, Appointment.profile_id == Profile.profile_id)
             .where(
-                Persona.client_id == client_id,
+                Profile.client_id == client_id,
                 Appointment.status == AppointmentStatus.AWAITING_PAYMENT,
                 Appointment.payment_deadline.is_not(None),
                 Appointment.payment_deadline <= now_manila(),
@@ -265,8 +265,8 @@ class AppointmentRepo:
     # ----- enriched read models -----
 
     @staticmethod
-    def _relation_value(persona: Persona) -> str:
-        relation = persona.relation_to_account_holder
+    def _relation_value(profile: Profile) -> str:
+        relation = profile.relation_to_account_holder
         return relation.value if hasattr(relation, "value") else str(relation)
 
     @staticmethod
@@ -286,7 +286,7 @@ class AppointmentRepo:
         if not appointments:
             return []
 
-        persona_ids = {appointment.persona_id for appointment in appointments}
+        profile_ids = {appointment.profile_id for appointment in appointments}
         service_ids = {appointment.service_id for appointment in appointments}
         appointment_ids = {appointment.appointment_id for appointment in appointments}
         psychologist_ids = {
@@ -295,10 +295,10 @@ class AppointmentRepo:
             if appointment.psychologist_id is not None
         }
 
-        personas = {
-            persona.persona_id: persona
-            for persona in self.db.exec(
-                select(Persona).where(Persona.persona_id.in_(persona_ids))
+        profiles = {
+            profile.profile_id: profile
+            for profile in self.db.exec(
+                select(Profile).where(Profile.profile_id.in_(profile_ids))
             ).all()
         }
         services = {
@@ -332,7 +332,7 @@ class AppointmentRepo:
 
         reads: list[AppointmentRead] = []
         for appointment in appointments:
-            persona = personas.get(appointment.persona_id)
+            profile = profiles.get(appointment.profile_id)
             service = services.get(appointment.service_id)
             contact_unlocked = appointment.status in (
                 AppointmentStatus.CONFIRMED,
@@ -359,10 +359,10 @@ class AppointmentRepo:
             reads.append(
                 AppointmentRead(
                     appointment_id=appointment.appointment_id,
-                    persona_id=appointment.persona_id,
-                    persona_name=persona.persona_name if persona else "",
-                    persona_relation=(
-                        self._relation_value(persona) if persona else ""
+                    profile_id=appointment.profile_id,
+                    profile_name=profile.profile_name if profile else "",
+                    profile_relation=(
+                        self._relation_value(profile) if profile else ""
                     ),
                     service_id=appointment.service_id,
                     service_name=service.name if service else "",
@@ -382,11 +382,11 @@ class AppointmentRepo:
                     scheduling_round=appointment.scheduling_round,
                     payment_deadline=appointment.payment_deadline,
                     proposed_slots=[self._slot_read(slot) for slot in slots],
-                    persona_socmed_platform=(
-                        persona.socmed_platform if persona else None
+                    profile_socmed_platform=(
+                        profile.socmed_platform if profile else None
                     ),
-                    persona_socmed_username=(
-                        persona.socmed_username if persona else None
+                    profile_socmed_username=(
+                        profile.socmed_username if profile else None
                     ),
                     psychologist_social_links=social_links,
                 )

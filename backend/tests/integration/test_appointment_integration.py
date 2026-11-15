@@ -7,19 +7,19 @@ from models.proposed_slot import ProposedSlot
 
 
 def test_book_appointment_end_to_end(
-    client, auth_override, db_session: Session, create_client_user, create_persona, create_service
+    client, auth_override, db_session: Session, create_client_user, create_profile, create_service
 ):
     """
     Test booking an appointment against local Supabase:
-    Verifies persona validation, active service validation, and initial 'pending' state.
+    Verifies profile validation, active service validation, and initial 'pending' state.
     """
     client_user, _ = create_client_user()
-    persona = create_persona(client_id=client_user.user_id, persona_name="Booking Persona")
+    profile = create_profile(client_id=client_user.user_id, profile_name="Booking Profile")
     service = create_service(name="Consultation Session", is_active=True)
 
     auth_override(sub=client_user.cognito_sub, role=UserRole.CLIENT.value)
     payload = {
-        "persona_id": str(persona.persona_id),
+        "profile_id": str(profile.profile_id),
         "service_id": str(service.service_id),
         "presenting_concern": "Persistent stress and sleep trouble",
     }
@@ -34,13 +34,13 @@ def test_book_appointment_end_to_end(
     # Verify persisted in Supabase DB
     db_appt = db_session.exec(select(Appointment).where(Appointment.appointment_id == appointment_id)).first()
     assert db_appt is not None
-    assert db_appt.persona_id == persona.persona_id
+    assert db_appt.profile_id == profile.profile_id
     assert db_appt.service_id == service.service_id
     assert db_appt.status == AppointmentStatus.PENDING
 
 
 def test_slot_selection_lifecycle(
-    client, auth_override, db_session: Session, create_client_user, create_persona, create_service, create_appointment, create_proposed_slot
+    client, auth_override, db_session: Session, create_client_user, create_profile, create_service, create_appointment, create_proposed_slot
 ):
     """
     Test slot availability and client slot selection:
@@ -50,12 +50,12 @@ def test_slot_selection_lifecycle(
     4. Appointment transitions to 'awaiting_payment'.
     """
     client_user, _ = create_client_user()
-    persona = create_persona(client_id=client_user.user_id)
+    profile = create_profile(client_id=client_user.user_id)
     service = create_service(name="Therapy Session", is_active=True)
 
     # 1. Create appointment in awaiting_slot_selection
     appt = create_appointment(
-        persona_id=persona.persona_id,
+        profile_id=profile.profile_id,
         service_id=service.service_id,
         status=AppointmentStatus.AWAITING_SLOT_SELECTION,
     )
@@ -100,13 +100,13 @@ def test_slot_selection_lifecycle(
 
 
 def test_cancel_appointment(
-    client, auth_override, db_session: Session, create_client_user, create_persona, create_service, create_appointment
+    client, auth_override, db_session: Session, create_client_user, create_profile, create_service, create_appointment
 ):
     """Test cancelling an appointment updates its status to 'cancelled' in Supabase."""
     client_user, _ = create_client_user()
-    persona = create_persona(client_id=client_user.user_id)
+    profile = create_profile(client_id=client_user.user_id)
     service = create_service()
-    appt = create_appointment(persona_id=persona.persona_id, service_id=service.service_id, status=AppointmentStatus.PENDING)
+    appt = create_appointment(profile_id=profile.profile_id, service_id=service.service_id, status=AppointmentStatus.PENDING)
 
     auth_override(sub=client_user.cognito_sub, role=UserRole.CLIENT.value)
     res = client.delete(f"/appointments/{appt.appointment_id}")

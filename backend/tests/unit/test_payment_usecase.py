@@ -8,7 +8,7 @@ from common.exceptions import BadRequestError, NotFoundError
 from common.time import now_manila
 from models.appointment import Appointment, AppointmentStatus
 from models.payment import Payment, PaymentStatus
-from models.persona import Persona
+from models.profile import Profile
 from services.payments.base import InitiatedPayment
 from usecase.payment_usecase import PaymentUsecase
 
@@ -45,25 +45,25 @@ class TestPaymentUsecase:
     def test_initiate_payment_success_with_defaults(self, db, provider):
         client_id = uuid.uuid4()
         appt_id = uuid.uuid4()
-        persona_id = uuid.uuid4()
+        profile_id = uuid.uuid4()
 
         appt = Appointment(
             appointment_id=appt_id,
-            persona_id=persona_id,
+            profile_id=profile_id,
             psychologist_id=uuid.uuid4(),
             status=AppointmentStatus.AWAITING_PAYMENT,
             price=2000.0,
             payment_deadline=now_manila() + timedelta(hours=24),
         )
-        persona = Persona(persona_id=persona_id, client_id=client_id)
+        profile = Profile(profile_id=profile_id, client_id=client_id)
 
         # Mock db queries
         # appointment_repo.get_by_id:
         def db_get(model, ident):
             if model == Appointment:
                 return appt
-            if model == Persona:
-                return persona
+            if model == Profile:
+                return profile
             return None
 
         db.get.side_effect = db_get
@@ -90,23 +90,23 @@ class TestPaymentUsecase:
     def test_initiate_payment_custom_urls(self, db, provider):
         client_id = uuid.uuid4()
         appt_id = uuid.uuid4()
-        persona_id = uuid.uuid4()
+        profile_id = uuid.uuid4()
 
         appt = Appointment(
             appointment_id=appt_id,
-            persona_id=persona_id,
+            profile_id=profile_id,
             psychologist_id=uuid.uuid4(),
             status=AppointmentStatus.AWAITING_PAYMENT,
             price=2500.0,
             payment_deadline=now_manila() + timedelta(hours=24),
         )
-        persona = Persona(persona_id=persona_id, client_id=client_id)
+        profile = Profile(profile_id=profile_id, client_id=client_id)
 
         def db_get(model, ident):
             if model == Appointment:
                 return appt
-            if model == Persona:
-                return persona
+            if model == Profile:
+                return profile
             return None
 
         db.get.side_effect = db_get
@@ -129,17 +129,17 @@ class TestPaymentUsecase:
     def test_initiate_payment_reuses_existing_pending(self, db, provider):
         client_id = uuid.uuid4()
         appt_id = uuid.uuid4()
-        persona_id = uuid.uuid4()
+        profile_id = uuid.uuid4()
 
         appt = Appointment(
             appointment_id=appt_id,
-            persona_id=persona_id,
+            profile_id=profile_id,
             psychologist_id=uuid.uuid4(),
             status=AppointmentStatus.AWAITING_PAYMENT,
             price=2000.0,
             payment_deadline=now_manila() + timedelta(hours=24),
         )
-        persona = Persona(persona_id=persona_id, client_id=client_id)
+        profile = Profile(profile_id=profile_id, client_id=client_id)
         existing_payment = Payment(
             payment_id=uuid.uuid4(),
             appointment_id=appt_id,
@@ -153,8 +153,8 @@ class TestPaymentUsecase:
         def db_get(model, ident):
             if model == Appointment:
                 return appt
-            if model == Persona:
-                return persona
+            if model == Profile:
+                return profile
             return None
 
         db.get.side_effect = db_get

@@ -20,7 +20,7 @@ import {
   stepForField,
 } from '../lib/consent';
 import {
-  personaWizardPayloadSchema,
+  profileWizardPayloadSchema,
   wizardStep1Schema,
   wizardStep2Schema,
   wizardStep3Schema,
@@ -30,10 +30,10 @@ import { useAppStore } from '../stores/useAppStore';
 import {
   clearWizardDraftStorage,
   getConsentVersion,
-  usePersonaWizardStore,
-  type PersonaWizardDraft,
+  useProfileWizardStore,
+  type ProfileWizardDraft,
   type WizardReturnTo,
-} from '../stores/usePersonaWizardStore';
+} from '../stores/useProfileWizardStore';
 import { Button, Card, Checkbox, Input, Label, Select, Textarea } from './ui/primitives';
 
 type Errors = Record<string, string>;
@@ -47,14 +47,13 @@ const STEP_TITLES = [
 
 /** Pristine draft snapshot for dirty-checking the unsaved-progress confirm. */
 const DEFAULT_DRAFT_SNAPSHOT = {
-  whoFor: 'myself',
-  relation_to_account_holder: 'self',
+  relation_to_account_holder: 'child',
   terms_signer_name: '',
-  terms_signer_relation: 'self',
+  terms_signer_relation: 'parent',
   scope_acknowledged: false,
   is_overseas_or_foreign: false,
   overseas_acknowledged: false,
-  persona_name: '',
+  profile_name: '',
   date_of_birth: '',
   occupation: '',
   nationality: '',
@@ -72,24 +71,15 @@ const DEFAULT_DRAFT_SNAPSHOT = {
   consent_signer_name: '',
 };
 
-function validateStep(step: 1 | 2 | 3 | 4, d: PersonaWizardDraft): Errors {
+function validateStep(step: 1 | 2 | 3 | 4, d: ProfileWizardDraft): Errors {
   const errs: Errors = {};
   if (step === 1) {
     const r = wizardStep1Schema.safeParse({
-      whoFor: d.whoFor,
       relation_to_account_holder: d.relation_to_account_holder,
       terms_signer_name: d.terms_signer_name,
       terms_signer_relation: d.terms_signer_relation,
     });
     if (!r.success) r.error.issues.forEach((i) => (errs[String(i.path[0])] = i.message));
-    if (d.whoFor === 'myself' && d.terms_signer_relation !== 'self')
-      errs['terms_signer_relation'] = 'For "Myself", signer relation must be "self".';
-    if (d.date_of_birth && !isFutureDob(d.date_of_birth) && isMinorDob(d.date_of_birth) && d.terms_signer_relation === 'self') {
-      errs['terms_signer_relation'] = 'A minor persona cannot use signer relation "self".';
-      if (d.whoFor === 'myself') {
-        errs['whoFor'] = 'A minor persona cannot sign as "self". Choose "Someone else" so a parent or guardian can sign.';
-      }
-    }
   }
   if (step === 2) {
     const r = wizardStep2Schema.safeParse({
@@ -101,7 +91,7 @@ function validateStep(step: 1 | 2 | 3 | 4, d: PersonaWizardDraft): Errors {
   }
   if (step === 3) {
     const r = wizardStep3Schema.safeParse({
-      persona_name: d.persona_name,
+      profile_name: d.profile_name,
       date_of_birth: d.date_of_birth,
       occupation: d.occupation,
       nationality: d.nationality,
@@ -152,20 +142,20 @@ function FieldError({ id, message }: { id: string; message?: string }) {
   );
 }
 
-interface PersonaWizardProps {
+interface ProfileWizardProps {
   returnTo?: WizardReturnTo;
-  onCreated?: (personaId: string) => void;
+  onCreated?: (profileId: string) => void;
   onCancel?: () => void;
 }
 
-export function PersonaWizard({ returnTo = 'manage', onCreated, onCancel }: PersonaWizardProps) {
+export function ProfileWizard({ returnTo = 'manage', onCreated, onCancel }: ProfileWizardProps) {
   const queryClient = useQueryClient();
-  const currentStep = usePersonaWizardStore((s) => s.currentStep);
-  const draft = usePersonaWizardStore((s) => s.draft);
-  const storeUpdateDraft = usePersonaWizardStore((s) => s.updateDraft);
-  const setStep = usePersonaWizardStore((s) => s.setStep);
-  const resetDraft = usePersonaWizardStore((s) => s.resetDraft);
-  const setLastUsedPersonaId = usePersonaWizardStore((s) => s.setLastUsedPersonaId);
+  const currentStep = useProfileWizardStore((s) => s.currentStep);
+  const draft = useProfileWizardStore((s) => s.draft);
+  const storeUpdateDraft = useProfileWizardStore((s) => s.updateDraft);
+  const setStep = useProfileWizardStore((s) => s.setStep);
+  const resetDraft = useProfileWizardStore((s) => s.resetDraft);
+  const setLastUsedProfileId = useProfileWizardStore((s) => s.setLastUsedProfileId);
   const updateBookingDraft = useAppStore((s) => s.updateBookingDraft);
   const publishFlowEvent = useAppStore((s) => s.publishFlowEvent);
 
@@ -183,7 +173,7 @@ export function PersonaWizard({ returnTo = 'manage', onCreated, onCancel }: Pers
    */
   const keepAttemptedRef = useRef(false);
 
-  const updateDraft = (partial: Partial<PersonaWizardDraft>) => {
+  const updateDraft = (partial: Partial<ProfileWizardDraft>) => {
     storeUpdateDraft(partial);
     const keys = Object.keys(partial);
     if (keys.length > 0) {
@@ -275,10 +265,10 @@ export function PersonaWizard({ returnTo = 'manage', onCreated, onCancel }: Pers
 
   const mutation = useMutation({
     mutationFn: () =>
-      api.createPersonaWithConsent({
-        persona: {
+      api.createProfileWithConsent({
+        profile: {
           relation_to_account_holder: draft.relation_to_account_holder,
-          persona_name: draft.persona_name.trim(),
+          profile_name: draft.profile_name.trim(),
           date_of_birth: draft.date_of_birth,
           occupation: draft.occupation.trim() ? draft.occupation.trim() : null,
           nationality: draft.nationality.trim(),
@@ -304,11 +294,11 @@ export function PersonaWizard({ returnTo = 'manage', onCreated, onCancel }: Pers
         },
       }),
     onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: ['personas'] });
-      setLastUsedPersonaId(created.id);
-      updateBookingDraft({ personaId: created.id });
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      setLastUsedProfileId(created.id);
+      updateBookingDraft({ profileId: created.id });
       publishFlowEvent(
-        'Persona Created (Wizard)',
+        'Profile Created (Wizard)',
         `${created.label} created with signed consent ${getConsentVersion()}${returnTo === 'booking' ? ' and preselected for booking.' : '.'}`
       );
       resetDraft();
@@ -356,9 +346,9 @@ export function PersonaWizard({ returnTo = 'manage', onCreated, onCancel }: Pers
     setServerError(null);
     // Final client-side mirror of backend validation before the single POST.
     const payload = {
-      persona: {
+      profile: {
         relation_to_account_holder: draft.relation_to_account_holder,
-        persona_name: draft.persona_name.trim(),
+        profile_name: draft.profile_name.trim(),
         date_of_birth: draft.date_of_birth,
         occupation: draft.occupation.trim() ? draft.occupation.trim() : null,
         nationality: draft.nationality.trim(),
@@ -383,7 +373,7 @@ export function PersonaWizard({ returnTo = 'manage', onCreated, onCancel }: Pers
         consent_signer_name: draft.consent_signer_name.trim(),
       },
     };
-    const full = personaWizardPayloadSchema.safeParse(payload);
+    const full = profileWizardPayloadSchema.safeParse(payload);
     if (!full.success) {
       const mapped: Errors = {};
       full.error.issues.forEach((i) => {
@@ -415,7 +405,7 @@ export function PersonaWizard({ returnTo = 'manage', onCreated, onCancel }: Pers
   }
 
   const errId = (f: string) => `wiz-${currentStep}-${f}-error`;
-  const backLabel = returnTo === 'booking' ? 'Back to booking' : 'Back to personas';
+  const backLabel = returnTo === 'booking' ? 'Back to booking' : 'Back to profiles';
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -433,7 +423,7 @@ export function PersonaWizard({ returnTo = 'manage', onCreated, onCancel }: Pers
             {STEP_TITLES[currentStep - 1]}
           </h1>
           <p className="text-sm text-pine/70">
-            New Persona · Step {currentStep} of 4 · Consent {getConsentVersion()}
+            New Profile · Step {currentStep} of 4 · Consent {getConsentVersion()}
           </p>
         </div>
       </header>
@@ -456,7 +446,7 @@ export function PersonaWizard({ returnTo = 'manage', onCreated, onCancel }: Pers
           {confirmingLeave ? (
             /* Unsaved-draft confirm replaces the wizard body */
             <section className="py-10 text-center space-y-5" role="alertdialog" aria-label="Confirm leaving wizard">
-              <p className="font-heading text-xl font-medium text-pine">Leave persona creation?</p>
+              <p className="font-heading text-xl font-medium text-pine">Leave profile creation?</p>
               <p className="text-sm text-pine/70 max-w-md mx-auto leading-relaxed">
                 Your progress is saved and will restore when you return.
               </p>
@@ -508,57 +498,41 @@ export function PersonaWizard({ returnTo = 'manage', onCreated, onCancel }: Pers
                       {INFORMED_CONSENT_TEXT}
                     </div>
                   </div>
-                  <div>
-                    <Label htmlFor="wiz-whofor">Who is this persona for?</Label>
-                    <Select
-                      id="wiz-whofor"
-                      value={draft.whoFor}
-                      onChange={(e) => updateDraft({ whoFor: e.target.value as 'myself' | 'someone_else' })}
-                      aria-invalid={!!shownErrors['whoFor']}
-                      aria-describedby={shownErrors['whoFor'] ? errId('whofor') : undefined}
-                    >
-                      <option value="myself">Myself</option>
-                      <option value="someone_else">Someone else</option>
-                    </Select>
-                    <FieldError id={errId('whofor')} message={shownErrors['whoFor']} />
-                  </div>
-                  {draft.whoFor === 'someone_else' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="wiz-relation">Relation to account holder</Label>
-                        <Select
-                          id="wiz-relation"
-                          value={draft.relation_to_account_holder}
-                          onChange={(e) => updateDraft({ relation_to_account_holder: e.target.value as typeof draft.relation_to_account_holder })}
-                          aria-invalid={!!shownErrors['relation_to_account_holder']}
-                          aria-describedby={shownErrors['relation_to_account_holder'] ? errId('relation') : undefined}
-                        >
-                          <option value="child">Child</option>
-                          <option value="spouse">Spouse</option>
-                          <option value="parent">Parent</option>
-                          <option value="sibling">Sibling</option>
-                          <option value="other">Other</option>
-                        </Select>
-                        <FieldError id={errId('relation')} message={shownErrors['relation_to_account_holder']} />
-                      </div>
-                      <div>
-                        <Label htmlFor="wiz-signer-relation">Signer&apos;s relation to the client</Label>
-                        <Select
-                          id="wiz-signer-relation"
-                          value={draft.terms_signer_relation}
-                          onChange={(e) => updateDraft({ terms_signer_relation: e.target.value as typeof draft.terms_signer_relation })}
-                          aria-invalid={!!shownErrors['terms_signer_relation']}
-                          aria-describedby={shownErrors['terms_signer_relation'] ? errId('signer-relation') : undefined}
-                        >
-                          <option value="parent">Parent</option>
-                          <option value="legal guardian">Legal guardian</option>
-                          <option value="spouse">Spouse</option>
-                          <option value="other">Other</option>
-                        </Select>
-                        <FieldError id={errId('signer-relation')} message={shownErrors['terms_signer_relation']} />
-                      </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="wiz-relation">Relation to account holder</Label>
+                      <Select
+                        id="wiz-relation"
+                        value={draft.relation_to_account_holder}
+                        onChange={(e) => updateDraft({ relation_to_account_holder: e.target.value as typeof draft.relation_to_account_holder })}
+                        aria-invalid={!!shownErrors['relation_to_account_holder']}
+                        aria-describedby={shownErrors['relation_to_account_holder'] ? errId('relation') : undefined}
+                      >
+                        <option value="child">Child</option>
+                        <option value="spouse">Spouse</option>
+                        <option value="parent">Parent</option>
+                        <option value="sibling">Sibling</option>
+                        <option value="other">Other</option>
+                      </Select>
+                      <FieldError id={errId('relation')} message={shownErrors['relation_to_account_holder']} />
                     </div>
-                  )}
+                    <div>
+                      <Label htmlFor="wiz-signer-relation">Signer&apos;s relation to the client</Label>
+                      <Select
+                        id="wiz-signer-relation"
+                        value={draft.terms_signer_relation}
+                        onChange={(e) => updateDraft({ terms_signer_relation: e.target.value as typeof draft.terms_signer_relation })}
+                        aria-invalid={!!shownErrors['terms_signer_relation']}
+                        aria-describedby={shownErrors['terms_signer_relation'] ? errId('signer-relation') : undefined}
+                      >
+                        <option value="parent">Parent</option>
+                        <option value="legal guardian">Legal guardian</option>
+                        <option value="spouse">Spouse</option>
+                        <option value="other">Other</option>
+                      </Select>
+                      <FieldError id={errId('signer-relation')} message={shownErrors['terms_signer_relation']} />
+                    </div>
+                  </div>
                   <div>
                     <Label htmlFor="wiz-signer-name">Signer full name (typed signature)</Label>
                     <Input
@@ -661,17 +635,17 @@ export function PersonaWizard({ returnTo = 'manage', onCreated, onCancel }: Pers
                 <section className="space-y-4" aria-label="Demographics">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="sm:col-span-2">
-                      <Label htmlFor="wiz-persona-name">Full name (persona_name)</Label>
+                      <Label htmlFor="wiz-profile-name">Full name (profile_name)</Label>
                       <Input
-                        id="wiz-persona-name"
+                        id="wiz-profile-name"
                         ref={firstFieldRef}
-                        value={draft.persona_name}
-                        onChange={(e) => updateDraft({ persona_name: e.target.value })}
+                        value={draft.profile_name}
+                        onChange={(e) => updateDraft({ profile_name: e.target.value })}
                         autoComplete="off"
-                        aria-invalid={!!shownErrors['persona_name']}
-                        aria-describedby={shownErrors['persona_name'] ? errId('persona_name') : undefined}
+                        aria-invalid={!!shownErrors['profile_name']}
+                        aria-describedby={shownErrors['profile_name'] ? errId('profile_name') : undefined}
                       />
-                      <FieldError id={errId('persona_name')} message={shownErrors['persona_name']} />
+                      <FieldError id={errId('profile_name')} message={shownErrors['profile_name']} />
                     </div>
                     <div>
                       <Label htmlFor="wiz-dob">Date of birth (we store DOB, never age)</Label>
@@ -857,7 +831,6 @@ export function PersonaWizard({ returnTo = 'manage', onCreated, onCancel }: Pers
                   <div className="rounded-lg border border-mist overflow-hidden">
                     {[
                       { title: 'Consent & agreement', step: 1 as const, rows: [
-                        ['Who for', draft.whoFor === 'myself' ? 'Myself' : 'Someone else'],
                         ['Relation to account holder', draft.relation_to_account_holder],
                         ['Signer name', draft.terms_signer_name || '—'],
                         ['Signer relation', draft.terms_signer_relation],
@@ -868,7 +841,7 @@ export function PersonaWizard({ returnTo = 'manage', onCreated, onCancel }: Pers
                         ...(draft.is_overseas_or_foreign ? [['Overseas acknowledged', draft.overseas_acknowledged ? 'Yes' : 'No'] as [string, string]] : []),
                       ]},
                       { title: 'Demographics', step: 3 as const, rows: [
-                        ['Full name', draft.persona_name || '—'],
+                        ['Full name', draft.profile_name || '—'],
                         ['Date of birth', draft.date_of_birth || '—'],
                         ['Contact', draft.contact_number || '—'],
                         ['Nationality', draft.nationality || '—'],
@@ -934,7 +907,7 @@ export function PersonaWizard({ returnTo = 'manage', onCreated, onCancel }: Pers
         {!confirmingLeave && (
           <div className="pt-4 border-t border-mist flex flex-wrap items-center justify-end gap-3">
             <span className="mr-auto text-xs text-pine/65">
-              {currentStep < 4 ? 'Nothing is sent until final submit.' : `Single POST /personas · consent ${getConsentVersion()}`}
+              {currentStep < 4 ? 'Nothing is sent until final submit.' : `Single POST /profiles · consent ${getConsentVersion()}`}
             </span>
             {currentStep > 1 && (
               <Button
@@ -952,7 +925,7 @@ export function PersonaWizard({ returnTo = 'manage', onCreated, onCancel }: Pers
               </Button>
             ) : (
               <Button variant="primary" size="md" onClick={handleSubmit} disabled={mutation.isPending}>
-                {mutation.isPending ? 'Submitting…' : 'Submit persona & consent'}
+                {mutation.isPending ? 'Submitting…' : 'Submit profile & consent'}
               </Button>
             )}
           </div>

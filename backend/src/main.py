@@ -23,6 +23,18 @@ logger = logging.getLogger("uvicorn.error")
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
+    if engine.dialect.name == "postgresql":
+        try:
+            from pathlib import Path
+            from alembic import command
+            from alembic.config import Config
+
+            alembic_ini = Path(__file__).resolve().parent.parent / "alembic.ini"
+            if alembic_ini.exists():
+                alembic_cfg = Config(str(alembic_ini))
+                command.upgrade(alembic_cfg, "head")
+        except Exception as exc:
+            logger.warning("Auto-migrate on startup skipped/failed: %s", exc)
     yield
     engine.dispose()
 
@@ -48,14 +60,49 @@ def create_app() -> FastAPI:
         )
 
     # Last-resort net: an unhandled 500 from ServerErrorMiddleware also loses CORS
-    # headers. Always answer JSON (with CORS, since this middleware sits inside
-    # CORSMiddleware) and still log the full traceback for the server console.
+    # headers (especially when debug=True). Catch unhandled exceptions inside an
+    # HTTP middleware wrapped by CORSMiddleware so CORS headers are always preserved.
+    @application.middleware("http")
+    async def catch_unhandled_exceptions(request: Request, call_next):
+        try:
+            return await call_next(request)
+        except BotoCoreError as exc:
+            logger.exception("AWS client-side failure: %s", exc)
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "detail": (
+                        f"Service temporarily unavailable: {exc}"
+                        if settings.DEBUG
+                        else "Service temporarily unavailable"
+                    )
+                },
+            )
+        except Exception as exc:
+            logger.exception("Unhandled exception: %s", exc)
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "detail": (
+                        f"Internal server error: {type(exc).__name__}: {exc}"
+                        if settings.DEBUG
+                        else "Internal server error"
+                    )
+                },
+            )
+
     @application.exception_handler(Exception)
     async def unhandled_exception_handler(_: Request, exc: Exception):
         logger.exception("Unhandled exception: %s", exc)
         return JSONResponse(
             status_code=500,
-            content={"detail": "Internal server error"},
+            content={
+                "detail": (
+                    f"Internal server error: {type(exc).__name__}: {exc}"
+                    if settings.DEBUG
+                    else "Internal server error"
+                )
+            },
         )
 
     @application.exception_handler(DomainError)

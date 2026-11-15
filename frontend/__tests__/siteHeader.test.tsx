@@ -29,7 +29,7 @@ describe('SiteHeader role-based navigation', () => {
     expect(screen.queryByText(/Workspace:/i)).not.toBeInTheDocument();
   });
 
-  it('shows Bookings and Personas for client on /bookings with logo left and account right', () => {
+  it('shows Bookings and Profiles for client on /bookings with logo left and account right', () => {
     mockPathname = '/bookings';
     useAuthStore.setState({
       isAuthenticated: true,
@@ -42,7 +42,7 @@ describe('SiteHeader role-based navigation', () => {
     expect(logo.closest('a')).toHaveAttribute('href', '/');
     expect(screen.queryByText('PSYCHAVE PH')).not.toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Bookings' })[0]).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: 'Personas' })[0]).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Profiles' })[0]).toBeInTheDocument();
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
     expect(screen.queryByText(/Book a session/i)).not.toBeInTheDocument();
 

@@ -2,7 +2,7 @@
 
 -- 1. Custom Types / Enums
 DO $$ BEGIN
-    CREATE TYPE personarelation AS ENUM ('self_', 'child', 'spouse', 'parent', 'sibling', 'other');
+    CREATE TYPE profilerelation AS ENUM ('self_', 'child', 'spouse', 'parent', 'sibling', 'other');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
@@ -54,12 +54,12 @@ CREATE TABLE IF NOT EXISTS services (
     is_active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
--- 7. Persona Table
-CREATE TABLE IF NOT EXISTS persona (
-    persona_id UUID PRIMARY KEY,
+-- 7. Profiles Table
+CREATE TABLE IF NOT EXISTS profiles (
+    profile_id UUID PRIMARY KEY,
     client_id UUID NOT NULL REFERENCES client_profiles (client_id) ON DELETE CASCADE,
-    relation_to_account_holder personarelation NOT NULL DEFAULT 'self_',
-    persona_name VARCHAR NOT NULL,
+    relation_to_account_holder profilerelation NOT NULL DEFAULT 'self_',
+    profile_name VARCHAR NOT NULL,
     date_of_birth DATE NOT NULL,
     occupation VARCHAR,
     nationality VARCHAR NOT NULL,
@@ -73,11 +73,14 @@ CREATE TABLE IF NOT EXISTS persona (
     emergency_contact_relation VARCHAR NOT NULL,
     emergency_contact_number VARCHAR NOT NULL
 );
+CREATE UNIQUE INDEX IF NOT EXISTS uq_profiles_one_self_per_client
+    ON profiles (client_id)
+    WHERE relation_to_account_holder = 'self_';
 
 -- 8. Forms Table
 CREATE TABLE IF NOT EXISTS forms (
     form_id UUID PRIMARY KEY,
-    persona_id UUID NOT NULL REFERENCES persona (persona_id) ON DELETE CASCADE,
+    profile_id UUID NOT NULL REFERENCES profiles (profile_id) ON DELETE CASCADE,
     consent_version VARCHAR NOT NULL,
     terms_signer_name VARCHAR NOT NULL,
     terms_signer_relation VARCHAR NOT NULL,
@@ -92,7 +95,7 @@ CREATE TABLE IF NOT EXISTS forms (
 -- 9. Appointments Table
 CREATE TABLE IF NOT EXISTS appointments (
     appointment_id UUID PRIMARY KEY,
-    persona_id UUID NOT NULL REFERENCES persona (persona_id) ON DELETE CASCADE,
+    profile_id UUID NOT NULL REFERENCES profiles (profile_id) ON DELETE CASCADE,
     selected_slot_id UUID,
     psychologist_id UUID REFERENCES psychologist_profiles (psychologist_id),
     price DOUBLE PRECISION,
