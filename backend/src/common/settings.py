@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     AWS_REGION: str = ""
     COGNITO_USER_POOL_ID: str = ""
     COGNITO_APP_CLIENT_ID: str = ""
-    SES_FROM_NAME: str = ""
+    SES_FROM_NAME: str = "PsychAvenuePH"
     SES_FROM_EMAIL: str = ""
     SES_REPLY_TO: str = ""
 
