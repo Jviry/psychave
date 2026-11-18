@@ -16,15 +16,17 @@ from schemas.appointment import (
     PreferredSlotsUpdate,
     ProposedSlotRead,
 )
+from services.aws.ses_service import SesService
 from utils.scheduling import validate_slot_inputs
 
 
 class AppointmentUsecase:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, ses: SesService | None = None):
         self.db = db
         self.repo = AppointmentRepo(db)
         self.persona_repo = PersonaRepo(db)
         self.service_repo = ServiceRepo(db)
+        self.ses = ses or SesService()
 
     def _get_owned_persona(self, persona_id: uuid.UUID, client_id: uuid.UUID) -> Persona:
         persona = self.persona_repo.get_by_id(persona_id)
@@ -56,6 +58,13 @@ class AppointmentUsecase:
             payload.presenting_concern,
             slot_rows,
         )
+        client_email = self.repo.get_client_email(appointment)
+        if client_email:
+            self.ses.send_booking_received(
+                client_email,
+                str(appointment.appointment_id),
+                slot_rows,
+            )
         return self.repo.build_read(appointment)
 
     def list_appointments(self, client_id: uuid.UUID, status: AppointmentStatus | None = None) -> list[AppointmentRead]:
@@ -109,6 +118,14 @@ class AppointmentUsecase:
         updated = self.repo.accept_slot(
             appt, slot, payment_deadline_for(session_start)
         )
+        client_email = self.repo.get_client_email(updated)
+        if client_email and updated.price is not None:
+            self.ses.send_schedule_accepted(
+                client_email,
+                str(updated.appointment_id),
+                (slot.session_date, slot.start_time, slot.end_time),
+                updated.price,
+            )
         return self.repo.build_read(updated)
 
     def replace_preferences(
@@ -131,6 +148,13 @@ class AppointmentUsecase:
 
         slot_rows = validate_slot_inputs(payload.slots, service.duration_minutes)
         updated = self.repo.replace_preferences(appt, slot_rows)
+        psych_email = self.repo.get_psychologist_email(updated)
+        if psych_email:
+            self.ses.send_preferences_updated(
+                psych_email,
+                str(updated.appointment_id),
+                slot_rows,
+            )
         return self.repo.build_read(updated)
 
     def cancel_appointment(self, appointment_id: uuid.UUID, client_id: uuid.UUID) -> AppointmentRead:
