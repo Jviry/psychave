@@ -4,6 +4,6 @@ environment       = "dev"
 lambda_zip_path   = "../../../backend/lambda.zip"
 cors_origins      = ["http://localhost:3000", "http://localhost:5173", "https://psychave-dev.vercel.app"]
 ses_from_name     = "PsychAvenuePH"
-ses_from_email    = ""
+ses_from_email    = "psychave.dev@gmail.com"
 ses_reply_to      = ""
 frontend_base_url = "https://psychave-dev.vercel.app"
