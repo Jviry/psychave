@@ -23,6 +23,10 @@ resource "aws_lambda_function" "this" {
       DATABASE_URL          = var.database_url
       DB_SCHEMA             = var.db_schema
       CORS_ORIGINS          = jsonencode(var.cors_origins)
+      SES_FROM_NAME         = var.ses_from_name
+      SES_FROM_EMAIL        = var.ses_from_email
+      SES_REPLY_TO          = var.ses_reply_to
+      FRONTEND_BASE_URL     = var.frontend_base_url
     }
   }
 }
@@ -76,6 +80,29 @@ resource "aws_iam_role_policy" "cognito_admin" {
         ]
 
         Resource = var.user_pool_arn
+      }
+    ]
+  })
+}
+
+# Allow Lambda to send transactional booking/payment emails via Amazon SES
+resource "aws_iam_role_policy" "ses_send" {
+  name = "${var.function_name}-ses"
+  role = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Effect = "Allow"
+
+        Action = [
+          "ses:SendEmail",
+          "ses:SendRawEmail",
+        ]
+
+        Resource = "*"
       }
     ]
   })
