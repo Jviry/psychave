@@ -60,9 +60,13 @@ Related docs:
 
 **Step 5 — Notifications**
 
+- Booking Receipt (`SesService.send_booking_received`) → client upon submitting an intake request and 3–5 preferred schedules.
 - New Request Alerts → available psychologists on queue entry.
-- Schedule Action Alert → client when a preferred time is accepted or an alternative is offered.
-- Payment Confirmation → both client and psychologist; session locked in.
+- Schedule Action Alerts:
+  - `SesService.send_schedule_accepted` → client when a preferred time or counter-offer is agreed (`awaiting_payment`).
+  - `SesService.send_counter_offer` → client when a psychologist offers an alternative schedule (`awaiting_schedule`, `scheduling_turn=client`).
+  - `SesService.send_preferences_updated` → assigned psychologist when the client submits a new round of 3–5 preferred schedules (`scheduling_turn=psychologist`).
+- Payment Confirmation (`SesService.send_payment_confirmed`) → both client and psychologist when payment is confirmed; session locked in.
 - Automated Reminders: SMS/email/in-app 24h and 1h before session.
 - Status Updates: real-time for cancellations, rescheduling, admin announcements.
 
