@@ -20,8 +20,9 @@ from schemas.appointment import (
     PendingAppointmentRead,
     SlotInput,
 )
+from dependencies.email import get_email_service
 from schemas.psychologist import PickupRequest, PsychologistProfileUpdate
-from services.aws.ses_service import SesService
+from services.email.base import BaseEmailService
 from utils.scheduling import (
     interval_for,
     intervals_overlap,
@@ -31,12 +32,12 @@ from utils.scheduling import (
 
 
 class PsychologistUsecase:
-    def __init__(self, db: Session, ses: SesService | None = None):
+    def __init__(self, db: Session, email_service: BaseEmailService | None = None):
         self.db = db
         self.repo = PsychologistRepo(db)
         self.appointment_repo = AppointmentRepo(db)
         self.service_repo = ServiceRepo(db)
-        self.ses = ses or SesService()
+        self.email_service = email_service or get_email_service()
 
     # ----- pending requests / pickup -----
 
@@ -195,14 +196,14 @@ class PsychologistUsecase:
         client_email = self.appointment_repo.get_client_email(picked_up)
         if client_email:
             if accepted:
-                self.ses.send_schedule_accepted(
+                self.email_service.send_schedule_accepted(
                     client_email,
                     str(picked_up.appointment_id),
                     notify_slot,
                     payload.price,
                 )
             else:
-                self.ses.send_counter_offer(
+                self.email_service.send_counter_offer(
                     client_email,
                     str(picked_up.appointment_id),
                     notify_slot,
@@ -265,7 +266,7 @@ class PsychologistUsecase:
         )
         client_email = self.appointment_repo.get_client_email(updated)
         if client_email and updated.price is not None:
-            self.ses.send_schedule_accepted(
+            self.email_service.send_schedule_accepted(
                 client_email,
                 str(updated.appointment_id),
                 (slot.session_date, slot.start_time, slot.end_time),
@@ -300,7 +301,7 @@ class PsychologistUsecase:
         )
         client_email = self.appointment_repo.get_client_email(updated)
         if client_email and updated.price is not None:
-            self.ses.send_counter_offer(
+            self.email_service.send_counter_offer(
                 client_email,
                 str(updated.appointment_id),
                 (session_date, start_time, end_time),

@@ -10,9 +10,10 @@ module "lambda" {
   database_url          = var.database_url
   db_schema             = var.db_schema
   cors_origins          = var.cors_origins
-  ses_from_name         = var.ses_from_name
-  ses_from_email        = var.ses_from_email
-  ses_reply_to          = var.ses_reply_to
+  email_from_name       = var.email_from_name
+  email_from_email      = var.email_from_email
+  email_reply_to        = var.email_reply_to
+  brevo_api_key         = var.brevo_api_key
   frontend_base_url     = var.frontend_base_url
 }
 
@@ -54,8 +55,8 @@ module "s3" {
 module "ses" {
   source = "../../modules/ses"
 
-  from_email      = var.ses_from_email
-  create_identity = var.environment == "dev"
+  from_email      = var.email_from_email
+  create_identity = false
 
   tags = {
     Project     = var.project_name

@@ -16,17 +16,18 @@ from schemas.appointment import (
     PreferredSlotsUpdate,
     ProposedSlotRead,
 )
-from services.aws.ses_service import SesService
+from dependencies.email import get_email_service
+from services.email.base import BaseEmailService
 from utils.scheduling import validate_slot_inputs
 
 
 class AppointmentUsecase:
-    def __init__(self, db: Session, ses: SesService | None = None):
+    def __init__(self, db: Session, email_service: BaseEmailService | None = None):
         self.db = db
         self.repo = AppointmentRepo(db)
         self.persona_repo = PersonaRepo(db)
         self.service_repo = ServiceRepo(db)
-        self.ses = ses or SesService()
+        self.email_service = email_service or get_email_service()
 
     def _get_owned_persona(self, persona_id: uuid.UUID, client_id: uuid.UUID) -> Persona:
         persona = self.persona_repo.get_by_id(persona_id)
@@ -60,7 +61,7 @@ class AppointmentUsecase:
         )
         client_email = self.repo.get_client_email(appointment)
         if client_email:
-            self.ses.send_booking_received(
+            self.email_service.send_booking_received(
                 client_email,
                 str(appointment.appointment_id),
                 slot_rows,
@@ -120,7 +121,7 @@ class AppointmentUsecase:
         )
         client_email = self.repo.get_client_email(updated)
         if client_email and updated.price is not None:
-            self.ses.send_schedule_accepted(
+            self.email_service.send_schedule_accepted(
                 client_email,
                 str(updated.appointment_id),
                 (slot.session_date, slot.start_time, slot.end_time),
@@ -150,7 +151,7 @@ class AppointmentUsecase:
         updated = self.repo.replace_preferences(appt, slot_rows)
         psych_email = self.repo.get_psychologist_email(updated)
         if psych_email:
-            self.ses.send_preferences_updated(
+            self.email_service.send_preferences_updated(
                 psych_email,
                 str(updated.appointment_id),
                 slot_rows,

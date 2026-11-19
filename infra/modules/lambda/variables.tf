@@ -42,22 +42,29 @@ variable "cors_origins" {
   default     = []
 }
 
-variable "ses_from_name" {
-  description = "Display name for SES transactional emails"
+variable "email_from_name" {
+  description = "Display name for transactional emails"
   type        = string
   default     = "PsychAvenuePH"
 }
 
-variable "ses_from_email" {
-  description = "Verified SES sender email address (leave empty to skip sending)"
+variable "email_from_email" {
+  description = "Verified sender email address (leave empty to skip sending)"
   type        = string
   default     = ""
 }
 
-variable "ses_reply_to" {
-  description = "Optional Reply-To email address for SES emails"
+variable "email_reply_to" {
+  description = "Optional Reply-To email address for transactional emails"
   type        = string
   default     = ""
+}
+
+variable "brevo_api_key" {
+  description = "Brevo transactional email API key (leave empty to skip sending)"
+  type        = string
+  default     = ""
+  sensitive   = true
 }
 
 variable "frontend_base_url" {

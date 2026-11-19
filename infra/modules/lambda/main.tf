@@ -23,9 +23,10 @@ resource "aws_lambda_function" "this" {
       DATABASE_URL          = var.database_url
       DB_SCHEMA             = var.db_schema
       CORS_ORIGINS          = jsonencode(var.cors_origins)
-      SES_FROM_NAME         = var.ses_from_name
-      SES_FROM_EMAIL        = var.ses_from_email
-      SES_REPLY_TO          = var.ses_reply_to
+      EMAIL_FROM_NAME       = var.email_from_name
+      EMAIL_FROM_EMAIL      = var.email_from_email
+      EMAIL_REPLY_TO        = var.email_reply_to
+      BREVO_API_KEY         = var.brevo_api_key
       FRONTEND_BASE_URL     = var.frontend_base_url
     }
   }
