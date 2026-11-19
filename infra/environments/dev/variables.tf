@@ -28,19 +28,25 @@ variable "cors_origins" {
   type = list(string)
 }
 
-variable "ses_from_name" {
+variable "email_from_name" {
   type    = string
   default = "PsychAvenuePH"
 }
 
-variable "ses_from_email" {
+variable "email_from_email" {
   type    = string
   default = ""
 }
 
-variable "ses_reply_to" {
+variable "email_reply_to" {
   type    = string
   default = ""
+}
+
+variable "brevo_api_key" {
+  type      = string
+  default   = ""
+  sensitive = true
 }
 
 variable "frontend_base_url" {

@@ -61,6 +61,7 @@ jobs:
         working-directory: infra/environments/dev
         env:
           TF_VAR_database_url: ${{ secrets.DATABASE_URL }}
+          TF_VAR_brevo_api_key: ${{ secrets.BREVO_API_KEY }}
         run: |
           tofu plan -var-file="dev.tfvars"
 
@@ -76,5 +77,6 @@ jobs:
         working-directory: infra/environments/dev
         env:
           TF_VAR_database_url: ${{ secrets.DATABASE_URL }}
+          TF_VAR_brevo_api_key: ${{ secrets.BREVO_API_KEY }}
         run: |
           tofu apply -auto-approve -var-file="dev.tfvars"
