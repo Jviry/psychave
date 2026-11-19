@@ -6,10 +6,11 @@ from common.exceptions import BadRequestError, NotFoundError
 from common.time import now_manila
 from models.appointment import Appointment, AppointmentStatus
 from models.payment import Payment, PaymentStatus
+from dependencies.email import get_email_service
 from repo.appointment_repo import AppointmentRepo
 from repo.payment_repo import PaymentRepo
 from repo.persona_repo import PersonaRepo
-from services.aws.ses_service import SesService
+from services.email.base import BaseEmailService
 from services.payments.base import PaymentProvider
 
 
@@ -18,14 +19,14 @@ class PaymentUsecase:
         self,
         db: Session,
         provider: PaymentProvider,
-        ses: SesService | None = None,
+        email_service: BaseEmailService | None = None,
     ):
         self.db = db
         self.provider = provider
         self.appointments = AppointmentRepo(db)
         self.payments = PaymentRepo(db)
         self.personas = PersonaRepo(db)
-        self.ses = ses or SesService()
+        self.email_service = email_service or get_email_service()
 
     def _get_owned_appointment(
         self, appointment_id: uuid.UUID, client_id: uuid.UUID
@@ -123,14 +124,14 @@ class PaymentUsecase:
             self.appointments.confirm(appt)
             client_email = self.appointments.get_client_email(appt)
             if client_email:
-                self.ses.send_payment_confirmed(
+                self.email_service.send_payment_confirmed(
                     client_email,
                     str(appt.appointment_id),
                     "client",
                 )
             psych_email = self.appointments.get_psychologist_email(appt)
             if psych_email:
-                self.ses.send_payment_confirmed(
+                self.email_service.send_payment_confirmed(
                     psych_email,
                     str(appt.appointment_id),
                     "psychologist",
