@@ -81,9 +81,10 @@ Key environment variables:
 | `AWS_REGION` | AWS region for Cognito & SES SDKs | `""` |
 | `COGNITO_USER_POOL_ID` | Cognito User Pool ID | `""` |
 | `COGNITO_APP_CLIENT_ID` | Cognito App Client ID (ID token audience) | `""` |
-| `SES_FROM_NAME` | Display name for outgoing SES emails | `PsychAvenuePH` |
-| `SES_FROM_EMAIL` | Verified SES sender address (empty skips sending) | `""` |
-| `SES_REPLY_TO` | Optional Reply-To address for SES emails | `""` |
+| `EMAIL_FROM_NAME` | Display name for outgoing transactional emails | `PsychAvenuePH` |
+| `EMAIL_FROM_EMAIL` | Verified sender address (empty skips sending) | `""` |
+| `EMAIL_REPLY_TO` | Optional Reply-To address for transactional emails | `""` |
+| `BREVO_API_KEY` | Brevo transactional email API key (empty skips sending when using `BrevoService`) | `""` |
 | `FRONTEND_BASE_URL` | Frontend base URL used in email links | `http://localhost:3000` |
 
 ### 2. Virtual Environment Setup
@@ -175,9 +176,9 @@ Clients submit 3–5 preferred schedules with `POST /appointments`. All psycholo
 | `GET /psychologist-profile/me` | Psychologist | Own profile |
 | `PATCH /psychologist-profile/me` | Psychologist | Writable: `specialization`, `license_number`, `bio`, `social_media_links` |
 
-### Transactional email notifications (Amazon SES)
+### Transactional email notifications (Brevo & Amazon SES)
 
-`SesService` (`src/services/aws/ses_service.py`) delivers best-effort transactional emails via Amazon SES (`sesv2`). Delivery failures are logged and never block or roll back a booking or payment transaction. When `SES_FROM_EMAIL` is empty (`""`), emails are skipped and logged so local development and ephemeral PR environments run without a verified domain.
+Shared email templates live in `BaseEmailService` (`src/services/email/base.py`), while provider-specific delivery implementations live separately in `BrevoService` (`src/services/brevo/brevo_service.py`) and `SesService` (`src/services/aws/ses_service.py`). Active provider wiring is controlled in one place via `get_email_service()` (`src/dependencies/email.py`), which returns `BrevoService()` while we operate without a custom domain. Delivery failures are logged and never block or roll back a booking or payment transaction. When `EMAIL_FROM_EMAIL` or `BREVO_API_KEY` is empty (`""`), emails are skipped and logged so local development and ephemeral PR environments run safely.
 
 | Method | Trigger | Recipient | Deep link |
 | :--- | :--- | :--- | :--- |
