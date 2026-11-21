@@ -20,7 +20,9 @@ from schemas.appointment import (
     PendingAppointmentRead,
     SlotInput,
 )
+from dependencies.email import get_email_service
 from schemas.psychologist import PickupRequest, PsychologistProfileUpdate
+from services.email.base import BaseEmailService
 from utils.scheduling import (
     interval_for,
     intervals_overlap,
@@ -30,11 +32,12 @@ from utils.scheduling import (
 
 
 class PsychologistUsecase:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, email_service: BaseEmailService | None = None):
         self.db = db
         self.repo = PsychologistRepo(db)
         self.appointment_repo = AppointmentRepo(db)
         self.service_repo = ServiceRepo(db)
+        self.email_service = email_service or get_email_service()
 
     # ----- pending requests / pickup -----
 
@@ -163,6 +166,8 @@ class PsychologistUsecase:
                 slot,
                 payment_deadline_for(session_start),
             )
+            notify_slot = (slot.session_date, slot.start_time, slot.end_time)
+            accepted = True
         else:
             assert payload.counter_slot is not None
             session_date, start_time, end_time = validate_single_slot(
@@ -182,9 +187,28 @@ class PsychologistUsecase:
                 start_time,
                 end_time,
             )
+            notify_slot = (session_date, start_time, end_time)
+            accepted = False
 
         if picked_up is None:
             raise ConflictError("Appointment has already been picked up")
+
+        client_email = self.appointment_repo.get_client_email(picked_up)
+        if client_email:
+            if accepted:
+                self.email_service.send_schedule_accepted(
+                    client_email,
+                    str(picked_up.appointment_id),
+                    notify_slot,
+                    payload.price,
+                )
+            else:
+                self.email_service.send_counter_offer(
+                    client_email,
+                    str(picked_up.appointment_id),
+                    notify_slot,
+                    payload.price,
+                )
         return self.appointment_repo.build_read(picked_up)
 
     # ----- schedule negotiation -----
@@ -240,6 +264,14 @@ class PsychologistUsecase:
         updated = self.repo.accept_slot(
             appt, slot, payment_deadline_for(session_start)
         )
+        client_email = self.appointment_repo.get_client_email(updated)
+        if client_email and updated.price is not None:
+            self.email_service.send_schedule_accepted(
+                client_email,
+                str(updated.appointment_id),
+                (slot.session_date, slot.start_time, slot.end_time),
+                updated.price,
+            )
         return self.appointment_repo.build_read(updated)
 
     def counter_offer(
@@ -267,6 +299,14 @@ class PsychologistUsecase:
         updated = self.repo.counter_offer(
             appt, session_date, start_time, end_time
         )
+        client_email = self.appointment_repo.get_client_email(updated)
+        if client_email and updated.price is not None:
+            self.email_service.send_counter_offer(
+                client_email,
+                str(updated.appointment_id),
+                (session_date, start_time, end_time),
+                updated.price,
+            )
         return self.appointment_repo.build_read(updated)
 
     # ----- own schedule -----

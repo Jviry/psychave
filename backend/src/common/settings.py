@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: str | None = None
     COGNITO_USER_POOL_ID: str = ""
     COGNITO_APP_CLIENT_ID: str = ""
+    EMAIL_FROM_NAME: str = "PsychAvenuePH"
+    EMAIL_FROM_EMAIL: str = ""
+    EMAIL_REPLY_TO: str = ""
+    BREVO_API_KEY: str = ""
+
+    FRONTEND_BASE_URL: str = "http://localhost:3000"
 
     @field_validator("DB_SCHEMA")
     @classmethod

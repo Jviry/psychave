@@ -166,6 +166,14 @@ export function SiteHeader() {
                   </Link>
                 );
               })}
+              {isAuthenticated && user && (
+                <Link
+                  href={getDashboardHref(user.role)}
+                  className="py-1 transition-colors whitespace-nowrap border-b-2 border-transparent hover:text-pine hover:border-mist"
+                >
+                  Dashboard
+                </Link>
+              )}
             </nav>
           ) : (
             roleTabs.length > 0 && renderRoleTabs('hidden md:flex')

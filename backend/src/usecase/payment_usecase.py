@@ -7,19 +7,27 @@ from common.settings import settings
 from common.time import now_manila
 from models.appointment import Appointment, AppointmentStatus
 from models.payment import Payment, PaymentStatus
+from dependencies.email import get_email_service
 from repo.appointment_repo import AppointmentRepo
 from repo.payment_repo import PaymentRepo
 from repo.profile_repo import ProfileRepo
+from services.email.base import BaseEmailService
 from services.payments.base import PaymentProvider
 
 
 class PaymentUsecase:
-    def __init__(self, db: Session, provider: PaymentProvider):
+    def __init__(
+        self,
+        db: Session,
+        provider: PaymentProvider,
+        email_service: BaseEmailService | None = None,
+    ):
         self.db = db
         self.provider = provider
         self.appointments = AppointmentRepo(db)
         self.payments = PaymentRepo(db)
         self.profiles = ProfileRepo(db)
+        self.email_service = email_service or get_email_service()
 
     def _get_owned_appointment(
         self, appointment_id: uuid.UUID, client_id: uuid.UUID
@@ -133,6 +141,20 @@ class PaymentUsecase:
             and appt.status == AppointmentStatus.AWAITING_PAYMENT
         ):
             self.appointments.confirm(appt)
+            client_email = self.appointments.get_client_email(appt)
+            if client_email:
+                self.email_service.send_payment_confirmed(
+                    client_email,
+                    str(appt.appointment_id),
+                    "client",
+                )
+            psych_email = self.appointments.get_psychologist_email(appt)
+            if psych_email:
+                self.email_service.send_payment_confirmed(
+                    psych_email,
+                    str(appt.appointment_id),
+                    "psychologist",
+                )
         return paid_payment
 
     def get_history(

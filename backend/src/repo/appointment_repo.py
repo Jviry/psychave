@@ -11,6 +11,7 @@ from models.profile import Profile
 from models.proposed_slot import ProposedSlot, SlotProposer, SlotStatus
 from models.psychologist_profile import PsychologistProfile
 from models.service import Service
+from models.user import User
 from schemas.appointment import AppointmentRead, ProposedSlotRead
 from schemas.psychologist import SocialMediaLink
 
@@ -57,6 +58,19 @@ class AppointmentRepo:
 
     def get_by_id(self, appointment_id: uuid.UUID) -> Appointment | None:
         return self.db.get(Appointment, appointment_id)
+
+    def get_client_email(self, appointment: Appointment) -> str | None:
+        persona = self.db.get(Persona, appointment.persona_id)
+        if persona is None:
+            return None
+        user = self.db.get(User, persona.client_id)
+        return user.email if user else None
+
+    def get_psychologist_email(self, appointment: Appointment) -> str | None:
+        if appointment.psychologist_id is None:
+            return None
+        user = self.db.get(User, appointment.psychologist_id)
+        return user.email if user else None
 
     def get_for_client(self, client_id: uuid.UUID, status: AppointmentStatus | None = None) -> list[Appointment]:
         statement = (

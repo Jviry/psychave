@@ -18,15 +18,31 @@ describe('SiteHeader role-based navigation', () => {
     useAuthStore.getState().logout();
   });
 
-  it('shows public nav (Home, Services, About Us) without Book a session on /', () => {
+  it('shows public nav (Home, Services, About Us) without Book a session or Dashboard when logged out on /', () => {
     mockPathname = '/';
     render(<SiteHeader />);
 
     expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Services' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'About Us' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument();
     expect(screen.queryByText(/Book a session/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Workspace:/i)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { role: 'client' as const, expectedHref: '/bookings' },
+    { role: 'psychologist' as const, expectedHref: '/psych/queue' },
+    { role: 'admin' as const, expectedHref: '/admin/users' },
+  ])('shows Dashboard tab on / for logged-in $role pointing to $expectedHref', ({ role, expectedHref }) => {
+    mockPathname = '/';
+    useAuthStore.setState({
+      isAuthenticated: true,
+      user: { username: 'user1', email: 'u@example.com', role, cognitoSub: '1' },
+    });
+    render(<SiteHeader />);
+
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', expectedHref);
   });
 
   it('shows Bookings and Profiles for client on /bookings with logo left and account right', () => {

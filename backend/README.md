@@ -76,10 +76,16 @@ Key environment variables:
 | `PORT` | Local server port | `8000` |
 | `HOST` | Local server host | `0.0.0.0` |
 | `DATABASE_URL` | PostgreSQL connection string | `""` |
+| `DB_SCHEMA` | Optional PostgreSQL schema for PR isolation | `""` |
 | `CORS_ORIGINS` | Allowed CORS origins (JSON array) | `[]` |
-| `AWS_REGION` | AWS region for Cognito SDK & JWKS | `""` |
+| `AWS_REGION` | AWS region for Cognito & SES SDKs | `""` |
 | `COGNITO_USER_POOL_ID` | Cognito User Pool ID | `""` |
 | `COGNITO_APP_CLIENT_ID` | Cognito App Client ID (ID token audience) | `""` |
+| `EMAIL_FROM_NAME` | Display name for outgoing transactional emails | `PsychAvenuePH` |
+| `EMAIL_FROM_EMAIL` | Verified sender address (empty skips sending) | `""` |
+| `EMAIL_REPLY_TO` | Optional Reply-To address for transactional emails | `""` |
+| `BREVO_API_KEY` | Brevo transactional email API key (empty skips sending when using `BrevoService`) | `""` |
+| `FRONTEND_BASE_URL` | Frontend base URL used in email links | `http://localhost:3000` |
 
 ### 2. Local Supabase Environment (PostgreSQL & Studio)
 
@@ -219,6 +225,18 @@ Clients submit 3–5 preferred schedules with `POST /appointments`. All psycholo
 | `POST /appointments/{id}/complete` | Psychologist | Marks a `confirmed` appointment `completed` |
 | `GET /psychologist-profile/me` | Psychologist | Own profile |
 | `PATCH /psychologist-profile/me` | Psychologist | Writable: `specialization`, `license_number`, `bio`, `social_media_links` |
+
+### Transactional email notifications (Brevo & Amazon SES)
+
+Shared email templates live in `BaseEmailService` (`src/services/email/base.py`), while provider-specific delivery implementations live separately in `BrevoService` (`src/services/brevo/brevo_service.py`) and `SesService` (`src/services/aws/ses_service.py`). Active provider wiring is controlled in one place via `get_email_service()` (`src/dependencies/email.py`), which returns `BrevoService()` while we operate without a custom domain. Delivery failures are logged and never block or roll back a booking or payment transaction. When `EMAIL_FROM_EMAIL` or `BREVO_API_KEY` is empty (`""`), emails are skipped and logged so local development and ephemeral PR environments run safely.
+
+| Method | Trigger | Recipient | Deep link |
+| :--- | :--- | :--- | :--- |
+| `send_booking_received` | Client submits booking (`POST /appointments`) | Client | `{FRONTEND_BASE_URL}/proposal/{id}` |
+| `send_schedule_accepted` | Psychologist accepts a preferred slot (`pickup` with `slot_id` or `accept-preferred-slot`) or client accepts a counter-offer (`accept-slot`) | Client | `{FRONTEND_BASE_URL}/proposal/{id}` |
+| `send_counter_offer` | Psychologist offers an alternative slot (`pickup` with `counter_slot` or `counter-offer`) | Client | `{FRONTEND_BASE_URL}/proposal/{id}` |
+| `send_preferences_updated` | Client submits fresh preferred schedules (`POST /appointments/{id}/preferred-slots`) | Assigned psychologist | `{FRONTEND_BASE_URL}/psych/schedule` |
+| `send_payment_confirmed` | Payment webhook confirms an `awaiting_payment` appointment | Client & Psychologist | `/proposal/{id}` (client), `/psych/schedule` (psychologist) |
 
 ### Admin role management
 

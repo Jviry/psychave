@@ -27,3 +27,29 @@ variable "db_schema" {
 variable "cors_origins" {
   type = list(string)
 }
+
+variable "email_from_name" {
+  type    = string
+  default = "PsychAvenuePH"
+}
+
+variable "email_from_email" {
+  type    = string
+  default = ""
+}
+
+variable "email_reply_to" {
+  type    = string
+  default = ""
+}
+
+variable "brevo_api_key" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+
+variable "frontend_base_url" {
+  type    = string
+  default = "https://psychave-dev.vercel.app"
+}

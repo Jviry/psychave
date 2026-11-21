@@ -1,5 +1,9 @@
-aws_region      = "ap-southeast-1"
-project_name    = "psychave"
-environment     = "dev"
-lambda_zip_path = "../../../backend/lambda.zip"
-cors_origins    = ["http://localhost:3000", "http://localhost:5173", "https://psychave-dev.vercel.app"]
+aws_region        = "ap-southeast-1"
+project_name      = "psychave"
+environment       = "dev"
+lambda_zip_path   = "../../../backend/lambda.zip"
+cors_origins      = ["http://localhost:3000", "http://localhost:5173", "https://psychave-dev.vercel.app"]
+email_from_name   = "PsychAvenuePH"
+email_from_email  = "psychave.dev@gmail.com"
+email_reply_to    = ""
+frontend_base_url = "https://psychave-dev.vercel.app"
