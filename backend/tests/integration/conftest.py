@@ -73,7 +73,7 @@ def test_engine(ensure_test_database):
     from alembic.config import Config
     from alembic import command
 
-    backend_dir = Path(__file__).resolve().parent.parent
+    backend_dir = Path(__file__).resolve().parent.parent.parent
     alembic_ini_path = backend_dir / "alembic.ini"
 
     engine = create_engine(TEST_DB_URL, pool_pre_ping=True)
