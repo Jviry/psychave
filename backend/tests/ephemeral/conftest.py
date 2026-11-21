@@ -156,12 +156,12 @@ def authenticated_user_factory(
 
 @pytest.fixture
 def create_client_profile(api_url: str):
-    """Create a valid adult self-profile + consent for an authenticated client."""
+    """Create a valid adult profile + consent for an authenticated client."""
 
     def _create(auth_headers: dict[str, str], name: str = "Juan Dela Cruz") -> dict:
         payload = {
             "profile": {
-                "relation_to_account_holder": "self",
+                "relation_to_account_holder": "sibling",
                 "profile_name": name,
                 "date_of_birth": "1996-05-15",
                 "occupation": "Software Engineer",

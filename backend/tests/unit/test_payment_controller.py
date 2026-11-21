@@ -113,7 +113,9 @@ class TestPaymentController:
         mock_exec = MagicMock()
         mock_exec.first.return_value = payment_record
         dummy_db.exec.return_value = mock_exec
-        dummy_db.get.return_value = appointment_record
+        dummy_db.get.side_effect = (
+            lambda model, _id: appointment_record if model is Appointment else None
+        )
 
         client = TestClient(app)
         res = client.post("/payments/webhook", content=b'{"valid": "json"}')

@@ -60,10 +60,10 @@ class AppointmentRepo:
         return self.db.get(Appointment, appointment_id)
 
     def get_client_email(self, appointment: Appointment) -> str | None:
-        persona = self.db.get(Persona, appointment.persona_id)
-        if persona is None:
+        profile = self.db.get(Profile, appointment.profile_id)
+        if profile is None:
             return None
-        user = self.db.get(User, persona.client_id)
+        user = self.db.get(User, profile.client_id)
         return user.email if user else None
 
     def get_psychologist_email(self, appointment: Appointment) -> str | None:
