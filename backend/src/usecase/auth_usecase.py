@@ -269,10 +269,19 @@ class AuthUsecase:
                 or claims.get("preferred_username")
                 or claims.get("username", "")
             )
+            claim_groups = list(
+                claims.get("cognito:groups", []) or claims.get("groups", [])
+            )
+            groups = claim_groups
+            if username:
+                try:
+                    groups = self.auth.list_user_groups(username)
+                except Exception:
+                    groups = claim_groups
+
             user = self.user_repo.get_by_sub(sub)
 
             if user is None:
-                groups = self.auth.list_user_groups(username) if username else []
                 user = self.user_repo.create(
                     User(
                         cognito_sub=sub,
@@ -280,10 +289,10 @@ class AuthUsecase:
                         role=role_from_groups(groups),
                     )
                 )
-            elif username:
+            elif groups:
                 # Groups are the source of truth; heal a stale local role
                 # after an admin promotion or out-of-band group edit.
-                role = role_from_groups(self.auth.list_user_groups(username))
+                role = role_from_groups(groups)
                 if user.role != role:
                     user.role = role
                     self.user_repo.update(user)

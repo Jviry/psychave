@@ -3,10 +3,22 @@ from jose import jwt, JWTError
 from functools import lru_cache
 from common.settings import settings
 
-COGNITO_ISSUER = (
-    f"https://cognito-idp.{settings.AWS_REGION}.amazonaws.com/"
-    f"{settings.COGNITO_USER_POOL_ID}"
-)
+def _cognito_issuer() -> str:
+    region = (
+        settings.AWS_REGION
+        or (
+            settings.COGNITO_USER_POOL_ID.split("_", 1)[0]
+            if "_" in settings.COGNITO_USER_POOL_ID
+            else ""
+        )
+    )
+    return (
+        f"https://cognito-idp.{region}.amazonaws.com/"
+        f"{settings.COGNITO_USER_POOL_ID}"
+    )
+
+
+COGNITO_ISSUER = _cognito_issuer()
 JWKS_URL = f"{COGNITO_ISSUER}/.well-known/jwks.json"
 
 
@@ -38,5 +50,6 @@ def verify_token(token: str) -> dict:
         algorithms=["RS256"],
         audience=settings.COGNITO_APP_CLIENT_ID,
         issuer=COGNITO_ISSUER,
+        options={"verify_at_hash": False},
     )
     return claims

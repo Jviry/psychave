@@ -14,6 +14,7 @@ from models.psychologist_profile import PsychologistProfile
 from models.user import User, UserRole
 from repo.user_repo import UserRepository
 from services.auth.cognito_service import CognitoService
+from usecase.auth_usecase import role_from_groups
 
 
 @lru_cache
@@ -52,7 +53,29 @@ def get_current_user(
     if not sub:
         raise UnauthenticatedError("Invalid or expired token")
 
-    user = UserRepository(db).get_by_sub(sub)
+    repo = UserRepository(db)
+    user = repo.get_by_sub(sub)
+
+    if user is None:
+        groups = list(
+            claims.get("cognito:groups", []) or claims.get("groups", [])
+        )
+        email = claims.get("email", "")
+        username = (
+            claims.get("cognito:username")
+            or claims.get("preferred_username")
+            or claims.get("username", "")
+            or email
+        )
+        if groups or email:
+            user = repo.create(
+                User(
+                    cognito_sub=sub,
+                    email=email,
+                    role=role_from_groups(groups),
+                )
+            )
+            repo.ensure_role_profile(user, display_name=username)
 
     if user is None:
         raise UserNotFoundError()
