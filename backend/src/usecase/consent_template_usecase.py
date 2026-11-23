@@ -181,7 +181,6 @@ class ConsentTemplateUsecase:
 
         # Build unified lookup context for show_if & validation
         context: dict[str, Any] = {
-            "whoFor": "myself" if is_self else "someone_else",
             "relation_to_account_holder": rel_val,
             "profile_name": profile_data.profile_name,
             "date_of_birth": profile_data.date_of_birth.isoformat(),
@@ -309,7 +308,6 @@ class ConsentTemplateUsecase:
         )
         is_self = rel_val == ProfileRelation.self_.value
         context: dict[str, Any] = {
-            "whoFor": "myself" if is_self else "someone_else",
             "relation_to_account_holder": rel_val,
             "profile_name": profile.profile_name,
             "date_of_birth": (
