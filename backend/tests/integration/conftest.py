@@ -24,7 +24,6 @@ os.environ.setdefault("COGNITO_USER_POOL_ID", "local-test-pool")
 os.environ.setdefault("COGNITO_APP_CLIENT_ID", "local-test-client")
 os.environ.setdefault("DATABASE_URL", "postgresql://postgres:postgres@127.0.0.1:54322/postgres_test")
 os.environ.setdefault("ENV", "development")
-os.environ.setdefault("PAYMENT_PROVIDER", "fake")
 
 BASE_DB_URL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
 TEST_DB_URL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres_test"

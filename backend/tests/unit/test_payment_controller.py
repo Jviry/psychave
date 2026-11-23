@@ -12,7 +12,6 @@ from common.settings import settings
 from models.payment import Payment, PaymentStatus
 from models.appointment import Appointment, AppointmentStatus
 from services.payments.base import PaymentProvider, WebhookEvent
-from services.payments.fake_provider import FakePaymentProvider
 from services.payments.paymongo_provider import PayMongoPaymentProvider
 
 
@@ -42,19 +41,12 @@ class TestPaymentController:
 
     def test_provider_selection_logic(self, monkeypatch):
         _init_provider.cache_clear()
-        monkeypatch.setattr(settings, "ENV", "development")
-        monkeypatch.setattr(settings, "PAYMENT_PROVIDER", None)
-        assert isinstance(_init_provider(), FakePaymentProvider)
+        monkeypatch.setattr(settings, "PAYMONGO_SECRET_KEY", "")
+        with pytest.raises(RuntimeError, match="PAYMONGO_SECRET_KEY"):
+            _init_provider()
 
         _init_provider.cache_clear()
-        monkeypatch.setattr(settings, "ENV", "production")
-        monkeypatch.setattr(settings, "PAYMENT_PROVIDER", None)
         monkeypatch.setattr(settings, "PAYMONGO_SECRET_KEY", "sk_test_123")
-        assert isinstance(_init_provider(), PayMongoPaymentProvider)
-
-        _init_provider.cache_clear()
-        monkeypatch.setattr(settings, "ENV", "development")
-        monkeypatch.setattr(settings, "PAYMENT_PROVIDER", "paymongo")
         assert isinstance(_init_provider(), PayMongoPaymentProvider)
 
         _init_provider.cache_clear()

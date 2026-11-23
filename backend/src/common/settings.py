@@ -42,8 +42,7 @@ class Settings(BaseSettings):
             raise ValueError(f"Invalid PostgreSQL schema identifier: {v!r}")
         return schema
 
-    # Payments
-    PAYMENT_PROVIDER: str | None = None
+    # Payments (PayMongo)
     PAYMONGO_SECRET_KEY: str = ""
     PAYMONGO_PUBLIC_KEY: str = ""
     PAYMONGO_WEBHOOK_SECRET: str = ""

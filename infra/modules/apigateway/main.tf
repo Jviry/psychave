@@ -55,6 +55,7 @@ resource "aws_apigatewayv2_route" "public" {
     "GET /services/active",
     "GET /health",
     "GET /hello",
+    "POST /payments/webhook",
   ])
 
   api_id    = aws_apigatewayv2_api.this.id

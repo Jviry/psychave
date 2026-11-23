@@ -5,8 +5,28 @@ from sqlmodel import Session, select
 from models.user import UserRole
 from models.appointment import Appointment, AppointmentStatus
 from models.payment import Payment, PaymentStatus
-from services.payments.fake_provider import FakePaymentProvider
+from services.payments.base import InitiatedPayment
+from services.payments.paymongo_provider import PayMongoPaymentProvider
 from usecase.payment_usecase import PaymentUsecase
+from dependencies.payments import get_payment_provider
+from main import app
+
+
+class StubPayMongoProvider:
+    name = "paymongo"
+
+    def create_checkout(self, **kwargs):
+        ref = f"cs_test_{uuid.uuid4().hex[:12]}"
+        return InitiatedPayment(
+            provider_ref=ref,
+            checkout_url=f"https://checkout.paymongo.com/{ref}",
+        )
+
+    def verify_signature(self, raw_body, headers):
+        return True
+
+    def parse_webhook(self, raw_body, headers):
+        return None
 
 
 def test_initiate_payment_persists_in_supabase(
@@ -29,13 +49,16 @@ def test_initiate_payment_persists_in_supabase(
     )
 
     auth_override(sub=client_user.cognito_sub, role=UserRole.CLIENT.value)
-
-    res = client.post(f"/appointments/{appt.appointment_id}/payment")
+    app.dependency_overrides[get_payment_provider] = lambda: StubPayMongoProvider()
+    try:
+        res = client.post(f"/appointments/{appt.appointment_id}/payment")
+    finally:
+        app.dependency_overrides.pop(get_payment_provider, None)
     assert res.status_code == 200, res.text
     data = res.json()
     assert data["amount"] == 2500.0
     assert data["status"] == PaymentStatus.PENDING.value
-    assert data["provider"] == "fake"
+    assert data["provider"] == "paymongo"
     assert data["checkout_url"] is not None
     payment_id = uuid.UUID(data["payment_id"])
 
@@ -78,15 +101,15 @@ def test_payment_webhook_fulfillment_confirms_appointment(
         payment_id=uuid.uuid4(),
         appointment_id=appt.appointment_id,
         amount=1800.0,
-        provider="fake",
+        provider="paymongo",
         provider_ref=provider_ref,
-        checkout_url=f"https://checkout.fake/{provider_ref}",
+        checkout_url=f"https://checkout.paymongo.com/{provider_ref}",
         status=PaymentStatus.PENDING,
     )
     db_session.add(payment)
     db_session.commit()
 
-    provider = FakePaymentProvider()
+    provider = PayMongoPaymentProvider(secret_key="sk_test_integration")
     uc = PaymentUsecase(db_session, provider)
 
     # Process successful payment event
