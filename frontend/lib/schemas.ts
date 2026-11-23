@@ -134,6 +134,33 @@ export const serviceGuardrailSchema = z.object({
 
 export type ServiceGuardrailFormValues = z.infer<typeof serviceGuardrailSchema>;
 
+export const serviceCmsSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(3, 'Service name must be at least 3 characters.')
+    .max(120, 'Service name must be under 120 characters.'),
+  durationMinutes: z
+    .number({ message: 'Enter a valid duration in minutes.' })
+    .int('Duration must be a whole number of minutes.')
+    .min(15, 'Minimum duration is 15 minutes.')
+    .max(480, 'Maximum duration is 480 minutes.'),
+  notice: z
+    .string()
+    .trim()
+    .max(1000, 'Notice must be under 1,000 characters.')
+    .optional()
+    .or(z.literal('')),
+  description: z
+    .string()
+    .trim()
+    .min(20, 'Service description must be at least 20 characters.')
+    .max(2000, 'Service description must be under 2,000 characters.'),
+  isActive: z.boolean(),
+});
+
+export type ServiceCmsFormValues = z.infer<typeof serviceCmsSchema>;
+
 /* ------------------------------------------------------------------ */
 /* Profile creation wizard (4 pages, single POST /profiles at submit).  */
 /* Page schemas validate their own slice; cross-page rules (minor/self, */

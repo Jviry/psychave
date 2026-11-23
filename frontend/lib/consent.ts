@@ -1,8 +1,10 @@
+import type { WizardBlock, WizardPage } from './types';
+
 /**
- * Profile wizard constants + helpers (frontend-only).
+ * Profile wizard constants + helpers.
  *
- * Source: firm booking forms (consent v2). Logic reads CONSENT_VERSION from this
- * single constant and sends it in the POST /profiles payload.
+ * Source: firm booking forms (consent v2). Dynamic wizard pages fetched from
+ * GET /forms/active override these defaults at runtime.
  */
 
 export const CONSENT_VERSION = 'v2';
@@ -63,6 +65,428 @@ export const OVERSEAS_ACK_TEXT =
 export const FINAL_CONSENT_STATEMENT =
   'By typing my full name below, I confirm that I have read and understood the description, purpose, scope, limitations, confidentiality, data privacy provisions, and ethical boundaries of the psychological service I am availing.';
 
+/** Canonical 4-page v2 wizard schema fallback (matches backend build_default_wizard_pages). */
+export const DEFAULT_WIZARD_PAGES: WizardPage[] = [
+  {
+    pageId: 'step-1-consent',
+    title: 'Informed consent & agreement',
+    description: 'Review the informed consent and data privacy terms.',
+    blocks: [
+      {
+        blockId: 'informed_consent_doc',
+        type: 'scrollable_doc',
+        label: 'Informed consent text — scroll to read',
+        content: INFORMED_CONSENT_TEXT,
+        appliesTo: 'all',
+        required: false,
+        options: [],
+        systemLocked: false,
+      },
+      {
+        blockId: 'relation_to_account_holder',
+        type: 'select',
+        label: 'Relation to account holder',
+        target: 'profile',
+        fieldKey: 'relation_to_account_holder',
+        appliesTo: 'dependent',
+        required: true,
+        options: [
+          { value: 'child', label: 'Child' },
+          { value: 'spouse', label: 'Spouse' },
+          { value: 'parent', label: 'Parent' },
+          { value: 'sibling', label: 'Sibling' },
+          { value: 'other', label: 'Other' },
+        ],
+        systemLocked: true,
+      },
+      {
+        blockId: 'terms_signer_relation',
+        type: 'select',
+        label: "Signer's relation to the client",
+        target: 'consent',
+        fieldKey: 'terms_signer_relation',
+        appliesTo: 'dependent',
+        required: true,
+        options: [
+          { value: 'parent', label: 'Parent' },
+          { value: 'legal guardian', label: 'Legal guardian' },
+          { value: 'spouse', label: 'Spouse' },
+          { value: 'other', label: 'Other' },
+        ],
+        systemLocked: false,
+      },
+      {
+        blockId: 'terms_signer_name',
+        type: 'text',
+        label: 'Signer full name (typed signature)',
+        helperText: TYPING_STATEMENT,
+        placeholder: 'Type full name',
+        target: 'consent',
+        fieldKey: 'terms_signer_name',
+        appliesTo: 'all',
+        required: true,
+        options: [],
+        systemLocked: false,
+      },
+    ],
+  },
+  {
+    pageId: 'step-2-scope',
+    title: 'Services & acknowledgements',
+    description: 'Review offered services and clinical scope notices.',
+    blocks: [
+      {
+        blockId: 'services_overview',
+        type: 'services_list',
+        label: 'Services offered (read-only)',
+        appliesTo: 'all',
+        required: false,
+        options: [],
+        systemLocked: false,
+      },
+      {
+        blockId: 'scope_limitations_doc',
+        type: 'scrollable_doc',
+        label: 'Scope & limitations of services — scroll to read',
+        content: SCOPE_LIMITATIONS_TEXT,
+        appliesTo: 'all',
+        required: false,
+        options: [],
+        systemLocked: false,
+      },
+      {
+        blockId: 'scope_acknowledged',
+        type: 'checkbox',
+        label: SCOPE_ACK_TEXT,
+        target: 'consent',
+        fieldKey: 'scope_acknowledged',
+        appliesTo: 'all',
+        required: true,
+        options: [],
+        systemLocked: false,
+      },
+      {
+        blockId: 'is_overseas_or_foreign',
+        type: 'checkbox',
+        label: 'I am an overseas client or foreign national',
+        target: 'consent',
+        fieldKey: 'is_overseas_or_foreign',
+        appliesTo: 'all',
+        required: false,
+        options: [],
+        systemLocked: false,
+      },
+      {
+        blockId: 'overseas_limitations_doc',
+        type: 'scrollable_doc',
+        label: 'Limitations for overseas clients and foreign nationals — scroll to read',
+        content: OVERSEAS_LIMITATIONS_TEXT,
+        appliesTo: 'all',
+        required: false,
+        options: [],
+        showIf: { fieldKey: 'is_overseas_or_foreign', equals: true },
+        systemLocked: false,
+      },
+      {
+        blockId: 'overseas_acknowledged',
+        type: 'checkbox',
+        label: OVERSEAS_ACK_TEXT,
+        target: 'consent',
+        fieldKey: 'overseas_acknowledged',
+        appliesTo: 'all',
+        required: true,
+        options: [],
+        showIf: { fieldKey: 'is_overseas_or_foreign', equals: true },
+        systemLocked: false,
+      },
+    ],
+  },
+  {
+    pageId: 'step-3-demographics',
+    title: 'Demographics',
+    description: 'Provide demographic and contact information.',
+    blocks: [
+      {
+        blockId: 'profile_name',
+        type: 'text',
+        label: 'Full name',
+        placeholder: 'Enter full name',
+        target: 'profile',
+        fieldKey: 'profile_name',
+        appliesTo: 'all',
+        required: true,
+        options: [],
+        systemLocked: true,
+      },
+      {
+        blockId: 'date_of_birth',
+        type: 'date',
+        label: 'Date of birth',
+        target: 'profile',
+        fieldKey: 'date_of_birth',
+        appliesTo: 'all',
+        required: true,
+        options: [],
+        systemLocked: true,
+      },
+      {
+        blockId: 'occupation',
+        type: 'text',
+        label: 'Occupation (optional)',
+        target: 'profile',
+        fieldKey: 'occupation',
+        appliesTo: 'all',
+        required: false,
+        options: [],
+        systemLocked: false,
+      },
+      {
+        blockId: 'nationality',
+        type: 'text',
+        label: 'Nationality',
+        placeholder: 'e.g. Filipino',
+        target: 'profile',
+        fieldKey: 'nationality',
+        appliesTo: 'all',
+        required: true,
+        options: [],
+        systemLocked: false,
+      },
+      {
+        blockId: 'contact_number',
+        type: 'phone',
+        label: 'Contact number',
+        placeholder: '09XXXXXXXXX',
+        target: 'profile',
+        fieldKey: 'contact_number',
+        appliesTo: 'all',
+        required: true,
+        options: [],
+        systemLocked: false,
+      },
+      {
+        blockId: 'permanent_address',
+        type: 'textarea',
+        label: 'Permanent address',
+        target: 'profile',
+        fieldKey: 'permanent_address',
+        appliesTo: 'all',
+        required: true,
+        options: [],
+        systemLocked: false,
+      },
+      {
+        blockId: 'present_address',
+        type: 'textarea',
+        label: 'Present address',
+        target: 'profile',
+        fieldKey: 'present_address',
+        appliesTo: 'all',
+        required: true,
+        options: [],
+        systemLocked: false,
+      },
+      {
+        blockId: 'socmed_platform',
+        type: 'select',
+        label: 'Social media platform (optional)',
+        target: 'profile',
+        fieldKey: 'socmed_platform',
+        appliesTo: 'all',
+        required: false,
+        options: [
+          { value: '', label: 'None' },
+          { value: 'instagram', label: 'Instagram' },
+          { value: 'facebook', label: 'Facebook' },
+          { value: 'messenger', label: 'Messenger' },
+          { value: 'tiktok', label: 'TikTok' },
+          { value: 'x', label: 'X' },
+          { value: 'other', label: 'Other' },
+        ],
+        systemLocked: true,
+      },
+      {
+        blockId: 'socmed_username',
+        type: 'text',
+        label: 'Username (optional)',
+        placeholder: '@username',
+        target: 'profile',
+        fieldKey: 'socmed_username',
+        appliesTo: 'all',
+        required: false,
+        options: [],
+        systemLocked: true,
+      },
+      {
+        blockId: 'preferred_contact_mode',
+        type: 'select',
+        label: 'Preferred contact mode',
+        target: 'profile',
+        fieldKey: 'preferred_contact_mode',
+        appliesTo: 'all',
+        required: true,
+        options: [
+          { value: 'phone', label: 'Phone' },
+          { value: 'email', label: 'Email' },
+          { value: 'messenger', label: 'Messenger' },
+          { value: 'instagram', label: 'Instagram' },
+        ],
+        systemLocked: false,
+      },
+      {
+        blockId: 'emergency_contact_heading',
+        type: 'section_heading',
+        label: 'Emergency Contact',
+        appliesTo: 'all',
+        required: false,
+        options: [],
+        systemLocked: false,
+      },
+      {
+        blockId: 'emergency_contact_name',
+        type: 'text',
+        label: 'Emergency contact name',
+        target: 'profile',
+        fieldKey: 'emergency_contact_name',
+        appliesTo: 'all',
+        required: true,
+        options: [],
+        systemLocked: false,
+      },
+      {
+        blockId: 'emergency_contact_relation',
+        type: 'text',
+        label: 'Emergency contact relation',
+        placeholder: 'e.g. Mother',
+        target: 'profile',
+        fieldKey: 'emergency_contact_relation',
+        appliesTo: 'all',
+        required: true,
+        options: [],
+        systemLocked: false,
+      },
+      {
+        blockId: 'emergency_contact_number',
+        type: 'phone',
+        label: 'Emergency contact number',
+        placeholder: '09XXXXXXXXX',
+        target: 'profile',
+        fieldKey: 'emergency_contact_number',
+        appliesTo: 'all',
+        required: true,
+        options: [],
+        systemLocked: false,
+      },
+    ],
+  },
+  {
+    pageId: 'step-4-confirmation',
+    title: 'Confirmation & final consent',
+    description: 'Review your entries and sign to complete.',
+    blocks: [
+      {
+        blockId: 'review_summary',
+        type: 'review_summary',
+        label: 'Review your entries before signing',
+        appliesTo: 'all',
+        required: false,
+        options: [],
+        systemLocked: false,
+      },
+      {
+        blockId: 'information_confirmed',
+        type: 'checkbox',
+        label: 'I confirm that the information provided is accurate and complete.',
+        target: 'consent',
+        fieldKey: 'information_confirmed',
+        appliesTo: 'all',
+        required: true,
+        options: [],
+        systemLocked: false,
+      },
+      {
+        blockId: 'final_consent_doc',
+        type: 'info_text',
+        label: 'Final consent & acknowledgement',
+        content: FINAL_CONSENT_STATEMENT,
+        appliesTo: 'all',
+        required: false,
+        options: [],
+        systemLocked: false,
+      },
+      {
+        blockId: 'consent_signer_name',
+        type: 'text',
+        label: 'Final consent signer full name',
+        placeholder: 'Type full name to sign',
+        target: 'consent',
+        fieldKey: 'consent_signer_name',
+        appliesTo: 'all',
+        required: true,
+        options: [],
+        systemLocked: false,
+      },
+    ],
+  },
+];
+
+function extractConsentSignature(pages: WizardPage[]): string {
+  const sig: unknown[] = [];
+  for (const page of pages) {
+    for (const block of page.blocks) {
+      const isConsent =
+        block.target === 'consent' ||
+        block.type === 'scrollable_doc' ||
+        block.blockId === 'final_consent_doc';
+      if (isConsent) {
+        sig.push({
+          blockId: block.blockId,
+          type: block.type,
+          fieldKey: block.fieldKey ?? null,
+          label: (block.label || '').trim(),
+          content: (block.content || '').trim(),
+          helperText: (block.helperText || '').trim(),
+          required: Boolean(block.required),
+          appliesTo: block.appliesTo || 'all',
+          options: block.options || [],
+          showIf: block.showIf ?? null,
+        });
+      }
+    }
+  }
+  return JSON.stringify(sig);
+}
+
+/**
+ * Returns true when any consent field or scrollable legal document changed
+ * compared to the baseline pages (which triggers a major version bump requiring
+ * clients to re-sign). Returns false when only demographic or UI fields changed
+ * (which triggers a minor decimal bump without requiring re-sign).
+ */
+export function didConsentBlocksChange(
+  oldPages: WizardPage[],
+  newPages: WizardPage[]
+): boolean {
+  return extractConsentSignature(oldPages) !== extractConsentSignature(newPages);
+}
+
+/** Evaluates whether a WizardBlock is visible for the current flow & field values. */
+export function isWizardBlockVisible(
+  block: WizardBlock,
+  isSelf: boolean,
+  values: Record<string, unknown>
+): boolean {
+  const appliesTo = block.appliesTo || 'all';
+  if (appliesTo === 'self' && !isSelf) return false;
+  if (appliesTo === 'dependent' && isSelf) return false;
+
+  if (block.showIf && block.showIf.fieldKey) {
+    const actual = values[block.showIf.fieldKey];
+    if (actual !== block.showIf.equals) return false;
+  }
+  return true;
+}
+
 export type RelationToAccountHolder =
   | 'child'
   | 'spouse'
@@ -84,28 +508,32 @@ export interface ProfileWizardProfile {
   relation_to_account_holder: RelationToAccountHolder;
   profile_name: string;
   date_of_birth: string;
-  occupation: string | null;
-  nationality: string;
-  permanent_address: string;
-  present_address: string;
-  contact_number: string;
-  socmed_platform: string | null;
-  socmed_username: string | null;
-  preferred_contact_mode: PreferredContactMode;
-  emergency_contact_name: string;
-  emergency_contact_relation: string;
-  emergency_contact_number: string;
+  occupation?: string | null;
+  nationality?: string;
+  permanent_address?: string;
+  present_address?: string;
+  contact_number?: string;
+  socmed_platform?: string | null;
+  socmed_username?: string | null;
+  preferred_contact_mode?: PreferredContactMode | string;
+  emergency_contact_name?: string;
+  emergency_contact_relation?: string;
+  emergency_contact_number?: string;
+  details?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 export interface ProfileWizardConsent {
   consent_version: string;
-  terms_signer_name: string;
-  terms_signer_relation: TermsSignerRelation;
-  scope_acknowledged: boolean;
-  is_overseas_or_foreign: boolean;
-  overseas_acknowledged: boolean;
-  information_confirmed: boolean;
-  consent_signer_name: string;
+  terms_signer_name?: string;
+  terms_signer_relation?: TermsSignerRelation | string;
+  scope_acknowledged?: boolean;
+  is_overseas_or_foreign?: boolean;
+  overseas_acknowledged?: boolean;
+  information_confirmed?: boolean;
+  consent_signer_name?: string;
+  responses?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 export interface ProfileWizardPayload {
@@ -164,8 +592,13 @@ export function parseApiFieldErrors(err: unknown): Record<string, string> {
   return { _form: msg };
 }
 
-/** Which wizard step (1–4) owns a given payload field, for jumping to the right page. */
-export function stepForField(field: string): 1 | 2 | 3 | 4 {
+/** Which wizard step (1–N) owns a given payload field, for jumping to the right page. */
+export function stepForField(field: string, pages?: WizardPage[]): number {
+  const cleanKey = field.includes('.') ? field.split('.').pop() || field : field;
+  if (pages && pages.length > 0) {
+    const idx = pages.findIndex((p) => p.blocks.some((b) => b.fieldKey === cleanKey));
+    if (idx >= 0) return idx + 1;
+  }
   if (
     field.startsWith('profile.') &&
     !['scope_acknowledged', 'is_overseas_or_foreign', 'overseas_acknowledged'].includes(field)

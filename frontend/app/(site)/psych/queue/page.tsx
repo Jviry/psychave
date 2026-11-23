@@ -568,105 +568,168 @@ export default function PsychologistQueuePage() {
 
             {review && (
               <>
-                <section className="rounded-lg border border-mist overflow-hidden">
-                  <div className="px-4 py-2.5 border-b border-mist bg-surface-sunken/40">
-                    <h3 className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                      Profile Details
-                    </h3>
-                  </div>
-                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 px-4 py-4">
-                    <ReviewField label="Full name" value={displayValue(review.profile.name)} />
-                    <ReviewField
-                      label="Relation to account holder"
-                      value={displayValue(review.profile.relationToAccountHolder)}
-                    />
-                    <ReviewField
-                      label="Date of birth"
-                      value={`${formatReviewDate(review.profile.dateOfBirth)} (${reviewAge(review.profile.dateOfBirth)})`}
-                    />
-                    <ReviewField label="Occupation" value={displayValue(review.profile.occupation)} />
-                    <ReviewField label="Nationality" value={displayValue(review.profile.nationality)} />
-                    <ReviewField
-                      label="Preferred contact"
-                      value={displayValue(review.profile.preferredContactMode)}
-                    />
-                    <ReviewField
-                      label="Permanent address"
-                      value={displayValue(review.profile.permanentAddress)}
-                      fullWidth
-                    />
-                    <ReviewField
-                      label="Present address"
-                      value={displayValue(review.profile.presentAddress)}
-                      fullWidth
-                    />
-                    <ReviewField
-                      label="Contact number"
-                      value={displayValue(review.profile.contactNumber)}
-                    />
-                    <ReviewField
-                      label="Social media"
-                      value={
-                        [review.profile.socmedPlatform, review.profile.socmedUsername]
-                          .filter(Boolean)
-                          .join(' · ') || '—'
-                      }
-                    />
-                    <ReviewField
-                      label="Emergency contact"
-                      value={`${displayValue(review.profile.emergencyContactName)} (${displayValue(
-                        review.profile.emergencyContactRelation
-                      )}) · ${displayValue(review.profile.emergencyContactNumber)}`}
-                      fullWidth
-                    />
-                  </dl>
-                </section>
+                {review.reviewSections && review.reviewSections.length > 0 ? (
+                  <>
+                    <section className="rounded-lg border border-mist overflow-hidden">
+                      <div className="px-4 py-2.5 border-b border-mist bg-surface-sunken/40">
+                        <h3 className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                          Profile &amp; Consent Metadata
+                        </h3>
+                      </div>
+                      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 px-4 py-4">
+                        <ReviewField label="Full name" value={displayValue(review.profile.name)} />
+                        <ReviewField
+                          label="Relation to account holder"
+                          value={displayValue(review.profile.relationToAccountHolder)}
+                        />
+                        <ReviewField
+                          label="Consent version"
+                          value={displayValue(review.consent.version)}
+                        />
+                        <ReviewField
+                          label="Signed at"
+                          value={formatReviewDate(review.consent.signedAt, true)}
+                        />
+                      </dl>
+                    </section>
+                    {review.reviewSections.map((sec) => (
+                      <section
+                        key={sec.pageId}
+                        className="rounded-lg border border-mist overflow-hidden"
+                      >
+                        <div className="px-4 py-2.5 border-b border-mist bg-surface-sunken/40">
+                          <h3 className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                            {sec.title}
+                          </h3>
+                        </div>
+                        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 px-4 py-4">
+                          {sec.fields.map((field) => {
+                            const formatted =
+                              typeof field.value === 'boolean'
+                                ? yesNo(field.value)
+                                : field.type === 'date' && typeof field.value === 'string'
+                                ? `${formatReviewDate(field.value)}${
+                                    field.fieldKey === 'date_of_birth'
+                                      ? ` (${reviewAge(field.value)})`
+                                      : ''
+                                  }`
+                                : displayValue(field.value as string | null | undefined);
+                            return (
+                              <ReviewField
+                                key={`${sec.pageId}-${field.fieldKey}`}
+                                label={field.label}
+                                value={formatted}
+                                fullWidth={field.type === 'textarea'}
+                              />
+                            );
+                          })}
+                        </dl>
+                      </section>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    <section className="rounded-lg border border-mist overflow-hidden">
+                      <div className="px-4 py-2.5 border-b border-mist bg-surface-sunken/40">
+                        <h3 className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                          Profile Details
+                        </h3>
+                      </div>
+                      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 px-4 py-4">
+                        <ReviewField label="Full name" value={displayValue(review.profile.name)} />
+                        <ReviewField
+                          label="Relation to account holder"
+                          value={displayValue(review.profile.relationToAccountHolder)}
+                        />
+                        <ReviewField
+                          label="Date of birth"
+                          value={`${formatReviewDate(review.profile.dateOfBirth)} (${reviewAge(review.profile.dateOfBirth)})`}
+                        />
+                        <ReviewField label="Occupation" value={displayValue(review.profile.occupation)} />
+                        <ReviewField label="Nationality" value={displayValue(review.profile.nationality)} />
+                        <ReviewField
+                          label="Preferred contact"
+                          value={displayValue(review.profile.preferredContactMode)}
+                        />
+                        <ReviewField
+                          label="Permanent address"
+                          value={displayValue(review.profile.permanentAddress)}
+                          fullWidth
+                        />
+                        <ReviewField
+                          label="Present address"
+                          value={displayValue(review.profile.presentAddress)}
+                          fullWidth
+                        />
+                        <ReviewField
+                          label="Contact number"
+                          value={displayValue(review.profile.contactNumber)}
+                        />
+                        <ReviewField
+                          label="Social media"
+                          value={
+                            [review.profile.socmedPlatform, review.profile.socmedUsername]
+                              .filter(Boolean)
+                              .join(' · ') || '—'
+                          }
+                        />
+                        <ReviewField
+                          label="Emergency contact"
+                          value={`${displayValue(review.profile.emergencyContactName)} (${displayValue(
+                            review.profile.emergencyContactRelation
+                          )}) · ${displayValue(review.profile.emergencyContactNumber)}`}
+                          fullWidth
+                        />
+                      </dl>
+                    </section>
 
-                <section className="rounded-lg border border-mist overflow-hidden">
-                  <div className="px-4 py-2.5 border-b border-mist bg-surface-sunken/40">
-                    <h3 className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                      Consent &amp; Forms
-                    </h3>
-                  </div>
-                  <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 px-4 py-4">
-                    <ReviewField
-                      label="Consent version"
-                      value={displayValue(review.consent.version)}
-                    />
-                    <ReviewField
-                      label="Signed at"
-                      value={formatReviewDate(review.consent.signedAt, true)}
-                    />
-                    <ReviewField
-                      label="Terms signer"
-                      value={`${displayValue(review.consent.termsSignerName)} (${displayValue(
-                        review.consent.termsSignerRelation
-                      )})`}
-                    />
-                    <ReviewField
-                      label="Consent signer"
-                      value={displayValue(review.consent.consentSignerName)}
-                    />
-                    <ReviewField
-                      label="Scope acknowledged"
-                      value={yesNo(review.consent.scopeAcknowledged)}
-                    />
-                    <ReviewField
-                      label="Information confirmed"
-                      value={yesNo(review.consent.informationConfirmed)}
-                    />
-                    <ReviewField
-                      label="Overseas / foreign national"
-                      value={yesNo(review.consent.isOverseasOrForeign)}
-                    />
-                    {review.consent.isOverseasOrForeign && (
-                      <ReviewField
-                        label="Overseas acknowledged"
-                        value={yesNo(review.consent.overseasAcknowledged)}
-                      />
-                    )}
-                  </dl>
-                </section>
+                    <section className="rounded-lg border border-mist overflow-hidden">
+                      <div className="px-4 py-2.5 border-b border-mist bg-surface-sunken/40">
+                        <h3 className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                          Consent &amp; Forms
+                        </h3>
+                      </div>
+                      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 px-4 py-4">
+                        <ReviewField
+                          label="Consent version"
+                          value={displayValue(review.consent.version)}
+                        />
+                        <ReviewField
+                          label="Signed at"
+                          value={formatReviewDate(review.consent.signedAt, true)}
+                        />
+                        <ReviewField
+                          label="Terms signer"
+                          value={`${displayValue(review.consent.termsSignerName)} (${displayValue(
+                            review.consent.termsSignerRelation
+                          )})`}
+                        />
+                        <ReviewField
+                          label="Consent signer"
+                          value={displayValue(review.consent.consentSignerName)}
+                        />
+                        <ReviewField
+                          label="Scope acknowledged"
+                          value={yesNo(review.consent.scopeAcknowledged)}
+                        />
+                        <ReviewField
+                          label="Information confirmed"
+                          value={yesNo(review.consent.informationConfirmed)}
+                        />
+                        <ReviewField
+                          label="Overseas / foreign national"
+                          value={yesNo(review.consent.isOverseasOrForeign)}
+                        />
+                        {review.consent.isOverseasOrForeign && (
+                          <ReviewField
+                            label="Overseas acknowledged"
+                            value={yesNo(review.consent.overseasAcknowledged)}
+                          />
+                        )}
+                      </dl>
+                    </section>
+                  </>
+                )}
               </>
             )}
 

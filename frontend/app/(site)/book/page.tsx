@@ -380,11 +380,43 @@ function ClientBookingFlow() {
                             <span className="text-accent-ink font-medium">Last used</span>
                           </>
                         )}
+                        {profile.consentOutdated && (
+                          <>
+                            <span aria-hidden="true">·</span>
+                            <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-900">
+                              Consent update required
+                            </span>
+                          </>
+                        )}
                       </div>
                     </button>
                   );
                 })}
               </div>
+              {(() => {
+                const selectedProfile = profiles.find((p) => p.id === selectedProfileId);
+                if (!selectedProfile?.consentOutdated) return null;
+                return (
+                  <div
+                    role="alert"
+                    className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-950 space-y-2"
+                  >
+                    <p className="font-medium">
+                      Updated informed consent ({selectedProfile.activeConsentVersion ?? 'latest'}) is required before booking for {selectedProfile.label}.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      onClick={() =>
+                        router.push(`/profiles/new?resign=${selectedProfile.id}&returnTo=/book`)
+                      }
+                    >
+                      Review &amp; Re-sign Consent
+                    </Button>
+                  </div>
+                );
+              })()}
               {bookingForm.formState.errors.profileId && (
                 <p className="text-xs text-red-700">
                   {bookingForm.formState.errors.profileId.message}
@@ -414,7 +446,12 @@ function ClientBookingFlow() {
             </div>
 
             <div className="flex items-center justify-end pt-2">
-              <Button type="button" variant="primary" onClick={() => goToStep(2)}>
+              <Button
+                type="button"
+                variant="primary"
+                disabled={Boolean(profiles.find((p) => p.id === selectedProfileId)?.consentOutdated)}
+                onClick={() => goToStep(2)}
+              >
                 Continue
                 <ArrowRight className="w-4 h-4" aria-hidden="true" />
               </Button>
@@ -563,7 +600,10 @@ function ClientBookingFlow() {
                 type="submit"
                 variant="primary"
                 size="lg"
-                disabled={submitBookingMutation.isPending}
+                disabled={
+                  submitBookingMutation.isPending ||
+                  Boolean(profiles.find((p) => p.id === selectedProfileId)?.consentOutdated)
+                }
               >
                 {submitBookingMutation.isPending ? 'Submitting…' : 'Submit request'}
               </Button>

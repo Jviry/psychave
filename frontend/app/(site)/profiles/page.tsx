@@ -282,6 +282,14 @@ function ProfilesContent() {
                           <span className="text-accent-ink font-medium">Last used</span>
                         </>
                       )}
+                      {profile.consentOutdated && (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-900">
+                            Consent update required ({profile.activeConsentVersion ?? 'new version'})
+                          </span>
+                        </>
+                      )}
                     </div>
                     <p className="font-heading text-xl font-medium text-pine">{profile.label}</p>
                     {profile.contactNumber && (
@@ -293,6 +301,15 @@ function ProfilesContent() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
+                    {profile.consentOutdated && (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => router.push(`/profiles/new?resign=${profile.id}`)}
+                      >
+                        Review &amp; Re-sign Consent
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"

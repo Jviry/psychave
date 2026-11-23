@@ -5,17 +5,24 @@ import {
   BookingStatus,
   CmsContent,
   CognitoRole,
+  ConsentFormTemplate,
   Profile,
   ProfileReview,
   PsychologistInvitation,
   ResidentPsychologist,
+  ReviewSection,
   ServiceItem,
   SlotProposer,
   SlotStatus,
   SocialMediaLink,
+  WizardAppliesTo,
+  WizardBlock,
+  WizardBlockType,
+  WizardFieldTarget,
+  WizardPage,
 } from './types';
 import { useAuthStore } from '../authStore';
-import { isMinorDob, type ProfileWizardPayload } from './consent';
+import { DEFAULT_WIZARD_PAGES, isMinorDob, type ProfileWizardPayload } from './consent';
 
 /**
  * Single canonical API client for PsychAvenuePH (PSYCHAVE PH).
@@ -424,6 +431,23 @@ interface ProfileRaw {
   emergency_contact_name?: string;
   emergency_contact_relation?: string;
   emergency_contact_number?: string;
+  details?: Record<string, unknown>;
+  signed_consent_version?: string | null;
+  active_consent_version?: string;
+  consent_outdated?: boolean;
+}
+
+interface ReviewFieldRaw {
+  field_key: string;
+  label: string;
+  type: string;
+  value: unknown;
+}
+
+interface ReviewSectionRaw {
+  page_id: string;
+  title: string;
+  fields: ReviewFieldRaw[];
 }
 
 interface ProfileReviewRaw {
@@ -432,29 +456,81 @@ interface ProfileReviewRaw {
     relation_to_account_holder: string;
     profile_name: string;
     date_of_birth: string;
-    occupation: string | null;
-    nationality: string;
-    permanent_address: string;
-    present_address: string;
-    contact_number: string;
-    socmed_platform: string | null;
-    socmed_username: string | null;
-    preferred_contact_mode: string;
-    emergency_contact_name: string;
-    emergency_contact_relation: string;
-    emergency_contact_number: string;
+    occupation?: string | null;
+    nationality?: string;
+    permanent_address?: string;
+    present_address?: string;
+    contact_number?: string;
+    socmed_platform?: string | null;
+    socmed_username?: string | null;
+    preferred_contact_mode?: string;
+    emergency_contact_name?: string;
+    emergency_contact_relation?: string;
+    emergency_contact_number?: string;
+    details?: Record<string, unknown>;
   };
   consent: {
     consent_version: string;
-    terms_signer_name: string;
-    terms_signer_relation: string;
-    scope_acknowledged: boolean;
-    is_overseas_or_foreign: boolean;
-    overseas_acknowledged: boolean;
-    information_confirmed: boolean;
-    consent_signer_name: string;
-    signed_at: string | null;
+    terms_signer_name?: string;
+    terms_signer_relation?: string;
+    scope_acknowledged?: boolean;
+    is_overseas_or_foreign?: boolean;
+    overseas_acknowledged?: boolean;
+    information_confirmed?: boolean;
+    consent_signer_name?: string;
+    signed_at?: string | null;
+    responses?: Record<string, unknown>;
   };
+  review_sections?: ReviewSectionRaw[];
+}
+
+interface WizardSelectOptionRaw {
+  value: string;
+  label: string;
+}
+
+interface WizardShowIfRaw {
+  field_key: string;
+  equals: string | boolean;
+}
+
+interface WizardBlockRaw {
+  block_id: string;
+  type: WizardBlockType;
+  label: string;
+  content?: string | null;
+  helper_text?: string | null;
+  placeholder?: string | null;
+  target?: WizardFieldTarget | null;
+  field_key?: string | null;
+  applies_to?: WizardAppliesTo;
+  required?: boolean;
+  options?: WizardSelectOptionRaw[];
+  show_if?: WizardShowIfRaw | null;
+  system_locked?: boolean;
+}
+
+interface WizardPageRaw {
+  page_id: string;
+  title: string;
+  description?: string | null;
+  blocks: WizardBlockRaw[];
+}
+
+interface ConsentFormTemplateRaw {
+  template_id: string;
+  consent_version: string;
+  informed_consent_text: string;
+  typing_statement: string;
+  scope_limitations_text: string;
+  scope_ack_text: string;
+  overseas_limitations_text: string;
+  overseas_ack_text: string;
+  final_consent_statement: string;
+  wizard_pages: WizardPageRaw[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 interface PaymentRaw {
@@ -645,14 +721,15 @@ function mapServiceRaw(raw: ServiceRaw, index: number): ServiceItem {
     durationMinutes: raw.duration_minutes || 60,
     guardrailTitle: '',
     guardrailNotice: raw.guardrail_notice ?? '',
-
     description: raw.description ?? '',
     clinicalFormat: '',
+    isActive: raw.is_active ?? true,
   };
 }
 
 function mapProfileRaw(raw: ProfileRaw): Profile {
   const dob = String(raw.date_of_birth ?? '').slice(0, 10);
+  const details = (raw.details ?? {}) as Record<string, unknown>;
   return {
     id: raw.profile_id,
     clientId: 'client-01',
@@ -663,50 +740,201 @@ function mapProfileRaw(raw: ProfileRaw): Profile {
     preferredLanguage: '',
     createdAt: '',
     dateOfBirth: dob,
-    occupation: raw.occupation ?? null,
-    nationality: raw.nationality ?? '',
-    permanentAddress: raw.permanent_address ?? '',
-    presentAddress: raw.present_address ?? '',
-    contactNumber: raw.contact_number ?? '',
+    occupation: raw.occupation ?? (details.occupation != null ? String(details.occupation) : null),
+    nationality: String(raw.nationality ?? details.nationality ?? ''),
+    permanentAddress: String(raw.permanent_address ?? details.permanent_address ?? ''),
+    presentAddress: String(raw.present_address ?? details.present_address ?? ''),
+    contactNumber: String(raw.contact_number ?? details.contact_number ?? ''),
     socmedPlatform: raw.socmed_platform ?? null,
     socmedUsername: raw.socmed_username ?? null,
-    preferredContactMode: raw.preferred_contact_mode ?? 'phone',
-    emergencyContactName: raw.emergency_contact_name ?? '',
-    emergencyContactRelation: raw.emergency_contact_relation ?? '',
-    emergencyContactNumber: raw.emergency_contact_number ?? '',
+    preferredContactMode: (raw.preferred_contact_mode ??
+      details.preferred_contact_mode ??
+      'phone') as Profile['preferredContactMode'],
+    emergencyContactName: String(
+      raw.emergency_contact_name ?? details.emergency_contact_name ?? ''
+    ),
+    emergencyContactRelation: String(
+      raw.emergency_contact_relation ?? details.emergency_contact_relation ?? ''
+    ),
+    emergencyContactNumber: String(
+      raw.emergency_contact_number ?? details.emergency_contact_number ?? ''
+    ),
+    details: raw.details ?? {},
+    signedConsentVersion: raw.signed_consent_version ?? null,
+    activeConsentVersion: raw.active_consent_version ?? 'v2',
+    consentOutdated: Boolean(raw.consent_outdated),
   };
 }
 
 function mapProfileReviewRaw(raw: ProfileReviewRaw): ProfileReview {
+  const details = (raw.profile.details ?? {}) as Record<string, unknown>;
+  const responses = (raw.consent.responses ?? {}) as Record<string, unknown>;
+  const reviewSections: ReviewSection[] | undefined =
+    Array.isArray(raw.review_sections) && raw.review_sections.length > 0
+      ? raw.review_sections.map((sec) => ({
+          pageId: sec.page_id,
+          title: sec.title,
+          fields: (sec.fields ?? []).map((f) => ({
+            fieldKey: f.field_key,
+            label: f.label,
+            type: f.type,
+            value: f.value,
+          })),
+        }))
+      : undefined;
+
   return {
     profile: {
       id: raw.profile.profile_id,
       name: raw.profile.profile_name,
       relationToAccountHolder: raw.profile.relation_to_account_holder,
       dateOfBirth: raw.profile.date_of_birth,
-      occupation: raw.profile.occupation,
-      nationality: raw.profile.nationality,
-      permanentAddress: raw.profile.permanent_address,
-      presentAddress: raw.profile.present_address,
-      contactNumber: raw.profile.contact_number,
-      socmedPlatform: raw.profile.socmed_platform,
-      socmedUsername: raw.profile.socmed_username,
-      preferredContactMode: raw.profile.preferred_contact_mode,
-      emergencyContactName: raw.profile.emergency_contact_name,
-      emergencyContactRelation: raw.profile.emergency_contact_relation,
-      emergencyContactNumber: raw.profile.emergency_contact_number,
+      occupation:
+        raw.profile.occupation ??
+        (details.occupation != null ? String(details.occupation) : null),
+      nationality: String(raw.profile.nationality ?? details.nationality ?? ''),
+      permanentAddress: String(
+        raw.profile.permanent_address ?? details.permanent_address ?? ''
+      ),
+      presentAddress: String(
+        raw.profile.present_address ?? details.present_address ?? ''
+      ),
+      contactNumber: String(
+        raw.profile.contact_number ?? details.contact_number ?? ''
+      ),
+      socmedPlatform: raw.profile.socmed_platform ?? null,
+      socmedUsername: raw.profile.socmed_username ?? null,
+      preferredContactMode: String(
+        raw.profile.preferred_contact_mode ?? details.preferred_contact_mode ?? 'phone'
+      ),
+      emergencyContactName: String(
+        raw.profile.emergency_contact_name ?? details.emergency_contact_name ?? ''
+      ),
+      emergencyContactRelation: String(
+        raw.profile.emergency_contact_relation ??
+          details.emergency_contact_relation ??
+          ''
+      ),
+      emergencyContactNumber: String(
+        raw.profile.emergency_contact_number ?? details.emergency_contact_number ?? ''
+      ),
+      ...(raw.profile.details ? { details: raw.profile.details } : {}),
     },
     consent: {
       version: raw.consent.consent_version,
-      termsSignerName: raw.consent.terms_signer_name,
-      termsSignerRelation: raw.consent.terms_signer_relation,
-      scopeAcknowledged: raw.consent.scope_acknowledged,
-      isOverseasOrForeign: raw.consent.is_overseas_or_foreign,
-      overseasAcknowledged: raw.consent.overseas_acknowledged,
-      informationConfirmed: raw.consent.information_confirmed,
-      consentSignerName: raw.consent.consent_signer_name,
-      signedAt: raw.consent.signed_at,
+      termsSignerName: String(
+        raw.consent.terms_signer_name ?? responses.terms_signer_name ?? ''
+      ),
+      termsSignerRelation: String(
+        raw.consent.terms_signer_relation ?? responses.terms_signer_relation ?? 'self'
+      ),
+      scopeAcknowledged: Boolean(
+        raw.consent.scope_acknowledged ?? responses.scope_acknowledged
+      ),
+      isOverseasOrForeign: Boolean(
+        raw.consent.is_overseas_or_foreign ?? responses.is_overseas_or_foreign
+      ),
+      overseasAcknowledged: Boolean(
+        raw.consent.overseas_acknowledged ?? responses.overseas_acknowledged
+      ),
+      informationConfirmed: Boolean(
+        raw.consent.information_confirmed ?? responses.information_confirmed
+      ),
+      consentSignerName: String(
+        raw.consent.consent_signer_name ?? responses.consent_signer_name ?? ''
+      ),
+      signedAt: raw.consent.signed_at ?? null,
+      ...(raw.consent.responses ? { responses: raw.consent.responses } : {}),
     },
+    ...(reviewSections ? { reviewSections } : {}),
+  };
+}
+
+function mapWizardBlockRaw(raw: WizardBlockRaw): WizardBlock {
+  return {
+    blockId: raw.block_id,
+    type: raw.type,
+    label: raw.label,
+    content: raw.content ?? null,
+    helperText: raw.helper_text ?? null,
+    placeholder: raw.placeholder ?? null,
+    target: raw.target ?? null,
+    fieldKey: raw.field_key ?? null,
+    appliesTo: raw.applies_to ?? 'all',
+    required: Boolean(raw.required),
+    options: (raw.options ?? []).map((opt) => ({
+      value: opt.value,
+      label: opt.label,
+    })),
+    showIf: raw.show_if
+      ? {
+          fieldKey: raw.show_if.field_key,
+          equals: raw.show_if.equals,
+        }
+      : null,
+    systemLocked: Boolean(raw.system_locked),
+  };
+}
+
+function mapWizardPageRaw(raw: WizardPageRaw): WizardPage {
+  return {
+    pageId: raw.page_id,
+    title: raw.title,
+    description: raw.description ?? null,
+    blocks: (raw.blocks ?? []).map(mapWizardBlockRaw),
+  };
+}
+
+function serializeWizardPage(page: WizardPage): WizardPageRaw {
+  return {
+    page_id: page.pageId,
+    title: page.title,
+    description: page.description ?? null,
+    blocks: page.blocks.map((block) => ({
+      block_id: block.blockId,
+      type: block.type,
+      label: block.label,
+      content: block.content ?? null,
+      helper_text: block.helperText ?? null,
+      placeholder: block.placeholder ?? null,
+      target: block.target ?? null,
+      field_key: block.fieldKey ?? null,
+      applies_to: block.appliesTo ?? 'all',
+      required: Boolean(block.required),
+      options: (block.options ?? []).map((opt) => ({
+        value: opt.value,
+        label: opt.label,
+      })),
+      show_if: block.showIf
+        ? {
+            field_key: block.showIf.fieldKey,
+            equals: block.showIf.equals,
+          }
+        : null,
+      system_locked: Boolean(block.systemLocked),
+    })),
+  };
+}
+
+function mapConsentFormTemplateRaw(raw: ConsentFormTemplateRaw): ConsentFormTemplate {
+  const wizardPages =
+    Array.isArray(raw.wizard_pages) && raw.wizard_pages.length > 0
+      ? raw.wizard_pages.map(mapWizardPageRaw)
+      : DEFAULT_WIZARD_PAGES;
+  return {
+    templateId: raw.template_id,
+    consentVersion: raw.consent_version,
+    informedConsentText: raw.informed_consent_text,
+    typingStatement: raw.typing_statement,
+    scopeLimitationsText: raw.scope_limitations_text,
+    scopeAckText: raw.scope_ack_text,
+    overseasLimitationsText: raw.overseas_limitations_text,
+    overseasAckText: raw.overseas_ack_text,
+    finalConsentStatement: raw.final_consent_statement,
+    wizardPages,
+    isActive: Boolean(raw.is_active),
+    createdAt: raw.created_at,
+    updatedAt: raw.updated_at,
   };
 }
 
@@ -779,8 +1007,58 @@ export const api = {
   getServices: async (): Promise<ServiceItem[]> => fetchServices('/services'),
 
   /**
-   * Local-only CMS edit. The backend has no service mutation endpoint yet, so
-   * this keeps edits in memory for the CMS editor preview.
+   * Admin CMS Services API (includes inactive services).
+   */
+  getAdminServices: async (): Promise<ServiceItem[]> => fetchServices('/services/all'),
+
+  createService: async (payload: {
+    title: string;
+    description: string;
+    durationMinutes: number;
+    guardrailNotice?: string | null;
+    isActive?: boolean;
+  }): Promise<ServiceItem> => {
+    const raw = await liveRequest<ServiceRaw>('/services', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: payload.title.trim(),
+        description: payload.description.trim(),
+        duration_minutes: payload.durationMinutes,
+        guardrail_notice: payload.guardrailNotice?.trim() || null,
+        is_active: payload.isActive ?? true,
+      }),
+    });
+    return mapServiceRaw(raw, 0);
+  },
+
+  updateService: async (
+    serviceId: string,
+    payload: {
+      title?: string;
+      description?: string;
+      durationMinutes?: number;
+      guardrailNotice?: string | null;
+      isActive?: boolean;
+    }
+  ): Promise<ServiceItem> => {
+    const body: Record<string, unknown> = {};
+    if (payload.title !== undefined) body.name = payload.title.trim();
+    if (payload.description !== undefined) body.description = payload.description.trim();
+    if (payload.durationMinutes !== undefined) body.duration_minutes = payload.durationMinutes;
+    if (payload.guardrailNotice !== undefined) {
+      body.guardrail_notice = payload.guardrailNotice?.trim() || null;
+    }
+    if (payload.isActive !== undefined) body.is_active = payload.isActive;
+
+    const raw = await liveRequest<ServiceRaw>(`/services/${serviceId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+    return mapServiceRaw(raw, 0);
+  },
+
+  /**
+   * Local-only CMS edit. Retained for compatibility.
    */
   updateServiceGuardrail: async (
     serviceId: string,
@@ -791,6 +1069,35 @@ export const api = {
       [serviceId]: payload,
     };
     return fetchServices('/services');
+  },
+
+  /**
+   * Multi-Page Wizard & Consent Form Templates CMS API.
+   */
+  getActiveConsentForm: async (): Promise<ConsentFormTemplate> => {
+    const raw = await liveRequest<ConsentFormTemplateRaw>('/forms/active');
+    return mapConsentFormTemplateRaw(raw);
+  },
+
+  getConsentFormTemplates: async (): Promise<ConsentFormTemplate[]> => {
+    const raw = await liveRequest<ConsentFormTemplateRaw[]>('/forms/templates');
+    return (Array.isArray(raw) ? raw : []).map(mapConsentFormTemplateRaw);
+  },
+
+  updateActiveConsentForm: async (payload: {
+    consentVersion: string;
+    bumpType?: 'auto' | 'minor' | 'major' | 'explicit';
+    wizardPages: WizardPage[];
+  }): Promise<ConsentFormTemplate> => {
+    const raw = await liveRequest<ConsentFormTemplateRaw>('/forms/active', {
+      method: 'PUT',
+      body: JSON.stringify({
+        consent_version: payload.consentVersion,
+        bump_type: payload.bumpType ?? 'auto',
+        wizard_pages: payload.wizardPages.map(serializeWizardPage),
+      }),
+    });
+    return mapConsentFormTemplateRaw(raw);
   },
 
   /**
@@ -852,6 +1159,20 @@ export const api = {
     const raw = await liveRequest<ProfileRaw>('/profiles', {
       method: 'POST',
       body: JSON.stringify(payload),
+    });
+    return mapProfileRaw(raw);
+  },
+
+  /**
+   * Re-sign updated active major consent version for an existing profile.
+   */
+  resignProfileConsent: async (
+    profileId: string,
+    consent: Record<string, unknown> & { consent_version: string }
+  ): Promise<Profile> => {
+    const raw = await liveRequest<ProfileRaw>(`/profiles/${assertUuid(profileId, 'profileId')}/consent`, {
+      method: 'POST',
+      body: JSON.stringify(consent),
     });
     return mapProfileRaw(raw);
   },
