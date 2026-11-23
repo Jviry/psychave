@@ -365,7 +365,6 @@ export function ProfileWizard({
             ![
               'relation_to_account_holder',
               'profile_name',
-              'persona_name',
               'date_of_birth',
               'socmed_platform',
               'socmed_username',

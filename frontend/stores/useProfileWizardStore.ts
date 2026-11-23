@@ -163,7 +163,6 @@ const TOP_LEVEL_DRAFT_KEYS = new Set<string>([
 ]);
 
 export function getDraftFieldValue(draft: ProfileWizardDraft, fieldKey: string): unknown {
-  if (fieldKey === 'persona_name') return draft.profile_name;
   if (TOP_LEVEL_DRAFT_KEYS.has(fieldKey)) {
     return draft[fieldKey as keyof ProfileWizardDraft];
   }
@@ -181,7 +180,6 @@ export function getDraftLookupMap(draft: ProfileWizardDraft): Record<string, unk
     is_overseas_or_foreign: draft.is_overseas_or_foreign,
     overseas_acknowledged: draft.overseas_acknowledged,
     profile_name: draft.profile_name,
-    persona_name: draft.profile_name,
     date_of_birth: draft.date_of_birth,
     occupation: draft.occupation,
     nationality: draft.nationality,
@@ -306,7 +304,7 @@ export const useProfileWizardStore = create<ProfileWizardState>((set) => ({
 
   setFieldValue: (fieldKey, value) =>
     set((state) => {
-      const normalizedKey = fieldKey === 'persona_name' ? 'profile_name' : fieldKey;
+      const normalizedKey = fieldKey;
       let next = { ...state.draft };
       if (TOP_LEVEL_DRAFT_KEYS.has(normalizedKey)) {
         next = {
