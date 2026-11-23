@@ -410,15 +410,10 @@ export default function AdminCmsPage() {
     },
   });
 
-  // ─── Local Marketing Preview State (Tabs 3 & 4) ─────────────────────────────
+  // ─── Institutional Copy & Testimonials Governance State (Tabs 3 & 4) ────────
   const { data: cms } = useQuery({
     queryKey: ['cms'],
     queryFn: () => api.getCmsContent(),
-  });
-
-  const { data: roster = [] } = useQuery({
-    queryKey: ['roster', 'admin'],
-    queryFn: () => api.getRoster(true),
   });
 
   const overviewForm = useForm<CmsOverviewFormValues>({
@@ -458,13 +453,13 @@ export default function AdminCmsPage() {
         },
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cms'] });
-      publishFlowEvent(
-        'CMS Overview Preview Updated',
-        'Vision, Mission, and Clinic Overview synced to local preview.'
-      );
-    },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['cms'] });
+        publishFlowEvent(
+          'CMS Overview Updated',
+          'Vision, Mission, and Clinic Overview updated.'
+        );
+      },
   });
 
   const watchedDuration = serviceForm.watch('durationMinutes');
@@ -482,7 +477,7 @@ export default function AdminCmsPage() {
         </h1>
         <p className="text-sm text-pine/80 max-w-3xl">
           Create and manage clinical services, customize the multi-page client intake and consent
-          wizard, and preview public institutional copy. No private session notes are accessible.
+          wizard, and manage institutional copy and testimonials governance. No private session notes are accessible.
         </p>
       </header>
 
@@ -503,11 +498,11 @@ export default function AdminCmsPage() {
           },
           {
             id: 'overview',
-            label: '3. Vision, Mission & Overview (Preview)',
+            label: '3. Vision, Mission & Overview',
           },
           {
             id: 'structures',
-            label: '4. Roster & Testimonials (Preview)',
+            label: '4. Testimonials Governance',
           },
         ].map((tab) => (
           <button
@@ -1613,17 +1608,17 @@ export default function AdminCmsPage() {
         </div>
       )}
 
-      {/* Tab 3: Vision, Mission, Clinic Overview & Consent Banner (Local Preview) */}
+      {/* Tab 3: Vision, Mission, Clinic Overview & Consent Banner */}
       {activeTab === 'overview' && (
         <Card className="space-y-6">
           <div className="border-b border-mist pb-3">
             <h2 className="font-heading text-2xl font-medium text-pine">
-              Vision, Mission, Clinic Overview &amp; Consent-Flag Governance (Local Preview)
+              Vision, Mission, Clinic Overview &amp; Consent-Flag Governance
             </h2>
             <p className="text-xs text-pine/70">
-              Changes made here update the local <code>/about</code> and <code>/</code> preview
-              immediately. Services and Wizard/Consent Forms in Tabs 1 &amp; 2 are persisted to the
-              PostgreSQL database.
+              Manage Vision, Mission, Clinic Overview, Impact Narrative, and the Testimonials
+              consent-flag governance banner. Services and Wizard/Consent Forms in Tabs 1 &amp; 2
+              are persisted to the PostgreSQL database.
             </p>
           </div>
 
@@ -1704,80 +1699,47 @@ export default function AdminCmsPage() {
               disabled={saveCmsMutation.isPending}
             >
               {saveCmsMutation.isPending
-                ? 'Updating Preview…'
-                : 'Update Overview Preview'}
+                ? 'Saving…'
+                : 'Save Overview'}
             </Button>
           </form>
         </Card>
       )}
 
-      {/* Tab 4: Anonymized Roster Structure & Testimonials Consent Structure */}
+      {/* Tab 4: Testimonials Consent Structure */}
       {activeTab === 'structures' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <Card className="space-y-4">
-            <div className="border-b border-mist pb-3">
-              <h2 className="font-heading text-2xl font-medium text-pine">
-                Resident Roster Structure (Anonymized Policy)
-              </h2>
-              <p className="text-xs text-pine/70">
-                Strictly excludes personal names and photos. Public cards show PRC credential code
-                and clinical specialization only.
-              </p>
-            </div>
+        <Card className="space-y-4">
+          <div className="border-b border-mist pb-3">
+            <h2 className="font-heading text-2xl font-medium text-pine">
+              Testimonials Structure (Consent Governance)
+            </h2>
+            <p className="text-xs text-pine/70">
+              Enforces zero personal quotes across all public pages.
+            </p>
+          </div>
 
+          {cms && cms.testimonialsConfig.emptyCards.length === 0 ? (
+            <p className="text-xs text-pine/70 leading-relaxed">
+              No testimonial slot structures seeded. Public pages render the consent governance
+              banner only.
+            </p>
+          ) : (
             <div className="divide-y divide-mist/60 text-xs">
-              {roster.map((r) => (
-                <div
-                  key={r.id}
-                  className="py-3 flex items-center justify-between gap-3"
-                >
-                  <div>
-                    <p className="font-heading text-base font-medium text-pine">
-                      {r.anonymizedTitle}
-                    </p>
-                    <p className="text-pine/75">{r.specialization}</p>
+              {cms?.testimonialsConfig.emptyCards.map((card) => (
+                <div key={card.id} className="py-3 space-y-1">
+                  <div className="flex justify-between font-mono text-accent-ink">
+                    <span>{card.slotCode}</span>
+                    <span>Quote: Intentionally Empty</span>
                   </div>
-                  <span className="font-mono text-xs text-accent-ink font-semibold shrink-0">
-                    {r.visibleOnPublicRoster ? 'Public' : 'Hidden'}
-                  </span>
+                  <p className="font-semibold text-pine">
+                    {card.serviceCategory}
+                  </p>
+                  <p className="text-pine/75">{card.governanceNote}</p>
                 </div>
               ))}
             </div>
-          </Card>
-
-          <Card className="space-y-4">
-            <div className="border-b border-mist pb-3">
-              <h2 className="font-heading text-2xl font-medium text-pine">
-                Testimonials Structure (Consent Governance)
-              </h2>
-              <p className="text-xs text-pine/70">
-                Enforces zero personal quotes across all public pages.
-              </p>
-            </div>
-
-            {cms && cms.testimonialsConfig.emptyCards.length === 0 ? (
-              <p className="text-xs text-pine/70 leading-relaxed">
-                No testimonial slot structures seeded. Public pages render the consent governance
-                banner only.
-              </p>
-            ) : (
-              <div className="divide-y divide-mist/60 text-xs">
-                {cms?.testimonialsConfig.emptyCards.map((card) => (
-                  <div key={card.id} className="py-3 space-y-1">
-                    <div className="flex justify-between font-mono text-accent-ink">
-                      <span>{card.slotCode}</span>
-                      <span>Quote: Intentionally Empty</span>
-                    </div>
-                    <p className="font-semibold text-pine">
-                      {card.serviceCategory}
-                    </p>
-                    <p className="text-pine/75">{card.governanceNote}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-        </div>
+          )}
+        </Card>
       )}
     </div>
   );

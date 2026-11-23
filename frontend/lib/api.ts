@@ -137,7 +137,6 @@ const INITIAL_CMS: CmsContent = {
 
 let localRoster: ResidentPsychologist[] = [...INITIAL_ROSTER];
 let localCms: CmsContent = JSON.parse(JSON.stringify(INITIAL_CMS));
-let localServiceEdits: Record<string, Partial<ServiceItem>> = {};
 
 /**
  * Shared fetch helper with AbortController timeout to prevent hung requests.
@@ -988,10 +987,7 @@ function mapPsychologistProfileRaw(raw: PsychologistProfileRaw): ResidentPsychol
 async function fetchServices(endpoint: string): Promise<ServiceItem[]> {
   const raw = await liveRequest<ServiceRaw[]>(endpoint);
   const list = Array.isArray(raw) ? raw : [];
-  return list.map((service, index) => ({
-    ...mapServiceRaw(service, index),
-    ...(localServiceEdits[service.service_id] ?? {}),
-  }));
+  return list.map((service, index) => mapServiceRaw(service, index));
 }
 
 export const api = {
@@ -1055,20 +1051,6 @@ export const api = {
       body: JSON.stringify(body),
     });
     return mapServiceRaw(raw, 0);
-  },
-
-  /**
-   * Local-only CMS edit. Retained for compatibility.
-   */
-  updateServiceGuardrail: async (
-    serviceId: string,
-    payload: { durationLabel: string; guardrailTitle: string; guardrailNotice: string; description: string }
-  ): Promise<ServiceItem[]> => {
-    localServiceEdits = {
-      ...localServiceEdits,
-      [serviceId]: payload,
-    };
-    return fetchServices('/services');
   },
 
   /**
