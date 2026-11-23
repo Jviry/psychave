@@ -69,7 +69,14 @@ class PaymentUsecase:
         if existing is not None:
             if self._auto_confirms():
                 return self.handle_webhook(existing.provider_ref or "", paid=True)
-            return existing
+            reconciled = self.reconcile_pending_payment(appointment_id)
+            if reconciled is not None:
+                if reconciled.status == PaymentStatus.PAID:
+                    return reconciled
+                # If the previous checkout expired/failed on the gateway, fall through
+                # and create a fresh checkout session.
+            else:
+                return existing
 
         base_fe = settings.FRONTEND_URL.rstrip("/")
         final_success_url = (
@@ -106,6 +113,32 @@ class PaymentUsecase:
 
     def _auto_confirms(self) -> bool:
         return self.provider.name == "fake"
+
+    def reconcile_pending_payment(
+        self, appointment_id: uuid.UUID
+    ) -> Payment | None:
+        """Check the payment gateway for a pending checkout's status and apply it.
+
+        Returns the updated Payment if the gateway reported a terminal state
+        (paid or failed/expired), otherwise None.
+        """
+        existing = self.payments.get_pending(appointment_id)
+        if existing is None or not existing.provider_ref:
+            return None
+
+        fetch_status = getattr(self.provider, "fetch_checkout_status", None)
+        if not callable(fetch_status):
+            return None
+
+        event = fetch_status(existing.provider_ref)
+        if event is None:
+            return None
+
+        return self.handle_webhook(
+            provider_ref=event.provider_ref or existing.provider_ref,
+            paid=event.paid,
+            payment_method=event.payment_method,
+        )
 
     def handle_webhook(
         self,

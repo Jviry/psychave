@@ -52,11 +52,16 @@ def get_appointment(
     appointment_id: uuid.UUID,
     db: DbDep,
     current_user: ClientOrPsychUserDep,
+    provider: PaymentProviderDep,
 ):
     if current_user.role == UserRole.PSYCHOLOGIST.value:
         return PsychologistUsecase(db).get_detail(appointment_id, current_user.user_id)
     uc = AppointmentUsecase(db)
-    return uc.get_appointment(appointment_id, current_user.user_id)
+    appt = uc.get_appointment(appointment_id, current_user.user_id)
+    if appt.status == AppointmentStatus.AWAITING_PAYMENT:
+        if PaymentUsecase(db, provider).reconcile_pending_payment(appointment_id):
+            appt = uc.get_appointment(appointment_id, current_user.user_id)
+    return appt
 
 
 @router.delete("/{appointment_id}", response_model=AppointmentRead)

@@ -245,3 +245,74 @@ class PayMongoPaymentProvider:
 
         logger.info("Ignoring unhandled PayMongo event type: %s", event_type)
         return None
+
+    def fetch_checkout_status(self, provider_ref: str) -> WebhookEvent | None:
+        """Query PayMongo directly for a checkout session's current payment state.
+
+        Used as a server-side fallback when the client returns to the app before
+        a webhook arrives (or when webhooks are delayed/missed).
+        """
+        if not self.secret_key or not provider_ref:
+            return None
+
+        url = f"{self.api_base_url}/checkout_sessions/{provider_ref}"
+        headers = {
+            "Accept": "application/json",
+            "Authorization": self._get_auth_header(),
+        }
+
+        try:
+            if self._client is not None:
+                response = self._client.get(url, headers=headers, timeout=10.0)
+            else:
+                with httpx.Client(timeout=10.0) as client:
+                    response = client.get(url, headers=headers)
+        except Exception as exc:
+            logger.warning(
+                "Failed to fetch PayMongo checkout session %s: %s",
+                provider_ref,
+                exc,
+            )
+            return None
+
+        if response.status_code != 200:
+            logger.warning(
+                "PayMongo checkout session lookup returned %d for %s",
+                response.status_code,
+                provider_ref,
+            )
+            return None
+
+        try:
+            attrs = response.json().get("data", {}).get("attributes", {})
+        except Exception:
+            return None
+
+        payments = attrs.get("payments") or []
+        payment_intent = attrs.get("payment_intent") or {}
+        pi_status = payment_intent.get("attributes", {}).get("status")
+        has_paid_payment = any(
+            isinstance(p, dict) and p.get("attributes", {}).get("status") == "paid"
+            for p in payments
+        )
+
+        if pi_status == "succeeded" or has_paid_payment:
+            payment_method = None
+            if payments and isinstance(payments, list) and isinstance(payments[0], dict):
+                p_attrs = payments[0].get("attributes", {})
+                source = p_attrs.get("source") or {}
+                payment_method = source.get("type") or p_attrs.get("payment_method_type")
+            return WebhookEvent(
+                provider_ref=provider_ref,
+                paid=True,
+                payment_method=payment_method,
+            )
+
+        if attrs.get("status") == "expired" or pi_status == "failed":
+            return WebhookEvent(
+                provider_ref=provider_ref,
+                paid=False,
+                payment_method=None,
+            )
+
+        return None

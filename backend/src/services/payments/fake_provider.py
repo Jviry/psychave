@@ -44,3 +44,6 @@ class FakePaymentProvider:
             )
         except Exception:
             return None
+
+    def fetch_checkout_status(self, provider_ref: str) -> WebhookEvent | None:
+        return None
