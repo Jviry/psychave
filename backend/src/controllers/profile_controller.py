@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from dependencies.auth import ClientUserDep, DbDep, require_role
 from models.user import User, UserRole
 from schemas.profile import (
+    ConsentCreate,
     ProfileCreate,
     ProfileRead,
     ProfileReviewResponse,
@@ -27,6 +28,18 @@ def create_profile(
 ):
     usecase = ProfileUsecase(db)
     return usecase.create_profile(payload, current_user.user_id)
+
+
+@router.post("/{profile_id}/consent", response_model=ProfileRead)
+def resign_profile_consent(
+    profile_id: uuid.UUID,
+    payload: ConsentCreate,
+    db: DbDep,
+    current_user: ClientUserDep,
+):
+    """Re-sign the active major consent form for an existing profile."""
+    usecase = ProfileUsecase(db)
+    return usecase.resign_consent(profile_id, payload, current_user.user_id)
 
 
 @router.get("", response_model=list[ProfileRead])

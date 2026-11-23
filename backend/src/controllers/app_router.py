@@ -6,6 +6,9 @@ from controllers.appointment_controller import router as appointment_router
 from controllers.payment_controller import router as payment_router
 from controllers.psychologist_controller import router as psychologist_router
 from controllers.service_controller import router as service_router
+from controllers.consent_template_controller import (
+    router as consent_template_router,
+)
 
 app_router = APIRouter()
 
@@ -21,3 +24,5 @@ app_router.include_router(
     payment_router, prefix="/payments", tags=["payments"])
 app_router.include_router(
     service_router, prefix="/services", tags=["services"])
+app_router.include_router(
+    consent_template_router, prefix="/forms", tags=["forms"])

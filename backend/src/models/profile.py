@@ -1,7 +1,9 @@
-from enum import Enum
 from datetime import date
+from enum import Enum
+from typing import Any
 import uuid
-from sqlmodel import SQLModel, Field
+import sqlalchemy as sa
+from sqlmodel import Column, Field, SQLModel
 
 
 class ProfileRelation(str, Enum):
@@ -28,15 +30,9 @@ class Profile(SQLModel, table=True):
 
     profile_name: str
     date_of_birth: date
-    occupation: str | None = None
-    nationality: str
-    permanent_address: str
-    present_address: str
-    contact_number: str
     socmed_platform: str | None = None
     socmed_username: str | None = None
-    preferred_contact_mode: ContactMode
-
-    emergency_contact_name: str
-    emergency_contact_relation: str
-    emergency_contact_number: str
+    details: dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(sa.JSON(), nullable=False),
+    )

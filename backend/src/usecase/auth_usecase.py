@@ -7,6 +7,7 @@ from interfaces.auth import AuthService, AuthTokens, AuthUser
 from models.psychologist_invitation import PsychologistInvitation
 from models.psychologist_profile import PsychologistProfile
 from models.user import User, UserRole
+from repo.consent_template_repo import ConsentTemplateRepo
 from repo.profile_repo import ProfileRepo
 from repo.psychologist_invitation_repo import PsychologistInvitationRepo
 from repo.user_repo import UserRepository
@@ -18,7 +19,7 @@ from schemas.auth_model import (
     UserCreate,
     UserLogin,
 )
-from usecase.profile_usecase import CURRENT_CONSENT_VERSION
+from usecase.consent_template_usecase import ConsentTemplateUsecase
 
 ROLE_PRIORITY = (UserRole.ADMIN, UserRole.PSYCHOLOGIST)
 
@@ -57,10 +58,17 @@ class AuthUsecase:
         Self-service signup is always a client. Psychologist and admin roles
         can only be assigned by an existing admin after registration.
         """
-        if credentials.consent.consent_version != CURRENT_CONSENT_VERSION:
-            raise ConflictError(
-                f"Consent form is outdated — current version is {CURRENT_CONSENT_VERSION}"
+        active_template = ConsentTemplateRepo(self.db).ensure_default_seeded()
+        details, responses, _sections = (
+            ConsentTemplateUsecase.validate_wizard_submission(
+                wizard_pages=active_template.wizard_pages,
+                active_version=active_template.consent_version,
+                profile_data=credentials.profile,
+                consent_data=credentials.consent,
+                validate_demographics=True,
+                validate_consent=True,
             )
+        )
 
         signup_result = self.auth.create_user(credentials)
         self.auth.add_user_to_group(
@@ -89,7 +97,11 @@ class AuthUsecase:
             )
             if self.profile_repo.get_self_profile(user.user_id) is None:
                 self.profile_repo.create_with_consent(
-                    user.user_id, credentials.profile, credentials.consent
+                    client_id=user.user_id,
+                    profile_data=credentials.profile,
+                    consent_version=active_template.consent_version,
+                    details=details,
+                    responses=responses,
                 )
 
         return {"message": "register successful, check email for code"}

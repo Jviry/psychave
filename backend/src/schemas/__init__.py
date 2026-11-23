@@ -39,7 +39,13 @@ from schemas.psychologist import (
     PsychologistProfileUpdate,
     SocialMediaLink,
 )
-from schemas.service import ServiceRead
+from schemas.service import ServiceCreate, ServiceRead, ServiceUpdate
+from schemas.consent_template import (
+    ConsentFormTemplateRead,
+    ConsentFormTemplateUpsert,
+    WizardBlockSchema,
+    WizardPageSchema,
+)
 
 __all__ = [
     "AdminUserPage",
