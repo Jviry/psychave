@@ -2,10 +2,10 @@
 
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../../../lib/api';
-import { clientPreferredSlots } from '../../../../lib/booking';
-import { useAppStore } from '../../../../stores/useAppStore';
-import { useActivePsychologist } from '../../../../hooks/useActivePsychologist';
+import { api } from '@/lib/api';
+import { clientPreferredSlots } from '@/lib/booking';
+import { useAppStore } from '@/stores/useAppStore';
+import { useActivePsychologist } from '@/hooks/useActivePsychologist';
 import { useRouter } from 'next/navigation';
 import { Check, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import {
@@ -17,7 +17,7 @@ import {
   Label,
   Modal,
   Skeleton,
-} from '../../../../components/ui/primitives';
+} from '@/components/ui/primitives';
 
 function formatReviewDate(value: string | null, includeTime = false): string {
   if (!value) return '—';
@@ -101,7 +101,7 @@ type ScheduleAction = {
 export default function PsychologistQueuePage() {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const { publishFlowEvent } = useAppStore();
+  const publishFlowEvent = useAppStore((s) => s.publishFlowEvent);
   const { activePsych } = useActivePsychologist();
 
   const [activeModalBookingId, setActiveModalBookingId] = useState<string | null>(null);
@@ -125,12 +125,12 @@ export default function PsychologistQueuePage() {
   const reviewBooking = pendingQueue.find((b) => b.id === reviewBookingId) || null;
 
   const reviewQuery = useQuery({
-    queryKey: ['persona-review', reviewBooking?.personaId],
+    queryKey: ['profile-review', reviewBooking?.profileId],
     queryFn: () => {
       if (!reviewBooking) throw new Error('No booking selected for review.');
-      return api.getPersonaReview(reviewBooking.personaId);
+      return api.getProfileReview(reviewBooking.profileId);
     },
-    enabled: Boolean(reviewBooking?.personaId),
+    enabled: Boolean(reviewBooking?.profileId),
     retry: false,
   });
 
@@ -218,7 +218,7 @@ export default function PsychologistQueuePage() {
     if (!targetBooking) return;
 
     const price = Number(pickupPrice);
-    if (!Number.isFinite(price) || price < 500 || price > 25000) {
+    if (pickupPrice.trim() === '' || !Number.isFinite(price) || price <= 0) {
       return;
     }
 
@@ -232,9 +232,9 @@ export default function PsychologistQueuePage() {
 
   const review = reviewQuery.data;
   const priceInvalid =
+    pickupPrice.trim() === '' ||
     !Number.isFinite(Number(pickupPrice)) ||
-    Number(pickupPrice) < 500 ||
-    Number(pickupPrice) > 25000;
+    Number(pickupPrice) <= 0;
 
   return (
     <div className="space-y-8">
@@ -367,7 +367,7 @@ export default function PsychologistQueuePage() {
                   key={item.id}
                   role="button"
                   tabIndex={0}
-                  aria-label={`View persona and consent details for booking ${item.id}`}
+                  aria-label={`View profile and consent details for booking ${item.id}`}
                   onClick={(event) => {
                     const target = event.target as HTMLElement;
                     if (target.closest('button, a, input, select, textarea')) return;
@@ -390,7 +390,7 @@ export default function PsychologistQueuePage() {
                             {item.id}
                           </span>
                           <span className="text-xs px-2 py-0.5 rounded-sm font-semibold bg-surface-sunken text-accent-ink">
-                            {item.personaType.toUpperCase()}
+                            {item.profileType.toUpperCase()}
                           </span>
                           <BookingStatusTag status={item.status} />
                         </div>
@@ -429,17 +429,17 @@ export default function PsychologistQueuePage() {
 
                     {/* Details Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
-                      {/* Persona Info */}
+                      {/* Profile Info */}
                       <div className="space-y-1">
                         <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                          Client &amp; Persona Information
+                          Client &amp; Profile Information
                         </span>
-                        <p className="font-heading text-lg font-medium text-pine">{item.personaLabel}</p>
+                        <p className="font-heading text-lg font-medium text-pine">{item.profileLabel}</p>
                         <p className="text-xs text-pine/60">
                           Submitted: {item.submittedAt}
                         </p>
                         <p className="text-[11px] font-medium text-accent-ink">
-                          Click card to view persona &amp; consent form
+                          Click card to view profile &amp; consent form
                         </p>
                       </div>
 
@@ -519,13 +519,13 @@ export default function PsychologistQueuePage() {
         )}
       </div>
 
-      {/* Persona & Consent Review Modal */}
+      {/* Profile & Consent Review Modal */}
       {reviewBooking && (
         <Modal
           open
           onClose={handleCloseReview}
-          title={`Persona & Consent Review — ${reviewBooking.id}`}
-          description={`${reviewBooking.serviceTitle} · ${reviewBooking.personaLabel}`}
+          title={`Profile & Consent Review — ${reviewBooking.id}`}
+          description={`${reviewBooking.serviceTitle} · ${reviewBooking.profileLabel}`}
           maxWidth="2xl"
         >
           <div className="space-y-5">
@@ -558,7 +558,7 @@ export default function PsychologistQueuePage() {
                 role="alert"
                 className="bg-red-50 border border-red-200 rounded-lg p-4 text-xs text-red-900 space-y-2"
               >
-                <p className="font-semibold">Could not load persona review.</p>
+                <p className="font-semibold">Could not load profile review.</p>
                 <p className="break-words">{(reviewQuery.error as Error).message}</p>
                 <Button variant="outline" size="sm" onClick={() => reviewQuery.refetch()}>
                   Retry
@@ -571,52 +571,52 @@ export default function PsychologistQueuePage() {
                 <section className="rounded-lg border border-mist overflow-hidden">
                   <div className="px-4 py-2.5 border-b border-mist bg-surface-sunken/40">
                     <h3 className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                      Persona Details
+                      Profile Details
                     </h3>
                   </div>
                   <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 px-4 py-4">
-                    <ReviewField label="Full name" value={displayValue(review.persona.name)} />
+                    <ReviewField label="Full name" value={displayValue(review.profile.name)} />
                     <ReviewField
                       label="Relation to account holder"
-                      value={displayValue(review.persona.relationToAccountHolder)}
+                      value={displayValue(review.profile.relationToAccountHolder)}
                     />
                     <ReviewField
                       label="Date of birth"
-                      value={`${formatReviewDate(review.persona.dateOfBirth)} (${reviewAge(review.persona.dateOfBirth)})`}
+                      value={`${formatReviewDate(review.profile.dateOfBirth)} (${reviewAge(review.profile.dateOfBirth)})`}
                     />
-                    <ReviewField label="Occupation" value={displayValue(review.persona.occupation)} />
-                    <ReviewField label="Nationality" value={displayValue(review.persona.nationality)} />
+                    <ReviewField label="Occupation" value={displayValue(review.profile.occupation)} />
+                    <ReviewField label="Nationality" value={displayValue(review.profile.nationality)} />
                     <ReviewField
                       label="Preferred contact"
-                      value={displayValue(review.persona.preferredContactMode)}
+                      value={displayValue(review.profile.preferredContactMode)}
                     />
                     <ReviewField
                       label="Permanent address"
-                      value={displayValue(review.persona.permanentAddress)}
+                      value={displayValue(review.profile.permanentAddress)}
                       fullWidth
                     />
                     <ReviewField
                       label="Present address"
-                      value={displayValue(review.persona.presentAddress)}
+                      value={displayValue(review.profile.presentAddress)}
                       fullWidth
                     />
                     <ReviewField
                       label="Contact number"
-                      value={displayValue(review.persona.contactNumber)}
+                      value={displayValue(review.profile.contactNumber)}
                     />
                     <ReviewField
                       label="Social media"
                       value={
-                        [review.persona.socmedPlatform, review.persona.socmedUsername]
+                        [review.profile.socmedPlatform, review.profile.socmedUsername]
                           .filter(Boolean)
                           .join(' · ') || '—'
                       }
                     />
                     <ReviewField
                       label="Emergency contact"
-                      value={`${displayValue(review.persona.emergencyContactName)} (${displayValue(
-                        review.persona.emergencyContactRelation
-                      )}) · ${displayValue(review.persona.emergencyContactNumber)}`}
+                      value={`${displayValue(review.profile.emergencyContactName)} (${displayValue(
+                        review.profile.emergencyContactRelation
+                      )}) · ${displayValue(review.profile.emergencyContactNumber)}`}
                       fullWidth
                     />
                   </dl>
@@ -690,7 +690,7 @@ export default function PsychologistQueuePage() {
           open
           onClose={handleCloseModal}
           title={`Pick Up Booking #${targetBooking.id}`}
-          description={`${targetBooking.serviceTitle} (${targetBooking.serviceDuration}) · ${targetBooking.personaLabel}`}
+          description={`${targetBooking.serviceTitle} (${targetBooking.serviceDuration}) · ${targetBooking.profileLabel}`}
           maxWidth="2xl"
         >
           <form onSubmit={handleScheduleSubmit} className="space-y-5">
@@ -743,9 +743,7 @@ export default function PsychologistQueuePage() {
               <Input
                 id="pickup-price"
                 type="number"
-                min={500}
-                max={25000}
-                step={100}
+                step="any"
                 className="font-mono tabular-nums text-base"
                 placeholder="2500"
                 value={pickupPrice}
@@ -753,7 +751,7 @@ export default function PsychologistQueuePage() {
               />
               {priceInvalid && (
                 <p className="text-xs text-red-700 mt-1 font-medium">
-                  Session fee must be between ₱500 and ₱25,000.
+                  Session fee must be greater than ₱0.
                 </p>
               )}
             </div>

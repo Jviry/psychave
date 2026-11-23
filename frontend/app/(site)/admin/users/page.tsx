@@ -8,16 +8,20 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import {
+  Check,
   ChevronLeft,
   ChevronRight,
+  Copy,
   Loader2,
+  Mail,
   Search,
+  UserPlus,
   Users,
 } from 'lucide-react';
-import { api } from '../../../../lib/api';
-import { AdminUser, CognitoRole } from '../../../../lib/types';
-import { useAuthStore } from '../../../../authStore';
-import { useAppStore } from '../../../../stores/useAppStore';
+import { api } from '@/lib/api';
+import { AdminUser, CognitoRole, PsychologistInvitation } from '@/lib/types';
+import { useAuthStore } from '@/stores/authStore';
+import { useAppStore } from '@/stores/useAppStore';
 import {
   Button,
   Card,
@@ -27,7 +31,7 @@ import {
   Modal,
   Select,
   Skeleton,
-} from '../../../../components/ui/primitives';
+} from '@/components/ui/primitives';
 
 const PAGE_SIZE = 10;
 
@@ -65,7 +69,7 @@ function formatDate(iso: string): string {
 
 export default function AdminUsersPage() {
   const queryClient = useQueryClient();
-  const { publishFlowEvent } = useAppStore();
+  const publishFlowEvent = useAppStore((s) => s.publishFlowEvent);
   const currentEmail = useAuthStore((state) => state.user?.email);
 
   const [searchInput, setSearchInput] = useState('');
@@ -78,6 +82,13 @@ export default function AdminUsersPage() {
   const [targetRole, setTargetRole] = useState<CognitoRole>('client');
   const [fullName, setFullName] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [createdInvitation, setCreatedInvitation] =
+    useState<PsychologistInvitation | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   // Debounce typing so each keystroke does not fire a paginated request.
   useEffect(() => {
@@ -144,6 +155,63 @@ export default function AdminUsersPage() {
     setFormError(null);
   }
 
+  const inviteMutation = useMutation({
+    mutationFn: (email: string) => api.invitePsychologist(email),
+    onSuccess: (invitation) => {
+      setInviteError(null);
+      setCreatedInvitation(invitation);
+      setCopiedLink(false);
+      publishFlowEvent(
+        'Psychologist Invitation Sent',
+        `Single-use 48-hour invitation created and emailed to ${invitation.email}.`
+      );
+    },
+    onError: (err) => {
+      setInviteError(
+        err instanceof Error
+          ? err.message
+          : 'Could not create the psychologist invitation.'
+      );
+    },
+  });
+
+  function openInviteModal() {
+    setInviteOpen(true);
+    setInviteEmail('');
+    setInviteError(null);
+    setCreatedInvitation(null);
+    setCopiedLink(false);
+  }
+
+  function closeInviteModal() {
+    setInviteOpen(false);
+    setInviteError(null);
+    setCreatedInvitation(null);
+    setCopiedLink(false);
+  }
+
+  function submitInvite(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (inviteMutation.isPending) return;
+    const trimmed = inviteEmail.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes('@')) {
+      setInviteError('Please enter a valid email address.');
+      return;
+    }
+    inviteMutation.mutate(trimmed);
+  }
+
+  async function handleCopyInviteLink() {
+    if (!createdInvitation) return;
+    try {
+      await navigator.clipboard.writeText(createdInvitation.invitationUrl);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
+    } catch {
+      setCopiedLink(false);
+    }
+  }
+
   function submitRoleChange(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editingUser || roleMutation.isPending) return;
@@ -169,20 +237,25 @@ export default function AdminUsersPage() {
 
   return (
     <div className="space-y-10">
-      <header className="space-y-2 border-b border-mist pb-6">
-        <div className="flex items-center gap-2 text-xs text-accent-ink font-semibold">
-          <span>Admin Dashboard</span>
-          <span aria-hidden="true">·</span>
-          <span>User Accounts &amp; Role Administration</span>
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-mist pb-6">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-xs text-accent-ink font-semibold">
+            <span>Admin Dashboard</span>
+            <span aria-hidden="true">·</span>
+            <span>User Accounts &amp; Role Administration</span>
+          </div>
+          <h1 className="font-heading text-4xl font-medium text-pine">
+            User Directory &amp; Access Roles
+          </h1>
+          <p className="text-sm text-pine/80 max-w-3xl">
+            Search registered accounts, filter by access role, and invite verified
+            psychologists via single-use onboarding links.
+          </p>
         </div>
-        <h1 className="font-heading text-4xl font-medium text-pine">
-          User Directory &amp; Access Roles
-        </h1>
-        <p className="text-sm text-pine/80 max-w-3xl">
-          Search registered accounts, filter by access role, and assign the Client,
-          Psychologist, or Admin role. Role changes update the Cognito access group —
-          the affected user must sign in again before the new dashboard unlocks.
-        </p>
+        <Button variant="primary" size="md" onClick={openInviteModal}>
+          <UserPlus className="h-4 w-4" aria-hidden="true" />
+          Invite Psychologist
+        </Button>
       </header>
 
       <Card className="space-y-5">
@@ -415,12 +488,20 @@ export default function AdminUsersPage() {
               data-autofocus
             >
               <option value="client">Client</option>
-              <option value="psychologist">Psychologist</option>
+              {editingUser?.role === 'psychologist' && (
+                <option value="psychologist">Psychologist</option>
+              )}
               <option value="admin">Admin</option>
             </Select>
             {editingUser && (
               <p className="mt-1.5 text-xs text-pine/60">
                 Current role: <span className="font-semibold">{roleLabels[editingUser.role]}</span>
+                {editingUser.role === 'client' && (
+                  <span>
+                    {' '}
+                    · Psychologists are onboarded via <strong>Invite Psychologist</strong>.
+                  </span>
+                )}
               </p>
             )}
           </div>
@@ -457,6 +538,137 @@ export default function AdminUsersPage() {
             </p>
           )}
         </form>
+      </Modal>
+
+      <Modal
+        open={inviteOpen}
+        onClose={closeInviteModal}
+        title="Invite psychologist"
+        description="Send a single-use, 48-hour registration link to a verified psychologist."
+        maxWidth="md"
+        footer={
+          createdInvitation ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setCreatedInvitation(null);
+                  setInviteEmail('');
+                  setInviteError(null);
+                }}
+              >
+                Invite another
+              </Button>
+              <Button type="button" variant="primary" onClick={closeInviteModal}>
+                Done
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={closeInviteModal}
+                disabled={inviteMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                form="invite-psychologist-form"
+                disabled={inviteMutation.isPending || !inviteEmail.trim()}
+              >
+                {inviteMutation.isPending ? 'Sending…' : 'Send invitation'}
+              </Button>
+            </>
+          )
+        }
+      >
+        {createdInvitation ? (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-mint bg-parchment px-4 py-3 text-xs text-pine space-y-1">
+              <p className="font-semibold text-accent-ink">
+                Invitation sent to {createdInvitation.email}
+              </p>
+              <p className="text-pine/75">
+                Valid until {formatDate(createdInvitation.expiresAt)} (48 hours, single-use).
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="created-invitation-url">
+                Single-use invitation link
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="created-invitation-url"
+                  value={createdInvitation.invitationUrl}
+                  readOnly
+                  className="font-mono text-xs"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyInviteLink}
+                >
+                  {copiedLink ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-accent-ink" aria-hidden="true" />
+                      Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                      Copy Invitation Link
+                    </>
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-pine/60">
+                An invitation email has been dispatched via Brevo. You can also copy this link to share directly.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <form
+            id="invite-psychologist-form"
+            onSubmit={submitInvite}
+            className="space-y-4"
+          >
+            <div>
+              <Label htmlFor="invite-psychologist-email">
+                Psychologist email address
+              </Label>
+              <div className="relative">
+                <Mail
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-pine/45"
+                  aria-hidden="true"
+                />
+                <Input
+                  id="invite-psychologist-email"
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(event) => setInviteEmail(event.target.value)}
+                  placeholder="practitioner@example.com"
+                  className="pl-9"
+                  required
+                  data-autofocus
+                />
+              </div>
+              <p className="mt-1.5 text-xs text-pine/60">
+                The psychologist will receive a single-use link to set their username, password, PRC license, specialization, bio, and social media contact links.
+              </p>
+            </div>
+
+            {inviteError && (
+              <p role="alert" className="text-xs text-red-700">
+                {inviteError}
+              </p>
+            )}
+          </form>
+        )}
       </Modal>
     </div>
   );

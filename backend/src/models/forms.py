@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 class Forms(SQLModel, table=True):
     __tablename__: str = "forms"
     form_id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    persona_id: uuid.UUID = Field(foreign_key="persona.persona_id")
+    profile_id: uuid.UUID = Field(foreign_key="profiles.profile_id")
     consent_version: str
 
     terms_signer_name: str

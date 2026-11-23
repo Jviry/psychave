@@ -4,20 +4,23 @@ import React from 'react';
 import Link from 'next/link';
 import { BadgeCheck, Stethoscope, Target, Telescope } from 'lucide-react';
 import { Card } from './ui/primitives';
-import { AwaitingContent } from './AwaitingContent';
 import { CmsContent, ResidentPsychologist } from '../lib/types';
 
 /**
- * About Us — staggered mosaic, per the user's marked-up mockup.
- * Headline block: "About PSYCHAVE PH" only (the redundant "about us" eyebrow
- * is removed). Content order matches the mockup exactly: Clinic Overview
- * (top, centered), the Vision ∥ Mission pair, the RP-01 ∥ RP-02 pair, and
- * RP-03 centered underneath — a tight center band (the decorative white
- * breather rail cards were removed after user review). Anonymized RP-0x
- * codes only; no personal names.
+ * About Us — staggered mosaic structure with placeholder copy fallbacks
+ * whenever CMS fields are not yet populated.
  */
 
 type AboutTint = 'sage' | 'mint' | 'lime' | 'mist' | 'pine';
+
+const PLACEHOLDER_CLINIC_OVERVIEW =
+  'PsychAvenuePH (PSYCHAVE PH) connects clients across the Philippines with PRC-registered resident psychologists through structured scheduling, transparent clinical fees, and consent-first data governance.';
+
+const PLACEHOLDER_VISION =
+  'Accessible, ethically grounded psychological care across the Philippines where every session begins with clarity, verified credentials, and respect for client privacy.';
+
+const PLACEHOLDER_MISSION =
+  'Deliver structured, compassionate mental health and advisory services through PRC-verified practitioners, clear booking guardrails, and strict RA 10173 confidentiality.';
 
 function CardHeading({
   icon: Icon,
@@ -29,7 +32,7 @@ function CardHeading({
   return (
     <div className="flex items-center gap-3">
       <Icon className="h-6 w-6 shrink-0 opacity-80" aria-hidden="true" />
-      <h3 className="font-heading text-3xl font-medium leading-tight">{title}</h3>
+      <h3 className="font-heading text-3xl font-semibold leading-tight tracking-tight">{title}</h3>
     </div>
   );
 }
@@ -38,23 +41,17 @@ function StatementCard({
   title,
   icon,
   body,
-  awaitingLabel,
   tint,
 }: {
   title: string;
   icon: React.ComponentType<{ className?: string }>;
-  body?: string;
-  awaitingLabel: string;
+  body: string;
   tint: AboutTint;
 }) {
   return (
-    <Card tint={tint} className="flex h-full flex-col gap-5 p-5 lg:p-5">
+    <Card tint={tint} className="flex h-full flex-col gap-5 p-6 lg:p-7">
       <CardHeading icon={icon} title={title} />
-      {body ? (
-        <p className="text-base leading-relaxed opacity-90">{body}</p>
-      ) : (
-        <AwaitingContent label={awaitingLabel} />
-      )}
+      <p className="text-base leading-relaxed opacity-90">{body}</p>
     </Card>
   );
 }
@@ -63,23 +60,22 @@ function RosterCard({ resident, tint }: { resident: ResidentPsychologist; tint: 
   return (
     <Card tint={tint} className="flex h-full flex-col gap-5 p-8 lg:p-10">
       <div className="space-y-1.5">
-        {/* Anonymized role identifier — strictly no personal name */}
         <CardHeading icon={BadgeCheck} title={resident.anonymizedTitle} />
-        <p className="text-sm opacity-70">{resident.yearsPractice}</p>
+        <p className="text-sm opacity-75">{resident.yearsPractice}</p>
       </div>
 
       <p className="text-base leading-relaxed opacity-90">{resident.specialization}</p>
 
       <div className="space-y-1.5">
         <p className="text-sm font-semibold">Authorized Service Scope:</p>
-        <p className="text-sm leading-relaxed opacity-80">
+        <p className="text-sm leading-relaxed opacity-85">
           {resident.serviceEligibility.join(' · ')}
         </p>
       </div>
 
       <div className="mt-auto space-y-3 pt-2">
         <div aria-hidden="true" className="h-px w-full bg-current opacity-15" />
-        <p className="text-sm opacity-70">Languages: {resident.languages.join(', ')}</p>
+        <p className="text-sm opacity-75">Languages: {resident.languages.join(', ')}</p>
       </div>
     </Card>
   );
@@ -87,14 +83,12 @@ function RosterCard({ resident, tint }: { resident: ResidentPsychologist; tint: 
 
 function ClinicCard({ cms }: { cms?: CmsContent }) {
   return (
-    <Card tint="pine" className="flex h-full flex-col gap-5 p-5 lg:p-8 max-w-[50rem]">
+    <Card tint="pine" className="flex h-full flex-col gap-5 p-6 lg:p-8 max-w-[50rem]">
       <CardHeading icon={Stethoscope} title="Clinic Overview" />
 
-      {cms?.clinicOverview ? (
-        <p className="text-base leading-relaxed text-white/80">{cms.clinicOverview}</p>
-      ) : (
-        <AwaitingContent label="Clinic Overview" tone="dark" />
-      )}
+      <p className="text-base leading-relaxed text-white/85">
+        {cms?.clinicOverview || PLACEHOLDER_CLINIC_OVERVIEW}
+      </p>
 
       {cms?.impactNarrative && (
         <p className="text-sm leading-relaxed text-white/70">{cms.impactNarrative}</p>
@@ -105,10 +99,10 @@ function ClinicCard({ cms }: { cms?: CmsContent }) {
           {cms.impactMetrics.map((metric) => (
             <div key={metric.id} className="flex items-center justify-between gap-4 py-3">
               <div className="space-y-0.5">
-                <p className="text-sm font-semibold text-white/80">{metric.metricLabel}</p>
+                <p className="text-sm font-semibold text-white/85">{metric.metricLabel}</p>
                 <p className="text-sm text-white/60">{metric.timeframeContext}</p>
               </div>
-              <span className="font-heading text-3xl text-lime-soft tabular-nums shrink-0">
+              <span className="font-heading text-3xl font-semibold text-lime-soft tabular-nums shrink-0">
                 {metric.metricValue}
               </span>
             </div>
@@ -135,15 +129,13 @@ export function AboutGrid({
 }) {
   return (
     <div className="space-y-10 lg:space-y-12">
-      {/* Centered heading — the redundant "about us" eyebrow above it is removed */}
       <div className="text-center">
-        <h2 className="font-heading text-4xl font-medium text-pine sm:text-5xl">
+        <h2 className="font-heading text-4xl font-semibold tracking-tight text-pine sm:text-5xl">
           About PSYCHAVE PH
         </h2>
       </div>
 
-      {/* Center band — Clinic → (Vision ∥ Mission) → (RP-01 ∥ RP-02) → RP-03
-          (the decorative white rail cards from the mockup are removed) */}
+      {/* Center band — Clinic → (Vision ∥ Mission) → (RP-01 ∥ RP-02) → RP-03 */}
       <div className="mx-auto w-full max-w-4xl space-y-4">
         <div className="mx-auto w-full max-w-[35rem]">
           <ClinicCard cms={cms} />
@@ -153,15 +145,13 @@ export function AboutGrid({
           <StatementCard
             title="Vision Statement"
             icon={Telescope}
-            body={cms?.vision || undefined}
-            awaitingLabel="Vision"
+            body={cms?.vision || PLACEHOLDER_VISION}
             tint="mist"
           />
           <StatementCard
             title="Mission Statement"
             icon={Target}
-            body={cms?.mission || undefined}
-            awaitingLabel="Mission"
+            body={cms?.mission || PLACEHOLDER_MISSION}
             tint="lime"
           />
         </div>

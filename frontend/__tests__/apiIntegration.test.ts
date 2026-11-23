@@ -80,9 +80,9 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
 
   const APPOINTMENT_CONFIRMED = {
     appointment_id: '3f2504e0-4f89-11d3-9a0c-0305e82c3301',
-    persona_id: '7a3c11a2-1b2c-4d3e-8f90-112233445566',
-    persona_name: 'Primary Account Holder',
-    persona_relation: 'self',
+    profile_id: '7a3c11a2-1b2c-4d3e-8f90-112233445566',
+    profile_name: 'Primary Account Holder',
+    profile_relation: 'self',
     service_id: '9a2b1c3d-4e5f-6071-8293-a4b5c6d7e8f9',
     service_name: 'Individual Counseling & Psychotherapy',
     service_duration_minutes: 60,
@@ -97,8 +97,8 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
     scheduling_round: 1,
     payment_deadline: null,
     proposed_slots: SLOT_ROWS,
-    persona_socmed_platform: 'Facebook',
-    persona_socmed_username: '@client.demo',
+    profile_socmed_platform: 'Facebook',
+    profile_socmed_username: '@client.demo',
     psychologist_social_links: [
       { platform: 'Facebook', url: 'https://facebook.com/psych.demo' },
     ],
@@ -133,15 +133,15 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
     expect(booking?.psychologistCode).toMatch(/Resident Psychologist #RP-\d+/);
   });
 
-  it('getPersonaReview maps the psychologist review payload', async () => {
-    const personaId = '7a3c11a2-1b2c-4d3e-8f90-112233445566';
+  it('getProfileReview maps the psychologist review payload', async () => {
+    const profileId = '7a3c11a2-1b2c-4d3e-8f90-112233445566';
     mockFetch.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
-          persona: {
-            persona_id: personaId,
+          profile: {
+            profile_id: profileId,
             relation_to_account_holder: 'self',
-            persona_name: 'Ana Santos',
+            profile_name: 'Ana Santos',
             date_of_birth: '1994-06-12',
             occupation: 'Designer',
             nationality: 'Filipino',
@@ -172,13 +172,13 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
     );
 
     const { api } = await import('../lib/api');
-    const review = await api.getPersonaReview(personaId);
+    const review = await api.getProfileReview(profileId);
 
-    expect(review.persona.name).toBe('Ana Santos');
-    expect(review.persona.contactNumber).toBe('+639170000000');
+    expect(review.profile.name).toBe('Ana Santos');
+    expect(review.profile.contactNumber).toBe('+639170000000');
     expect(review.consent.version).toBe('v2');
     expect(review.consent.scopeAcknowledged).toBe(true);
-    expect(JSON.stringify(review)).not.toMatch(/persona_name|consent_version|signed_at/);
+    expect(JSON.stringify(review)).not.toMatch(/profile_name|consent_version|signed_at/);
   });
 
   it('pay flow refuses to fake success when payment stays pending', async () => {
@@ -207,6 +207,40 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
     expect(mockFetch.mock.calls.some((call) => String(call[0]).includes('/payment'))).toBe(
       true
     );
+  });
+
+  it('pay flow redirects to PayMongo checkout_url when provider returns a pending session', async () => {
+    const assignMock = vi.fn();
+    vi.stubGlobal('window', { location: { assign: assignMock } });
+
+    mockFetch.mockImplementation(async (url: string) => {
+      if (String(url).includes('/payment')) {
+        return new Response(
+          JSON.stringify({
+            provider: 'paymongo',
+            provider_ref: 'cs_test_123',
+            checkout_url: 'https://checkout.paymongo.com/cs_test_123',
+            status: 'pending',
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          ...APPOINTMENT_CONFIRMED,
+          selected_slot_id: SLOT_ROWS[0].slot_id,
+          status: 'awaiting_payment',
+          payment_deadline: '2026-12-04T10:00:00',
+        }),
+        { status: 200 }
+      );
+    });
+
+    const { api } = await import('../lib/api');
+    const result = await api.payBooking(APPOINTMENT_CONFIRMED.appointment_id);
+    expect(assignMock).toHaveBeenCalledWith('https://checkout.paymongo.com/cs_test_123');
+    expect(result.status).toBe('awaiting-payment');
+    vi.unstubAllGlobals();
   });
 
   it('pickup atomically claims the request and accepts a preferred slot', async () => {
@@ -419,7 +453,7 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
 
     await expect(
       api.submitBookingRequest({
-        personaId: 'persona-self-01',
+        profileId: 'profile-self-01',
         serviceId: 'srv-individual',
         concernsSummary: 'This should fail on uuid validation.',
         preferredSlots: [

@@ -33,13 +33,13 @@ frontend/
 │   ├── services/page.tsx           # /services (7 canonical services + durations & guardrails)
 │   ├── about/page.tsx              # /about (Anonymized Roster without names, Vision/Mission, Overview)
 │   ├── book/page.tsx               # /book (Flow C launcher + Facebook & psychaveph.info@gmail.com fallback)
-│   ├── personas/page.tsx           # /personas (Manage personas + 4-step wizard modal + Flow C Booking Form)
-│   │                               Wizard: components/PersonaWizardModal.tsx + stores/usePersonaWizardStore.ts
-│   │                               (single POST /personas at final submit; draft in sessionStorage).
+│   ├── profiles/page.tsx           # /profiles (Manage profiles + 4-step wizard + Flow C Booking Form)
+│   │                               Wizard: components/ProfileWizard.tsx + stores/useProfileWizardStore.ts
+│   │                               (single POST /profiles at final submit; draft in sessionStorage).
 │   │                               Consent copy: lib/consent.ts, CONSENT_VERSION=v2, sourced from the
 │   │                               firm's booking forms (informed consent + scope/overseas blocks).
 │   │                               Legacy quick-add form kept temporarily in a collapsed disclosure until
-│   │                               backend POST /personas supports the persona+consent payload — then remove it.
+│   │                               backend POST /profiles supports the profile+consent payload — then remove it.
 │   ├── bookings/page.tsx           # /bookings (Client bookings, status chips, contact unlock, reminders)
 │   ├── proposal/[id]/page.tsx      # /proposal/[id] (3 radio slots picker + Stripe payment finalization)
 │   ├── psych/
@@ -56,7 +56,7 @@ frontend/
 ├── lib/
 │   ├── api.ts                      # Single authenticated API client hitting NEXT_PUBLIC_API_URL
 │   ├── navigation.tsx              # Universal App Router navigation wrapper
-│   ├── schemas.ts                  # Zod validation schemas for Persona, Booking, 3-Slot Proposal, Payment, CMS
+│   ├── schemas.ts                  # Zod validation schemas for Profile, Booking, 3-Slot Proposal, Payment, CMS
 │   └── types.ts                    # Domain TypeScript interfaces
 └── stores/
     └── useAppStore.ts              # Zustand store for booking draft and Flow C events

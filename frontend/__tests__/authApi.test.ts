@@ -59,7 +59,7 @@ describe('auth API — real fetch', () => {
     );
   });
 
-  it('registerUser calls POST /auth/create-user', async () => {
+  it('registerUser calls POST /auth/create-user with self-profile and consent', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ message: 'register successful, check email for code' }),
@@ -70,10 +70,39 @@ describe('auth API — real fetch', () => {
       email: 'user@example.com',
       username: 'username1',
       password: 'Pass@123',
+      profile: {
+        relation_to_account_holder: 'self',
+        profile_name: 'User One',
+        date_of_birth: '1994-08-12',
+        occupation: null,
+        nationality: 'Filipino',
+        permanent_address: '123 St, Manila',
+        present_address: '123 St, Manila',
+        contact_number: '09171234567',
+        socmed_platform: null,
+        socmed_username: null,
+        preferred_contact_mode: 'phone',
+        emergency_contact_name: 'Jane One',
+        emergency_contact_relation: 'Spouse',
+        emergency_contact_number: '09181234567',
+      },
+      consent: {
+        consent_version: 'v2',
+        terms_signer_name: 'User One',
+        terms_signer_relation: 'self',
+        scope_acknowledged: true,
+        is_overseas_or_foreign: false,
+        overseas_acknowledged: false,
+        information_confirmed: true,
+        consent_signer_name: 'User One',
+      },
     });
 
-    const [url] = mockFetch.mock.calls[0];
+    const [url, opts] = mockFetch.mock.calls[0];
     expect(url).toContain('/auth/create-user');
+    const body = JSON.parse(opts.body);
+    expect(body.profile.relation_to_account_holder).toBe('self');
+    expect(body.consent.terms_signer_relation).toBe('self');
   });
 
   it('confirmUser calls POST /auth/confirm', async () => {
@@ -130,5 +159,111 @@ describe('auth API — real fetch', () => {
 
     const [url] = mockFetch.mock.calls[0];
     expect(url).toContain('/auth/confirm-forgot-password');
+  });
+
+  it('loginUser throws AuthApiError with USER_NOT_CONFIRMED on 403 unverified response', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      statusText: 'Forbidden',
+      headers: new Headers(),
+      json: async () => ({
+        detail: 'Account email is not verified.',
+        code: 'USER_NOT_CONFIRMED',
+      }),
+    });
+
+    const { authApi, AuthApiError } = await import('../authApi');
+    try {
+      await authApi.loginUser({ username: 'unverified', password: 'wrong' });
+      expect.unreachable('Expected AuthApiError');
+    } catch (err) {
+      expect(err).toBeInstanceOf(AuthApiError);
+      expect((err as InstanceType<typeof AuthApiError>).status).toBe(403);
+      expect((err as InstanceType<typeof AuthApiError>).code).toBe('USER_NOT_CONFIRMED');
+    }
+  });
+
+  it('resendCode throws AuthApiError with retryAfter on 429 rate-limit response', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 429,
+      statusText: 'Too Many Requests',
+      headers: new Headers({ 'Retry-After': '45' }),
+      json: async () => ({
+        detail: 'Please wait 60 seconds before requesting another verification code.',
+      }),
+    });
+
+    const { authApi, AuthApiError } = await import('../authApi');
+    try {
+      await authApi.resendCode('unverified');
+      expect.unreachable('Expected AuthApiError');
+    } catch (err) {
+      expect(err).toBeInstanceOf(AuthApiError);
+      expect((err as InstanceType<typeof AuthApiError>).status).toBe(429);
+      expect((err as InstanceType<typeof AuthApiError>).retryAfter).toBe(45);
+    }
+  });
+
+  it('verifyPsychologistInvitation calls GET /auth/psychologist-invitations/:token', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        email: 'dr.santos@example.com',
+        expires_at: '2026-11-24T12:00:00Z',
+      }),
+    });
+
+    const { authApi } = await import('../authApi');
+    const info = await authApi.verifyPsychologistInvitation('tok_abc123');
+
+    const [url, opts] = mockFetch.mock.calls[0];
+    expect(url).toContain('/auth/psychologist-invitations/tok_abc123');
+    expect(opts.method).toBe('GET');
+    expect(info).toEqual({
+      email: 'dr.santos@example.com',
+      expiresAt: '2026-11-24T12:00:00Z',
+    });
+  });
+
+  it('registerInvitedPsychologist calls POST /auth/register-psychologist', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        message: 'Psychologist account created successfully. You can now sign in.',
+      }),
+    });
+
+    const { authApi } = await import('../authApi');
+    const res = await authApi.registerInvitedPsychologist({
+      token: 'tok_abc123',
+      username: 'dr_santos',
+      password: 'StrongPassword1!',
+      fullName: 'Dr. Maria Santos, RPsy',
+      licenseNumber: 'PRC-RPSY-2024-001',
+      specialization: 'Trauma-Informed CBT',
+      bio: 'Licensed clinical psychologist specializing in trauma.',
+      socialMediaLinks: [
+        { platform: 'Facebook', url: 'https://facebook.com/dr.santos' },
+      ],
+    });
+
+    const [url, opts] = mockFetch.mock.calls[0];
+    expect(url).toContain('/auth/register-psychologist');
+    expect(opts.method).toBe('POST');
+    expect(JSON.parse(opts.body)).toEqual({
+      token: 'tok_abc123',
+      username: 'dr_santos',
+      password: 'StrongPassword1!',
+      full_name: 'Dr. Maria Santos, RPsy',
+      license_number: 'PRC-RPSY-2024-001',
+      specialization: 'Trauma-Informed CBT',
+      bio: 'Licensed clinical psychologist specializing in trauma.',
+      social_media_links: [
+        { platform: 'Facebook', url: 'https://facebook.com/dr.santos' },
+      ],
+    });
+    expect(res.message).toMatch(/Psychologist account created/i);
   });
 });

@@ -28,7 +28,7 @@ export interface ServiceItem {
   isStandaloneConsultation?: boolean;
 }
 
-export interface Persona {
+export interface Profile {
   id: string;
   clientId: string;
   type: 'self' | 'dependent';
@@ -37,10 +37,22 @@ export interface Persona {
   relationshipToClient: string;
   preferredLanguage: string;
   createdAt: string;
+  dateOfBirth?: string;
+  occupation?: string | null;
+  nationality?: string;
+  permanentAddress?: string;
+  presentAddress?: string;
+  contactNumber?: string;
+  socmedPlatform?: string | null;
+  socmedUsername?: string | null;
+  preferredContactMode?: 'phone' | 'email' | 'messenger' | 'instagram';
+  emergencyContactName?: string;
+  emergencyContactRelation?: string;
+  emergencyContactNumber?: string;
 }
 
-export interface PersonaReview {
-  persona: {
+export interface ProfileReview {
+  profile: {
     id: string;
     name: string;
     relationToAccountHolder: string;
@@ -90,9 +102,9 @@ export interface ProposedSlot {
 export interface BookingRequest {
   id: string;
   clientId: string;
-  personaId: string;
-  personaType: 'self' | 'dependent';
-  personaLabel: string;
+  profileId: string;
+  profileType: 'self' | 'dependent';
+  profileLabel: string;
   serviceId: string;
   serviceTitle: string;
   serviceDuration: string;
@@ -155,6 +167,14 @@ export interface AdminUserPage {
   total: number;
   page: number;
   pageSize: number;
+}
+
+export interface PsychologistInvitation {
+  invitationId: string;
+  email: string;
+  invitationUrl: string;
+  expiresAt: string;
+  createdAt: string;
 }
 
 export interface TestimonialSlot {

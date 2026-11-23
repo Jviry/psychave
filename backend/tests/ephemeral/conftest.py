@@ -155,14 +155,14 @@ def authenticated_user_factory(
 
 
 @pytest.fixture
-def create_client_persona(api_url: str):
-    """Create a valid adult self-persona + consent for an authenticated client."""
+def create_client_profile(api_url: str):
+    """Create a valid adult profile + consent for an authenticated client."""
 
     def _create(auth_headers: dict[str, str], name: str = "Juan Dela Cruz") -> dict:
         payload = {
-            "persona": {
-                "relation_to_account_holder": "self",
-                "persona_name": name,
+            "profile": {
+                "relation_to_account_holder": "sibling",
+                "profile_name": name,
                 "date_of_birth": "1996-05-15",
                 "occupation": "Software Engineer",
                 "nationality": "Filipino",
@@ -188,12 +188,12 @@ def create_client_persona(api_url: str):
             },
         }
         res = httpx.post(
-            f"{api_url}/personas",
+            f"{api_url}/profiles",
             headers=auth_headers,
             json=payload,
             timeout=15,
         )
-        assert res.status_code == 200, f"Failed to create persona: {res.text}"
+        assert res.status_code == 200, f"Failed to create profile: {res.text}"
         return res.json()
 
     return _create

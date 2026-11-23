@@ -1,14 +1,14 @@
 import { create } from 'zustand';
 
 interface BookingDraft {
-  personaId: string;
+  profileId: string;
   serviceId: string;
   concernsSummary: string;
 }
 
 interface AppState {
   /**
-   * Client Booking Draft state (persisted while browsing Services -> Personas/Booking)
+   * Client Booking Draft state (persisted while browsing Services -> Profiles/Booking)
    */
   bookingDraft: BookingDraft;
   updateBookingDraft: (partial: Partial<BookingDraft>) => void;
@@ -28,12 +28,12 @@ interface AppState {
 }
 
 /**
- * Empty by design: persona/service ids must come from the backend (UUIDs).
+ * Empty by design: profile/service ids must come from the backend (UUIDs).
  * The booking page binds these to the first live row when they are unset, so
  * a placeholder id can never reach `submitBookingRequest`.
  */
 const DEFAULT_DRAFT: BookingDraft = {
-  personaId: '',
+  profileId: '',
   serviceId: '',
   concernsSummary: '',
 };

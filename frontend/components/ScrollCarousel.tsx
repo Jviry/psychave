@@ -149,7 +149,7 @@ export function ScrollCarousel({
       if (t) clearTimeout(t);
       t = setTimeout(() => setup(), 180);
     };
-    window.addEventListener('resize', onResize);
+    window.addEventListener('resize', onResize, { passive: true });
     return () => {
       window.removeEventListener('resize', onResize);
       if (t) clearTimeout(t);

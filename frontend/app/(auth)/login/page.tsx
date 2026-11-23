@@ -4,18 +4,27 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
-import { loginSchema, type LoginFormValues } from '../../../lib/authSchemas';
-import { authApi } from '../../../authApi';
-import { useAuthStore } from '../../../authStore';
-import { ForgotPasswordModal } from '../../../components/auth/ForgotPasswordModal';
-import { Toast } from '../../../components/auth/Toast';
-import { Button, Input, Label } from '../../../components/ui/primitives';
+import { loginSchema, type LoginFormValues } from '@/lib/authSchemas';
+import { authApi, AuthApiError } from '@/lib/authApi';
+import { useAuthStore } from '@/stores/authStore';
+import { Toast } from '@/components/auth/Toast';
+import { Button, Input, Label } from '@/components/ui/primitives';
+
+const ForgotPasswordModal = dynamic(
+  () =>
+    import('@/components/auth/ForgotPasswordModal').then(
+      (mod) => mod.ForgotPasswordModal
+    ),
+  { ssr: false }
+);
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, getDashboardPath } = useAuthStore();
+  const login = useAuthStore((s) => s.login);
+  const getDashboardPath = useAuthStore((s) => s.getDashboardPath);
 
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -26,6 +35,7 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -86,6 +96,14 @@ export default function LoginPage() {
 
       setTimeout(() => router.push(dashboardPath), 800);
     } catch (err) {
+      if (
+        err instanceof AuthApiError &&
+        (err.code === 'USER_NOT_CONFIRMED' ||
+          (err.status === 403 && /not verified|not confirmed/i.test(err.message)))
+      ) {
+        router.push(`/verify-email?username=${encodeURIComponent(data.username.trim())}`);
+        return;
+      }
       const msg = err instanceof Error ? err.message : 'An error occurred. Please try again.';
       setApiError(msg);
     } finally {
@@ -201,17 +219,26 @@ export default function LoginPage() {
         </form>
 
         {/* Footer */}
-        <p className="mt-6 text-center text-sm text-pine/60">
-          Don&apos;t have an account?{' '}
-          <Link href="/register" id="go-to-register" className="text-sage hover:text-pine font-semibold transition-colors">
-            Create account
-          </Link>
-        </p>
+        <div className="mt-6 space-y-2 text-center text-sm text-pine/60">
+          <p>
+            Don&apos;t have an account?{' '}
+            <Link href="/register" id="go-to-register" className="text-sage hover:text-pine font-semibold transition-colors">
+              Create account
+            </Link>
+          </p>
+          <p className="text-xs">
+            Unverified account?{' '}
+            <Link href="/verify-email" id="go-to-verify-email" className="text-sage hover:text-pine font-semibold transition-colors">
+              Verify your email
+            </Link>
+          </p>
+        </div>
       </div>
 
       {/* Forgot Password Modal */}
       {showForgotPassword && (
         <ForgotPasswordModal
+          initialUsername={watch('username') ?? ''}
           onClose={() => setShowForgotPassword(false)}
           onSuccess={() => {
             setShowForgotPassword(false);

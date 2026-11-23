@@ -20,11 +20,11 @@ def _first_active_service(api_url: str, name: str = "Individual Counseling & Psy
 def test_booking_preferred_slots_validation(
     api_url: str,
     authenticated_user_factory,
-    create_client_persona,
+    create_client_profile,
     future_slot_inputs,
 ):
     client = authenticated_user_factory("client")
-    persona = create_client_persona(client["auth_headers"])
+    profile = create_client_profile(client["auth_headers"])
     service = _first_active_service(api_url)
 
     # 1. Fewer than 3 preferred schedules -> 422
@@ -33,7 +33,7 @@ def test_booking_preferred_slots_validation(
         f"{api_url}/appointments",
         headers=client["auth_headers"],
         json={
-            "persona_id": persona["persona_id"],
+            "profile_id": profile["profile_id"],
             "service_id": service["service_id"],
             "presenting_concern": "Stress management check-in",
             "preferred_slots": too_few,
@@ -50,7 +50,7 @@ def test_booking_preferred_slots_validation(
         f"{api_url}/appointments",
         headers=client["auth_headers"],
         json={
-            "persona_id": persona["persona_id"],
+            "profile_id": profile["profile_id"],
             "service_id": service["service_id"],
             "presenting_concern": "Duplicate slot test",
             "preferred_slots": dup_slots,
@@ -70,7 +70,7 @@ def test_booking_preferred_slots_validation(
         f"{api_url}/appointments",
         headers=client["auth_headers"],
         json={
-            "persona_id": persona["persona_id"],
+            "profile_id": profile["profile_id"],
             "service_id": service["service_id"],
             "presenting_concern": "Past slot test",
             "preferred_slots": past_slots,
@@ -83,14 +83,14 @@ def test_booking_preferred_slots_validation(
 def test_direct_pickup_payment_conflict_and_completion_flow(
     api_url: str,
     authenticated_user_factory,
-    create_client_persona,
+    create_client_profile,
     future_slot_inputs,
 ):
     client = authenticated_user_factory("client")
     psych_1 = authenticated_user_factory("psychologist")
     psych_2 = authenticated_user_factory("psychologist")
 
-    persona = create_client_persona(client["auth_headers"])
+    profile = create_client_profile(client["auth_headers"])
     service = _first_active_service(api_url)  # 60-minute session
     slots = future_slot_inputs(days_ahead=6, hours=("09:00:00", "13:00:00", "15:00:00"))
 
@@ -99,7 +99,7 @@ def test_direct_pickup_payment_conflict_and_completion_flow(
         f"{api_url}/appointments",
         headers=client["auth_headers"],
         json={
-            "persona_id": persona["persona_id"],
+            "profile_id": profile["profile_id"],
             "service_id": service["service_id"],
             "presenting_concern": "Work burnout and sleep difficulty",
             "preferred_slots": slots,
@@ -209,7 +209,7 @@ def test_direct_pickup_payment_conflict_and_completion_flow(
         f"{api_url}/appointments",
         headers=client["auth_headers"],
         json={
-            "persona_id": persona["persona_id"],
+            "profile_id": profile["profile_id"],
             "service_id": service["service_id"],
             "presenting_concern": "Follow-up overlap check",
             "preferred_slots": slots,
@@ -279,13 +279,13 @@ def test_direct_pickup_payment_conflict_and_completion_flow(
 def test_multi_round_negotiation_and_cancel_flow(
     api_url: str,
     authenticated_user_factory,
-    create_client_persona,
+    create_client_profile,
     future_slot_inputs,
 ):
     client = authenticated_user_factory("client")
     psych = authenticated_user_factory("psychologist")
 
-    persona = create_client_persona(client["auth_headers"], name="Maria Clara")
+    profile = create_client_profile(client["auth_headers"], name="Maria Clara")
     service = _first_active_service(api_url, "Standalone Clinical Consultation")
 
     prof_res = httpx.patch(
@@ -306,7 +306,7 @@ def test_multi_round_negotiation_and_cancel_flow(
         f"{api_url}/appointments",
         headers=client["auth_headers"],
         json={
-            "persona_id": persona["persona_id"],
+            "profile_id": profile["profile_id"],
             "service_id": service["service_id"],
             "presenting_concern": "Initial clinical consultation",
             "preferred_slots": round1_slots,

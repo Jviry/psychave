@@ -17,7 +17,7 @@ from schemas.psychologist import SocialMediaLink
 
 
 class AppointmentCreate(SQLModel):
-    persona_id: uuid.UUID
+    profile_id: uuid.UUID
     service_id: uuid.UUID
     presenting_concern: str
     preferred_slots: list[SlotInput] = Field(min_length=3, max_length=5)
@@ -39,9 +39,9 @@ class ProposedSlotRead(SQLModel):
 
 class AppointmentRead(SQLModel):
     appointment_id: uuid.UUID
-    persona_id: uuid.UUID
-    persona_name: str
-    persona_relation: str
+    profile_id: uuid.UUID
+    profile_name: str
+    profile_relation: str
     service_id: uuid.UUID
     service_name: str
     service_duration_minutes: int | None = None
@@ -59,8 +59,8 @@ class AppointmentRead(SQLModel):
     conflicting_slot_ids: list[uuid.UUID] = Field(default_factory=list)
     # Client contact details are visible to the assigned psychologist at every
     # stage; psychologist contact links only unlock after confirmation.
-    persona_socmed_platform: str | None = None
-    persona_socmed_username: str | None = None
+    profile_socmed_platform: str | None = None
+    profile_socmed_username: str | None = None
     psychologist_social_links: list[SocialMediaLink] = Field(default_factory=list)
 
 

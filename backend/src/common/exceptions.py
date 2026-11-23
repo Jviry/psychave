@@ -65,3 +65,23 @@ class BadRequestError(DomainError):
 
     def __init__(self, detail: str):
         super().__init__(detail)
+
+
+class UserNotConfirmedError(DomainError):
+    status_code = 403
+    code = "USER_NOT_CONFIRMED"
+
+    def __init__(self, detail: str = "Account email is not verified."):
+        super().__init__(detail, status_code=403)
+
+
+class RateLimitError(DomainError):
+    status_code = 429
+
+    def __init__(
+        self,
+        detail: str = "Too many requests. Please wait before trying again.",
+        retry_after: int | None = None,
+    ):
+        self.retry_after = retry_after
+        super().__init__(detail, status_code=429)

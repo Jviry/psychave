@@ -8,6 +8,8 @@ from models.payment import PaymentStatus
 
 class PaymentInitiateRequest(SQLModel):
     payment_method: str | None = None
+    success_url: str | None = None
+    cancel_url: str | None = None
 
 
 class PaymentRead(SQLModel):

@@ -22,7 +22,7 @@ class Appointment(SQLModel, table=True):
     __tablename__: str = "appointments"
     appointment_id: uuid.UUID = Field(
         default_factory=uuid.uuid4, primary_key=True)
-    persona_id: uuid.UUID = Field(foreign_key="persona.persona_id")
+    profile_id: uuid.UUID = Field(foreign_key="profiles.profile_id")
     selected_slot_id: uuid.UUID | None = Field(
         default=None, foreign_key="proposed_slots.slot_id"
     )

@@ -3,13 +3,14 @@ from datetime import datetime, timezone
 from sqlmodel import Session
 
 from common.exceptions import BadRequestError, NotFoundError
+from common.settings import settings
 from common.time import now_manila
 from models.appointment import Appointment, AppointmentStatus
 from models.payment import Payment, PaymentStatus
 from dependencies.email import get_email_service
 from repo.appointment_repo import AppointmentRepo
 from repo.payment_repo import PaymentRepo
-from repo.persona_repo import PersonaRepo
+from repo.profile_repo import ProfileRepo
 from services.email.base import BaseEmailService
 from services.payments.base import PaymentProvider
 
@@ -25,7 +26,7 @@ class PaymentUsecase:
         self.provider = provider
         self.appointments = AppointmentRepo(db)
         self.payments = PaymentRepo(db)
-        self.personas = PersonaRepo(db)
+        self.profiles = ProfileRepo(db)
         self.email_service = email_service or get_email_service()
 
     def _get_owned_appointment(
@@ -34,8 +35,8 @@ class PaymentUsecase:
         appt = self.appointments.get_by_id(appointment_id)
         if appt is None:
             raise NotFoundError("Appointment not found")
-        persona = self.personas.get_by_id(appt.persona_id)
-        if persona is None or persona.client_id != client_id:
+        profile = self.profiles.get_by_id(appt.profile_id)
+        if profile is None or profile.client_id != client_id:
             raise NotFoundError("Appointment not found")
         return appt
 
@@ -44,6 +45,8 @@ class PaymentUsecase:
         appointment_id: uuid.UUID,
         client_id: uuid.UUID,
         payment_method: str | None = None,
+        success_url: str | None = None,
+        cancel_url: str | None = None,
     ) -> Payment:
         appt = self._get_owned_appointment(appointment_id, client_id)
         self.appointments.expire_if_overdue(appt)
@@ -55,20 +58,43 @@ class PaymentUsecase:
             raise BadRequestError("Price is not set yet")
         if appt.payment_deadline is None:
             raise BadRequestError("Payment deadline is not set")
-        if appt.payment_deadline <= now_manila():
+        deadline = appt.payment_deadline
+        if deadline.tzinfo is not None:
+            from common.time import MANILA_TZ
+            deadline = deadline.astimezone(MANILA_TZ).replace(tzinfo=None)
+        if deadline <= now_manila():
             raise BadRequestError("Payment deadline has passed")
 
         existing = self.payments.get_pending(appointment_id)
         if existing is not None:
             if self._auto_confirms():
                 return self.handle_webhook(existing.provider_ref or "", paid=True)
-            return existing
+            reconciled = self.reconcile_pending_payment(appointment_id)
+            if reconciled is not None:
+                if reconciled.status == PaymentStatus.PAID:
+                    return reconciled
+                # If the previous checkout expired/failed on the gateway, fall through
+                # and create a fresh checkout session.
+            else:
+                return existing
+
+        base_fe = settings.FRONTEND_URL.rstrip("/")
+        final_success_url = (
+            success_url or f"{
+                base_fe}/proposal/{appointment_id}?payment=success"
+        )
+        final_cancel_url = (
+            cancel_url or f"{
+                base_fe}/proposal/{appointment_id}?payment=cancelled"
+        )
 
         initiated = self.provider.create_checkout(
             amount=appt.price,
             currency="PHP",
             reference=str(appointment_id),
             description=f"Appointment {appointment_id}",
+            success_url=final_success_url,
+            cancel_url=final_cancel_url,
         )
         payment = self.payments.create(
             appointment_id=appointment_id,
@@ -87,6 +113,32 @@ class PaymentUsecase:
 
     def _auto_confirms(self) -> bool:
         return self.provider.name == "fake"
+
+    def reconcile_pending_payment(
+        self, appointment_id: uuid.UUID
+    ) -> Payment | None:
+        """Check the payment gateway for a pending checkout's status and apply it.
+
+        Returns the updated Payment if the gateway reported a terminal state
+        (paid or failed/expired), otherwise None.
+        """
+        existing = self.payments.get_pending(appointment_id)
+        if existing is None or not existing.provider_ref:
+            return None
+
+        fetch_status = getattr(self.provider, "fetch_checkout_status", None)
+        if not callable(fetch_status):
+            return None
+
+        event = fetch_status(existing.provider_ref)
+        if event is None:
+            return None
+
+        return self.handle_webhook(
+            provider_ref=event.provider_ref or existing.provider_ref,
+            paid=event.paid,
+            payment_method=event.payment_method,
+        )
 
     def handle_webhook(
         self,

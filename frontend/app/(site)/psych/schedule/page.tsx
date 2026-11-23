@@ -399,7 +399,7 @@ export default function PsychologistSchedulePage() {
                     </span>
                     <span className="text-mist">·</span>
                     <span className="font-semibold text-accent-ink">
-                      {session.personaLabel} ({session.personaType})
+                      {session.profileLabel} ({session.profileType})
                     </span>
                     <span className="text-mist">·</span>
                     <span className="text-pine/70 font-mono">
@@ -560,20 +560,20 @@ export default function PsychologistSchedulePage() {
                 {isExpanded && (
                   <div className="border-t border-mist pt-5 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-xs">
-                      {/* Left Column: Client / Persona & Payment Status */}
+                      {/* Left Column: Client / Profile & Payment Status */}
                       <div className="space-y-4">
                         <h3 className="font-heading text-lg font-medium text-pine border-b border-mist pb-2">
-                          Client &amp; Persona Profile
+                          Client Profile
                         </h3>
 
                         <div className="space-y-2">
                           <div className="flex justify-between border-b border-mist/50 pb-1.5">
-                            <span className="text-pine/70">Persona Label:</span>
-                            <span className="font-semibold text-pine">{session.personaLabel}</span>
+                            <span className="text-pine/70">Profile Label:</span>
+                            <span className="font-semibold text-pine">{session.profileLabel}</span>
                           </div>
                           <div className="flex justify-between border-b border-mist/50 pb-1.5">
                             <span className="text-pine/70">Booking Type:</span>
-                            <span className="font-semibold text-pine uppercase">{session.personaType}</span>
+                            <span className="font-semibold text-pine uppercase">{session.profileType}</span>
                           </div>
                           <div className="flex justify-between border-b border-mist/50 pb-1.5">
                             <span className="text-pine/70">Payment Status:</span>
@@ -694,7 +694,7 @@ export default function PsychologistSchedulePage() {
           <div className="space-y-4 text-sm text-pine/85">
             <div className="rounded-lg border border-mist bg-surface-raised p-3 text-xs">
               <p className="font-semibold text-pine">
-                {completionTarget.personaLabel} · {completionTarget.serviceTitle}
+                {completionTarget.profileLabel} · {completionTarget.serviceTitle}
               </p>
               {completionSlot && (
                 <p className="mt-1 text-pine/75">
@@ -751,7 +751,7 @@ export default function PsychologistSchedulePage() {
           open
           onClose={closeReviewModal}
           title={`Review Schedules — #${reviewTarget.id}`}
-          description={`${reviewTarget.serviceTitle} (${reviewTarget.serviceDuration}) · ${reviewTarget.personaLabel} · Fee: ₱${reviewTarget.pricePhp?.toLocaleString() ?? '—'}`}
+          description={`${reviewTarget.serviceTitle} (${reviewTarget.serviceDuration}) · ${reviewTarget.profileLabel} · Fee: ₱${reviewTarget.pricePhp?.toLocaleString() ?? '—'}`}
           maxWidth="2xl"
         >
           <form onSubmit={handleReviewSubmit} className="space-y-5">

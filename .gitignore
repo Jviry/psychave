@@ -63,3 +63,6 @@ SKILLS.md
 
 # Sensitive? Docs
 *.pdf
+
+# Graphs
+graphify-out/

@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = []
 
     AWS_REGION: str = ""
+    AWS_PROFILE: str | None = None
+    AWS_ACCESS_KEY_ID: str | None = None
+    AWS_SECRET_ACCESS_KEY: str | None = None
     COGNITO_USER_POOL_ID: str = ""
     COGNITO_APP_CLIENT_ID: str = ""
     EMAIL_FROM_NAME: str = "PsychAvenuePH"
@@ -38,6 +41,14 @@ class Settings(BaseSettings):
         if schema and not _PG_SCHEMA_RE.match(schema):
             raise ValueError(f"Invalid PostgreSQL schema identifier: {v!r}")
         return schema
+
+    # Payments
+    PAYMENT_PROVIDER: str | None = None
+    PAYMONGO_SECRET_KEY: str = ""
+    PAYMONGO_PUBLIC_KEY: str = ""
+    PAYMONGO_WEBHOOK_SECRET: str = ""
+    PAYMONGO_API_BASE_URL: str = "https://api.paymongo.com/v1"
+    FRONTEND_URL: str = "http://localhost:3000"
 
     model_config = SettingsConfigDict(
         env_file=(BASE_DIR / ".env", ".env"),

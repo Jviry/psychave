@@ -3,27 +3,66 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { X, Loader2, AlertCircle, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { X, Loader2, AlertCircle, Eye, EyeOff, ArrowLeft, RefreshCcw } from 'lucide-react';
 import {
   forgotPasswordRequestSchema,
   forgotPasswordConfirmSchema,
+  getPasswordStrength,
   type ForgotPasswordRequestValues,
   type ForgotPasswordConfirmValues,
+  type PasswordStrength,
 } from '../../lib/authSchemas';
-import { authApi } from '../../authApi';
+import { authApi, AuthApiError } from '../../authApi';
 import { Button, Input, Label } from '../ui/primitives';
 
 type Step = 'request' | 'confirm';
 
 interface ForgotPasswordModalProps {
+  initialUsername?: string;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalProps) {
+const STRENGTH_CONFIG: Record<
+  PasswordStrength,
+  { label: string; trackClass: string; textClass: string; width: string }
+> = {
+  weak: { label: 'Weak', trackClass: 'bg-red-500', textClass: 'text-red-600', width: '25%' },
+  fair: { label: 'Fair', trackClass: 'bg-amber-500', textClass: 'text-amber-600', width: '50%' },
+  good: { label: 'Good', trackClass: 'bg-sage', textClass: 'text-accent-ink', width: '75%' },
+  strong: { label: 'Strong', trackClass: 'bg-pine', textClass: 'text-pine', width: '100%' },
+};
+
+function PasswordStrengthBar({ password }: { password: string }) {
+  if (!password) return null;
+  const strength = getPasswordStrength(password);
+  const config = STRENGTH_CONFIG[strength];
+  return (
+    <div className="mt-2 space-y-1">
+      <div className="h-1 rounded-full bg-mist overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-[width] duration-300 ${config.trackClass}`}
+          style={{ width: config.width }}
+        />
+      </div>
+      <p className={`text-xs ${config.textClass}`}>{config.label} password</p>
+    </div>
+  );
+}
+
+export function ForgotPasswordModal({
+  initialUsername = '',
+  onClose,
+  onSuccess,
+}: ForgotPasswordModalProps) {
+  const router = useRouter();
   const [step, setStep] = useState<Step>('request');
   const [isLoading, setIsLoading] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [unconfirmedUsername, setUnconfirmedUsername] = useState<string | null>(null);
   const [submittedUsername, setSubmittedUsername] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
@@ -38,9 +77,17 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
+  // Cooldown countdown
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
   // Step 1 form
   const requestForm = useForm<ForgotPasswordRequestValues>({
     resolver: zodResolver(forgotPasswordRequestSchema),
+    defaultValues: { username: initialUsername },
     mode: 'onBlur',
   });
 
@@ -50,18 +97,52 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
     mode: 'onBlur',
   });
 
+  const newPasswordValue = confirmForm.watch('newPassword', '');
+
   const handleRequest = async (data: ForgotPasswordRequestValues) => {
+    const trimmed = data.username.trim();
     setIsLoading(true);
     setApiError(null);
+    setUnconfirmedUsername(null);
     try {
-      await authApi.requestForgotPassword(data.username);
-      setSubmittedUsername(data.username);
-      confirmForm.setValue('username', data.username);
+      await authApi.requestForgotPassword(trimmed);
+      setSubmittedUsername(trimmed);
+      confirmForm.setValue('username', trimmed);
+      setCooldown(60);
       setStep('confirm');
     } catch (err) {
-      setApiError(err instanceof Error ? err.message : 'Failed to send code. Please try again.');
+      if (err instanceof AuthApiError && err.code === 'USER_NOT_CONFIRMED') {
+        setUnconfirmedUsername(trimmed);
+        setApiError(
+          'Your account email must be verified before you can reset your password.'
+        );
+      } else if (err instanceof AuthApiError && err.status === 429) {
+        if (err.retryAfter) setCooldown(err.retryAfter);
+        setApiError(err.message);
+      } else {
+        setApiError(err instanceof Error ? err.message : 'Failed to send code. Please try again.');
+      }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!submittedUsername || cooldown > 0) return;
+    setIsResending(true);
+    setApiError(null);
+    try {
+      await authApi.requestForgotPassword(submittedUsername);
+      setCooldown(60);
+    } catch (err) {
+      if (err instanceof AuthApiError && err.status === 429 && err.retryAfter) {
+        setCooldown(err.retryAfter);
+      }
+      setApiError(
+        err instanceof Error ? err.message : 'Unable to resend reset code. Please try again.'
+      );
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -117,8 +198,8 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
           </h3>
           <p className="text-sm text-pine/60">
             {step === 'request'
-              ? "Enter your username and we'll send a verification code to your email."
-              : `Enter the code sent to your email and choose a new password.`}
+              ? 'Enter your username to receive a password reset verification code.'
+              : 'If an account matches that username, a reset code was sent to its registered email.'}
           </p>
         </div>
 
@@ -135,9 +216,29 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
         </div>
 
         {apiError && (
-          <div role="alert" className="mb-5 flex items-start gap-3 p-3.5 rounded-lg bg-red-50 border border-red-200">
-            <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-            <p className="text-sm text-red-800">{apiError}</p>
+          <div role="alert" className="mb-5 space-y-2 p-3.5 rounded-lg bg-red-50 border border-red-200">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <p className="text-sm text-red-800">{apiError}</p>
+            </div>
+            {unconfirmedUsername && (
+              <div className="pl-7">
+                <Button
+                  id="fp-verify-email-redirect"
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    onClose();
+                    router.push(
+                      `/verify-email?username=${encodeURIComponent(unconfirmedUsername)}`
+                    );
+                  }}
+                >
+                  Verify your email
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
@@ -172,7 +273,14 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
               className="w-full"
               disabled={isLoading}
             >
-              {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" />Sending…</> : 'Send Code'}
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Sending…
+                </>
+              ) : (
+                'Send Code'
+              )}
             </Button>
           </form>
         ) : (
@@ -225,10 +333,12 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
                   {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              {confirmForm.formState.errors.newPassword && (
+              {confirmForm.formState.errors.newPassword ? (
                 <p role="alert" className="mt-1.5 text-xs text-red-600">
                   {confirmForm.formState.errors.newPassword.message}
                 </p>
+              ) : (
+                <PasswordStrengthBar password={newPasswordValue} />
               )}
             </div>
 
@@ -250,7 +360,11 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
                   aria-label={showConfirmNewPassword ? 'Hide password' : 'Show password'}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-pine/40 hover:text-pine cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
                 >
-                  {showConfirmNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showConfirmNewPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
               </div>
               {confirmForm.formState.errors.confirmNewPassword && (
@@ -267,12 +381,41 @@ export function ForgotPasswordModal({ onClose, onSuccess }: ForgotPasswordModalP
               className="w-full"
               disabled={isLoading}
             >
-              {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" />Resetting…</> : 'Reset Password'}
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Resetting…
+                </>
+              ) : (
+                'Reset Password'
+              )}
             </Button>
+
+            <div className="text-center pt-1">
+              {cooldown > 0 ? (
+                <p className="text-xs text-pine/50">
+                  Resend code in <span className="font-semibold text-pine">{cooldown}s</span>
+                </p>
+              ) : (
+                <button
+                  id="fp-resend-code"
+                  type="button"
+                  onClick={handleResend}
+                  disabled={isResending}
+                  className="inline-flex items-center gap-1.5 text-xs text-sage hover:text-pine font-semibold transition-colors cursor-pointer disabled:opacity-60 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
+                >
+                  <RefreshCcw className="w-3 h-3" />
+                  {isResending ? 'Sending…' : 'Resend reset code'}
+                </button>
+              )}
+            </div>
 
             <button
               type="button"
-              onClick={() => { setStep('request'); setApiError(null); }}
+              onClick={() => {
+                setStep('request');
+                setApiError(null);
+              }}
               className="w-full flex items-center justify-center gap-1.5 text-xs text-pine/50 hover:text-pine transition-colors duration-150 cursor-pointer py-1 focus-visible:outline-2 focus-visible:outline-sage focus-visible:outline-offset-2"
             >
               <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />

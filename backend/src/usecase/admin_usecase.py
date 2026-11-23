@@ -1,23 +1,44 @@
+from datetime import datetime, timedelta, timezone
 import logging
+import secrets
 import uuid
 
 from sqlmodel import Session
 
 from common.exceptions import ConflictError, NotFoundError, ValidationError
+from common.settings import settings
+from dependencies.email import get_email_service
+from interfaces.auth import AuthService
 from models.user import User, UserRole
+from repo.psychologist_invitation_repo import PsychologistInvitationRepo
 from repo.user_repo import UserRepository
-from schemas.admin import AdminUserPage, AdminUserRead, PromotePsychologistRequest
-from services.aws.cognito_service import CognitoService
+from schemas.admin import (
+    AdminUserPage,
+    AdminUserRead,
+    PromotePsychologistRequest,
+    PsychologistInvitationCreate,
+    PsychologistInvitationRead,
+)
+from services.email.base import BaseEmailService
 
 logger = logging.getLogger("uvicorn.error")
+
+INVITATION_EXPIRY_HOURS = 48
 
 
 class AdminUsecase:
 
-    def __init__(self, service: CognitoService, db: Session):
+    def __init__(
+        self,
+        service: AuthService,
+        db: Session,
+        email_service: BaseEmailService | None = None,
+    ):
         self.auth = service
         self.db = db
         self.user_repo = UserRepository(db)
+        self.invitation_repo = PsychologistInvitationRepo(db)
+        self.email_service = email_service or get_email_service()
 
     def list_users(
         self,
@@ -57,6 +78,14 @@ class AdminUsecase:
             return self._read_user(user)
 
         if (
+            current_role == UserRole.CLIENT
+            and target_role == UserRole.PSYCHOLOGIST
+        ):
+            raise ConflictError(
+                "Client accounts cannot be changed to psychologist. Send a psychologist invitation instead."
+            )
+
+        if (
             current_role == UserRole.ADMIN
             and self.user_repo.count_by_role(UserRole.ADMIN) <= 1
         ):
@@ -64,6 +93,49 @@ class AdminUsecase:
 
         resolved_name = self._resolve_full_name(user, target_role, full_name)
         return self._change_role(user, target_role, resolved_name)
+
+    def invite_psychologist(
+        self,
+        payload: PsychologistInvitationCreate,
+        acting_admin_id: uuid.UUID,
+    ) -> PsychologistInvitationRead:
+        email = str(payload.email).strip().lower()
+
+        if self.user_repo.get_by_email(email) is not None:
+            raise ConflictError("An account with this email is already registered")
+        if self.auth.get_username_by_email(email) is not None:
+            raise ConflictError("An account with this email is already registered")
+
+        now = datetime.now(timezone.utc)
+        self.invitation_repo.revoke_pending_for_email(email, revoked_at=now)
+
+        raw_token = secrets.token_urlsafe(32)
+        expires_at = now + timedelta(hours=INVITATION_EXPIRY_HOURS)
+        invitation = self.invitation_repo.create(
+            email=email,
+            raw_token=raw_token,
+            invited_by=acting_admin_id,
+            expires_at=expires_at,
+        )
+
+        base_url = (
+            settings.FRONTEND_BASE_URL or settings.FRONTEND_URL
+        ).rstrip("/")
+        invitation_url = f"{base_url}/register/psychologist?token={raw_token}"
+
+        self.email_service.send_psychologist_invitation(
+            to=email,
+            invitation_url=invitation_url,
+            expires_hours=INVITATION_EXPIRY_HOURS,
+        )
+
+        return PsychologistInvitationRead(
+            invitation_id=invitation.invitation_id,
+            email=invitation.email,
+            invitation_url=invitation_url,
+            expires_at=invitation.expires_at,
+            created_at=invitation.created_at,
+        )
 
     def promote_to_psychologist(
         self, user_id: uuid.UUID, payload: PromotePsychologistRequest

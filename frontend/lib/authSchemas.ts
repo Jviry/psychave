@@ -91,6 +91,57 @@ export const forgotPasswordConfirmSchema = z
 export type ForgotPasswordConfirmValues = z.infer<typeof forgotPasswordConfirmSchema>;
 
 // ──────────────────────────────────────────────
+// Invited Psychologist Registration schema
+// ──────────────────────────────────────────────
+export const psychologistInviteRegisterSchema = z
+  .object({
+    username: usernameSchema,
+    password: passwordSchema,
+    confirmPassword: z.string(),
+    fullName: z
+      .string()
+      .trim()
+      .min(2, 'Full name must be at least 2 characters')
+      .max(120, 'Full name must be under 120 characters'),
+    prcCredentialCode: z
+      .string()
+      .trim()
+      .min(3, 'PRC license credential code must be at least 3 characters')
+      .max(80, 'Credential code must be under 80 characters'),
+    specialization: z
+      .string()
+      .trim()
+      .min(3, 'Specialization must be at least 3 characters')
+      .max(150, 'Specialization must be under 150 characters'),
+    bio: z
+      .string()
+      .trim()
+      .min(10, 'Professional bio must be at least 10 characters')
+      .max(1000, 'Professional bio must be under 1,000 characters'),
+    socialMediaLinks: z
+      .array(
+        z.object({
+          platform: z.string().trim().min(1, 'Choose a platform'),
+          url: z
+            .string()
+            .trim()
+            .min(1, 'Add the profile URL')
+            .url('Enter a valid URL starting with http:// or https://'),
+        })
+      )
+      .min(1, 'Add at least one social media contact link')
+      .max(6, 'Add up to 6 social media links'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+
+export type PsychologistInviteRegisterFormValues = z.infer<
+  typeof psychologistInviteRegisterSchema
+>;
+
+// ──────────────────────────────────────────────
 // Password strength util (used by live indicator)
 // ──────────────────────────────────────────────
 export type PasswordStrength = 'weak' | 'fair' | 'good' | 'strong';

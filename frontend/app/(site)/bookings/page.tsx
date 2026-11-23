@@ -2,25 +2,25 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../../lib/api';
-import { useAppStore } from '../../../stores/useAppStore';
+import { api } from '@/lib/api';
+import { useAppStore } from '@/stores/useAppStore';
 import { useRouter } from 'next/navigation';
-import { BookingStatus } from '../../../lib/types';
+import { BookingStatus } from '@/lib/types';
 import {
   agreedSlot,
   clientPreferredSlots,
   formatDeadlineCountdown,
   formatManilaDateTime,
   psychologistCounterSlot,
-} from '../../../lib/booking';
+} from '@/lib/booking';
 import { Clock } from 'lucide-react';
-import { SocialLinksList } from '../../../components/SocialLinksList';
+import { SocialLinksList } from '@/components/SocialLinksList';
 import {
   BookingStatusTag,
   Button,
   Card,
   Skeleton,
-} from '../../../components/ui/primitives';
+} from '@/components/ui/primitives';
 
 const FILTER_TABS: { id: 'all' | BookingStatus; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -61,7 +61,7 @@ function PreferredScheduleList({
 export default function ClientBookingsPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
-  const { publishFlowEvent } = useAppStore();
+  const publishFlowEvent = useAppStore((s) => s.publishFlowEvent);
   const [statusFilter, setStatusFilter] = useState<'all' | BookingStatus>('all');
 
   const { data: bookings = [], isLoading } = useQuery({
@@ -113,9 +113,9 @@ export default function ClientBookingsPage() {
         <Button
           variant="primary"
           size="md"
-          onClick={() => router.push('/personas')}
+          onClick={() => router.push('/book')}
         >
-          + New Persona Booking Request
+          + New Booking Request
         </Button>
       </header>
 
@@ -194,14 +194,14 @@ export default function ClientBookingsPage() {
             No Bookings Matching Selected Status
           </p>
           <p className="text-sm text-pine/75 max-w-md mx-auto">
-            Start a new booking under a Self or Dependent persona, or switch the filter above
+            Start a new booking under a Self or Dependent profile, or switch the filter above
             to view all existing bookings.
           </p>
           <div className="flex justify-center gap-3">
             <Button variant="outline" size="sm" onClick={() => setStatusFilter('all')}>
               Reset Filter
             </Button>
-            <Button variant="primary" size="sm" onClick={() => router.push('/personas')}>
+            <Button variant="primary" size="sm" onClick={() => router.push('/book')}>
               Start Booking
             </Button>
           </div>
@@ -228,7 +228,7 @@ export default function ClientBookingsPage() {
                       {booking.id}
                     </span>
                     <span aria-hidden="true">·</span>
-                    <span>Persona: {booking.personaLabel}</span>
+                    <span>Profile: {booking.profileLabel}</span>
                     <span aria-hidden="true">·</span>
                     <span>Submitted {booking.submittedAt}</span>
                   </div>
