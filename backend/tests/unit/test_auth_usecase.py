@@ -474,3 +474,35 @@ def test_forgot_password_anti_enumeration_unconfirmed_and_rate_limit(auth_usecas
             ),
             client_ip="1.2.3.4",
         )
+
+
+def test_cognito_service_forwards_aws_session_token(monkeypatch):
+    import services.auth.cognito_service as cognito_mod
+
+    captured: dict = {}
+
+    class DummySession:
+        def __init__(self, **kwargs):
+            captured["session_kwargs"] = kwargs
+
+        def client(self, service_name, region_name=None):
+            captured["service_name"] = service_name
+            captured["region_name"] = region_name
+            return object()
+
+    monkeypatch.setattr(cognito_mod.boto3, "Session", DummySession)
+    monkeypatch.setattr(cognito_mod.settings, "AWS_PROFILE", None)
+    monkeypatch.setattr(cognito_mod.settings, "AWS_ACCESS_KEY_ID", "ASIA_TEST_KEY")
+    monkeypatch.setattr(cognito_mod.settings, "AWS_SECRET_ACCESS_KEY", "SECRET_TEST_KEY")
+    monkeypatch.setattr(cognito_mod.settings, "AWS_SESSION_TOKEN", "SESSION_TOKEN_123")
+    monkeypatch.setattr(cognito_mod.settings, "AWS_REGION", "ap-southeast-1")
+
+    cognito_mod.CognitoService(client_id="cid", user_pool_id="pid")
+
+    assert captured["session_kwargs"] == {
+        "aws_access_key_id": "ASIA_TEST_KEY",
+        "aws_secret_access_key": "SECRET_TEST_KEY",
+        "aws_session_token": "SESSION_TOKEN_123",
+    }
+    assert captured["service_name"] == "cognito-idp"
+    assert captured["region_name"] == "ap-southeast-1"

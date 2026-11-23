@@ -74,6 +74,8 @@ class CognitoService(AuthService):
             if settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY:
                 session_kwargs["aws_access_key_id"] = settings.AWS_ACCESS_KEY_ID
                 session_kwargs["aws_secret_access_key"] = settings.AWS_SECRET_ACCESS_KEY
+                if settings.AWS_SESSION_TOKEN:
+                    session_kwargs["aws_session_token"] = settings.AWS_SESSION_TOKEN
 
             session = boto3.Session(**session_kwargs)
             self.client = session.client(
