@@ -26,6 +26,48 @@ def upgrade() -> None:
     op.alter_column("forms", "persona_id", new_column_name="profile_id")
     op.alter_column("appointments", "persona_id", new_column_name="profile_id")
     op.execute(
+        """
+        WITH ranked_self_profiles AS (
+            SELECT
+                p.profile_id,
+                FIRST_VALUE(p.profile_id) OVER (
+                    PARTITION BY p.client_id
+                    ORDER BY
+                        (SELECT MAX(f.signed_at) FROM forms f WHERE f.profile_id = p.profile_id) DESC NULLS LAST,
+                        p.profile_id ASC
+                ) AS canonical_profile_id,
+                ROW_NUMBER() OVER (
+                    PARTITION BY p.client_id
+                    ORDER BY
+                        (SELECT MAX(f.signed_at) FROM forms f WHERE f.profile_id = p.profile_id) DESC NULLS LAST,
+                        p.profile_id ASC
+                ) AS rn
+            FROM profiles p
+            WHERE p.relation_to_account_holder = 'self_'
+        ),
+        duplicates AS (
+            SELECT profile_id, canonical_profile_id
+            FROM ranked_self_profiles
+            WHERE rn > 1
+        ),
+        reassign_forms AS (
+            UPDATE forms
+            SET profile_id = d.canonical_profile_id
+            FROM duplicates d
+            WHERE forms.profile_id = d.profile_id
+        ),
+        reassign_appointments AS (
+            UPDATE appointments
+            SET profile_id = d.canonical_profile_id
+            FROM duplicates d
+            WHERE appointments.profile_id = d.profile_id
+        )
+        DELETE FROM profiles
+        USING duplicates d
+        WHERE profiles.profile_id = d.profile_id
+        """
+    )
+    op.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_profiles_one_self_per_client "
         "ON profiles (client_id) WHERE relation_to_account_holder = 'self_'"
     )

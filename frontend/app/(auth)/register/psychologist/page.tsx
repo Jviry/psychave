@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useFieldArray, useForm } from 'react-hook-form';
@@ -61,7 +61,7 @@ const strengthConfig: Record<
   strong: { label: 'Strong', color: 'bg-sage', width: 'w-full' },
 };
 
-export default function PsychologistInviteRegisterPage() {
+function PsychologistInviteRegisterContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = (searchParams.get('token') || '').trim();
@@ -524,5 +524,17 @@ export default function PsychologistInviteRegisterPage() {
         </form>
       </Card>
     </div>
+  );
+}
+
+export default function PsychologistInviteRegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="w-full max-w-lg h-96 bg-surface-raised rounded-lg border border-mist" />
+      }
+    >
+      <PsychologistInviteRegisterContent />
+    </Suspense>
   );
 }
