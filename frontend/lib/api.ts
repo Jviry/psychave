@@ -1078,7 +1078,6 @@ export const api = {
 
     if (
       payment?.checkout_url &&
-      payment.provider !== 'fake' &&
       payment.status !== 'paid'
     ) {
       if (typeof window !== 'undefined') {

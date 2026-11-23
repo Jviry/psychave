@@ -16,7 +16,7 @@ class Payment(SQLModel, table=True):
     appointment_id: uuid.UUID = Field(foreign_key="appointments.appointment_id")
     amount: float
     payment_method: str | None = None
-    provider: str = "fake"
+    provider: str = "paymongo"
     provider_ref: str | None = Field(default=None, index=True)
     checkout_url: str | None = None
     status: PaymentStatus = PaymentStatus.PENDING
