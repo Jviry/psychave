@@ -13,7 +13,6 @@ export type WizardReturnTo = 'booking' | 'manage' | null;
 export type WizardMode = 'create' | 'resign';
 
 export interface ProfileWizardDraft {
-  whoFor: 'myself' | 'someone_else';
   relation_to_account_holder: RelationToAccountHolder;
   terms_signer_name: string;
   terms_signer_relation: TermsSignerRelation;
@@ -40,7 +39,6 @@ export interface ProfileWizardDraft {
 }
 
 export const DEFAULT_WIZARD_DRAFT: ProfileWizardDraft = {
-  whoFor: 'someone_else',
   relation_to_account_holder: 'child',
   terms_signer_name: '',
   terms_signer_relation: 'parent',
@@ -137,7 +135,6 @@ export function clearWizardDraftStorage() {
 }
 
 const TOP_LEVEL_DRAFT_KEYS = new Set<string>([
-  'whoFor',
   'relation_to_account_holder',
   'terms_signer_name',
   'terms_signer_relation',
@@ -172,7 +169,6 @@ export function getDraftFieldValue(draft: ProfileWizardDraft, fieldKey: string):
 export function getDraftLookupMap(draft: ProfileWizardDraft): Record<string, unknown> {
   return {
     ...draft.customValues,
-    whoFor: draft.whoFor,
     relation_to_account_holder: draft.relation_to_account_holder,
     terms_signer_name: draft.terms_signer_name,
     terms_signer_relation: draft.terms_signer_relation,
@@ -226,7 +222,6 @@ export const useProfileWizardStore = create<ProfileWizardState>((set) => ({
       const details = (profile.details || {}) as Record<string, unknown>;
       const draft: ProfileWizardDraft = {
         ...DEFAULT_WIZARD_DRAFT,
-        whoFor: isSelf ? 'myself' : 'someone_else',
         relation_to_account_holder: (profile.relationshipToClient ||
           (isSelf ? 'self' : 'child')) as RelationToAccountHolder,
         terms_signer_name: isSelf ? profile.label : '',
@@ -279,19 +274,6 @@ export const useProfileWizardStore = create<ProfileWizardState>((set) => ({
           ...(partial.customValues || {}),
         },
       };
-      if (partial.whoFor === 'myself') {
-        next = {
-          ...next,
-          relation_to_account_holder: 'self',
-          terms_signer_relation: 'self',
-        };
-      } else if (partial.whoFor === 'someone_else' && next.relation_to_account_holder === 'self') {
-        next = {
-          ...next,
-          relation_to_account_holder: 'child',
-          terms_signer_relation: 'parent',
-        };
-      }
       if (partial.sameAsPermanent === true) {
         next = { ...next, present_address: next.permanent_address };
       }
@@ -319,15 +301,6 @@ export const useProfileWizardStore = create<ProfileWizardState>((set) => ({
             [normalizedKey]: value,
           },
         };
-      }
-      if (normalizedKey === 'whoFor') {
-        if (value === 'myself') {
-          next.relation_to_account_holder = 'self';
-          next.terms_signer_relation = 'self';
-        } else if (next.relation_to_account_holder === 'self') {
-          next.relation_to_account_holder = 'child';
-          next.terms_signer_relation = 'parent';
-        }
       }
       if (normalizedKey === 'permanent_address' && next.sameAsPermanent) {
         next.present_address = String(value ?? '');

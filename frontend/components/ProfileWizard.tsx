@@ -57,7 +57,7 @@ function validateDynamicPage(
   mode: 'create' | 'resign'
 ): Errors {
   const errs: Errors = {};
-  const isSelf = d.whoFor === 'myself' || d.relation_to_account_holder === 'self';
+  const isSelf = d.relation_to_account_holder === 'self';
   const lookup = getDraftLookupMap(d);
 
   for (const block of page.blocks) {
@@ -112,8 +112,8 @@ function validateDynamicPage(
     }
 
     if (key === 'terms_signer_relation') {
-      if (d.whoFor === 'myself' && strVal !== 'self') {
-        errs[key] = 'For "Myself", signer relation must be "self".';
+      if (d.relation_to_account_holder === 'self' && strVal !== 'self') {
+        errs[key] = 'For "Self", signer relation must be "self".';
       } else if (
         d.date_of_birth &&
         !isFutureDob(d.date_of_birth) &&
@@ -274,8 +274,7 @@ export function ProfileWizard({
   const safeStep = Math.min(Math.max(1, currentStep), totalSteps);
   const currentPage = activePages[safeStep - 1] || activePages[0];
 
-  const isSelf =
-    draft.whoFor === 'myself' || draft.relation_to_account_holder === 'self';
+  const isSelf = draft.relation_to_account_holder === 'self';
   const lookupMap = useMemo(() => getDraftLookupMap(draft), [draft]);
 
   const liveErrors = useMemo(
@@ -722,7 +721,7 @@ export function ProfileWizard({
   };
 
   const renderBlock = (block: WizardBlock) => {
-    if (mode === 'create' && block.blockId === 'who_for') return null;
+    if (block.blockId === 'who_for') return null;
     if (!isWizardBlockVisible(block, isSelf, lookupMap)) return null;
 
     if (block.type === 'scrollable_doc') {
