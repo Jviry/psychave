@@ -19,11 +19,11 @@ from models.consent_template import (
 
 REQUIRED_OPERATIONAL_KEYS = (
     "relation_to_account_holder",
+    "profile_name",
     "date_of_birth",
     "socmed_platform",
     "socmed_username",
 )
-NAME_KEY_ALIASES = ("persona_name", "profile_name")
 
 
 class WizardBlockType(str, Enum):
@@ -51,7 +51,6 @@ INPUT_BLOCK_TYPES = {
 
 
 class WizardFieldTarget(str, Enum):
-    PERSONA = "persona"
     PROFILE = "profile"
     CONSENT = "consent"
     UI = "ui"
@@ -239,8 +238,6 @@ class ConsentFormTemplateUpsert(SQLModel):
         missing_keys = [
             key for key in REQUIRED_OPERATIONAL_KEYS if key not in field_keys
         ]
-        if not any(alias in field_keys for alias in NAME_KEY_ALIASES):
-            missing_keys.append("persona_name")
 
         if missing_keys:
             raise ValueError(

@@ -10,10 +10,8 @@ MINOR_CUTOFF_AGE = 18
 
 _CORE_PROFILE_KEYS = {
     "profile_id",
-    "persona_id",
     "relation_to_account_holder",
     "profile_name",
-    "persona_name",
     "date_of_birth",
     "socmed_platform",
     "socmed_username",
@@ -53,14 +51,6 @@ class ProfileCreate(SQLModel):
     emergency_contact_name: str | None = None
     emergency_contact_relation: str | None = None
     emergency_contact_number: str | None = None
-
-    @model_validator(mode="before")
-    @classmethod
-    def normalize_name_alias(cls, data: Any) -> Any:
-        if isinstance(data, dict):
-            if "profile_name" not in data and "persona_name" in data:
-                data = {**data, "profile_name": data["persona_name"]}
-        return data
 
     @field_validator("date_of_birth")
     @classmethod

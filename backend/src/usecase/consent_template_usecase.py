@@ -28,7 +28,6 @@ from schemas.profile import (
 
 _OPERATIONAL_COLUMN_KEYS = {
     "relation_to_account_holder",
-    "persona_name",
     "profile_name",
     "date_of_birth",
     "socmed_platform",
@@ -184,7 +183,6 @@ class ConsentTemplateUsecase:
         context: dict[str, Any] = {
             "whoFor": "myself" if is_self else "someone_else",
             "relation_to_account_holder": rel_val,
-            "persona_name": profile_data.profile_name,
             "profile_name": profile_data.profile_name,
             "date_of_birth": profile_data.date_of_birth.isoformat(),
             "socmed_platform": profile_data.socmed_platform,
@@ -221,10 +219,7 @@ class ConsentTemplateUsecase:
                 if block.get("required"):
                     present_required_keys.add(field_key)
 
-                is_demographic = b_target in (
-                    WizardFieldTarget.PERSONA.value,
-                    WizardFieldTarget.PROFILE.value,
-                )
+                is_demographic = b_target == WizardFieldTarget.PROFILE.value
                 is_consent_or_custom = b_target in (
                     WizardFieldTarget.CONSENT.value,
                     WizardFieldTarget.CUSTOM.value,
@@ -316,7 +311,6 @@ class ConsentTemplateUsecase:
         context: dict[str, Any] = {
             "whoFor": "myself" if is_self else "someone_else",
             "relation_to_account_holder": rel_val,
-            "persona_name": profile.profile_name,
             "profile_name": profile.profile_name,
             "date_of_birth": (
                 profile.date_of_birth.isoformat()

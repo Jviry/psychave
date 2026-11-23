@@ -13,7 +13,7 @@ from alembic import op
 import sqlalchemy as sa
 import sqlmodel
 
-from src.models.consent_template import (
+from models.consent_template import (
     DEFAULT_CONSENT_VERSION,
     DEFAULT_FINAL_CONSENT_STATEMENT,
     DEFAULT_INFORMED_CONSENT_TEXT,
