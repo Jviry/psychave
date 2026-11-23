@@ -53,3 +53,21 @@ variable "frontend_base_url" {
   type    = string
   default = "https://psychave-dev.vercel.app"
 }
+
+variable "paymongo_secret_key" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+
+variable "paymongo_public_key" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+
+variable "paymongo_webhook_secret" {
+  type      = string
+  default   = ""
+  sensitive = true
+}

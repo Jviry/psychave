@@ -13,8 +13,11 @@ module "lambda" {
   email_from_name       = var.email_from_name
   email_from_email      = var.email_from_email
   email_reply_to        = var.email_reply_to
-  brevo_api_key         = var.brevo_api_key
-  frontend_base_url     = var.frontend_base_url
+  brevo_api_key           = var.brevo_api_key
+  frontend_base_url       = var.frontend_base_url
+  paymongo_secret_key     = var.paymongo_secret_key
+  paymongo_public_key     = var.paymongo_public_key
+  paymongo_webhook_secret = var.paymongo_webhook_secret
 }
 
 module "apigateway" {

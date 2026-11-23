@@ -72,3 +72,24 @@ variable "frontend_base_url" {
   type        = string
   default     = "http://localhost:3000"
 }
+
+variable "paymongo_secret_key" {
+  description = "PayMongo secret API key"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "paymongo_public_key" {
+  description = "PayMongo public API key"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "paymongo_webhook_secret" {
+  description = "PayMongo webhook signing secret"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

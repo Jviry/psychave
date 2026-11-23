@@ -26,8 +26,12 @@ resource "aws_lambda_function" "this" {
       EMAIL_FROM_NAME       = var.email_from_name
       EMAIL_FROM_EMAIL      = var.email_from_email
       EMAIL_REPLY_TO        = var.email_reply_to
-      BREVO_API_KEY         = var.brevo_api_key
-      FRONTEND_BASE_URL     = var.frontend_base_url
+      BREVO_API_KEY           = var.brevo_api_key
+      FRONTEND_BASE_URL       = var.frontend_base_url
+      FRONTEND_URL            = var.frontend_base_url
+      PAYMONGO_SECRET_KEY     = var.paymongo_secret_key
+      PAYMONGO_PUBLIC_KEY     = var.paymongo_public_key
+      PAYMONGO_WEBHOOK_SECRET = var.paymongo_webhook_secret
     }
   }
 }
