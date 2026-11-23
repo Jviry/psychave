@@ -183,7 +183,7 @@ def test_direct_pickup_payment_conflict_and_completion_flow(
     )
     assert second_pickup.status_code == 409
 
-    # 7. Client pays -> FakePaymentProvider auto-confirms appointment & unlocks social links
+    # 7. Client initiates payment (PayMongo checkout) -> webhook confirms appointment & unlocks social links
     pay_res = httpx.post(
         f"{api_url}/appointments/{appt_id}/payment",
         headers=client["auth_headers"],
@@ -191,7 +191,57 @@ def test_direct_pickup_payment_conflict_and_completion_flow(
         timeout=15,
     )
     assert pay_res.status_code == 200, pay_res.text
-    assert pay_res.json()["status"] == "paid"
+    payment_data = pay_res.json()
+    assert payment_data["status"] == "pending"
+    assert payment_data["provider"] == "paymongo"
+    assert payment_data["checkout_url"]
+    assert payment_data["provider_ref"]
+
+    import hashlib
+    import hmac
+    import json
+    import os
+    import time
+
+    webhook_secret = os.environ["PAYMONGO_WEBHOOK_SECRET"]
+    webhook_payload = json.dumps(
+        {
+            "data": {
+                "attributes": {
+                    "type": "checkout_session.payment.paid",
+                    "data": {
+                        "id": payment_data["provider_ref"],
+                        "attributes": {
+                            "payments": [
+                                {
+                                    "attributes": {
+                                        "source": {"type": "gcash"},
+                                    }
+                                }
+                            ]
+                        },
+                    },
+                }
+            }
+        }
+    ).encode("utf-8")
+    ts = str(int(time.time()))
+    sig = hmac.new(
+        webhook_secret.encode("utf-8"),
+        f"{ts}.{webhook_payload.decode('utf-8')}".encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    webhook_res = httpx.post(
+        f"{api_url}/payments/webhook",
+        content=webhook_payload,
+        headers={
+            "Content-Type": "application/json",
+            "Paymongo-Signature": f"t={ts},te={sig}",
+        },
+        timeout=15,
+    )
+    assert webhook_res.status_code == 200, webhook_res.text
+    assert webhook_res.json()["status"] == "paid"
 
     confirmed_res = httpx.get(
         f"{api_url}/appointments/{appt_id}",

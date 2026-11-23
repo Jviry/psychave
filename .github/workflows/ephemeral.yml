@@ -63,6 +63,10 @@ jobs:
 
       - name: OpenTofu Plan
         working-directory: infra/environments/dev
+        env:
+          TF_VAR_paymongo_secret_key: ${{ secrets.PAYMONGO_SECRET_KEY }}
+          TF_VAR_paymongo_public_key: ${{ secrets.PAYMONGO_PUBLIC_KEY }}
+          TF_VAR_paymongo_webhook_secret: ${{ secrets.PAYMONGO_WEBHOOK_SECRET }}
         run: |
           tofu plan \
             -var-file="dev.tfvars" \
@@ -82,6 +86,10 @@ jobs:
 
       - name: OpenTofu Apply
         working-directory: infra/environments/dev
+        env:
+          TF_VAR_paymongo_secret_key: ${{ secrets.PAYMONGO_SECRET_KEY }}
+          TF_VAR_paymongo_public_key: ${{ secrets.PAYMONGO_PUBLIC_KEY }}
+          TF_VAR_paymongo_webhook_secret: ${{ secrets.PAYMONGO_WEBHOOK_SECRET }}
         run: |
           tofu apply \
             -auto-approve \
@@ -104,6 +112,7 @@ jobs:
           COGNITO_USER_POOL_ID: ${{ steps.api.outputs.cognito_user_pool_id }}
           COGNITO_APP_CLIENT_ID: ${{ steps.api.outputs.cognito_app_client_id }}
           AWS_REGION: ${{ env.AWS_REGION }}
+          PAYMONGO_WEBHOOK_SECRET: ${{ secrets.PAYMONGO_WEBHOOK_SECRET }}
         run: |
           python -m pip install pytest httpx boto3 python-dotenv
           python -m pytest -v backend/tests/ephemeral
