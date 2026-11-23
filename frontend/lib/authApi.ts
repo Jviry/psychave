@@ -47,6 +47,22 @@ export interface ForgotPasswordConfirmCredentials {
   confirmationCode: string;
 }
 
+export interface PsychologistInvitationInfo {
+  email: string;
+  expiresAt: string;
+}
+
+export interface PsychologistInviteRegisterCredentials {
+  token: string;
+  username: string;
+  password: string;
+  fullName: string;
+  licenseNumber: string;
+  specialization: string;
+  bio: string;
+  socialMediaLinks: { platform: string; url: string }[];
+}
+
 interface MessageResponse {
   message: string;
 }
@@ -69,7 +85,12 @@ export class AuthApiError extends Error {
 
 // ─── HTTP helper ─────────────────────────────────────────────────────────────
 
-async function post<T>(endpoint: string, body: unknown, headers?: Record<string, string>): Promise<T> {
+async function request<T>(
+  method: 'GET' | 'POST',
+  endpoint: string,
+  body?: unknown,
+  headers?: Record<string, string>
+): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10_000);
 
@@ -77,9 +98,12 @@ async function post<T>(endpoint: string, body: unknown, headers?: Record<string,
     let res: Response;
     try {
       res = await fetch(`${API_BASE_URL}${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(headers || {}) },
-        body: JSON.stringify(body),
+        method,
+        headers: {
+          ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+          ...(headers || {}),
+        },
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
         signal: controller.signal,
       });
     } catch (err) {
@@ -112,6 +136,10 @@ async function post<T>(endpoint: string, body: unknown, headers?: Record<string,
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function post<T>(endpoint: string, body: unknown, headers?: Record<string, string>): Promise<T> {
+  return request<T>('POST', endpoint, body, headers);
 }
 
 // ─── API ─────────────────────────────────────────────────────────────────────
@@ -200,5 +228,38 @@ export const authApi = {
   logoutUser: async (accessToken: string): Promise<MessageResponse> =>
     post<MessageResponse>(`/auth/logout?access_token=${encodeURIComponent(accessToken)}`, {}, {
       Authorization: `Bearer ${accessToken}`,
+    }),
+
+  /**
+   * Validate a single-use psychologist invitation token and return the invited email.
+   */
+  verifyPsychologistInvitation: async (
+    token: string
+  ): Promise<PsychologistInvitationInfo> => {
+    const raw = await request<{ email: string; expires_at: string }>(
+      'GET',
+      `/auth/psychologist-invitations/${encodeURIComponent(token)}`
+    );
+    return {
+      email: raw.email,
+      expiresAt: raw.expires_at,
+    };
+  },
+
+  /**
+   * Complete psychologist registration using a single-use invitation token.
+   */
+  registerInvitedPsychologist: async (
+    input: PsychologistInviteRegisterCredentials
+  ): Promise<MessageResponse> =>
+    post<MessageResponse>('/auth/register-psychologist', {
+      token: input.token,
+      username: input.username,
+      password: input.password,
+      full_name: input.fullName,
+      license_number: input.licenseNumber,
+      specialization: input.specialization,
+      bio: input.bio,
+      social_media_links: input.socialMediaLinks,
     }),
 };

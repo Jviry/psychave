@@ -218,7 +218,7 @@ export default function PsychologistQueuePage() {
     if (!targetBooking) return;
 
     const price = Number(pickupPrice);
-    if (!Number.isFinite(price) || price < 500 || price > 25000) {
+    if (pickupPrice.trim() === '' || !Number.isFinite(price) || price <= 0) {
       return;
     }
 
@@ -232,9 +232,9 @@ export default function PsychologistQueuePage() {
 
   const review = reviewQuery.data;
   const priceInvalid =
+    pickupPrice.trim() === '' ||
     !Number.isFinite(Number(pickupPrice)) ||
-    Number(pickupPrice) < 500 ||
-    Number(pickupPrice) > 25000;
+    Number(pickupPrice) <= 0;
 
   return (
     <div className="space-y-8">
@@ -743,9 +743,7 @@ export default function PsychologistQueuePage() {
               <Input
                 id="pickup-price"
                 type="number"
-                min={500}
-                max={25000}
-                step={100}
+                step="any"
                 className="font-mono tabular-nums text-base"
                 placeholder="2500"
                 value={pickupPrice}
@@ -753,7 +751,7 @@ export default function PsychologistQueuePage() {
               />
               {priceInvalid && (
                 <p className="text-xs text-red-700 mt-1 font-medium">
-                  Session fee must be between ₱500 and ₱25,000.
+                  Session fee must be greater than ₱0.
                 </p>
               )}
             </div>

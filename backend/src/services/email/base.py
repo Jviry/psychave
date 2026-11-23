@@ -291,6 +291,34 @@ Choose the one that works for you and complete payment to confirm the session.</
         )
         self.send_email(to, subject, html, text)
 
+    def send_psychologist_invitation(
+        self,
+        to: str,
+        invitation_url: str,
+        expires_hours: int = 48,
+    ) -> None:
+        subject = "You have been invited to join PsychAvenuePH as a Psychologist"
+        text = (
+            "Hi,\n\n"
+            "An administrator has invited you to register as a verified psychologist "
+            "on PsychAvenuePH.\n\n"
+            "Use the single-use invitation link below to set up your credentials and "
+            "complete your practitioner profile:\n"
+            f"{invitation_url}\n\n"
+            f"This invitation link expires in {expires_hours} hours and can only be used once.\n\n"
+            f"{TEXT_FOOTER}"
+        )
+        html = self._wrap_html(
+            subject,
+            f"""\
+<p style="margin:0 0 16px;">An administrator has invited you to register as a verified psychologist on PsychAvenuePH.</p>
+<p style="margin:0 0 16px;">Use the single-use invitation link below to create your account credentials and complete your practitioner profile:</p>
+<p style="margin:0 0 16px;"><a href="{escape(invitation_url)}" style="color:#25372d;font-weight:600;">Complete psychologist registration</a></p>
+<p style="margin:0;font-size:13px;color:#5d8b69;">This link expires in {expires_hours} hours and can only be used once.</p>
+""",
+        )
+        self.send_email(to, subject, html, text)
+
     # ----- formatting -----
 
     @staticmethod

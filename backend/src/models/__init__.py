@@ -6,6 +6,7 @@ from models.forms import Forms
 from models.payment import Payment, PaymentStatus
 from models.profile import ContactMode, Profile, ProfileRelation
 from models.proposed_slot import ProposedSlot, SlotProposer, SlotStatus
+from models.psychologist_invitation import PsychologistInvitation
 from models.psychologist_profile import PsychologistProfile
 from models.service import Service
 from models.user import User, UserRole
@@ -15,6 +16,7 @@ __all__ = [
     "UserRole",
     "AdminProfile",
     "PsychologistProfile",
+    "PsychologistInvitation",
     "ClientProfile",
     "Profile",
     "ProfileRelation",

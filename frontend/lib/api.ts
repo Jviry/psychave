@@ -7,6 +7,7 @@ import {
   CognitoRole,
   Profile,
   ProfileReview,
+  PsychologistInvitation,
   ResidentPsychologist,
   ServiceItem,
   SlotProposer,
@@ -1075,6 +1076,20 @@ export const api = {
     }
     const payment = payRes.json as PaymentRaw | null;
 
+    if (
+      payment?.checkout_url &&
+      payment.provider !== 'fake' &&
+      payment.status !== 'paid'
+    ) {
+      if (typeof window !== 'undefined') {
+        window.location.assign(payment.checkout_url);
+      }
+      const appointment = await liveRequest<AppointmentRaw>(
+        `/appointments/${bookingId}`
+      );
+      return mapAppointmentRaw(appointment);
+    }
+
     for (let attempt = 0; attempt < 5; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 500));
       const appointment = await liveFetch(`/appointments/${bookingId}`);
@@ -1153,6 +1168,26 @@ export const api = {
       }),
     });
     return mapAdminUserRaw(raw);
+  },
+
+  invitePsychologist: async (email: string): Promise<PsychologistInvitation> => {
+    const raw = await liveRequest<{
+      invitation_id: string;
+      email: string;
+      invitation_url: string;
+      expires_at: string;
+      created_at: string;
+    }>('/admin/psychologist-invitations', {
+      method: 'POST',
+      body: JSON.stringify({ email: email.trim().toLowerCase() }),
+    });
+    return {
+      invitationId: raw.invitation_id,
+      email: raw.email,
+      invitationUrl: raw.invitation_url,
+      expiresAt: raw.expires_at,
+      createdAt: raw.created_at,
+    };
   },
 
   /**

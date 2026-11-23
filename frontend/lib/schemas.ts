@@ -60,8 +60,7 @@ export type BookingFormValues = z.infer<typeof bookingFormSchema>;
 export const pickupResponseSchema = z.object({
   pricePhp: z
     .number({ message: 'Enter a valid PHP session fee.' })
-    .min(500, 'Minimum session fee is ₱500.')
-    .max(25000, 'Maximum session fee is ₱25,000.'),
+    .positive('Session fee must be greater than ₱0.'),
 });
 
 export type PickupResponseValues = z.infer<typeof pickupResponseSchema>;

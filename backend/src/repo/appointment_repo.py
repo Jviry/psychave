@@ -61,16 +61,17 @@ class AppointmentRepo:
 
     def get_client_email(self, appointment: Appointment) -> str | None:
         profile = self.db.get(Profile, appointment.profile_id)
-        if profile is None:
+        client_id = getattr(profile, "client_id", None)
+        if client_id is None:
             return None
-        user = self.db.get(User, profile.client_id)
-        return user.email if user else None
+        user = self.db.get(User, client_id)
+        return getattr(user, "email", None)
 
     def get_psychologist_email(self, appointment: Appointment) -> str | None:
         if appointment.psychologist_id is None:
             return None
         user = self.db.get(User, appointment.psychologist_id)
-        return user.email if user else None
+        return getattr(user, "email", None)
 
     def get_for_client(self, client_id: uuid.UUID, status: AppointmentStatus | None = None) -> list[Appointment]:
         statement = (

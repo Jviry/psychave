@@ -205,4 +205,65 @@ describe('auth API — real fetch', () => {
       expect((err as InstanceType<typeof AuthApiError>).retryAfter).toBe(45);
     }
   });
+
+  it('verifyPsychologistInvitation calls GET /auth/psychologist-invitations/:token', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        email: 'dr.santos@example.com',
+        expires_at: '2026-11-24T12:00:00Z',
+      }),
+    });
+
+    const { authApi } = await import('../authApi');
+    const info = await authApi.verifyPsychologistInvitation('tok_abc123');
+
+    const [url, opts] = mockFetch.mock.calls[0];
+    expect(url).toContain('/auth/psychologist-invitations/tok_abc123');
+    expect(opts.method).toBe('GET');
+    expect(info).toEqual({
+      email: 'dr.santos@example.com',
+      expiresAt: '2026-11-24T12:00:00Z',
+    });
+  });
+
+  it('registerInvitedPsychologist calls POST /auth/register-psychologist', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        message: 'Psychologist account created successfully. You can now sign in.',
+      }),
+    });
+
+    const { authApi } = await import('../authApi');
+    const res = await authApi.registerInvitedPsychologist({
+      token: 'tok_abc123',
+      username: 'dr_santos',
+      password: 'StrongPassword1!',
+      fullName: 'Dr. Maria Santos, RPsy',
+      licenseNumber: 'PRC-RPSY-2024-001',
+      specialization: 'Trauma-Informed CBT',
+      bio: 'Licensed clinical psychologist specializing in trauma.',
+      socialMediaLinks: [
+        { platform: 'Facebook', url: 'https://facebook.com/dr.santos' },
+      ],
+    });
+
+    const [url, opts] = mockFetch.mock.calls[0];
+    expect(url).toContain('/auth/register-psychologist');
+    expect(opts.method).toBe('POST');
+    expect(JSON.parse(opts.body)).toEqual({
+      token: 'tok_abc123',
+      username: 'dr_santos',
+      password: 'StrongPassword1!',
+      full_name: 'Dr. Maria Santos, RPsy',
+      license_number: 'PRC-RPSY-2024-001',
+      specialization: 'Trauma-Informed CBT',
+      bio: 'Licensed clinical psychologist specializing in trauma.',
+      social_media_links: [
+        { platform: 'Facebook', url: 'https://facebook.com/dr.santos' },
+      ],
+    });
+    expect(res.message).toMatch(/Psychologist account created/i);
+  });
 });

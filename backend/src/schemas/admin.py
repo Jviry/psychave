@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import field_validator
+from pydantic import EmailStr, field_validator
 from sqlmodel import Field, SQLModel
 
 from models.user import UserRole
@@ -59,3 +59,20 @@ class PromotePsychologistRequest(SQLModel):
         if not value:
             raise ValueError("Full name is required")
         return value
+
+
+class PsychologistInvitationCreate(SQLModel):
+    email: EmailStr
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: EmailStr) -> str:
+        return str(value).strip().lower()
+
+
+class PsychologistInvitationRead(SQLModel):
+    invitation_id: uuid.UUID
+    email: str
+    invitation_url: str
+    expires_at: datetime
+    created_at: datetime

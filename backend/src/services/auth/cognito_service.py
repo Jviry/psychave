@@ -166,6 +166,45 @@ class CognitoService(AuthService):
                 is_confirmed=response.get("UserConfirmed", False),
             )
 
+    def create_confirmed_user(
+        self, username: str, email: str, password: str
+    ) -> SignUpResult:
+        with _handle_cognito_errors():
+            response = self.client.admin_create_user(
+                UserPoolId=self.user_pool_id,
+                Username=username,
+                MessageAction="SUPPRESS",
+                UserAttributes=[
+                    {"Name": "email", "Value": email},
+                    {"Name": "email_verified", "Value": "true"},
+                ],
+            )
+            try:
+                self.client.admin_set_user_password(
+                    UserPoolId=self.user_pool_id,
+                    Username=username,
+                    Password=password,
+                    Permanent=True,
+                )
+            except Exception:
+                try:
+                    self.client.admin_delete_user(
+                        UserPoolId=self.user_pool_id,
+                        Username=username,
+                    )
+                except Exception:
+                    pass
+                raise
+
+            attrs = {
+                a["Name"]: a["Value"]
+                for a in response.get("User", {}).get("Attributes", [])
+            }
+            return SignUpResult(
+                user_sub=attrs.get("sub", ""),
+                is_confirmed=True,
+            )
+
     def confirm_user(self, request: ConfirmUserRequest) -> None:
         with _handle_cognito_errors():
             self.client.confirm_sign_up(

@@ -26,7 +26,10 @@ class BrevoService(BaseEmailService):
 
     def __init__(self) -> None:
         super().__init__()
-        self.api_key = settings.BREVO_API_KEY
+        self.api_key = settings.BREVO_API_KEY.strip()
+        self.from_email = self.from_email.strip()
+        self.from_name = self.from_name.strip()
+        self.reply_to = self.reply_to.strip()
 
     def send_email(self, to: str, subject: str, html: str, text: str) -> None:
         """Send one transactional email via Brevo. Never raises."""
@@ -66,5 +69,14 @@ class BrevoService(BaseEmailService):
                 timeout=10.0,
             )
             response.raise_for_status()
+            logger.info("email sent via Brevo: %s -> %s", subject, to)
+        except httpx.HTTPStatusError as exc:
+            logger.error(
+                "failed to send email via Brevo (%s): %s -> %s | response=%s",
+                exc.response.status_code,
+                subject,
+                to,
+                exc.response.text,
+            )
         except httpx.HTTPError:
             logger.exception("failed to send email via Brevo: %s -> %s", subject, to)

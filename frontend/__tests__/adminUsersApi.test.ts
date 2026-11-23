@@ -118,4 +118,32 @@ describe('admin user directory', () => {
       api.updateAdminUserRole('usr-001', { role: 'client' })
     ).rejects.toThrow(/last admin/i);
   });
+
+  it('creates a psychologist invitation and maps response fields', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          invitation_id: 'inv-001',
+          email: 'dr.santos@example.com',
+          invitation_url:
+            'http://localhost:3000/register/psychologist?token=tok_123',
+          expires_at: '2026-11-24T12:00:00Z',
+          created_at: '2026-11-22T12:00:00Z',
+        }),
+        { status: 201 }
+      )
+    );
+
+    const { api } = await import('../lib/api');
+    const invited = await api.invitePsychologist('  Dr.Santos@example.com ');
+
+    const [url, opts] = mockFetch.mock.calls[0];
+    expect(String(url)).toContain('/admin/psychologist-invitations');
+    expect(opts.method).toBe('POST');
+    expect(JSON.parse(opts.body)).toEqual({ email: 'dr.santos@example.com' });
+    expect(invited.invitationId).toBe('inv-001');
+    expect(invited.invitationUrl).toBe(
+      'http://localhost:3000/register/psychologist?token=tok_123'
+    );
+  });
 });

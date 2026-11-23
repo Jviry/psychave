@@ -169,6 +169,14 @@ export interface AdminUserPage {
   pageSize: number;
 }
 
+export interface PsychologistInvitation {
+  invitationId: string;
+  email: string;
+  invitationUrl: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
 export interface TestimonialSlot {
   id: string;
   slotCode: string;

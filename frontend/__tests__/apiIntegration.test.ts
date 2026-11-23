@@ -209,6 +209,40 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
     );
   });
 
+  it('pay flow redirects to PayMongo checkout_url when provider returns a pending session', async () => {
+    const assignMock = vi.fn();
+    vi.stubGlobal('window', { location: { assign: assignMock } });
+
+    mockFetch.mockImplementation(async (url: string) => {
+      if (String(url).includes('/payment')) {
+        return new Response(
+          JSON.stringify({
+            provider: 'paymongo',
+            provider_ref: 'cs_test_123',
+            checkout_url: 'https://checkout.paymongo.com/cs_test_123',
+            status: 'pending',
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          ...APPOINTMENT_CONFIRMED,
+          selected_slot_id: SLOT_ROWS[0].slot_id,
+          status: 'awaiting_payment',
+          payment_deadline: '2026-12-04T10:00:00',
+        }),
+        { status: 200 }
+      );
+    });
+
+    const { api } = await import('../lib/api');
+    const result = await api.payBooking(APPOINTMENT_CONFIRMED.appointment_id);
+    expect(assignMock).toHaveBeenCalledWith('https://checkout.paymongo.com/cs_test_123');
+    expect(result.status).toBe('awaiting-payment');
+    vi.unstubAllGlobals();
+  });
+
   it('pickup atomically claims the request and accepts a preferred slot', async () => {
     mockFetch.mockImplementationOnce(async (url: string, init?: { method?: string; body?: string }) => {
       expect(url).toContain(`/appointments/${APPOINTMENT_CONFIRMED.appointment_id}/pickup`);

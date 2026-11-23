@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import {
@@ -10,7 +10,7 @@ import {
   formatManilaDateTime,
   psychologistCounterSlot,
 } from '@/lib/booking';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAppStore } from '@/stores/useAppStore';
 import { AlertCircle, Clock, Lock, Plus, Trash2 } from 'lucide-react';
 import { SocialLinksList } from '@/components/SocialLinksList';
@@ -41,17 +41,62 @@ function DeadlineNotice({ deadline }: { deadline: string }) {
 export default function ScheduleAgreementPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const routeParams = useParams<{ id: string }>();
   const bookingId = routeParams.id || '';
+  const paymentQueryState = searchParams.get('payment');
 
   const publishFlowEvent = useAppStore((s) => s.publishFlowEvent);
   const [actionError, setActionError] = useState<string | null>(null);
   const [newSlots, setNewSlots] = useState<string[]>(['', '', '']);
+  const [isRedirectingToCheckout, setIsRedirectingToCheckout] = useState(false);
+  const [pollingTimedOut, setPollingTimedOut] = useState(false);
+  const [pollingRestartKey, setPollingRestartKey] = useState(0);
+  const publishedWebhookConfirmRef = useRef(false);
 
   const { data: booking, isLoading } = useQuery({
     queryKey: ['booking', bookingId],
     queryFn: () => api.getBookingById(bookingId),
   });
+
+  useEffect(() => {
+    if (paymentQueryState !== 'success' || !booking) return;
+
+    if (booking.status === 'paid-confirmed') {
+      if (!publishedWebhookConfirmRef.current) {
+        publishedWebhookConfirmRef.current = true;
+        queryClient.invalidateQueries({ queryKey: ['bookings'] });
+        publishFlowEvent(
+          'Payment Confirmed & Contact Unlocked',
+          `Booking ${booking.id} is now paid-confirmed. Psychologist contact details unlocked and reminders scheduled.`
+        );
+      }
+      return;
+    }
+
+    if (booking.status !== 'awaiting-payment') return;
+
+    setPollingTimedOut(false);
+    const startedAt = Date.now();
+    const interval = setInterval(() => {
+      if (Date.now() - startedAt >= 30_000) {
+        setPollingTimedOut(true);
+        clearInterval(interval);
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
+    }, 2_000);
+
+    return () => clearInterval(interval);
+  }, [
+    paymentQueryState,
+    booking?.status,
+    booking?.id,
+    bookingId,
+    pollingRestartKey,
+     publishFlowEvent,
+    queryClient,
+  ]);
 
   const acceptCounterMutation = useMutation({
     mutationFn: (slotId: string) =>
@@ -88,6 +133,10 @@ export default function ScheduleAgreementPage() {
     mutationFn: () => api.payBooking(bookingId),
     onSuccess: (updated) => {
       setActionError(null);
+      if (updated.status !== 'paid-confirmed') {
+        setIsRedirectingToCheckout(true);
+        return;
+      }
       queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       publishFlowEvent(
@@ -95,7 +144,10 @@ export default function ScheduleAgreementPage() {
         `Booking ${updated.id} is now paid-confirmed. Psychologist contact details unlocked and reminders scheduled.`
       );
     },
-    onError: (err: Error) => setActionError(err.message),
+    onError: (err: Error) => {
+      setIsRedirectingToCheckout(false);
+      setActionError(err.message);
+    },
   });
 
   if (isLoading) {
@@ -512,6 +564,54 @@ export default function ScheduleAgreementPage() {
             {/* Agreed, awaiting payment */}
             {needsPayment && (
               <div className="space-y-4">
+                {paymentQueryState === 'success' && (
+                  <div
+                    role="status"
+                    className="rounded-lg border border-mint bg-parchment px-4 py-3 text-xs text-pine space-y-2"
+                  >
+                    <div className="flex items-center gap-2 font-semibold text-accent-ink">
+                      <Clock className="w-4 h-4 shrink-0" aria-hidden="true" />
+                      <span>
+                        {pollingTimedOut
+                          ? 'Still waiting for PayMongo webhook confirmation'
+                          : 'Confirming your payment…'}
+                      </span>
+                    </div>
+                    <p className="text-pine/80">
+                      {pollingTimedOut
+                        ? 'Your checkout completed, but the confirmation webhook has not arrived yet. Click below to check again.'
+                        : 'Checking payment confirmation from PayMongo. This page will update automatically as soon as the webhook arrives.'}
+                    </p>
+                    {pollingTimedOut && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setPollingTimedOut(false);
+                          setPollingRestartKey((k) => k + 1);
+                          queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
+                        }}
+                      >
+                        Check payment status again
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {paymentQueryState === 'cancelled' && (
+                  <div
+                    role="status"
+                    className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-950 space-y-1"
+                  >
+                    <p className="font-semibold">
+                      Payment was cancelled — your slot is still held until the deadline.
+                    </p>
+                    <p>
+                      You can retry payment anytime before the deadline below to finalize your booking.
+                    </p>
+                  </div>
+                )}
+
                 {chosenSlot ? (
                   <div className="rounded-xl border border-sage bg-surface-sunken p-4 space-y-1.5">
                     <p className="text-xs font-semibold uppercase tracking-wider text-accent-ink">
@@ -538,12 +638,20 @@ export default function ScheduleAgreementPage() {
                   variant="primary"
                   size="lg"
                   className="w-full"
-                  disabled={payMutation.isPending}
+                  disabled={
+                    payMutation.isPending ||
+                    isRedirectingToCheckout ||
+                    (paymentQueryState === 'success' && !pollingTimedOut)
+                  }
                   onClick={() => payMutation.mutate()}
                 >
-                  {payMutation.isPending
-                    ? 'Processing Payment…'
-                    : `Pay ₱${booking.pricePhp?.toLocaleString()} & Finalize Booking`}
+                  {isRedirectingToCheckout
+                    ? 'Redirecting to PayMongo…'
+                    : payMutation.isPending
+                      ? 'Processing Payment…'
+                      : paymentQueryState === 'cancelled'
+                        ? `Retry Payment (₱${booking.pricePhp?.toLocaleString()})`
+                        : `Pay ₱${booking.pricePhp?.toLocaleString()} & Finalize Booking`}
                 </Button>
                 <p className="text-xs text-pine/60">
                   Payment holds the agreed slot. If the deadline passes, the slot is released and

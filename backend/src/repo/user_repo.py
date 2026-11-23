@@ -25,6 +25,12 @@ class UserRepository:
     def get_by_sub(self, sub: str) -> User | None:
         return self.get_by_cognito_sub(sub)
 
+    def get_by_email(self, email: str) -> User | None:
+        normalized = email.strip().lower()
+        return self.session.exec(
+            select(User).where(func.lower(User.email) == normalized)
+        ).first()
+
     def list_users(
         self,
         role: UserRole | None,

@@ -4,6 +4,8 @@ from dependencies.auth import AuthServiceDep, CurrentUserDep, DbDep
 from schemas.auth_model import (
     ConfirmUserRequest,
     ForgotPasswordConfirm,
+    PsychologistInvitationVerifyRead,
+    PsychologistInviteRegisterRequest,
     UserCreate,
     UserLogin,
 )
@@ -54,6 +56,29 @@ def create_user(
 ):
     uc = AuthUsecase(auth_service, db)
     return uc.create_user(credentials)
+
+
+@router.get(
+    "/psychologist-invitations/{token}",
+    response_model=PsychologistInvitationVerifyRead,
+)
+def verify_psychologist_invitation(
+    token: str,
+    auth_service: AuthServiceDep,
+    db: DbDep,
+):
+    uc = AuthUsecase(auth_service, db)
+    return uc.verify_psychologist_invitation(token)
+
+
+@router.post("/register-psychologist")
+def register_invited_psychologist(
+    payload: PsychologistInviteRegisterRequest,
+    auth_service: AuthServiceDep,
+    db: DbDep,
+):
+    uc = AuthUsecase(auth_service, db)
+    return uc.register_invited_psychologist(payload)
 
 
 def _client_ip(http_request: Request) -> str:

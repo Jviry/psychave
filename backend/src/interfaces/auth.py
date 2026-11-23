@@ -87,6 +87,12 @@ class AuthService(Protocol):
         """Register a new user account."""
         ...
 
+    def create_confirmed_user(
+        self, username: str, email: str, password: str
+    ) -> SignUpResult:
+        """Create and immediately confirm a user account with a permanent password."""
+        ...
+
     def confirm_user(self, request: ConfirmUserRequest) -> None:
         """Confirm user registration with verification code."""
         ...

@@ -1,14 +1,20 @@
+from datetime import datetime, timezone
 from sqlmodel import Session
 
-from common.exceptions import ConflictError, ValidationError
+from common.exceptions import BadRequestError, ConflictError, ValidationError
 from common.rate_limit import verification_rate_limiter
 from interfaces.auth import AuthService, AuthTokens, AuthUser
+from models.psychologist_invitation import PsychologistInvitation
+from models.psychologist_profile import PsychologistProfile
 from models.user import User, UserRole
 from repo.profile_repo import ProfileRepo
+from repo.psychologist_invitation_repo import PsychologistInvitationRepo
 from repo.user_repo import UserRepository
 from schemas.auth_model import (
     ConfirmUserRequest,
     ForgotPasswordConfirm,
+    PsychologistInvitationVerifyRead,
+    PsychologistInviteRegisterRequest,
     UserCreate,
     UserLogin,
 )
@@ -31,6 +37,7 @@ class AuthUsecase:
         self.db = db
         self.user_repo = UserRepository(db)
         self.profile_repo = ProfileRepo(db)
+        self.invitation_repo = PsychologistInvitationRepo(db)
 
     def get_user(self, access_token: str) -> AuthUser:
         return self.auth.get_user(access_token)
@@ -86,6 +93,107 @@ class AuthUsecase:
                 )
 
         return {"message": "register successful, check email for code"}
+
+    def _validate_active_invitation(
+        self, raw_token: str
+    ) -> PsychologistInvitation:
+        invitation = self.invitation_repo.get_by_raw_token(raw_token)
+        if invitation is None:
+            raise BadRequestError(
+                "This psychologist invitation link is invalid or has expired."
+            )
+        if invitation.used_at is not None:
+            raise BadRequestError(
+                "This psychologist invitation link has already been used."
+            )
+        if invitation.revoked_at is not None:
+            raise BadRequestError(
+                "This psychologist invitation link has been revoked."
+            )
+        expires_at = invitation.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at <= datetime.now(timezone.utc):
+            raise BadRequestError(
+                "This psychologist invitation link has expired."
+            )
+        return invitation
+
+    def verify_psychologist_invitation(
+        self, raw_token: str
+    ) -> PsychologistInvitationVerifyRead:
+        invitation = self._validate_active_invitation(raw_token)
+        return PsychologistInvitationVerifyRead(
+            email=invitation.email,
+            expires_at=invitation.expires_at,
+        )
+
+    def register_invited_psychologist(
+        self, payload: PsychologistInviteRegisterRequest
+    ) -> dict[str, str]:
+        invitation = self._validate_active_invitation(payload.token)
+        email = invitation.email.strip().lower()
+
+        if self.user_repo.get_by_email(email) is not None:
+            raise ConflictError("An account with this email is already registered")
+
+        signup_result = self.auth.create_confirmed_user(
+            username=payload.username,
+            email=email,
+            password=payload.password,
+        )
+        self.auth.add_user_to_group(
+            payload.username, UserRole.PSYCHOLOGIST.value
+        )
+
+        sub = None
+        if hasattr(signup_result, "user_sub"):
+            sub = signup_result.user_sub
+        elif isinstance(signup_result, dict):
+            sub = signup_result.get("UserSub") or signup_result.get("sub")
+        if not sub:
+            described = self.auth.describe_user(payload.username)
+            sub = described.sub if hasattr(described, "sub") else described.get("sub")
+
+        user = self.user_repo.get_by_sub(sub) if sub else None
+        if user is None:
+            user = self.user_repo.create(
+                User(
+                    cognito_sub=sub or "",
+                    email=email,
+                    role=UserRole.PSYCHOLOGIST.value,
+                )
+            )
+        elif user.role != UserRole.PSYCHOLOGIST.value:
+            user.role = UserRole.PSYCHOLOGIST.value
+            user = self.user_repo.update(user)
+
+        existing_profile = self.user_repo.get_psychologist_profile(user.user_id)
+        social_links = [link.model_dump() for link in payload.social_media_links]
+        if existing_profile is None:
+            self.db.add(
+                PsychologistProfile(
+                    psychologist_id=user.user_id,
+                    full_name=payload.full_name,
+                    license_number=payload.license_number,
+                    specialization=payload.specialization,
+                    bio=payload.bio,
+                    social_media_links=social_links,
+                )
+            )
+        else:
+            existing_profile.full_name = payload.full_name
+            existing_profile.license_number = payload.license_number
+            existing_profile.specialization = payload.specialization
+            existing_profile.bio = payload.bio
+            existing_profile.social_media_links = social_links
+            self.db.add(existing_profile)
+
+        self.db.commit()
+        self.invitation_repo.mark_used(invitation)
+        return {
+            "message": "Psychologist account created successfully. You can now sign in."
+        }
 
     def confirm_user(self, request: ConfirmUserRequest, client_ip: str | None = None):
         username_key = f"confirm:user:{request.username.strip().lower()}"

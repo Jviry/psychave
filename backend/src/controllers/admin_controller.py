@@ -8,6 +8,8 @@ from schemas.admin import (
     AdminUserPage,
     AdminUserRead,
     PromotePsychologistRequest,
+    PsychologistInvitationCreate,
+    PsychologistInvitationRead,
     UpdateUserRoleRequest,
 )
 from usecase.admin_usecase import AdminUsecase
@@ -58,3 +60,20 @@ def promote_psychologist(
 ):
     """Promote an existing client to psychologist and create their profile."""
     return AdminUsecase(auth_service, db).promote_to_psychologist(user_id, payload)
+
+
+@router.post(
+    "/psychologist-invitations",
+    response_model=PsychologistInvitationRead,
+    status_code=201,
+)
+def invite_psychologist(
+    payload: PsychologistInvitationCreate,
+    auth_service: AuthServiceDep,
+    current_user: AdminUserDep,
+    db: DbDep,
+):
+    """Generate a single-use expiring psychologist invitation and email the link."""
+    return AdminUsecase(auth_service, db).invite_psychologist(
+        payload, current_user.user_id
+    )
