@@ -31,7 +31,8 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
             from alembic import command
             from alembic.config import Config
 
-            alembic_ini = Path(__file__).resolve().parent.parent / "alembic.ini"
+            alembic_ini = Path(__file__).resolve(
+            ).parent.parent / "alembic.ini"
             if alembic_ini.exists():
                 alembic_cfg = Config(str(alembic_ini))
                 command.upgrade(alembic_cfg, "head")
@@ -176,5 +177,3 @@ app = create_app()
 handler = Mangum(app)
 
 __all__ = ["app", "create_app", "handler", "lifespan"]
-
-
