@@ -752,16 +752,22 @@ export function ProfileWizard({
             {services.map((s) => (
               <li
                 key={s.id}
-                className="p-3.5 rounded-lg bg-parchment border border-mist"
+                className="p-3.5 rounded-lg bg-parchment border border-mist space-y-1"
               >
                 <p className="text-sm font-semibold text-pine">
                   {s.title}{' '}
                   <span className="font-normal text-accent-ink">
                     · {s.durationLabel}
+                    {s.rateLabel ? ` · ${s.rateLabel}` : ''}
                   </span>
                 </p>
+                {s.description && (
+                  <p className="text-xs text-pine/85 leading-relaxed">
+                    {s.description}
+                  </p>
+                )}
                 {s.guardrailNotice && (
-                  <p className="text-xs text-pine/75 mt-0.5">
+                  <p className="text-xs text-pine/70 italic">
                     {s.guardrailNotice}
                   </p>
                 )}

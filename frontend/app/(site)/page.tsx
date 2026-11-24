@@ -151,9 +151,20 @@ export default function HomePage() {
                     onClick={() => selectService(srv)}
                     className="group flex h-full w-full flex-col justify-between gap-12 rounded-lg text-left cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sage"
                   >
-                    <h3 className="font-heading text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
-                      {srv.title}
-                    </h3>
+                    <div className="space-y-2.5">
+                      <div className="flex flex-wrap items-center gap-2 text-xs font-mono font-semibold opacity-80">
+                        <span>{srv.durationLabel}</span>
+                        {srv.rateLabel && (
+                          <>
+                            <span aria-hidden="true">·</span>
+                            <span>{srv.rateLabel}</span>
+                          </>
+                        )}
+                      </div>
+                      <h3 className="font-heading text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
+                        {srv.title}
+                      </h3>
+                    </div>
 
                     <div className="space-y-4">
                       <div aria-hidden="true" className="h-px w-full bg-current opacity-20" />

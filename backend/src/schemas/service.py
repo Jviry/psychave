@@ -10,6 +10,7 @@ class ServiceRead(SQLModel):
     is_active: bool
     duration_minutes: int
     guardrail_notice: str | None = None
+    rate_label: str | None = None
 
 
 class ServiceCreate(SQLModel):
@@ -17,6 +18,7 @@ class ServiceCreate(SQLModel):
     description: str
     duration_minutes: int = 60
     guardrail_notice: str | None = None
+    rate_label: str | None = None
     is_active: bool = True
 
     @field_validator("name", "description")
@@ -27,7 +29,7 @@ class ServiceCreate(SQLModel):
             raise ValueError("Field cannot be blank")
         return cleaned
 
-    @field_validator("guardrail_notice")
+    @field_validator("guardrail_notice", "rate_label")
     @classmethod
     def normalize_guardrail(cls, value: str | None) -> str | None:
         if value is None:
@@ -48,6 +50,7 @@ class ServiceUpdate(SQLModel):
     description: str | None = None
     duration_minutes: int | None = None
     guardrail_notice: str | None = None
+    rate_label: str | None = None
     is_active: bool | None = None
 
     @field_validator("name", "description")
@@ -60,7 +63,7 @@ class ServiceUpdate(SQLModel):
             raise ValueError("Field cannot be blank")
         return cleaned
 
-    @field_validator("guardrail_notice")
+    @field_validator("guardrail_notice", "rate_label")
     @classmethod
     def normalize_guardrail(cls, value: str | None) -> str | None:
         if value is None:
