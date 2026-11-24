@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import zxcvbn from 'zxcvbn';
 
 // ──────────────────────────────────────────────
 // Shared password rule (matches AWS Cognito defaults)
@@ -142,20 +143,45 @@ export type PsychologistInviteRegisterFormValues = z.infer<
 >;
 
 // ──────────────────────────────────────────────
-// Password strength util (used by live indicator)
+// Password strength util (powered by zxcvbn)
 // ──────────────────────────────────────────────
 export type PasswordStrength = 'weak' | 'fair' | 'good' | 'strong';
 
-export function getPasswordStrength(password: string): PasswordStrength {
-  let score = 0;
-  if (password.length >= 8) score++;
-  if (/[A-Z]/.test(password)) score++;
-  if (/[0-9]/.test(password)) score++;
-  if (/[^A-Za-z0-9]/.test(password)) score++;
-  if (password.length >= 12) score++;
+export interface PasswordStrengthAnalysis {
+  strength: PasswordStrength;
+  score: 0 | 1 | 2 | 3 | 4;
+  warning: string;
+  suggestions: string[];
+}
 
-  if (score <= 1) return 'weak';
-  if (score === 2) return 'fair';
-  if (score === 3) return 'good';
-  return 'strong';
+export function analyzePasswordStrength(
+  password: string,
+  userInputs?: string[]
+): PasswordStrengthAnalysis {
+  if (!password) {
+    return { strength: 'weak', score: 0, warning: '', suggestions: [] };
+  }
+
+  const sanitizedInputs = userInputs?.filter((input) => input.trim().length > 0);
+  const result = zxcvbn(password, sanitizedInputs);
+
+  let strength: PasswordStrength;
+  if (result.score <= 1) strength = 'weak';
+  else if (result.score === 2) strength = 'fair';
+  else if (result.score === 3) strength = 'good';
+  else strength = 'strong';
+
+  return {
+    strength,
+    score: result.score,
+    warning: result.feedback.warning,
+    suggestions: result.feedback.suggestions,
+  };
+}
+
+export function getPasswordStrength(
+  password: string,
+  userInputs?: string[]
+): PasswordStrength {
+  return analyzePasswordStrength(password, userInputs).strength;
 }

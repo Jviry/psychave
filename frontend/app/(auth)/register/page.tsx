@@ -10,7 +10,7 @@ import {
   registerSchema,
   confirmSchema,
   type ConfirmFormValues,
-  getPasswordStrength,
+  analyzePasswordStrength,
   type PasswordStrength,
 } from '../../../lib/authSchemas';
 import {
@@ -55,10 +55,17 @@ const STRENGTH_CONFIG: Record<
   strong: { label: 'Strong', trackClass: 'bg-pine', textClass: 'text-pine', width: '100%' },
 };
 
-function PasswordStrengthBar({ password }: { password: string }) {
+function PasswordStrengthBar({
+  password,
+  userInputs,
+}: {
+  password: string;
+  userInputs?: string[];
+}) {
   if (!password) return null;
-  const strength = getPasswordStrength(password);
+  const { strength, warning, suggestions } = analyzePasswordStrength(password, userInputs);
   const config = STRENGTH_CONFIG[strength];
+  const hint = warning || suggestions[0];
   return (
     <div className="mt-2 space-y-1">
       <div className="h-1 rounded-full bg-mist overflow-hidden">
@@ -70,6 +77,7 @@ function PasswordStrengthBar({ password }: { password: string }) {
       <p className={`text-xs ${config.textClass}`}>
         {config.label} password
       </p>
+      {hint && <p className="text-xs text-pine/60">{hint}</p>}
     </div>
   );
 }
@@ -664,7 +672,10 @@ export default function RegisterPage() {
                 {stepErrors.password ? (
                   <FieldError id="register-password-error" message={stepErrors.password} />
                 ) : (
-                  <PasswordStrengthBar password={draft.password} />
+                  <PasswordStrengthBar
+                    password={draft.password}
+                    userInputs={[draft.email, draft.username]}
+                  />
                 )}
               </div>
 

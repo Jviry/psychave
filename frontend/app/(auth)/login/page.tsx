@@ -219,20 +219,12 @@ export default function LoginPage() {
         </form>
 
         {/* Footer */}
-        <div className="mt-6 space-y-2 text-center text-sm text-pine/60">
-          <p>
-            Don&apos;t have an account?{' '}
-            <Link href="/register" id="go-to-register" className="text-sage hover:text-pine font-semibold transition-colors">
-              Create account
-            </Link>
-          </p>
-          <p className="text-xs">
-            Unverified account?{' '}
-            <Link href="/verify-email" id="go-to-verify-email" className="text-sage hover:text-pine font-semibold transition-colors">
-              Verify your email
-            </Link>
-          </p>
-        </div>
+        <p className="mt-6 text-center text-sm text-pine/60">
+          Don&apos;t have an account?{' '}
+          <Link href="/register" id="go-to-register" className="text-sage hover:text-pine font-semibold transition-colors">
+            Create account
+          </Link>
+        </p>
       </div>
 
       {/* Forgot Password Modal */}

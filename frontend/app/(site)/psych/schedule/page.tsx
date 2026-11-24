@@ -14,13 +14,13 @@ import {
   formatManilaDateTime,
   psychologistCounterSlot,
 } from '../../../../lib/booking';
+import { DateTimePicker } from '../../../../components/ui/DateTimePicker';
 import {
   BookingStatusTag,
   Button,
   Card,
   Checkbox,
   EmptyState,
-  Input,
   Label,
   Modal,
   Skeleton,
@@ -876,15 +876,13 @@ export default function PsychologistSchedulePage() {
                   </button>
                 )}
               </div>
-              <Input
+              <DateTimePicker
                 id="schedule-counter-datetime"
-                type="datetime-local"
                 min={minDateTime}
-                className="font-mono tabular-nums text-sm"
                 value={counterDateTime}
-                onChange={(event) => {
-                  setCounterDateTime(event.target.value);
-                  if (event.target.value) setSelectedSlotId(null);
+                onChange={(nextValue) => {
+                  setCounterDateTime(nextValue);
+                  if (nextValue) setSelectedSlotId(null);
                 }}
                 disabled={reviewMutation.isPending}
               />

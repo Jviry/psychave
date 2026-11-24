@@ -14,6 +14,7 @@ import {
   forgotPasswordRequestSchema,
   forgotPasswordConfirmSchema,
   getPasswordStrength,
+  analyzePasswordStrength,
 } from '../lib/authSchemas';
 
 // ─────────────────────────────────────────────────────────────────
@@ -188,32 +189,55 @@ describe('forgotPasswordConfirmSchema', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────
-// getPasswordStrength
+// getPasswordStrength & analyzePasswordStrength (zxcvbn)
 // ─────────────────────────────────────────────────────────────────
 describe('getPasswordStrength', () => {
+  it('returns "weak" for empty string', () => {
+    expect(getPasswordStrength('')).toBe('weak');
+  });
+
   it('returns "weak" for a trivially short password', () => {
     expect(getPasswordStrength('abc')).toBe('weak');
   });
 
-  it('returns "fair" for a password with 2 criteria met', () => {
-    expect(getPasswordStrength('Abcdefg1')).toBe('good'); // 8+ len, uppercase, number = 3 → good
+  it('returns "weak" for predictable pattern passwords despite meeting character rules', () => {
+    expect(getPasswordStrength('Password1!')).toBe('weak');
+    expect(getPasswordStrength('Qwerty123!')).toBe('weak');
   });
 
-  it('returns "strong" when all 5 criteria are met (length >= 12)', () => {
-    expect(getPasswordStrength('Str0ng@Pass!!')).toBe('strong');
+  it('returns "fair" for a moderately guessable password', () => {
+    expect(getPasswordStrength('Pass@123')).toBe('fair');
   });
 
-  it('returns "good" for a solid but not excellent password', () => {
-    // 8 chars, uppercase, number, special = 4 → strong
-    expect(getPasswordStrength('Pass@123')).toBe('strong');
+  it('returns "good" for a reasonably strong password', () => {
+    expect(getPasswordStrength('c4ctus-v3lv3t')).toBe('good');
   });
 
-  it('returns "fair" for only 2 satisfied criteria', () => {
-    // len>=8 + uppercase only
-    expect(getPasswordStrength('Abcdefgh')).toBe('fair');
+  it('returns "strong" for a high-entropy passphrase or random password', () => {
+    expect(getPasswordStrength('correct-horse-battery-staple-99!')).toBe('strong');
+    expect(getPasswordStrength('T9#mK2$vP8!qL5@x')).toBe('strong');
   });
 
-  it('returns "weak" for empty string', () => {
-    expect(getPasswordStrength('')).toBe('weak');
+  it('penalizes passwords containing user inputs such as username or email', () => {
+    const withoutInputs = getPasswordStrength('psychave_maria99');
+    const withInputs = getPasswordStrength('psychave_maria99', ['psychave_maria', 'maria@example.com']);
+    expect(withInputs).toBe('weak');
+    expect(withoutInputs).not.toBe('weak');
+  });
+});
+
+describe('analyzePasswordStrength', () => {
+  it('returns zxcvbn score and feedback for weak passwords', () => {
+    const analysis = analyzePasswordStrength('password123');
+    expect(analysis.strength).toBe('weak');
+    expect(analysis.score).toBeLessThanOrEqual(1);
+    expect(analysis.warning || analysis.suggestions.length > 0).toBeTruthy();
+  });
+
+  it('returns empty feedback and score 4 for very strong passwords', () => {
+    const analysis = analyzePasswordStrength('correct-horse-battery-staple-99!');
+    expect(analysis.strength).toBe('strong');
+    expect(analysis.score).toBe(4);
+    expect(analysis.warning).toBe('');
   });
 });

@@ -3,20 +3,20 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { Controller, useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Clock, Facebook, Mail, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Facebook, Mail, Plus, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { bookingFormSchema, BookingFormValues } from '@/lib/schemas';
 import { useAuthStore } from '@/stores/authStore';
 import { useAppStore } from '@/stores/useAppStore';
 import { useProfileWizardStore } from '@/stores/useProfileWizardStore';
+import { DateTimePicker } from '@/components/ui/DateTimePicker';
 import {
   Button,
   Card,
   Checkbox,
-  Input,
   Label,
   Select,
   Skeleton,
@@ -527,18 +527,21 @@ function ClientBookingFlow() {
                         <span className="w-6 shrink-0 text-xs font-semibold text-pine/60 tabular-nums">
                           {index + 1}.
                         </span>
-                        <div className="relative flex-1">
-                          <Clock
-                            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-pine/40"
-                            aria-hidden="true"
-                          />
-                          <Input
-                            id={`booking-slot-${index}`}
-                            type="datetime-local"
-                            min={minDateTime.current}
-                            className="pl-9"
-                            aria-invalid={fieldError ? true : undefined}
-                            {...bookingForm.register(`preferredSlots.${index}.dateTime`)}
+                        <div className="flex-1">
+                          <Controller
+                            control={bookingForm.control}
+                            name={`preferredSlots.${index}.dateTime`}
+                            render={({ field: slotField }) => (
+                              <DateTimePicker
+                                id={`booking-slot-${index}`}
+                                value={slotField.value}
+                                onChange={slotField.onChange}
+                                onBlur={slotField.onBlur}
+                                min={minDateTime.current}
+                                aria-invalid={fieldError ? true : undefined}
+                                aria-label={`Preferred schedule ${index + 1}`}
+                              />
+                            )}
                           />
                         </div>
                         {fields.length > 3 && (
