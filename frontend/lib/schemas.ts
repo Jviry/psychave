@@ -117,10 +117,30 @@ export const cmsOverviewSchema = z.object({
   mission: z.string().min(20, 'Mission statement must be at least 20 characters.'),
   clinicOverview: z.string().min(30, 'Clinic overview must be at least 30 characters.'),
   impactNarrative: z.string().min(20, 'Impact narrative must be at least 20 characters.'),
-  consentFlagBanner: z.string().min(20, 'Consent-flag governance notice is required.'),
 });
 
 export type CmsOverviewFormValues = z.infer<typeof cmsOverviewSchema>;
+
+export const testimonialCmsSchema = z.object({
+  quote: z
+    .string()
+    .trim()
+    .min(10, 'Testimonial quote must be at least 10 characters.')
+    .max(600, 'Testimonial quote must be under 600 characters.'),
+  authorLabel: z
+    .string()
+    .trim()
+    .min(2, 'Attribution label is required (e.g. "Client · Quezon City").')
+    .max(120, 'Attribution label must be under 120 characters.'),
+  serviceCategory: z
+    .string()
+    .trim()
+    .min(2, 'Service category is required.')
+    .max(120, 'Service category must be under 120 characters.'),
+  isActive: z.boolean(),
+});
+
+export type TestimonialCmsFormValues = z.infer<typeof testimonialCmsSchema>;
 
 /**
  * Admin CMS Service Catalog Editor Schema
@@ -136,6 +156,12 @@ export const serviceCmsSchema = z.object({
     .int('Duration must be a whole number of minutes.')
     .min(15, 'Minimum duration is 15 minutes.')
     .max(480, 'Maximum duration is 480 minutes.'),
+  rateLabel: z
+    .string()
+    .trim()
+    .max(120, 'Rate must be under 120 characters.')
+    .optional()
+    .or(z.literal('')),
   notice: z
     .string()
     .trim()

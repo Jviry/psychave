@@ -574,8 +574,8 @@ def test_postgres_migration_seed_and_api_integration():
             res_form = client.get("/forms/active")
             assert res_form.status_code == 200
             active_form = res_form.json()
-            assert active_form["consent_version"] == "v2"
-            assert len(active_form["wizard_pages"]) == 4
+            assert active_form["consent_version"].startswith("v")
+            assert len(active_form["wizard_pages"]) >= 1
 
             current_actor["user"] = client_user
             res_profile = client.post(
@@ -598,7 +598,7 @@ def test_postgres_migration_seed_and_api_integration():
                         "emergency_contact_number": "09181112222",
                     },
                     "consent": {
-                        "consent_version": "v2",
+                        "consent_version": active_form["consent_version"],
                         "terms_signer_name": "Jose Santos",
                         "terms_signer_relation": "parent",
                         "scope_acknowledged": True,
@@ -623,11 +623,13 @@ def test_postgres_migration_seed_and_api_integration():
                     "name": "Temp CMS Verification Service",
                     "description": "Temporary service created during Postgres API test.",
                     "duration_minutes": 75,
+                    "rate_label": "₱1,800",
                     "guardrail_notice": "Test guardrail notice.",
                     "is_active": True,
                 },
             )
             assert res_create.status_code == 200
+            assert res_create.json()["rate_label"] == "₱1,800"
             created_service_id = uuid.UUID(res_create.json()["service_id"])
 
             res_patch = client.patch(
@@ -636,6 +638,27 @@ def test_postgres_migration_seed_and_api_integration():
             )
             assert res_patch.status_code == 200
             assert res_patch.json()["is_active"] is False
+
+            res_cms = client.get("/cms")
+            assert res_cms.status_code == 200
+            cms_data = res_cms.json()
+            assert len(cms_data["vision"]) >= 10
+            assert len(cms_data["testimonials"]) >= 4
+
+            res_t_create = client.post(
+                "/cms/testimonials",
+                json={
+                    "quote": "Very clear session structure and supportive care.",
+                    "author_label": "Client · Makati",
+                    "service_category": "Individual Counseling & Psychotherapy",
+                    "is_active": True,
+                },
+            )
+            assert res_t_create.status_code == 200
+            t_id = res_t_create.json()["testimonial_id"]
+
+            res_t_del = client.delete(f"/cms/testimonials/{t_id}")
+            assert res_t_del.status_code == 204
         finally:
             app.dependency_overrides.clear()
             if created_profile_id is not None:

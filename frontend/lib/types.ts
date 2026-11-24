@@ -21,6 +21,7 @@ export interface ServiceItem {
   categoryGroup: string;
   durationLabel: string;
   durationMinutes: number;
+  rateLabel?: string | null;
   guardrailTitle: string;
   guardrailNotice: string;
   description: string;
@@ -272,18 +273,30 @@ export interface TestimonialSlot {
   governanceNote: string;
 }
 
+export interface TestimonialItem {
+  id: string;
+  quote: string;
+  authorLabel: string;
+  serviceCategory: string;
+  isActive: boolean;
+  displayOrder: number;
+  createdAt: string;
+}
+
 export interface CmsContent {
   vision: string;
   mission: string;
   clinicOverview: string;
   impactNarrative: string;
-  impactMetrics: {
+  updatedAt?: string;
+  testimonials: TestimonialItem[];
+  impactMetrics?: {
     id: string;
     metricValue: string;
     metricLabel: string;
     timeframeContext: string;
   }[];
-  testimonialsConfig: {
+  testimonialsConfig?: {
     sectionTitle: string;
     consentFlagBanner: string;
     ethicalStandardRef: string;

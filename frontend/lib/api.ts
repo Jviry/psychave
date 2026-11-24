@@ -15,6 +15,7 @@ import {
   SlotProposer,
   SlotStatus,
   SocialMediaLink,
+  TestimonialItem,
   WizardAppliesTo,
   WizardBlock,
   WizardBlockType,
@@ -120,23 +121,7 @@ const INITIAL_ROSTER: ResidentPsychologist[] = [
   },
 ];
 
-const INITIAL_CMS: CmsContent = {
-  vision: '',
-  mission: '',
-  clinicOverview: '',
-  impactNarrative: '',
-  impactMetrics: [],
-  testimonialsConfig: {
-    sectionTitle: 'Client Reflections & Consent Governance',
-    consentFlagBanner:
-      'Consent-Flag Governance Active — No personal quotes, client names, or identifiable narratives are displayed. Public pages render no testimonial content, in line with clinical confidentiality rules and Philippine Data Privacy Act (RA 10173) standards.',
-    ethicalStandardRef: 'PAP Code of Ethics · RA 10173 Privacy Baseline',
-    emptyCards: [],
-  },
-};
-
 let localRoster: ResidentPsychologist[] = [...INITIAL_ROSTER];
-let localCms: CmsContent = JSON.parse(JSON.stringify(INITIAL_CMS));
 
 /**
  * Shared fetch helper with AbortController timeout to prevent hung requests.
@@ -412,6 +397,7 @@ interface ServiceRaw {
   is_active: boolean;
   duration_minutes: number;
   guardrail_notice: string | null;
+  rate_label?: string | null;
 }
 
 interface ProfileRaw {
@@ -718,6 +704,7 @@ function mapServiceRaw(raw: ServiceRaw, index: number): ServiceItem {
     categoryGroup: '',
     durationLabel: durationLabel(raw.duration_minutes),
     durationMinutes: raw.duration_minutes || 60,
+    rateLabel: raw.rate_label ?? null,
     guardrailTitle: '',
     guardrailNotice: raw.guardrail_notice ?? '',
     description: raw.description ?? '',
@@ -1011,6 +998,7 @@ export const api = {
     title: string;
     description: string;
     durationMinutes: number;
+    rateLabel?: string | null;
     guardrailNotice?: string | null;
     isActive?: boolean;
   }): Promise<ServiceItem> => {
@@ -1020,6 +1008,7 @@ export const api = {
         name: payload.title.trim(),
         description: payload.description.trim(),
         duration_minutes: payload.durationMinutes,
+        rate_label: payload.rateLabel?.trim() || null,
         guardrail_notice: payload.guardrailNotice?.trim() || null,
         is_active: payload.isActive ?? true,
       }),
@@ -1033,6 +1022,7 @@ export const api = {
       title?: string;
       description?: string;
       durationMinutes?: number;
+      rateLabel?: string | null;
       guardrailNotice?: string | null;
       isActive?: boolean;
     }
@@ -1041,6 +1031,9 @@ export const api = {
     if (payload.title !== undefined) body.name = payload.title.trim();
     if (payload.description !== undefined) body.description = payload.description.trim();
     if (payload.durationMinutes !== undefined) body.duration_minutes = payload.durationMinutes;
+    if (payload.rateLabel !== undefined) {
+      body.rate_label = payload.rateLabel?.trim() || null;
+    }
     if (payload.guardrailNotice !== undefined) {
       body.guardrail_notice = payload.guardrailNotice?.trim() || null;
     }
@@ -1493,15 +1486,207 @@ export const api = {
   },
 
   /**
-   * Local-only CMS content. There is no CMS backend yet.
+   * Live CMS Content (Vision, Mission, Clinic Overview, Impact Narrative) & Testimonials API.
    */
-  getCmsContent: async (): Promise<CmsContent> => JSON.parse(JSON.stringify(localCms)),
-
-  updateCmsContent: async (partial: Partial<CmsContent>): Promise<CmsContent> => {
-    localCms = {
-      ...localCms,
-      ...partial,
+  getCmsContent: async (): Promise<CmsContent> => {
+    const raw = await liveRequest<{
+      vision: string;
+      mission: string;
+      clinic_overview: string;
+      impact_narrative: string;
+      updated_at: string;
+      testimonials: Array<{
+        testimonial_id: string;
+        quote: string;
+        author_label: string;
+        service_category: string;
+        is_active: boolean;
+        display_order: number;
+        created_at: string;
+      }>;
+    }>('/cms');
+    return {
+      vision: raw.vision,
+      mission: raw.mission,
+      clinicOverview: raw.clinic_overview,
+      impactNarrative: raw.impact_narrative,
+      updatedAt: raw.updated_at,
+      testimonials: (raw.testimonials ?? []).map((t) => ({
+        id: t.testimonial_id,
+        quote: t.quote,
+        authorLabel: t.author_label,
+        serviceCategory: t.service_category,
+        isActive: t.is_active,
+        displayOrder: t.display_order,
+        createdAt: t.created_at,
+      })),
     };
-    return JSON.parse(JSON.stringify(localCms));
+  },
+
+  getAdminCmsContent: async (): Promise<CmsContent> => {
+    const raw = await liveRequest<{
+      vision: string;
+      mission: string;
+      clinic_overview: string;
+      impact_narrative: string;
+      updated_at: string;
+      testimonials: Array<{
+        testimonial_id: string;
+        quote: string;
+        author_label: string;
+        service_category: string;
+        is_active: boolean;
+        display_order: number;
+        created_at: string;
+      }>;
+    }>('/cms/admin');
+    return {
+      vision: raw.vision,
+      mission: raw.mission,
+      clinicOverview: raw.clinic_overview,
+      impactNarrative: raw.impact_narrative,
+      updatedAt: raw.updated_at,
+      testimonials: (raw.testimonials ?? []).map((t) => ({
+        id: t.testimonial_id,
+        quote: t.quote,
+        authorLabel: t.author_label,
+        serviceCategory: t.service_category,
+        isActive: t.is_active,
+        displayOrder: t.display_order,
+        createdAt: t.created_at,
+      })),
+    };
+  },
+
+  updateCmsContent: async (payload: {
+    vision: string;
+    mission: string;
+    clinicOverview: string;
+    impactNarrative: string;
+  }): Promise<CmsContent> => {
+    const raw = await liveRequest<{
+      vision: string;
+      mission: string;
+      clinic_overview: string;
+      impact_narrative: string;
+      updated_at: string;
+      testimonials: Array<{
+        testimonial_id: string;
+        quote: string;
+        author_label: string;
+        service_category: string;
+        is_active: boolean;
+        display_order: number;
+        created_at: string;
+      }>;
+    }>('/cms', {
+      method: 'PUT',
+      body: JSON.stringify({
+        vision: payload.vision.trim(),
+        mission: payload.mission.trim(),
+        clinic_overview: payload.clinicOverview.trim(),
+        impact_narrative: payload.impactNarrative.trim(),
+      }),
+    });
+    return {
+      vision: raw.vision,
+      mission: raw.mission,
+      clinicOverview: raw.clinic_overview,
+      impactNarrative: raw.impact_narrative,
+      updatedAt: raw.updated_at,
+      testimonials: (raw.testimonials ?? []).map((t) => ({
+        id: t.testimonial_id,
+        quote: t.quote,
+        authorLabel: t.author_label,
+        serviceCategory: t.service_category,
+        isActive: t.is_active,
+        displayOrder: t.display_order,
+        createdAt: t.created_at,
+      })),
+    };
+  },
+
+  createTestimonial: async (payload: {
+    quote: string;
+    authorLabel: string;
+    serviceCategory: string;
+    isActive?: boolean;
+    displayOrder?: number;
+  }): Promise<TestimonialItem> => {
+    const raw = await liveRequest<{
+      testimonial_id: string;
+      quote: string;
+      author_label: string;
+      service_category: string;
+      is_active: boolean;
+      display_order: number;
+      created_at: string;
+    }>('/cms/testimonials', {
+      method: 'POST',
+      body: JSON.stringify({
+        quote: payload.quote.trim(),
+        author_label: payload.authorLabel.trim(),
+        service_category: payload.serviceCategory.trim(),
+        is_active: payload.isActive ?? true,
+        display_order: payload.displayOrder ?? 0,
+      }),
+    });
+    return {
+      id: raw.testimonial_id,
+      quote: raw.quote,
+      authorLabel: raw.author_label,
+      serviceCategory: raw.service_category,
+      isActive: raw.is_active,
+      displayOrder: raw.display_order,
+      createdAt: raw.created_at,
+    };
+  },
+
+  updateTestimonial: async (
+    testimonialId: string,
+    payload: {
+      quote?: string;
+      authorLabel?: string;
+      serviceCategory?: string;
+      isActive?: boolean;
+      displayOrder?: number;
+    }
+  ): Promise<TestimonialItem> => {
+    const body: Record<string, unknown> = {};
+    if (payload.quote !== undefined) body.quote = payload.quote.trim();
+    if (payload.authorLabel !== undefined) body.author_label = payload.authorLabel.trim();
+    if (payload.serviceCategory !== undefined) {
+      body.service_category = payload.serviceCategory.trim();
+    }
+    if (payload.isActive !== undefined) body.is_active = payload.isActive;
+    if (payload.displayOrder !== undefined) body.display_order = payload.displayOrder;
+
+    const raw = await liveRequest<{
+      testimonial_id: string;
+      quote: string;
+      author_label: string;
+      service_category: string;
+      is_active: boolean;
+      display_order: number;
+      created_at: string;
+    }>(`/cms/testimonials/${testimonialId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+    return {
+      id: raw.testimonial_id,
+      quote: raw.quote,
+      authorLabel: raw.author_label,
+      serviceCategory: raw.service_category,
+      isActive: raw.is_active,
+      displayOrder: raw.display_order,
+      createdAt: raw.created_at,
+    };
+  },
+
+  deleteTestimonial: async (testimonialId: string): Promise<void> => {
+    await liveRequest<void>(`/cms/testimonials/${testimonialId}`, {
+      method: 'DELETE',
+    });
   },
 };

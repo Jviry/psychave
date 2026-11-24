@@ -28,6 +28,7 @@ describe('Services Catalog CMS API & Schema', () => {
     const valid = serviceCmsSchema.safeParse({
       title: 'Mindfulness Workshop',
       durationMinutes: 90,
+      rateLabel: '₱1,500',
       notice: 'Not a crisis intervention session.',
       description: 'Guided group mindfulness and stress reduction workshop.',
       isActive: true,
@@ -56,6 +57,7 @@ describe('Services Catalog CMS API & Schema', () => {
               description: 'Structured goal-setting and coaching.',
               is_active: false,
               duration_minutes: 60,
+              rate_label: '₱1,200',
               guardrail_notice: 'Not a substitute for therapy.',
             },
           ]),
@@ -70,6 +72,7 @@ describe('Services Catalog CMS API & Schema', () => {
             description: 'Executive and career transition coaching.',
             is_active: true,
             duration_minutes: 75,
+            rate_label: '₱1,800',
             guardrail_notice: null,
           }),
           { status: 200 }
@@ -83,6 +86,7 @@ describe('Services Catalog CMS API & Schema', () => {
             description: 'Executive and career transition coaching.',
             is_active: false,
             duration_minutes: 90,
+            rate_label: '₱2,000',
             guardrail_notice: 'Coaching notice.',
           }),
           { status: 200 }
@@ -94,11 +98,13 @@ describe('Services Catalog CMS API & Schema', () => {
     const allServices = await api.getAdminServices();
     expect(String(mockFetch.mock.calls[0][0])).toContain('/services/all');
     expect(allServices[0].isActive).toBe(false);
+    expect(allServices[0].rateLabel).toBe('₱1,200');
 
     const created = await api.createService({
       title: 'Career Coaching',
       description: 'Executive and career transition coaching.',
       durationMinutes: 75,
+      rateLabel: '₱1,800',
       guardrailNotice: '',
       isActive: true,
     });
@@ -108,20 +114,24 @@ describe('Services Catalog CMS API & Schema', () => {
       name: 'Career Coaching',
       description: 'Executive and career transition coaching.',
       duration_minutes: 75,
+      rate_label: '₱1,800',
       guardrail_notice: null,
       is_active: true,
     });
     expect(created.durationMinutes).toBe(75);
+    expect(created.rateLabel).toBe('₱1,800');
     expect(created.isActive).toBe(true);
 
     const updated = await api.updateService(svcId, {
       durationMinutes: 90,
+      rateLabel: '₱2,000',
       guardrailNotice: 'Coaching notice.',
       isActive: false,
     });
     expect(String(mockFetch.mock.calls[2][0])).toContain(`/services/${svcId}`);
     expect(mockFetch.mock.calls[2][1]?.method).toBe('PATCH');
     expect(updated.durationMinutes).toBe(90);
+    expect(updated.rateLabel).toBe('₱2,000');
     expect(updated.isActive).toBe(false);
     expect(updated.guardrailNotice).toBe('Coaching notice.');
   });
@@ -244,5 +254,54 @@ describe('Multi-Page Wizard & Consent Forms CMS API & Diff Helper', () => {
     expect(resigned.signedConsentVersion).toBe('v3');
     expect(resigned.consentOutdated).toBe(false);
     expect(resigned.details?.occupation).toBe('Architect');
+  });
+
+  it('calls GET /cms, PUT /cms, and testimonial CRUD endpoints', async () => {
+    const tId = '22222222-3333-4444-5555-666666666666';
+    const cmsPayload = {
+      vision: 'Accessible psychological care across the Philippines.',
+      mission: 'Deliver structured, compassionate mental health services.',
+      clinic_overview: 'PsychAvenuePH connects clients with PRC-registered psychologists.',
+      impact_narrative: 'Structured scheduling eliminates double-booking conflicts.',
+      updated_at: '2026-11-24T00:00:00Z',
+      testimonials: [
+        {
+          testimonial_id: tId,
+          quote: 'Structured intake helped me feel grounded from day one.',
+          author_label: 'Client · Manila',
+          service_category: 'Individual Counseling',
+          is_active: true,
+          display_order: 1,
+          created_at: '2026-11-24T00:00:00Z',
+        },
+      ],
+    };
+
+    mockFetch
+      .mockResolvedValueOnce(new Response(JSON.stringify(cmsPayload), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(cmsPayload.testimonials[0]), { status: 200 })
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const { api } = await import('../lib/api');
+
+    const cms = await api.getCmsContent();
+    expect(String(mockFetch.mock.calls[0][0])).toContain('/cms');
+    expect(cms.testimonials).toHaveLength(1);
+    expect(cms.testimonials[0].authorLabel).toBe('Client · Manila');
+
+    const created = await api.createTestimonial({
+      quote: 'Structured intake helped me feel grounded from day one.',
+      authorLabel: 'Client · Manila',
+      serviceCategory: 'Individual Counseling',
+      isActive: true,
+    });
+    expect(String(mockFetch.mock.calls[1][0])).toContain('/cms/testimonials');
+    expect(created.id).toBe(tId);
+
+    await api.deleteTestimonial(tId);
+    expect(String(mockFetch.mock.calls[2][0])).toContain(`/cms/testimonials/${tId}`);
+    expect(mockFetch.mock.calls[2][1]?.method).toBe('DELETE');
   });
 });

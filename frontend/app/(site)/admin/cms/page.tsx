@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowDown,
   ArrowUp,
+  Eye,
   Lock,
   Plus,
   Trash2,
@@ -15,14 +16,18 @@ import { api } from '@/lib/api';
 import {
   DEFAULT_WIZARD_PAGES,
   didConsentBlocksChange,
+  isWizardBlockVisible,
 } from '@/lib/consent';
 import {
   cmsOverviewSchema,
   CmsOverviewFormValues,
   serviceCmsSchema,
   ServiceCmsFormValues,
+  testimonialCmsSchema,
+  TestimonialCmsFormValues,
 } from '@/lib/schemas';
 import type {
+  TestimonialItem,
   WizardAppliesTo,
   WizardBlock,
   WizardBlockType,
@@ -36,6 +41,7 @@ import {
   Checkbox,
   Input,
   Label,
+  Modal,
   Select,
   Textarea,
 } from '@/components/ui/primitives';
@@ -63,6 +69,8 @@ const INPUT_BLOCK_TYPES = new Set<WizardBlockType>([
   'phone',
 ]);
 
+const SERVICES_PAGE_SIZE = 6;
+
 function formatDurationPreview(minutes: number): string {
   if (!Number.isFinite(minutes) || minutes <= 0) return '—';
   if (minutes < 60) return `${minutes} mins`;
@@ -88,6 +96,29 @@ export default function AdminCmsPage() {
   const [isCreatingService, setIsCreatingService] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState<string>('');
   const [serviceStatusMsg, setServiceStatusMsg] = useState<string | null>(null);
+  const [servicesPage, setServicesPage] = useState(1);
+
+  const totalServicePages = Math.max(
+    1,
+    Math.ceil(services.length / SERVICES_PAGE_SIZE)
+  );
+  const safeServicesPage = Math.min(servicesPage, totalServicePages);
+  const paginatedServices = useMemo(() => {
+    const start = (safeServicesPage - 1) * SERVICES_PAGE_SIZE;
+    return services.slice(start, start + SERVICES_PAGE_SIZE);
+  }, [services, safeServicesPage]);
+  const firstServiceRow =
+    services.length === 0 ? 0 : (safeServicesPage - 1) * SERVICES_PAGE_SIZE + 1;
+  const lastServiceRow = Math.min(
+    safeServicesPage * SERVICES_PAGE_SIZE,
+    services.length
+  );
+
+  useEffect(() => {
+    if (servicesPage > totalServicePages) {
+      setServicesPage(totalServicePages);
+    }
+  }, [servicesPage, totalServicePages]);
 
   const currentService = useMemo(() => {
     if (isCreatingService) return null;
@@ -105,6 +136,7 @@ export default function AdminCmsPage() {
     defaultValues: {
       title: '',
       durationMinutes: 60,
+      rateLabel: '',
       notice: '',
       description: '',
       isActive: true,
@@ -116,6 +148,7 @@ export default function AdminCmsPage() {
       serviceForm.reset({
         title: '',
         durationMinutes: 60,
+        rateLabel: '',
         notice: '',
         description: '',
         isActive: true,
@@ -124,6 +157,7 @@ export default function AdminCmsPage() {
       serviceForm.reset({
         title: currentService.title,
         durationMinutes: currentService.durationMinutes || 60,
+        rateLabel: currentService.rateLabel || '',
         notice: currentService.guardrailNotice || '',
         description: currentService.description || '',
         isActive: currentService.isActive ?? true,
@@ -138,6 +172,7 @@ export default function AdminCmsPage() {
           title: values.title,
           description: values.description,
           durationMinutes: values.durationMinutes,
+          rateLabel: values.rateLabel || null,
           guardrailNotice: values.notice || null,
           isActive: values.isActive,
         });
@@ -146,6 +181,7 @@ export default function AdminCmsPage() {
         title: values.title,
         description: values.description,
         durationMinutes: values.durationMinutes,
+        rateLabel: values.rateLabel || null,
         guardrailNotice: values.notice || null,
         isActive: values.isActive,
       });
@@ -184,6 +220,9 @@ export default function AdminCmsPage() {
   const [bumpType, setBumpType] = useState<'auto' | 'minor' | 'major'>('auto');
   const [wizardStatusMsg, setWizardStatusMsg] = useState<string | null>(null);
   const [wizardErrorMsg, setWizardErrorMsg] = useState<string | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewStep, setPreviewStep] = useState(1);
+  const [previewValues, setPreviewValues] = useState<Record<string, unknown>>({});
 
   useEffect(() => {
     if (activeTemplate?.wizardPages && activeTemplate.wizardPages.length > 0) {
@@ -410,12 +449,13 @@ export default function AdminCmsPage() {
     },
   });
 
-  // ─── Institutional Copy & Testimonials Governance State (Tabs 3 & 4) ────────
+  // ─── Institutional Copy & Testimonials State (Tabs 3 & 4) ───────────────────
   const { data: cms } = useQuery({
-    queryKey: ['cms'],
-    queryFn: () => api.getCmsContent(),
+    queryKey: ['cms', 'admin'],
+    queryFn: () => api.getAdminCmsContent(),
   });
 
+  const [overviewStatusMsg, setOverviewStatusMsg] = useState<string | null>(null);
   const overviewForm = useForm<CmsOverviewFormValues>({
     resolver: zodResolver(cmsOverviewSchema),
     defaultValues: {
@@ -423,7 +463,6 @@ export default function AdminCmsPage() {
       mission: cms?.mission || '',
       clinicOverview: cms?.clinicOverview || '',
       impactNarrative: cms?.impactNarrative || '',
-      consentFlagBanner: cms?.testimonialsConfig.consentFlagBanner || '',
     },
   });
 
@@ -434,32 +473,119 @@ export default function AdminCmsPage() {
         mission: cms.mission,
         clinicOverview: cms.clinicOverview,
         impactNarrative: cms.impactNarrative,
-        consentFlagBanner: cms.testimonialsConfig.consentFlagBanner,
       });
     }
   }, [cms, overviewForm]);
 
   const saveCmsMutation = useMutation({
-    mutationFn: (values: CmsOverviewFormValues) => {
-      if (!cms) throw new Error('CMS not loaded');
-      return api.updateCmsContent({
+    mutationFn: (values: CmsOverviewFormValues) =>
+      api.updateCmsContent({
         vision: values.vision,
         mission: values.mission,
         clinicOverview: values.clinicOverview,
         impactNarrative: values.impactNarrative,
-        testimonialsConfig: {
-          ...cms.testimonialsConfig,
-          consentFlagBanner: values.consentFlagBanner,
-        },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cms'] });
+      setOverviewStatusMsg('Saved Vision, Mission, Clinic Overview, and Impact Narrative.');
+      publishFlowEvent(
+        'CMS Overview Updated',
+        'Vision, Mission, and Clinic Overview persisted to database.'
+      );
+    },
+  });
+
+  const testimonials = cms?.testimonials ?? [];
+  const [isCreatingTestimonial, setIsCreatingTestimonial] = useState(false);
+  const [editingTestimonialId, setEditingTestimonialId] = useState<string>('');
+  const [testimonialStatusMsg, setTestimonialStatusMsg] = useState<string | null>(null);
+
+  const currentTestimonial: TestimonialItem | null = useMemo(() => {
+    if (isCreatingTestimonial) return null;
+    return (
+      testimonials.find((t) => t.id === editingTestimonialId) ||
+      testimonials[0] ||
+      null
+    );
+  }, [testimonials, editingTestimonialId, isCreatingTestimonial]);
+
+  useEffect(() => {
+    if (
+      !isCreatingTestimonial &&
+      !editingTestimonialId &&
+      testimonials.length > 0
+    ) {
+      setEditingTestimonialId(testimonials[0].id);
+    }
+  }, [testimonials, editingTestimonialId, isCreatingTestimonial]);
+
+  const testimonialForm = useForm<TestimonialCmsFormValues>({
+    resolver: zodResolver(testimonialCmsSchema),
+    defaultValues: {
+      quote: '',
+      authorLabel: '',
+      serviceCategory: '',
+      isActive: true,
+    },
+  });
+
+  useEffect(() => {
+    if (isCreatingTestimonial) {
+      testimonialForm.reset({
+        quote: '',
+        authorLabel: '',
+        serviceCategory: '',
+        isActive: true,
+      });
+    } else if (currentTestimonial) {
+      testimonialForm.reset({
+        quote: currentTestimonial.quote,
+        authorLabel: currentTestimonial.authorLabel,
+        serviceCategory: currentTestimonial.serviceCategory,
+        isActive: currentTestimonial.isActive,
+      });
+    }
+  }, [currentTestimonial, isCreatingTestimonial, testimonialForm]);
+
+  const saveTestimonialMutation = useMutation({
+    mutationFn: (values: TestimonialCmsFormValues) => {
+      if (isCreatingTestimonial || !currentTestimonial) {
+        return api.createTestimonial({
+          quote: values.quote,
+          authorLabel: values.authorLabel,
+          serviceCategory: values.serviceCategory,
+          isActive: values.isActive,
+          displayOrder: testimonials.length + 1,
+        });
+      }
+      return api.updateTestimonial(currentTestimonial.id, {
+        quote: values.quote,
+        authorLabel: values.authorLabel,
+        serviceCategory: values.serviceCategory,
+        isActive: values.isActive,
       });
     },
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['cms'] });
-        publishFlowEvent(
-          'CMS Overview Updated',
-          'Vision, Mission, and Clinic Overview updated.'
-        );
-      },
+    onSuccess: (saved) => {
+      queryClient.invalidateQueries({ queryKey: ['cms'] });
+      setIsCreatingTestimonial(false);
+      setEditingTestimonialId(saved.id);
+      setTestimonialStatusMsg(
+        `Saved testimonial by "${saved.authorLabel}".`
+      );
+      publishFlowEvent(
+        'Testimonials Updated',
+        `Saved testimonial for ${saved.serviceCategory}.`
+      );
+    },
+  });
+
+  const deleteTestimonialMutation = useMutation({
+    mutationFn: (id: string) => api.deleteTestimonial(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cms'] });
+      setEditingTestimonialId('');
+      setTestimonialStatusMsg('Deleted testimonial.');
+    },
   });
 
   const watchedDuration = serviceForm.watch('durationMinutes');
@@ -475,10 +601,6 @@ export default function AdminCmsPage() {
         <h1 className="font-heading text-4xl font-medium text-pine">
           CMS Editors: Services Catalog &amp; Multi-Page Intake/Consent Wizard
         </h1>
-        <p className="text-sm text-pine/80 max-w-3xl">
-          Create and manage clinical services, customize the multi-page client intake and consent
-          wizard, and manage institutional copy and testimonials governance. No private session notes are accessible.
-        </p>
       </header>
 
       {/* Segmented CMS Section Switcher */}
@@ -502,7 +624,7 @@ export default function AdminCmsPage() {
           },
           {
             id: 'structures',
-            label: '4. Testimonials Governance',
+            label: '4. Testimonials',
           },
         ].map((tab) => (
           <button
@@ -548,7 +670,7 @@ export default function AdminCmsPage() {
             </div>
 
             <div className="space-y-2">
-              {services.map((srv) => {
+              {paginatedServices.map((srv) => {
                 const isSelected =
                   !isCreatingService && currentService?.id === srv.id;
                 const active = srv.isActive !== false;
@@ -570,6 +692,7 @@ export default function AdminCmsPage() {
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-mono text-accent-ink font-semibold">
                         {srv.durationLabel}
+                        {srv.rateLabel ? ` · ${srv.rateLabel}` : ''}
                       </span>
                       <span
                         className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
@@ -591,6 +714,43 @@ export default function AdminCmsPage() {
                 );
               })}
             </div>
+
+            {services.length > SERVICES_PAGE_SIZE && (
+              <div className="flex items-center justify-between gap-2 border-t border-mist pt-3 text-xs">
+                <span className="text-pine/70 tabular-nums">
+                  Showing {firstServiceRow}–{lastServiceRow} of {services.length}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={safeServicesPage <= 1}
+                    onClick={() =>
+                      setServicesPage((current) => Math.max(1, current - 1))
+                    }
+                  >
+                    Previous
+                  </Button>
+                  <span className="px-2 text-pine/80 tabular-nums">
+                    {safeServicesPage} / {totalServicePages}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={safeServicesPage >= totalServicePages}
+                    onClick={() =>
+                      setServicesPage((current) =>
+                        Math.min(totalServicePages, current + 1)
+                      )
+                    }
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
 
           <Card className="lg:col-span-7 space-y-5">
@@ -686,6 +846,20 @@ export default function AdminCmsPage() {
               </div>
 
               <div>
+                <Label htmlFor="srv-rate">Rate (Optional)</Label>
+                <Input
+                  id="srv-rate"
+                  placeholder="e.g. ₱1,500 or ₱1,500 – ₱2,500"
+                  {...serviceForm.register('rateLabel')}
+                />
+                {serviceForm.formState.errors.rateLabel && (
+                  <p className="text-xs text-red-700 mt-1">
+                    {serviceForm.formState.errors.rateLabel.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
                 <Label htmlFor="srv-desc">Service Description</Label>
                 <Textarea
                   id="srv-desc"
@@ -763,10 +937,6 @@ export default function AdminCmsPage() {
                     Active Version: {activeTemplate?.consentVersion || 'v2'}
                   </span>
                 </div>
-                <p className="text-xs text-pine/75">
-                  Customize wizard pages, legal consent documents, demographic fields, and custom
-                  intake questions.
-                </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
@@ -791,6 +961,19 @@ export default function AdminCmsPage() {
                     </option>
                   </Select>
                 </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="md"
+                  onClick={() => {
+                    setPreviewStep(selectedPageIdx + 1);
+                    setIsPreviewOpen(true);
+                  }}
+                >
+                  <Eye className="w-4 h-4" aria-hidden="true" />
+                  Preview Wizard
+                </Button>
 
                 <Button
                   type="button"
@@ -1608,24 +1791,29 @@ export default function AdminCmsPage() {
         </div>
       )}
 
-      {/* Tab 3: Vision, Mission, Clinic Overview & Consent Banner */}
+      {/* Tab 3: Vision, Mission, Clinic Overview & Impact */}
       {activeTab === 'overview' && (
         <Card className="space-y-6">
           <div className="border-b border-mist pb-3">
             <h2 className="font-heading text-2xl font-medium text-pine">
-              Vision, Mission, Clinic Overview &amp; Consent-Flag Governance
+              Vision, Mission, Clinic Overview &amp; Impact Narrative
             </h2>
-            <p className="text-xs text-pine/70">
-              Manage Vision, Mission, Clinic Overview, Impact Narrative, and the Testimonials
-              consent-flag governance banner. Services and Wizard/Consent Forms in Tabs 1 &amp; 2
-              are persisted to the PostgreSQL database.
-            </p>
           </div>
 
+          {overviewStatusMsg && (
+            <div
+              role="status"
+              className="rounded-lg border border-sage/50 bg-surface-sunken p-3 text-xs text-pine font-medium"
+            >
+              {overviewStatusMsg}
+            </div>
+          )}
+
           <form
-            onSubmit={overviewForm.handleSubmit((vals) =>
-              saveCmsMutation.mutate(vals)
-            )}
+            onSubmit={overviewForm.handleSubmit((vals) => {
+              setOverviewStatusMsg(null);
+              saveCmsMutation.mutate(vals);
+            })}
             className="space-y-5"
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -1679,17 +1867,11 @@ export default function AdminCmsPage() {
                 rows={2}
                 {...overviewForm.register('impactNarrative')}
               />
-            </div>
-
-            <div>
-              <Label htmlFor="cms-consent">
-                Testimonials Consent-Flag Governance Note (No Personal Quotes Policy)
-              </Label>
-              <Textarea
-                id="cms-consent"
-                rows={2}
-                {...overviewForm.register('consentFlagBanner')}
-              />
+              {overviewForm.formState.errors.impactNarrative && (
+                <p className="text-xs text-red-700 mt-1">
+                  {overviewForm.formState.errors.impactNarrative.message}
+                </p>
+              )}
             </div>
 
             <Button
@@ -1698,49 +1880,545 @@ export default function AdminCmsPage() {
               size="md"
               disabled={saveCmsMutation.isPending}
             >
-              {saveCmsMutation.isPending
-                ? 'Saving…'
-                : 'Save Overview'}
+              {saveCmsMutation.isPending ? 'Saving…' : 'Save Overview'}
             </Button>
           </form>
         </Card>
       )}
 
-      {/* Tab 4: Testimonials Consent Structure */}
+      {/* Tab 4: Testimonials CMS (Live Backend CRUD) */}
       {activeTab === 'structures' && (
-        <Card className="space-y-4">
-          <div className="border-b border-mist pb-3">
-            <h2 className="font-heading text-2xl font-medium text-pine">
-              Testimonials Structure (Consent Governance)
-            </h2>
-            <p className="text-xs text-pine/70">
-              Enforces zero personal quotes across all public pages.
-            </p>
-          </div>
-
-          {cms && cms.testimonialsConfig.emptyCards.length === 0 ? (
-            <p className="text-xs text-pine/70 leading-relaxed">
-              No testimonial slot structures seeded. Public pages render the consent governance
-              banner only.
-            </p>
-          ) : (
-            <div className="divide-y divide-mist/60 text-xs">
-              {cms?.testimonialsConfig.emptyCards.map((card) => (
-                <div key={card.id} className="py-3 space-y-1">
-                  <div className="flex justify-between font-mono text-accent-ink">
-                    <span>{card.slotCode}</span>
-                    <span>Quote: Intentionally Empty</span>
-                  </div>
-                  <p className="font-semibold text-pine">
-                    {card.serviceCategory}
-                  </p>
-                  <p className="text-pine/75">{card.governanceNote}</p>
-                </div>
-              ))}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <Card className="lg:col-span-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-mist pb-3">
+              <div>
+                <h2 className="font-heading text-2xl font-medium text-pine">
+                  Testimonials
+                </h2>
+                <p className="text-xs text-pine/70">
+                  {testimonials.length} total reflections
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  setTestimonialStatusMsg(null);
+                  setIsCreatingTestimonial(true);
+                }}
+              >
+                <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+                New Testimonial
+              </Button>
             </div>
-          )}
-        </Card>
+
+            <div className="space-y-2">
+              {testimonials.map((item) => {
+                const isSelected =
+                  !isCreatingTestimonial && currentTestimonial?.id === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      setTestimonialStatusMsg(null);
+                      setIsCreatingTestimonial(false);
+                      setEditingTestimonialId(item.id);
+                    }}
+                    className={`w-full text-left p-3.5 rounded-xl border text-xs transition-colors cursor-pointer ${
+                      isSelected
+                        ? 'border-sage bg-surface-sunken'
+                        : 'border-mist bg-surface-raised hover:border-mint hover:bg-surface-sunken/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-accent-ink">
+                        {item.serviceCategory}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                          item.isActive
+                            ? 'bg-sage/20 text-pine'
+                            : 'bg-mist/70 text-pine/60'
+                        }`}
+                      >
+                        {item.isActive ? 'Published' : 'Hidden'}
+                      </span>
+                    </div>
+                    <p className="text-pine mt-1.5 line-clamp-2 leading-relaxed">
+                      &ldquo;{item.quote}&rdquo;
+                    </p>
+                    <p className="text-pine/65 mt-1 font-medium">
+                      — {item.authorLabel}
+                    </p>
+                  </button>
+                );
+              })}
+              {testimonials.length === 0 && (
+                <p className="text-xs text-pine/70 py-4 text-center">
+                  No testimonials yet.
+                </p>
+              )}
+            </div>
+          </Card>
+
+          <Card className="lg:col-span-7 space-y-5">
+            <div className="border-b border-mist pb-3 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold text-accent-ink">
+                  {isCreatingTestimonial
+                    ? 'Adding New Reflection'
+                    : 'Editing Reflection'}
+                </p>
+                <h2 className="font-heading text-2xl font-medium text-pine">
+                  {isCreatingTestimonial
+                    ? 'New Client Testimonial'
+                    : currentTestimonial?.authorLabel || 'Select a testimonial'}
+                </h2>
+              </div>
+              {isCreatingTestimonial && testimonials.length > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsCreatingTestimonial(false)}
+                >
+                  Cancel
+                </Button>
+              )}
+            </div>
+
+            {testimonialStatusMsg && (
+              <div
+                role="status"
+                className="rounded-lg border border-sage/50 bg-surface-sunken p-3 text-xs text-pine font-medium"
+              >
+                {testimonialStatusMsg}
+              </div>
+            )}
+
+            <form
+              onSubmit={testimonialForm.handleSubmit((vals) => {
+                setTestimonialStatusMsg(null);
+                saveTestimonialMutation.mutate(vals);
+              })}
+              className="space-y-4"
+            >
+              <div>
+                <Label htmlFor="t-quote">Reflection Quote</Label>
+                <Textarea
+                  id="t-quote"
+                  rows={4}
+                  placeholder="Share an anonymized client reflection…"
+                  {...testimonialForm.register('quote')}
+                />
+                {testimonialForm.formState.errors.quote && (
+                  <p className="text-xs text-red-700 mt-1">
+                    {testimonialForm.formState.errors.quote.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="t-author">Attribution Label</Label>
+                  <Input
+                    id="t-author"
+                    placeholder="e.g. Client · Individual Counseling"
+                    {...testimonialForm.register('authorLabel')}
+                  />
+                  {testimonialForm.formState.errors.authorLabel && (
+                    <p className="text-xs text-red-700 mt-1">
+                      {testimonialForm.formState.errors.authorLabel.message}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="t-category">Service Category</Label>
+                  <Input
+                    id="t-category"
+                    placeholder="e.g. Couples Counseling"
+                    {...testimonialForm.register('serviceCategory')}
+                  />
+                  {testimonialForm.formState.errors.serviceCategory && (
+                    <p className="text-xs text-red-700 mt-1">
+                      {testimonialForm.formState.errors.serviceCategory.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <label className="flex items-center gap-3 p-3.5 rounded-xl border border-mist bg-surface-sunken/50 text-xs text-pine cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-mist accent-sage cursor-pointer"
+                  {...testimonialForm.register('isActive')}
+                />
+                <span className="font-semibold">
+                  Published on public homepage carousel
+                </span>
+              </label>
+
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={saveTestimonialMutation.isPending}
+                >
+                  {saveTestimonialMutation.isPending
+                    ? 'Saving…'
+                    : isCreatingTestimonial
+                      ? 'Add Testimonial'
+                      : 'Save Testimonial'}
+                </Button>
+
+                {!isCreatingTestimonial && currentTestimonial && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={deleteTestimonialMutation.isPending}
+                    onClick={() =>
+                      deleteTestimonialMutation.mutate(currentTestimonial.id)
+                    }
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-red-700" aria-hidden="true" />
+                    Delete
+                  </Button>
+                )}
+              </div>
+            </form>
+          </Card>
+        </div>
       )}
+
+      {/* Interactive Wizard & Consent Form Preview Modal */}
+      {(() => {
+        const previewPages = wizardPages.length > 0 ? wizardPages : DEFAULT_WIZARD_PAGES;
+        const safePreviewStep = Math.min(Math.max(1, previewStep), previewPages.length);
+        const activePreviewPage = previewPages[safePreviewStep - 1] || previewPages[0];
+        const previewVersion = activeTemplate?.consentVersion || 'v2';
+
+        return (
+          <Modal
+            open={isPreviewOpen}
+            onClose={() => setIsPreviewOpen(false)}
+            maxWidth="2xl"
+            title={activePreviewPage?.title || 'Wizard Preview'}
+            description={`Interactive Client Preview · Step ${safePreviewStep} of ${previewPages.length} · Consent ${previewVersion}${
+              hasWizardChanges ? ' (unsaved draft)' : ''
+            }`}
+            footer={
+              <div className="flex flex-wrap items-center justify-between gap-3 w-full">
+                <span className="text-xs text-pine/65">
+                  Preview mode — no data is submitted.
+                </span>
+                <div className="flex items-center gap-2">
+                  {safePreviewStep > 1 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPreviewStep(safePreviewStep - 1)}
+                    >
+                      Back
+                    </Button>
+                  )}
+                  {safePreviewStep < previewPages.length ? (
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      onClick={() => setPreviewStep(safePreviewStep + 1)}
+                    >
+                      Next
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      onClick={() => setIsPreviewOpen(false)}
+                    >
+                      Close Preview
+                    </Button>
+                  )}
+                </div>
+              </div>
+            }
+          >
+            <div className="space-y-5">
+              {/* Step progress bar */}
+              <ol className="flex items-center gap-2" aria-label="Preview wizard progress">
+                {previewPages.map((p, idx) => {
+                  const stepNum = idx + 1;
+                  return (
+                    <li key={p.pageId} className="flex-1">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewStep(stepNum)}
+                        title={`Step ${stepNum}: ${p.title}`}
+                        className="w-full py-1 cursor-pointer"
+                      >
+                        <div
+                          className={`h-1.5 rounded-full transition-colors ${
+                            stepNum <= safePreviewStep ? 'bg-sage' : 'bg-mist/60'
+                          }`}
+                        />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+
+              {activePreviewPage?.description && (
+                <p className="text-xs text-pine/75">{activePreviewPage.description}</p>
+              )}
+
+              <div className="space-y-4">
+                {activePreviewPage?.blocks.map((block) => {
+                  if (block.blockId === 'who_for') return null;
+                  if (!isWizardBlockVisible(block, false, previewValues)) return null;
+
+                  if (block.type === 'scrollable_doc') {
+                    return (
+                      <div key={block.blockId}>
+                        <Label variant="doc">
+                          {block.label} ({previewVersion})
+                        </Label>
+                        <div className="mt-1.5 max-h-44 overflow-y-auto p-4 rounded-lg bg-parchment border border-mist text-xs text-pine/90 leading-relaxed whitespace-pre-wrap">
+                          {block.content}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (block.type === 'services_list') {
+                    const activeServices = services.filter((s) => s.isActive !== false);
+                    return (
+                      <div key={block.blockId} className="space-y-2">
+                        <h3 className="font-heading text-base font-medium text-pine">
+                          {block.label}
+                        </h3>
+                        <ul className="space-y-2">
+                          {activeServices.map((s) => (
+                            <li
+                              key={s.id}
+                              className="p-3 rounded-lg bg-parchment border border-mist space-y-1"
+                            >
+                              <p className="text-xs font-semibold text-pine">
+                                {s.title}{' '}
+                                <span className="font-normal text-accent-ink">
+                                  · {s.durationLabel}
+                                  {s.rateLabel ? ` · ${s.rateLabel}` : ''}
+                                </span>
+                              </p>
+                              {s.description && (
+                                <p className="text-xs text-pine/85 leading-relaxed">
+                                  {s.description}
+                                </p>
+                              )}
+                              {s.guardrailNotice && (
+                                <p className="text-xs text-pine/70 italic">
+                                  {s.guardrailNotice}
+                                </p>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  }
+
+                  if (block.type === 'section_heading') {
+                    return (
+                      <div
+                        key={block.blockId}
+                        className="border-t border-mist/70 pt-3 space-y-1"
+                      >
+                        <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                          {block.label}
+                        </span>
+                        {block.content && (
+                          <p className="text-xs text-pine/70">{block.content}</p>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  if (block.type === 'info_text') {
+                    return (
+                      <div
+                        key={block.blockId}
+                        className="p-3.5 rounded-lg bg-surface-sunken border border-mist text-xs text-pine/85 leading-relaxed"
+                      >
+                        {block.content || block.label}
+                      </div>
+                    );
+                  }
+
+                  if (block.type === 'review_summary') {
+                    const groups = previewPages
+                      .map((p, idx) => {
+                        if (p.pageId === activePreviewPage.pageId) return null;
+                        const rows: [string, string][] = [];
+                        for (const b of p.blocks) {
+                          if (!INPUT_BLOCK_TYPES.has(b.type) || !b.fieldKey) continue;
+                          if (!isWizardBlockVisible(b, false, previewValues)) continue;
+                          const raw = previewValues[b.fieldKey];
+                          const formatted =
+                            b.type === 'checkbox'
+                              ? raw
+                                ? 'Yes'
+                                : 'No'
+                              : raw != null && String(raw).trim() !== ''
+                                ? String(raw)
+                                : '—';
+                          rows.push([b.label, formatted]);
+                        }
+                        return rows.length > 0
+                          ? { title: p.title, step: idx + 1, rows }
+                          : null;
+                      })
+                      .filter((g): g is NonNullable<typeof g> => g !== null);
+
+                    return (
+                      <div
+                        key={block.blockId}
+                        className="rounded-lg border border-mist overflow-hidden"
+                      >
+                        {groups.map((group) => (
+                          <div
+                            key={`${group.title}-${group.step}`}
+                            className="border-b border-mist last:border-b-0"
+                          >
+                            <div className="flex items-center justify-between px-3.5 py-2 border-b border-mist bg-surface-sunken/40">
+                              <p className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                                {group.title}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => setPreviewStep(group.step)}
+                                className="text-xs font-medium text-sage hover:text-pine cursor-pointer"
+                              >
+                                Edit
+                              </button>
+                            </div>
+                            <dl className="px-3.5 py-2 space-y-1">
+                              {group.rows.map(([k, v]) => (
+                                <div key={k} className="flex justify-between gap-4 text-xs">
+                                  <dt className="text-pine/65">{k}</dt>
+                                  <dd className="font-medium text-pine text-right">{v}</dd>
+                                </div>
+                              ))}
+                            </dl>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }
+
+                  const key = block.fieldKey || block.blockId;
+                  const val = previewValues[key];
+                  const setPreviewField = (nextVal: unknown) =>
+                    setPreviewValues((prev) => ({ ...prev, [key]: nextVal }));
+
+                  if (block.type === 'checkbox') {
+                    return (
+                      <label
+                        key={block.blockId}
+                        className="flex items-start gap-3 text-xs text-pine cursor-pointer p-3 rounded-xl border border-mist hover:border-mint transition-colors"
+                      >
+                        <Checkbox
+                          className="mt-0.5"
+                          checked={Boolean(val)}
+                          onChange={(e) => setPreviewField(e.target.checked)}
+                        />
+                        <span className="leading-relaxed">{block.label}</span>
+                      </label>
+                    );
+                  }
+
+                  if (block.type === 'select') {
+                    const strVal = val == null ? '' : String(val);
+                    return (
+                      <div key={block.blockId}>
+                        <Label>
+                          {block.label}
+                          {block.required ? ' *' : ''}
+                        </Label>
+                        <Select
+                          value={strVal}
+                          onChange={(e) => setPreviewField(e.target.value)}
+                        >
+                          <option value="">Select an option…</option>
+                          {block.options.map((opt) => (
+                            <option
+                              key={`${block.blockId}-${opt.value}`}
+                              value={opt.value}
+                            >
+                              {opt.label}
+                            </option>
+                          ))}
+                        </Select>
+                        {block.helperText && (
+                          <p className="text-xs text-pine/70 mt-1">{block.helperText}</p>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  if (block.type === 'textarea') {
+                    return (
+                      <div key={block.blockId}>
+                        <Label>
+                          {block.label}
+                          {block.required ? ' *' : ''}
+                        </Label>
+                        <Textarea
+                          rows={2}
+                          value={val == null ? '' : String(val)}
+                          placeholder={block.placeholder || undefined}
+                          onChange={(e) => setPreviewField(e.target.value)}
+                        />
+                        {block.helperText && (
+                          <p className="text-xs text-pine/70 mt-1">{block.helperText}</p>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={block.blockId}>
+                      <Label>
+                        {block.label}
+                        {block.required ? ' *' : ''}
+                      </Label>
+                      <Input
+                        type={
+                          block.type === 'date'
+                            ? 'date'
+                            : block.type === 'phone'
+                              ? 'tel'
+                              : 'text'
+                        }
+                        value={val == null ? '' : String(val)}
+                        placeholder={block.placeholder || undefined}
+                        onChange={(e) => setPreviewField(e.target.value)}
+                      />
+                      {block.helperText && (
+                        <p className="text-xs text-pine/70 mt-1">{block.helperText}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
     </div>
   );
 }
