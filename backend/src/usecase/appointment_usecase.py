@@ -2,12 +2,13 @@ import uuid
 
 from sqlmodel import Session
 
-from common.exceptions import BadRequestError, NotFoundError
+from common.exceptions import BadRequestError, ConflictError, NotFoundError
 from common.time import now_manila, payment_deadline_for, slot_start
 from models.appointment import Appointment, AppointmentStatus, SchedulingTurn
 from models.profile import Profile
 from models.proposed_slot import ProposedSlot, SlotProposer, SlotStatus
 from repo.appointment_repo import AppointmentRepo
+from repo.consent_template_repo import ConsentTemplateRepo
 from repo.profile_repo import ProfileRepo
 from repo.service_repo import ServiceRepo
 from schemas.appointment import (
@@ -16,6 +17,7 @@ from schemas.appointment import (
     PreferredSlotsUpdate,
     ProposedSlotRead,
 )
+from schemas.consent_template import extract_major_version
 from dependencies.email import get_email_service
 from services.email.base import BaseEmailService
 from utils.scheduling import validate_slot_inputs
@@ -47,6 +49,18 @@ class AppointmentUsecase:
 
     def create_appointment(self, payload: AppointmentCreate, client_id: uuid.UUID) -> AppointmentRead:
         self._get_owned_profile(payload.profile_id, client_id)
+
+        latest_form = self.profile_repo.get_latest_form(payload.profile_id)
+        active_template = ConsentTemplateRepo(self.db).get_active()
+        if (
+            latest_form is not None
+            and active_template is not None
+            and extract_major_version(latest_form.consent_version)
+            != extract_major_version(active_template.consent_version)
+        ):
+            raise ConflictError(
+                f"Consent form is outdated — please re-sign version {active_template.consent_version} before booking"
+            )
 
         service = self.service_repo.get_by_id(payload.service_id)
         if service is None or not service.is_active:

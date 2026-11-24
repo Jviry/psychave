@@ -117,22 +117,66 @@ export const cmsOverviewSchema = z.object({
   mission: z.string().min(20, 'Mission statement must be at least 20 characters.'),
   clinicOverview: z.string().min(30, 'Clinic overview must be at least 30 characters.'),
   impactNarrative: z.string().min(20, 'Impact narrative must be at least 20 characters.'),
-  consentFlagBanner: z.string().min(20, 'Consent-flag governance notice is required.'),
 });
 
 export type CmsOverviewFormValues = z.infer<typeof cmsOverviewSchema>;
 
-/**
- * Admin CMS Service & Clinical Guardrails Editor Schema
- */
-export const serviceGuardrailSchema = z.object({
-  durationLabel: z.string().min(2, 'Duration label is required.'),
-  guardrailTitle: z.string().min(5, 'Guardrail headline must be at least 5 characters.'),
-  guardrailNotice: z.string().min(20, 'Scope guardrail notice must be at least 20 characters.'),
-  description: z.string().min(20, 'Public service description must be at least 20 characters.'),
+export const testimonialCmsSchema = z.object({
+  quote: z
+    .string()
+    .trim()
+    .min(10, 'Testimonial quote must be at least 10 characters.')
+    .max(600, 'Testimonial quote must be under 600 characters.'),
+  authorLabel: z
+    .string()
+    .trim()
+    .min(2, 'Attribution label is required (e.g. "Client · Quezon City").')
+    .max(120, 'Attribution label must be under 120 characters.'),
+  serviceCategory: z
+    .string()
+    .trim()
+    .min(2, 'Service category is required.')
+    .max(120, 'Service category must be under 120 characters.'),
+  isActive: z.boolean(),
 });
 
-export type ServiceGuardrailFormValues = z.infer<typeof serviceGuardrailSchema>;
+export type TestimonialCmsFormValues = z.infer<typeof testimonialCmsSchema>;
+
+/**
+ * Admin CMS Service Catalog Editor Schema
+ */
+export const serviceCmsSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(3, 'Service name must be at least 3 characters.')
+    .max(120, 'Service name must be under 120 characters.'),
+  durationMinutes: z
+    .number({ message: 'Enter a valid duration in minutes.' })
+    .int('Duration must be a whole number of minutes.')
+    .min(15, 'Minimum duration is 15 minutes.')
+    .max(480, 'Maximum duration is 480 minutes.'),
+  rateLabel: z
+    .string()
+    .trim()
+    .max(120, 'Rate must be under 120 characters.')
+    .optional()
+    .or(z.literal('')),
+  notice: z
+    .string()
+    .trim()
+    .max(1000, 'Notice must be under 1,000 characters.')
+    .optional()
+    .or(z.literal('')),
+  description: z
+    .string()
+    .trim()
+    .min(20, 'Service description must be at least 20 characters.')
+    .max(2000, 'Service description must be under 2,000 characters.'),
+  isActive: z.boolean(),
+});
+
+export type ServiceCmsFormValues = z.infer<typeof serviceCmsSchema>;
 
 /* ------------------------------------------------------------------ */
 /* Profile creation wizard (4 pages, single POST /profiles at submit).  */

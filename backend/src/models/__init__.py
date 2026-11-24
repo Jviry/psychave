@@ -2,6 +2,8 @@
 from models.admin_profile import AdminProfile
 from models.appointment import Appointment, AppointmentStatus, SchedulingTurn
 from models.client_profile import ClientProfile
+from models.cms import CmsContent, Testimonial
+from models.consent_template import ConsentFormTemplate
 from models.forms import Forms
 from models.payment import Payment, PaymentStatus
 from models.profile import ContactMode, Profile, ProfileRelation
@@ -18,9 +20,12 @@ __all__ = [
     "PsychologistProfile",
     "PsychologistInvitation",
     "ClientProfile",
+    "CmsContent",
+    "Testimonial",
     "Profile",
     "ProfileRelation",
     "ContactMode",
+    "ConsentFormTemplate",
     "Forms",
     "ProposedSlot",
     "SlotProposer",

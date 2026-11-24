@@ -94,7 +94,7 @@ function ClinicCard({ cms }: { cms?: CmsContent }) {
         <p className="text-sm leading-relaxed text-white/70">{cms.impactNarrative}</p>
       )}
 
-      {cms && cms.impactMetrics.length > 0 && (
+      {cms?.impactMetrics && cms.impactMetrics.length > 0 && (
         <div className="divide-y divide-white/10">
           {cms.impactMetrics.map((metric) => (
             <div key={metric.id} className="flex items-center justify-between gap-4 py-3">

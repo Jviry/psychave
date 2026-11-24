@@ -15,6 +15,7 @@ from sqlmodel import Session
 
 from common.database import engine
 from models.service import Service
+from repo.consent_template_repo import ConsentTemplateRepo
 
 # Deterministic ids — never reorder or rename a slug once it ships, or a new
 # row will be created for the same catalog entry.
@@ -175,6 +176,7 @@ def seed_services() -> tuple[int, int]:
                 updated += 1
 
         session.commit()
+        ConsentTemplateRepo(session).ensure_default_seeded()
 
     return created, updated
 

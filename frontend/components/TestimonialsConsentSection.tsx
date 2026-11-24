@@ -1,43 +1,79 @@
 'use client';
 
 import React from 'react';
-import { CmsContent } from '../lib/types';
+import { Quote } from 'lucide-react';
+import { ScrollCarousel } from './ScrollCarousel';
+import { Card } from './ui/primitives';
+import type { CmsContent } from '../lib/types';
 
 /**
- * Consent governance section (RA 10173). Renders the section title and the
- * consent-flag governance notice as plain text — no panels, no bands, no
- * placeholder testimonial content of any kind. The notice falls back to a
- * static governance line if the CMS block is ever cleared, so the privacy
- * notice can never disappear from public pages.
- *
- * `emptyCards` stays in the CmsContent type (contract §6.6) but is
- * intentionally not rendered.
+ * Editorial Client Reflections carousel rendered on the public landing page.
+ * Uses the existing ScrollCarousel with anonymized client attributions.
  */
-const DEFAULT_SECTION_TITLE = 'Client Reflections & Consent Governance';
-const DEFAULT_CONSENT_BANNER =
-  'Consent-Flag Governance Active — No personal quotes, client names, or identifiable narratives are displayed. Public pages render no testimonial content, in line with clinical confidentiality rules and Philippine Data Privacy Act (RA 10173) standards.';
-const DEFAULT_STANDARD_REF = 'PAP Code of Ethics · RA 10173 Privacy Baseline';
-
 export function TestimonialsConsentSection({ cms }: { cms: CmsContent }) {
-  const { sectionTitle, consentFlagBanner, ethicalStandardRef } = cms.testimonialsConfig;
+  const items = (cms.testimonials ?? []).filter((t) => t.isActive !== false);
+  if (items.length === 0) return null;
 
   return (
-    <section id="ra-10173-consent" className="py-12 border-t border-mist scroll-mt-20">
-      <div className="space-y-3 max-w-3xl">
-        <div className="flex items-center gap-2 text-xs text-accent-ink font-medium">
-          <span>Ethical Confidentiality Architecture</span>
-          <span aria-hidden="true">·</span>
-          <span>{ethicalStandardRef || DEFAULT_STANDARD_REF}</span>
+    <section
+      id="testimonials"
+      className="scroll-mt-24 space-y-6 border-t border-mist pt-12 lg:space-y-8"
+    >
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium uppercase tracking-widest text-accent-ink">
+            Client Reflections
+          </p>
+          <h2 className="font-heading text-3xl sm:text-4xl font-semibold tracking-tight text-pine">
+            Experiences in Structured Care
+          </h2>
         </div>
-
-        <h2 className="font-heading text-3xl font-semibold text-pine tracking-tight">
-          {sectionTitle || DEFAULT_SECTION_TITLE}
-        </h2>
-
-        <p className="text-sm text-pine/80 leading-relaxed">
-          {consentFlagBanner || DEFAULT_CONSENT_BANNER}
-        </p>
       </div>
+
+      <ScrollCarousel
+        ariaLabel="Client reflections carousel"
+        trackClassName="gap-4 pb-3 pt-1"
+        deps={[items.length]}
+      >
+        {items.map((item, idx) => {
+          const tint = idx % 2 === 0 ? 'parchment' : 'mist';
+          return (
+            <div
+              key={item.id}
+              className="flex w-[20rem] sm:w-[24rem] shrink-0 snap-start"
+            >
+              <Card
+                className={`flex h-full w-full flex-col justify-between gap-6 p-7 border transition-all duration-200 motion-safe:hover:-translate-y-0.5 hover:shadow-lift ${
+                  tint === 'parchment'
+                    ? 'bg-parchment border-mist'
+                    : 'bg-surface-raised border-mist'
+                }`}
+              >
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="inline-flex items-center rounded-full bg-sage/15 px-2.5 py-1 text-[11px] font-medium text-pine">
+                      {item.serviceCategory}
+                    </span>
+                    <Quote
+                      className="h-4 w-4 shrink-0 text-sage/60"
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <blockquote className="font-heading text-xl leading-relaxed text-pine/95">
+                    &ldquo;{item.quote}&rdquo;
+                  </blockquote>
+                </div>
+
+                <footer className="border-t border-mist/80 pt-3">
+                  <p className="text-xs font-medium tracking-wide text-pine/70">
+                    {item.authorLabel}
+                  </p>
+                </footer>
+              </Card>
+            </div>
+          );
+        })}
+      </ScrollCarousel>
     </section>
   );
 }

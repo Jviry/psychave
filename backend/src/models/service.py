@@ -10,3 +10,4 @@ class Service(SQLModel, table=True):
     is_active: bool = True
     duration_minutes: int = 60
     guardrail_notice: str | None = None
+    rate_label: str | None = None

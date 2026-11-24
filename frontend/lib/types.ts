@@ -21,10 +21,12 @@ export interface ServiceItem {
   categoryGroup: string;
   durationLabel: string;
   durationMinutes: number;
+  rateLabel?: string | null;
   guardrailTitle: string;
   guardrailNotice: string;
   description: string;
   clinicalFormat: string;
+  isActive?: boolean;
   isStandaloneConsultation?: boolean;
 }
 
@@ -49,6 +51,23 @@ export interface Profile {
   emergencyContactName?: string;
   emergencyContactRelation?: string;
   emergencyContactNumber?: string;
+  details?: Record<string, unknown>;
+  signedConsentVersion?: string | null;
+  activeConsentVersion?: string;
+  consentOutdated?: boolean;
+}
+
+export interface ReviewField {
+  fieldKey: string;
+  label: string;
+  type: string;
+  value: unknown;
+}
+
+export interface ReviewSection {
+  pageId: string;
+  title: string;
+  fields: ReviewField[];
 }
 
 export interface ProfileReview {
@@ -68,6 +87,7 @@ export interface ProfileReview {
     emergencyContactName: string;
     emergencyContactRelation: string;
     emergencyContactNumber: string;
+    details?: Record<string, unknown>;
   };
   consent: {
     version: string;
@@ -79,7 +99,75 @@ export interface ProfileReview {
     informationConfirmed: boolean;
     consentSignerName: string;
     signedAt: string | null;
+    responses?: Record<string, unknown>;
   };
+  reviewSections?: ReviewSection[];
+}
+
+export type WizardBlockType =
+  | 'scrollable_doc'
+  | 'info_text'
+  | 'section_heading'
+  | 'services_list'
+  | 'review_summary'
+  | 'text'
+  | 'textarea'
+  | 'date'
+  | 'phone'
+  | 'select'
+  | 'checkbox';
+
+export type WizardFieldTarget = 'profile' | 'consent' | 'ui' | 'custom';
+
+export type WizardAppliesTo = 'all' | 'self' | 'dependent';
+
+export interface WizardSelectOption {
+  value: string;
+  label: string;
+}
+
+export interface WizardShowIf {
+  fieldKey: string;
+  equals: string | boolean;
+}
+
+export interface WizardBlock {
+  blockId: string;
+  type: WizardBlockType;
+  label: string;
+  content?: string | null;
+  helperText?: string | null;
+  placeholder?: string | null;
+  target?: WizardFieldTarget | null;
+  fieldKey?: string | null;
+  appliesTo: WizardAppliesTo;
+  required: boolean;
+  options: WizardSelectOption[];
+  showIf?: WizardShowIf | null;
+  systemLocked: boolean;
+}
+
+export interface WizardPage {
+  pageId: string;
+  title: string;
+  description?: string | null;
+  blocks: WizardBlock[];
+}
+
+export interface ConsentFormTemplate {
+  templateId: string;
+  consentVersion: string;
+  informedConsentText: string;
+  typingStatement: string;
+  scopeLimitationsText: string;
+  scopeAckText: string;
+  overseasLimitationsText: string;
+  overseasAckText: string;
+  finalConsentStatement: string;
+  wizardPages: WizardPage[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface SocialMediaLink {
@@ -185,18 +273,30 @@ export interface TestimonialSlot {
   governanceNote: string;
 }
 
+export interface TestimonialItem {
+  id: string;
+  quote: string;
+  authorLabel: string;
+  serviceCategory: string;
+  isActive: boolean;
+  displayOrder: number;
+  createdAt: string;
+}
+
 export interface CmsContent {
   vision: string;
   mission: string;
   clinicOverview: string;
   impactNarrative: string;
-  impactMetrics: {
+  updatedAt?: string;
+  testimonials: TestimonialItem[];
+  impactMetrics?: {
     id: string;
     metricValue: string;
     metricLabel: string;
     timeframeContext: string;
   }[];
-  testimonialsConfig: {
+  testimonialsConfig?: {
     sectionTitle: string;
     consentFlagBanner: string;
     ethicalStandardRef: string;
