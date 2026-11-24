@@ -244,7 +244,7 @@ async function liveFetch(
       if (useAuthStore.getState()?.isAuthenticated) {
         useAuthStore.getState().logout();
       }
-      if (!endpoint.startsWith('/services/active')) {
+      if (!endpoint.startsWith('/services/active') && endpoint !== '/cms') {
         return {
           status: 401,
           json: { detail: 'Session expired. Please sign in again.' },
