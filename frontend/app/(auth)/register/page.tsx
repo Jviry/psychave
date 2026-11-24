@@ -710,12 +710,9 @@ export default function RegisterPage() {
                   />
                   <span className="text-xs text-pine/70 leading-relaxed">
                     I have read and agree to the{' '}
-                    <a
-                      href="/#ra-10173-consent"
-                      className="text-sage hover:text-pine underline font-medium focus-visible:outline-2 focus-visible:outline-sage focus-visible:outline-offset-2"
-                    >
+                    <span className="font-medium text-pine/80">
                       Data Privacy Policy
-                    </a>{' '}
+                    </span>{' '}
                     in accordance with{' '}
                     <span className="font-medium text-pine/80">RA 10173 (Data Privacy Act of 2012)</span>. I consent to
                     the collection and processing of my personal information for clinical and booking purposes.

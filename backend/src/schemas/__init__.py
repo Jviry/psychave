@@ -40,6 +40,13 @@ from schemas.psychologist import (
     SocialMediaLink,
 )
 from schemas.service import ServiceCreate, ServiceRead, ServiceUpdate
+from schemas.cms import (
+    CmsContentRead,
+    CmsContentUpdate,
+    TestimonialCreate,
+    TestimonialRead,
+    TestimonialUpdate,
+)
 from schemas.consent_template import (
     ConsentFormTemplateRead,
     ConsentFormTemplateUpsert,

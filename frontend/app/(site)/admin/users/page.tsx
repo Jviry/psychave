@@ -247,10 +247,6 @@ export default function AdminUsersPage() {
           <h1 className="font-heading text-4xl font-medium text-pine">
             User Directory &amp; Access Roles
           </h1>
-          <p className="text-sm text-pine/80 max-w-3xl">
-            Search registered accounts, filter by access role, and invite verified
-            psychologists via single-use onboarding links.
-          </p>
         </div>
         <Button variant="primary" size="md" onClick={openInviteModal}>
           <UserPlus className="h-4 w-4" aria-hidden="true" />
