@@ -169,7 +169,7 @@ def create_client_profile(api_url: str):
                 "permanent_address": "Quezon City, Metro Manila",
                 "present_address": "Quezon City, Metro Manila",
                 "contact_number": "+639171234567",
-                "socmed_platform": "Messenger",
+                "socmed_platform": "messenger",
                 "socmed_username": "juan.delacruz.ephem",
                 "preferred_contact_mode": "messenger",
                 "emergency_contact_name": "Maria Dela Cruz",
