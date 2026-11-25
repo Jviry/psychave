@@ -47,48 +47,17 @@ export default function LoginPage() {
     setApiError(null);
 
     try {
-      const session = await authApi.loginUser({
+      const { user } = await authApi.loginSession({
         username: data.username,
         password: data.password,
       });
 
-      // Decode IdToken to get user info (base64 payload, no signature verification on client)
-      let userInfo = {
-        email: '',
-        username: data.username,
-        role: 'client' as 'client' | 'psychologist' | 'admin',
-        cognitoSub: '',
-      };
-
-      try {
-        const parts = session.idToken.split('.');
-        const base64Url = parts[1] || '';
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const padded = base64.padEnd(base64.length + (4 - (base64.length % 4)) % 4, '=');
-        const json = decodeURIComponent(
-          atob(padded)
-            .split('')
-            .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-            .join('')
-        );
-        const payload = JSON.parse(json);
-        const groups: string[] = payload['cognito:groups'] || [];
-        const role = groups.includes('admin')
-          ? 'admin'
-          : groups.includes('psychologist')
-            ? 'psychologist'
-            : 'client';
-        userInfo = {
-          email: payload.email || '',
-          username: payload['cognito:username'] || data.username,
-          role,
-          cognitoSub: payload.sub || '',
-        };
-      } catch {
-        // Token decode is best-effort; keep backend-provided session defaults.
-      }
-
-      login({ ...session, user: userInfo });
+      login({
+        accessToken: '',
+        idToken: '',
+        refreshToken: '',
+        user,
+      });
 
       setToast({ message: 'Welcome back! Redirecting…', type: 'success' });
 

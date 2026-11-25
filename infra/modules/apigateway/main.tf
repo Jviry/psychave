@@ -51,11 +51,13 @@ resource "aws_apigatewayv2_route" "public" {
     "POST /auth/refresh-token",
     "POST /auth/request-forgot-password",
     "POST /auth/confirm-forgot-password",
+    "GET /auth/psychologist-invitations/{token}",
+    "POST /auth/register-psychologist",
+    "GET /forms/active",
     "GET /services",
     "GET /services/active",
     "GET /cms",
     "GET /health",
-    "GET /hello",
     "POST /payments/webhook",
   ])
 

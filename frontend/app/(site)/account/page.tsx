@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { LogOut, ShieldCheck, User } from 'lucide-react';
 import { Button, Card, Skeleton } from '@/components/ui/primitives';
 import { useAuthStore } from '@/stores/authStore';
+import { authApi } from '@/lib/authApi';
 
 export default function AccountPage() {
   const router = useRouter();
@@ -125,6 +126,7 @@ export default function AccountPage() {
             variant="outline"
             size="md"
             onClick={() => {
+              void authApi.logoutSession();
               logout();
               router.push('/');
             }}

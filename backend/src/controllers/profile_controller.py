@@ -90,4 +90,4 @@ def get_profile_for_review(
     current_user: PsychologistUserDep,
 ):
     usecase = ProfileUsecase(db)
-    return usecase.get_profile_for_psychologist(profile_id)
+    return usecase.get_profile_for_psychologist(profile_id, current_user.user_id)

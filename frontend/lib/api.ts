@@ -162,11 +162,11 @@ async function refreshAccessToken(): Promise<string | null> {
     refreshInFlight = (async () => {
       try {
         const res = await fetchWithTimeout(
-          `${API_BASE_URL}/auth/refresh-token?refresh_token=${encodeURIComponent(refreshToken)}`,
+          `${API_BASE_URL}/auth/refresh-token`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: '{}',
+            body: JSON.stringify({ refresh_token: refreshToken }),
           },
           8000
         );
@@ -196,7 +196,7 @@ async function refreshAccessToken(): Promise<string | null> {
 /**
  * Builds the loud backend error format used across the live client.
  */
-function buildBackendError(endpoint: string, status: number, json: unknown): Error {
+function buildBackendError(_endpoint: string, status: number, json: unknown): Error {
   let errDetail = `HTTP ${status}`;
   if (json && typeof json === 'object') {
     const obj = json as { message?: string; detail?: string | unknown };
@@ -205,7 +205,7 @@ function buildBackendError(endpoint: string, status: number, json: unknown): Err
       errDetail = typeof obj.detail === 'string' ? obj.detail : JSON.stringify(obj.detail);
     }
   }
-  return new Error(`Backend Error (${status}) on ${endpoint}: ${errDetail}`);
+  return new Error(`Request failed (${status}): ${errDetail}`);
 }
 
 /**
@@ -256,9 +256,13 @@ async function liveFetch(
   const callOnce = () => {
     // Backend contract (backend/README.md): verify_token() requires the **ID
     // token** (aud = COGNITO_APP_CLIENT_ID); access tokens are rejected.
-    const token = useAuthStore.getState()?.idToken ?? null;
+    const state = useAuthStore.getState();
+    const token = state?.idToken ?? null;
+    const useBffProxy =
+      typeof window !== 'undefined' && Boolean(state?.isAuthenticated) && !token;
+    const url = useBffProxy ? `/api/proxy${endpoint}` : `${API_BASE_URL}${endpoint}`;
     return fetchWithTimeout(
-      `${API_BASE_URL}${endpoint}`,
+      url,
       {
         ...options,
         headers: {
@@ -1376,8 +1380,46 @@ export const api = {
       payment?.checkout_url &&
       payment.status !== 'paid'
     ) {
+      let safeCheckoutUrl: string | null = null;
+      try {
+        const parsed = new URL(payment.checkout_url);
+        const isPayMongo =
+          parsed.protocol === 'https:' &&
+          (parsed.hostname === 'checkout.paymongo.com' ||
+            parsed.hostname.endsWith('.paymongo.com'));
+        if (isPayMongo) {
+          safeCheckoutUrl = parsed.toString();
+        }
+      } catch {
+        safeCheckoutUrl = null;
+      }
+
+      if (!safeCheckoutUrl) {
+        throw new Error('Invalid payment checkout URL returned by server.');
+      }
+
       if (typeof window !== 'undefined') {
-        window.location.assign(payment.checkout_url);
+        window.location.assign(safeCheckoutUrl);
+        return {
+          id: bookingId,
+          clientId: '',
+          profileId: '',
+          profileType: 'self',
+          profileLabel: '',
+          serviceId: '',
+          serviceTitle: '',
+          serviceDuration: '',
+          serviceDurationMinutes: 0,
+          serviceGuardrail: '',
+          concernsSummary: '',
+          submittedAt: new Date().toISOString(),
+          status: 'awaiting-payment',
+          proposedSlots: [],
+          schedulingTurn: 'client',
+          schedulingRound: 1,
+          contactUnlocked: false,
+          reminders: { reminder24h: 'pending', reminder1h: 'pending' },
+        };
       }
       const appointment = await liveRequest<AppointmentRaw>(
         `/appointments/${bookingId}`

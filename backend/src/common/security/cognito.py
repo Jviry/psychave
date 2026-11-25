@@ -1,6 +1,7 @@
+import threading
+import time
 import httpx
 from jose import jwt, JWTError
-from functools import lru_cache
 from common.settings import settings
 
 def _cognito_issuer() -> str:
@@ -21,13 +22,27 @@ def _cognito_issuer() -> str:
 COGNITO_ISSUER = _cognito_issuer()
 JWKS_URL = f"{COGNITO_ISSUER}/.well-known/jwks.json"
 
+_JWKS_TTL_SECONDS = 3600.0
+_jwks_lock = threading.Lock()
+_jwks_cache: list[dict] | None = None
+_jwks_fetched_at = 0.0
 
-@lru_cache
-def get_jwks():
-    # cached — Cognito's public keys rarely rotate, no need to fetch every request
-    response = httpx.get(JWKS_URL)
-    response.raise_for_status()
-    return response.json()["keys"]
+
+def get_jwks(force_refresh: bool = False) -> list[dict]:
+    global _jwks_cache, _jwks_fetched_at
+    now = time.monotonic()
+    with _jwks_lock:
+        if (
+            not force_refresh
+            and _jwks_cache is not None
+            and (now - _jwks_fetched_at) < _JWKS_TTL_SECONDS
+        ):
+            return _jwks_cache
+        response = httpx.get(JWKS_URL, timeout=5.0)
+        response.raise_for_status()
+        _jwks_cache = response.json()["keys"]
+        _jwks_fetched_at = now
+        return _jwks_cache
 
 
 def verify_token(token: str) -> dict:
@@ -37,9 +52,14 @@ def verify_token(token: str) -> dict:
     tokens are rejected because they carry ``client_id`` instead of ``aud``.
     (The gateway authorizer accepts both; the app only accepts ID tokens.)
     """
-    jwks = get_jwks()
     unverified_header = jwt.get_unverified_header(token)
-    key = next((k for k in jwks if k["kid"] == unverified_header["kid"]), None)
+    kid = unverified_header.get("kid")
+    jwks = get_jwks()
+    key = next((k for k in jwks if k.get("kid") == kid), None)
+
+    if key is None:
+        jwks = get_jwks(force_refresh=True)
+        key = next((k for k in jwks if k.get("kid") == kid), None)
 
     if key is None:
         raise JWTError("Public key not found for token")
@@ -52,4 +72,6 @@ def verify_token(token: str) -> dict:
         issuer=COGNITO_ISSUER,
         options={"verify_at_hash": False},
     )
+    if claims.get("token_use") != "id":
+        raise JWTError("Token is not a Cognito ID token")
     return claims

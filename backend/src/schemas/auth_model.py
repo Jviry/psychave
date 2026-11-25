@@ -52,6 +52,10 @@ class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
 
+class AccessTokenRequest(BaseModel):
+    access_token: str
+
+
 class ForgotPasswordConfirm(BaseModel):
     username: str
     new_password: str

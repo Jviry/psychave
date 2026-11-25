@@ -128,7 +128,8 @@ def test_auth_controller_flow(client):
 
     # 4. Refresh token
     res = client.post(
-        f"/auth/refresh-token?refresh_token={tokens['RefreshToken']}"
+        "/auth/refresh-token",
+        json={"refresh_token": tokens["RefreshToken"]},
     )
     assert res.status_code == 200
     refreshed = res.json()
