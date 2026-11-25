@@ -197,6 +197,14 @@ class AppointmentRepo:
         appointment.status = AppointmentStatus.CANCELLED
         appointment.scheduling_turn = None
         self.db.add(appointment)
+        self.db.exec(
+            update(Payment)
+            .where(
+                Payment.appointment_id == appointment.appointment_id,
+                Payment.status == PaymentStatus.PENDING,
+            )
+            .values(status=PaymentStatus.FAILED)
+        )
         self.db.commit()
         self.db.refresh(appointment)
         return appointment

@@ -148,6 +148,7 @@ class PsychologistUsecase:
             if session_start <= now_manila():
                 raise BadRequestError("This schedule is no longer in the future")
 
+            self.repo.lock_psychologist(psychologist_id)
             if self._has_conflict(
                 psychologist_id,
                 slot.session_date,
@@ -250,6 +251,7 @@ class PsychologistUsecase:
             raise BadRequestError("This schedule is no longer in the future")
 
         duration = self._get_service_duration(appt)
+        self.repo.lock_psychologist(psychologist_id)
         if self._has_conflict(
             psychologist_id,
             slot.session_date,

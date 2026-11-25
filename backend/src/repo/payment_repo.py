@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 from models.payment import Payment, PaymentStatus
 
@@ -27,7 +28,14 @@ class PaymentRepo:
             status=PaymentStatus.PENDING,
         )
         self.db.add(payment)
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()
+            existing = self.get_pending(appointment_id)
+            if existing is not None:
+                return existing
+            raise
         self.db.refresh(payment)
         return payment
 

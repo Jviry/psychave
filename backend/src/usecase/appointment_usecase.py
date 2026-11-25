@@ -52,9 +52,12 @@ class AppointmentUsecase:
 
         latest_form = self.profile_repo.get_latest_form(payload.profile_id)
         active_template = ConsentTemplateRepo(self.db).get_active()
+        if latest_form is None:
+            raise ConflictError(
+                "Consent form is missing — please sign the consent form before booking"
+            )
         if (
-            latest_form is not None
-            and active_template is not None
+            active_template is not None
             and extract_major_version(latest_form.consent_version)
             != extract_major_version(active_template.consent_version)
         ):
