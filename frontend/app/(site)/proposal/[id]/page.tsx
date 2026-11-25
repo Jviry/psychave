@@ -229,7 +229,7 @@ export default function ScheduleAgreementPage() {
             <strong className="font-semibold">
               {booking.psychologistCode || 'your psychologist'}
             </strong>{' '}
-            must agree on one schedule. Contact details unlock only after payment succeeds.
+            must agree on one schedule. Complete payment before the deadline to confirm your session.
           </p>
         </div>
 
@@ -378,14 +378,23 @@ export default function ScheduleAgreementPage() {
               </div>
             </div>
 
-            <div className="text-xs text-pine/75 flex items-start gap-2.5">
-              <Lock className="w-4 h-4 text-accent-ink shrink-0 mt-0.5" aria-hidden="true" />
-              <span>
-                <strong className="font-semibold text-pine">Contact Lock Guardrail:</strong>{' '}
-                The psychologist&apos;s social media links stay locked until the agreed schedule
-                is paid.
-              </span>
-            </div>
+            {booking.psychologistSocialLinks && booking.psychologistSocialLinks.length > 0 ? (
+              <div className="space-y-2 border-t border-mist pt-4">
+                <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                  Psychologist Contact
+                </span>
+                <SocialLinksList links={booking.psychologistSocialLinks} />
+              </div>
+            ) : (
+              <div className="text-xs text-pine/75 flex items-start gap-2.5">
+                <Lock className="w-4 h-4 text-accent-ink shrink-0 mt-0.5" aria-hidden="true" />
+                <span>
+                  <strong className="font-semibold text-pine">Assigned Contact:</strong>{' '}
+                  The psychologist&apos;s social media links appear once a psychologist picks up your
+                  request.
+                </span>
+              </div>
+            )}
           </Card>
 
           {/* Right: agreement / payment panel */}

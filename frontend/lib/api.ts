@@ -631,7 +631,7 @@ function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
   const status = mapStatusToBookingStatus(raw.status, raw.scheduling_turn);
   const code = anonymizedPsychCode(raw.psychologist_id);
   const contactUnlocked =
-    raw.status === 'confirmed' || raw.status === 'completed';
+    Boolean(raw.psychologist_id) && raw.status !== 'cancelled';
   const durationMinutes = raw.service_duration_minutes ?? 60;
 
   const psychologistSocialLinks = contactUnlocked
