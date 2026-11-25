@@ -165,14 +165,14 @@ def test_direct_pickup_payment_conflict_and_completion_flow(
     assert picked["selected_slot_id"] == chosen_slot_id
     assert picked["payment_deadline"] is not None
 
-    # Contact privacy: psychologist social links stay hidden from client before payment
+    # Contact: psychologist social links unlock once a psychologist picks up the booking
     client_pre_pay = httpx.get(
         f"{api_url}/appointments/{appt_id}",
         headers=client["auth_headers"],
         timeout=15,
     )
     assert client_pre_pay.status_code == 200
-    assert client_pre_pay.json()["psychologist_social_links"] == []
+    assert len(client_pre_pay.json()["psychologist_social_links"]) == 1
 
     # 6. Atomic pickup guard: Psychologist 2 attempting pickup receives 409 Conflict
     second_pickup = httpx.post(

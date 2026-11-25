@@ -76,3 +76,15 @@ class PsychologistInvitationRead(SQLModel):
     invitation_url: str
     expires_at: datetime
     created_at: datetime
+
+
+class ManualPaymentConfirmRequest(SQLModel):
+    note: str | None = None
+
+    @field_validator("note")
+    @classmethod
+    def strip_note(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        return cleaned or None

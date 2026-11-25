@@ -3,13 +3,16 @@ import logging
 import secrets
 import uuid
 
-from sqlmodel import Session
+from sqlmodel import Session, select, update
 
-from common.exceptions import ConflictError, NotFoundError, ValidationError
+from common.exceptions import BadRequestError, ConflictError, NotFoundError, ValidationError
 from common.settings import settings
 from dependencies.email import get_email_service
 from interfaces.auth import AuthService
+from models.appointment import Appointment, AppointmentStatus
+from models.payment import Payment, PaymentStatus
 from models.user import User, UserRole
+from repo.appointment_repo import AppointmentRepo
 from repo.psychologist_invitation_repo import PsychologistInvitationRepo
 from repo.user_repo import UserRepository
 from schemas.admin import (
@@ -19,6 +22,7 @@ from schemas.admin import (
     PsychologistInvitationCreate,
     PsychologistInvitationRead,
 )
+from schemas.appointment import AppointmentRead
 from services.email.base import BaseEmailService
 
 logger = logging.getLogger("uvicorn.error")
@@ -55,6 +59,70 @@ class AdminUsecase:
             page=page,
             page_size=page_size,
         )
+
+    def list_appointments(
+        self, status: AppointmentStatus | None = None
+    ) -> list[AppointmentRead]:
+        stmt = select(Appointment)
+        if status is not None:
+            stmt = stmt.where(Appointment.status == status)
+        appointments = self.db.exec(stmt).all()
+        repo = AppointmentRepo(self.db)
+        for appt in appointments:
+            repo.expire_if_overdue(appt)
+        if status is not None:
+            appointments = [a for a in appointments if a.status == status]
+        return repo.build_reads(appointments)
+
+    def confirm_manual_payment(
+        self, appointment_id: uuid.UUID, note: str | None = None
+    ) -> AppointmentRead:
+        repo = AppointmentRepo(self.db)
+        appt = repo.get_by_id(appointment_id)
+        if appt is None:
+            raise NotFoundError("Appointment not found")
+        repo.expire_if_overdue(appt)
+        if appt.status != AppointmentStatus.AWAITING_PAYMENT:
+            raise BadRequestError(
+                "Only appointments awaiting payment can be manually confirmed"
+            )
+
+        self.db.exec(
+            update(Payment)
+            .where(
+                Payment.appointment_id == appointment_id,
+                Payment.status == PaymentStatus.PENDING,
+            )
+            .values(status=PaymentStatus.FAILED)
+        )
+        self.db.add(
+            Payment(
+                appointment_id=appointment_id,
+                amount=float(appt.price or 0.0),
+                payment_method="manual",
+                provider="manual",
+                provider_ref=note,
+                status=PaymentStatus.PAID,
+                paid_at=datetime.now(timezone.utc),
+            )
+        )
+        confirmed = repo.confirm(appt)
+
+        client_email = repo.get_client_email(confirmed)
+        if client_email:
+            self.email_service.send_payment_confirmed(
+                client_email,
+                str(confirmed.appointment_id),
+                "client",
+            )
+        psych_email = repo.get_psychologist_email(confirmed)
+        if psych_email:
+            self.email_service.send_payment_confirmed(
+                psych_email,
+                str(confirmed.appointment_id),
+                "psychologist",
+            )
+        return repo.build_read(confirmed)
 
     def change_role(
         self,

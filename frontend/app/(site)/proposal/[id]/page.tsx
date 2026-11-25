@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import {
   agreedSlot,
   clientPreferredSlots,
@@ -48,6 +48,7 @@ export default function ScheduleAgreementPage() {
 
   const publishFlowEvent = useAppStore((s) => s.publishFlowEvent);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isGatewayUnavailable, setIsGatewayUnavailable] = useState(false);
   const [newSlots, setNewSlots] = useState<string[]>(['', '', '']);
   const [isRedirectingToCheckout, setIsRedirectingToCheckout] = useState(false);
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
@@ -133,6 +134,7 @@ export default function ScheduleAgreementPage() {
     mutationFn: () => api.payBooking(bookingId),
     onSuccess: (updated) => {
       setActionError(null);
+      setIsGatewayUnavailable(false);
       if (updated.status !== 'paid-confirmed') {
         setIsRedirectingToCheckout(true);
         return;
@@ -146,6 +148,7 @@ export default function ScheduleAgreementPage() {
     },
     onError: (err: Error) => {
       setIsRedirectingToCheckout(false);
+      setIsGatewayUnavailable(err instanceof ApiError && err.status === 503);
       setActionError(err.message);
     },
   });
@@ -657,6 +660,28 @@ export default function ScheduleAgreementPage() {
                   Payment holds the agreed slot. If the deadline passes, the slot is released and
                   scheduling restarts from your preferred schedules.
                 </p>
+
+                {booking.psychologistSocialLinks && booking.psychologistSocialLinks.length > 0 && (
+                  <div
+                    className={`rounded-xl border p-4 space-y-2 ${
+                      isGatewayUnavailable
+                        ? 'border-amber-300 bg-amber-50'
+                        : 'border-mist bg-parchment'
+                    }`}
+                  >
+                    <p className="text-xs font-semibold text-pine">
+                      {isGatewayUnavailable
+                        ? 'Payment Gateway Unavailable — Contact Assigned Psychologist for Manual Payment'
+                        : 'Contact Assigned Psychologist'}
+                    </p>
+                    <p className="text-xs text-pine/75">
+                      {isGatewayUnavailable
+                        ? 'PayMongo is temporarily unavailable. Message your assigned psychologist below to arrange manual payment; once verified, an admin will mark your booking as confirmed.'
+                        : 'Need to coordinate payment or scheduling? You can reach your assigned psychologist below:'}
+                    </p>
+                    <SocialLinksList links={booking.psychologistSocialLinks} />
+                  </div>
+                )}
               </div>
             )}
           </Card>

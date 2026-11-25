@@ -13,7 +13,7 @@ from typing import Mapping, Sequence
 
 import httpx
 
-from common.exceptions import BadRequestError
+from common.exceptions import BadRequestError, ServiceUnavailableError
 from services.payments.base import InitiatedPayment, WebhookEvent
 
 logger = logging.getLogger(__name__)
@@ -111,8 +111,9 @@ class PayMongoPaymentProvider:
                     response = client.post(url, json=payload, headers=headers)
         except Exception as exc:
             logger.error("Failed to connect to PayMongo API: %s", exc)
-            raise BadRequestError(
-                f"Could not reach payment gateway: {exc}") from exc
+            raise ServiceUnavailableError(
+                "Payment gateway is temporarily unreachable. Please contact your assigned psychologist to arrange manual payment or try again shortly."
+            ) from exc
 
         if response.status_code >= 400:
             logger.error(
@@ -128,6 +129,10 @@ class PayMongoPaymentProvider:
                     detail = errors[0].get("detail", detail)
             except Exception:
                 pass
+            if response.status_code >= 500 or "maintenance" in detail.lower():
+                raise ServiceUnavailableError(
+                    "Payment gateway is temporarily under maintenance. Please contact your assigned psychologist to arrange manual payment or try again shortly."
+                )
             raise BadRequestError(detail)
 
         data = response.json().get("data", {})

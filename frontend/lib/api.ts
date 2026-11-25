@@ -196,6 +196,15 @@ async function refreshAccessToken(): Promise<string | null> {
 /**
  * Builds the loud backend error format used across the live client.
  */
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 function buildBackendError(_endpoint: string, status: number, json: unknown): Error {
   let errDetail = `HTTP ${status}`;
   if (json && typeof json === 'object') {
@@ -205,7 +214,10 @@ function buildBackendError(_endpoint: string, status: number, json: unknown): Er
       errDetail = typeof obj.detail === 'string' ? obj.detail : JSON.stringify(obj.detail);
     }
   }
-  return new Error(`Request failed (${status}): ${errDetail}`);
+  if (status === 503) {
+    return new ApiError(errDetail, status);
+  }
+  return new ApiError(`Request failed (${status}): ${errDetail}`, status);
 }
 
 /**
@@ -1525,6 +1537,28 @@ export const api = {
       expiresAt: raw.expires_at,
       createdAt: raw.created_at,
     };
+  },
+
+  getAdminAppointments: async (
+    status = 'awaiting_payment'
+  ): Promise<BookingRequest[]> => {
+    const query = status ? `?status=${encodeURIComponent(status)}` : '';
+    const raw = await liveRequest<AppointmentRaw[]>(`/admin/appointments${query}`);
+    return (Array.isArray(raw) ? raw : []).map(mapAppointmentRaw);
+  },
+
+  confirmManualPayment: async (
+    appointmentId: string,
+    note?: string
+  ): Promise<BookingRequest> => {
+    const raw = await liveRequest<AppointmentRaw>(
+      `/admin/appointments/${assertUuid(appointmentId, 'appointmentId')}/confirm-payment`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ note: note?.trim() || null }),
+      }
+    );
+    return mapAppointmentRaw(raw);
   },
 
   /**
