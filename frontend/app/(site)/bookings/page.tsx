@@ -96,8 +96,6 @@ export default function ClientBookingsPage() {
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-xs text-accent-ink font-semibold">
             <span>Client Dashboard</span>
-            <span aria-hidden="true">·</span>
-            <span>Tiered Access: Own History Only (Client #C-01)</span>
           </div>
           <h1 className="font-heading text-4xl font-medium text-pine">
             My Bookings

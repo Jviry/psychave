@@ -1,7 +1,12 @@
 import uuid
 from sqlmodel import Session
 
-from common.exceptions import ConflictError, NotFoundError, ValidationError
+from common.exceptions import (
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    ValidationError,
+)
 from models.profile import Profile, ProfileRelation
 from repo.consent_template_repo import ConsentTemplateRepo
 from repo.profile_repo import ProfileRepo
@@ -217,7 +222,14 @@ class ProfileUsecase:
         )
         return self._to_profile_read(updated)
 
-    def get_profile_for_psychologist(self, profile_id: uuid.UUID):
+    def get_profile_for_psychologist(
+        self, profile_id: uuid.UUID, psychologist_id: uuid.UUID | None = None
+    ):
+        if psychologist_id is None or not self.repo.is_accessible_to_psychologist(
+            profile_id, psychologist_id
+        ):
+            raise ForbiddenError("You do not have access to review this profile")
+
         profile = self.repo.get_by_id(profile_id)
         if profile is None:
             raise NotFoundError("Profile not found")

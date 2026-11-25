@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 from sqlmodel import Session
 
 from common.exceptions import BadRequestError, NotFoundError
@@ -77,14 +78,10 @@ class PaymentUsecase:
                 return existing
 
         base_fe = settings.FRONTEND_URL.rstrip("/")
-        final_success_url = (
-            success_url or f"{
-                base_fe}/proposal/{appointment_id}?payment=success"
-        )
-        final_cancel_url = (
-            cancel_url or f"{
-                base_fe}/proposal/{appointment_id}?payment=cancelled"
-        )
+        default_success = f"{base_fe}/proposal/{appointment_id}?payment=success"
+        default_cancel = f"{base_fe}/proposal/{appointment_id}?payment=cancelled"
+        final_success_url = self._validate_redirect_url(success_url, default_success)
+        final_cancel_url = self._validate_redirect_url(cancel_url, default_cancel)
 
         initiated = self.provider.create_checkout(
             amount=appt.price,
@@ -103,6 +100,22 @@ class PaymentUsecase:
             payment_method=payment_method,
         )
         return payment
+
+    @staticmethod
+    def _validate_redirect_url(url: str | None, fallback: str) -> str:
+        """Ensure redirect URLs stay on the configured FRONTEND_URL origin."""
+        if not url:
+            return fallback
+        parsed = urlparse(url)
+        allowed = urlparse(settings.FRONTEND_URL)
+        if (
+            parsed.scheme not in ("http", "https")
+            or not parsed.netloc
+            or parsed.netloc != allowed.netloc
+            or parsed.scheme != allowed.scheme
+        ):
+            raise BadRequestError("Invalid payment redirect URL")
+        return url
 
     def reconcile_pending_payment(
         self, appointment_id: uuid.UUID

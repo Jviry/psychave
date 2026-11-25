@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAppStore } from '@/stores/useAppStore';
 import { useAuthStore } from '@/stores/authStore';
+import { authApi } from '@/lib/authApi';
 import { CognitoRole } from '@/lib/types';
 import { LogOut, User, ChevronDown, Bell, Settings } from 'lucide-react';
 
@@ -238,6 +239,7 @@ export function SiteHeader() {
                     type="button"
                     id="user-menu-logout"
                     onClick={() => {
+                      void authApi.logoutSession();
                       authLogout();
                       setShowUserMenu(false);
                       router.push('/');

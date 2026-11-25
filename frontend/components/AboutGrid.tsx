@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { BadgeCheck, Stethoscope, Target, Telescope } from 'lucide-react';
 import { Card } from './ui/primitives';
 import { CmsContent, ResidentPsychologist } from '../lib/types';
+import { useAuthStore } from '@/stores/authStore';
 
 /**
  * About Us — staggered mosaic structure with placeholder copy fallbacks
@@ -82,6 +83,7 @@ function RosterCard({ resident, tint }: { resident: ResidentPsychologist; tint: 
 }
 
 function ClinicCard({ cms }: { cms?: CmsContent }) {
+  const user = useAuthStore((s) => s.user);
   return (
     <Card tint="pine" className="flex h-full flex-col gap-5 p-6 lg:p-8 max-w-[50rem]">
       <CardHeading icon={Stethoscope} title="Clinic Overview" />
@@ -110,12 +112,14 @@ function ClinicCard({ cms }: { cms?: CmsContent }) {
         </div>
       )}
 
-      <Link
-        href="/admin/cms"
-        className="mt-auto w-fit text-sm font-semibold text-lime-soft hover:text-white underline underline-offset-4 transition-colors duration-200"
-      >
-        Edit in Admin CMS
-      </Link>
+      {user?.role === 'admin' && (
+        <Link
+          href="/admin/cms"
+          className="mt-auto w-fit text-sm font-semibold text-lime-soft hover:text-white underline underline-offset-4 transition-colors duration-200"
+        >
+          Edit in Admin CMS
+        </Link>
+      )}
     </Card>
   );
 }

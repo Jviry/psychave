@@ -193,8 +193,19 @@ def test_wizard_cms_json_storage_minor_vs_major_versioning_and_resign(
     assert db_form.responses["terms_signer_name"] == "Juan Dela Cruz Sr."
     assert isinstance(db_form.responses.get("_review_sections"), list)
 
-    # Psychologist review returns labeled review_sections
-    review = profile_uc.get_profile_for_psychologist(created_read.profile_id)
+    # Psychologist review returns labeled review_sections when profile has a PENDING appointment
+    from models.appointment import Appointment, AppointmentStatus
+    pending_appt = Appointment(
+        profile_id=created_read.profile_id,
+        service_id=uuid.uuid4(),
+        presenting_concern="Initial consultation",
+        status=AppointmentStatus.PENDING,
+    )
+    db_session.add(pending_appt)
+    db_session.commit()
+    review = profile_uc.get_profile_for_psychologist(
+        created_read.profile_id, psychologist_id=uuid.uuid4()
+    )
     assert len(review["review_sections"]) == 4
     step3_fields = {
         f.field_key: f.value for f in review["review_sections"][2].fields
