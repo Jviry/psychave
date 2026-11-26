@@ -373,7 +373,42 @@ class PsychologistUsecase:
         appt = self._get_owned_appointment(appointment_id, psychologist_id)
         if appt.status != AppointmentStatus.CONFIRMED:
             raise BadRequestError("Only confirmed appointments can be marked as completed")
-        return self.appointment_repo.build_read(self.repo.complete(appt))
+        completed = self.repo.complete(appt)
+        client_email = self.appointment_repo.get_client_email(completed)
+        if client_email:
+            from repo.cms_repo import CmsRepo
+
+            eval_url = CmsRepo(self.db).get_or_seed_content().evaluation_form_url
+            if eval_url:
+                self.email_service.send_evaluation_request(
+                    client_email,
+                    str(completed.appointment_id),
+                    evaluation_form_url=eval_url,
+                )
+        return self.appointment_repo.build_read(completed)
+
+    def update_meeting_link(
+        self,
+        appointment_id: uuid.UUID,
+        psychologist_id: uuid.UUID,
+        meeting_link: str,
+    ) -> AppointmentRead:
+        appt = self._get_owned_appointment(appointment_id, psychologist_id)
+        if appt.status != AppointmentStatus.CONFIRMED:
+            raise BadRequestError(
+                "Meeting link can only be set on confirmed appointments"
+            )
+        appt.meeting_link = meeting_link
+        self.db.add(appt)
+        self.db.commit()
+        self.db.refresh(appt)
+
+        client_email = self.appointment_repo.get_client_email(appt)
+        if client_email:
+            self.email_service.send_meeting_link_ready(
+                client_email, str(appt.appointment_id), meeting_link
+            )
+        return self.appointment_repo.build_read(appt)
 
     def mark_no_show(self, appointment_id: uuid.UUID, psychologist_id: uuid.UUID) -> AppointmentRead:
         appt = self._get_owned_appointment(appointment_id, psychologist_id)

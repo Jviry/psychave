@@ -510,6 +510,14 @@ class AppointmentRepo:
                     refund_reason=appointment.refund_reason,
                     refunded_at=appointment.refunded_at,
                     is_session_paid=appointment.appointment_id in paid_session_appt_ids,
+                    reminder_24h_sent_at=appointment.reminder_24h_sent_at,
+                    reminder_1h_sent_at=appointment.reminder_1h_sent_at,
+                    meeting_link=(
+                        appointment.meeting_link
+                        if appointment.status
+                        in (AppointmentStatus.CONFIRMED, AppointmentStatus.COMPLETED)
+                        else None
+                    ),
                     proposed_slots=[self._slot_read(slot) for slot in slots],
                     profile_socmed_platform=(
                         profile.socmed_platform if profile else None

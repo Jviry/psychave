@@ -401,6 +401,9 @@ interface AppointmentRaw {
   profile_socmed_platform: string | null;
   profile_socmed_username: string | null;
   psychologist_social_links: SocialMediaLink[];
+  meeting_link?: string | null;
+  reminder_24h_sent_at?: string | null;
+  reminder_1h_sent_at?: string | null;
 }
 
 interface ProposedSlotRaw {
@@ -726,11 +729,21 @@ function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
     conflictingSlotIds: raw.conflicting_slot_ids ?? [],
     selectedSlotId: raw.selected_slot_id ?? undefined,
     contactUnlocked,
+    ...(raw.meeting_link ? { meetingLink: raw.meeting_link } : {}),
     psychologistSocialLinks,
     clientSocialMedia,
-    reminders: contactUnlocked
-      ? { reminder24h: 'scheduled', reminder1h: 'scheduled' }
-      : { reminder24h: 'pending', reminder1h: 'pending' },
+    reminders: {
+      reminder24h: raw.reminder_24h_sent_at
+        ? 'dispatched'
+        : contactUnlocked
+          ? 'scheduled'
+          : 'pending',
+      reminder1h: raw.reminder_1h_sent_at
+        ? 'dispatched'
+        : contactUnlocked
+          ? 'scheduled'
+          : 'pending',
+    },
   };
 }
 
@@ -1507,6 +1520,20 @@ export const api = {
     return mapAppointmentRaw(raw);
   },
 
+  updateMeetingLink: async (
+    bookingId: string,
+    meetingLink: string
+  ): Promise<BookingRequest> => {
+    const raw = await liveRequest<AppointmentRaw>(
+      `/appointments/${assertUuid(bookingId, 'bookingId')}/meeting-link`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ meeting_link: meetingLink.trim() }),
+      }
+    );
+    return mapAppointmentRaw(raw);
+  },
+
   markNoShow: async (bookingId: string): Promise<BookingRequest> => {
     const raw = await liveRequest<AppointmentRaw>(
       `/appointments/${assertUuid(bookingId, 'bookingId')}/no-show`,
@@ -1581,7 +1608,6 @@ export const api = {
     );
     return mapAppointmentRaw(appointment);
   },
-
   /**
    * Admin user directory & role management API.
    */
@@ -1699,6 +1725,7 @@ export const api = {
       mission: string;
       clinic_overview: string;
       impact_narrative: string;
+      evaluation_form_url?: string | null;
       updated_at: string;
       testimonials: Array<{
         testimonial_id: string;
@@ -1715,6 +1742,7 @@ export const api = {
       mission: raw.mission,
       clinicOverview: raw.clinic_overview,
       impactNarrative: raw.impact_narrative,
+      evaluationFormUrl: raw.evaluation_form_url ?? null,
       updatedAt: raw.updated_at,
       testimonials: (raw.testimonials ?? []).map((t) => ({
         id: t.testimonial_id,
@@ -1734,6 +1762,7 @@ export const api = {
       mission: string;
       clinic_overview: string;
       impact_narrative: string;
+      evaluation_form_url?: string | null;
       updated_at: string;
       testimonials: Array<{
         testimonial_id: string;
@@ -1750,6 +1779,7 @@ export const api = {
       mission: raw.mission,
       clinicOverview: raw.clinic_overview,
       impactNarrative: raw.impact_narrative,
+      evaluationFormUrl: raw.evaluation_form_url ?? null,
       updatedAt: raw.updated_at,
       testimonials: (raw.testimonials ?? []).map((t) => ({
         id: t.testimonial_id,
@@ -1768,12 +1798,14 @@ export const api = {
     mission: string;
     clinicOverview: string;
     impactNarrative: string;
+    evaluationFormUrl?: string | null;
   }): Promise<CmsContent> => {
     const raw = await liveRequest<{
       vision: string;
       mission: string;
       clinic_overview: string;
       impact_narrative: string;
+      evaluation_form_url?: string | null;
       updated_at: string;
       testimonials: Array<{
         testimonial_id: string;
@@ -1791,6 +1823,7 @@ export const api = {
         mission: payload.mission.trim(),
         clinic_overview: payload.clinicOverview.trim(),
         impact_narrative: payload.impactNarrative.trim(),
+        evaluation_form_url: payload.evaluationFormUrl?.trim() || null,
       }),
     });
     return {
@@ -1798,6 +1831,7 @@ export const api = {
       mission: raw.mission,
       clinicOverview: raw.clinic_overview,
       impactNarrative: raw.impact_narrative,
+      evaluationFormUrl: raw.evaluation_form_url ?? null,
       updatedAt: raw.updated_at,
       testimonials: (raw.testimonials ?? []).map((t) => ({
         id: t.testimonial_id,

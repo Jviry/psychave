@@ -223,6 +223,7 @@ export interface BookingRequest {
   selectedSlotId?: string;
   paidAt?: string;
   contactUnlocked: boolean;
+  meetingLink?: string;
   psychologistSocialLinks?: SocialMediaLink[];
   clientSocialMedia?: {
     platform: string;
@@ -298,6 +299,7 @@ export interface CmsContent {
   mission: string;
   clinicOverview: string;
   impactNarrative: string;
+  evaluationFormUrl?: string | null;
   updatedAt?: string;
   testimonials: TestimonialItem[];
   impactMetrics?: {

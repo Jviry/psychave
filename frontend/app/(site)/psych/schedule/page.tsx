@@ -72,6 +72,8 @@ export default function PsychologistSchedulePage() {
   const [reviewTargetId, setReviewTargetId] = useState<string | null>(null);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [counterDateTime, setCounterDateTime] = useState('');
+  const [meetingLinks, setMeetingLinks] = useState<Record<string, string>>({});
+  const [meetingLinkFeedback, setMeetingLinkFeedback] = useState<Record<string, string>>({});
 
   const minDateTime = useMemo(() => formatForManilaInput(new Date()), []);
 
@@ -119,6 +121,25 @@ export default function PsychologistSchedulePage() {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
     },
     onError: (err: Error) => setActionError(err.message),
+  });
+
+  const meetingLinkMutation = useMutation({
+    mutationFn: ({ bookingId, url }: { bookingId: string; url: string }) =>
+      api.updateMeetingLink(bookingId, url),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['booking', updated.id] });
+      setMeetingLinkFeedback((prev) => ({
+        ...prev,
+        [updated.id]: 'Meeting link saved and emailed to client.',
+      }));
+    },
+    onError: (err: Error, vars) => {
+      setMeetingLinkFeedback((prev) => ({
+        ...prev,
+        [vars.bookingId]: err.message,
+      }));
+    },
   });
 
   const reviewMutation = useMutation({
@@ -481,21 +502,63 @@ export default function PsychologistSchedulePage() {
 
                     {/* Selected Slot, Agreed Slot, or Negotiation Preview */}
                     {isConfirmed && confirmedSlot ? (
-                      <div className="p-3.5 rounded-lg bg-surface-raised border border-mist flex flex-wrap items-center justify-between gap-3 text-xs">
-                        <div className="space-y-0.5">
-                          <p className="font-semibold text-accent-ink uppercase tracking-wide text-xs">
-                            Confirmed Session Appointment
-                          </p>
-                          <p className="font-medium text-pine text-sm">
-                            {confirmedSlot.dateLabel}
-                          </p>
-                          <p className="font-mono text-accent-ink font-medium">
-                            {confirmedSlot.timeLabel}
-                          </p>
+                      <div className="space-y-2">
+                        <div className="p-3.5 rounded-lg bg-surface-raised border border-mist flex flex-wrap items-center justify-between gap-3 text-xs">
+                          <div className="space-y-0.5">
+                            <p className="font-semibold text-accent-ink uppercase tracking-wide text-xs">
+                              Confirmed Session Appointment
+                            </p>
+                            <p className="font-medium text-pine text-sm">
+                              {confirmedSlot.dateLabel}
+                            </p>
+                            <p className="font-mono text-accent-ink font-medium">
+                              {confirmedSlot.timeLabel}
+                            </p>
+                          </div>
+                          <span className="px-2.5 py-1 bg-surface-raised rounded-md font-mono text-xs font-semibold text-pine border border-mist">
+                            Slot 0{confirmedSlot.slotNumber} Selected
+                          </span>
                         </div>
-                        <span className="px-2.5 py-1 bg-surface-raised rounded-md font-mono text-xs font-semibold text-pine border border-mist">
-                          Slot 0{confirmedSlot.slotNumber} Selected
-                        </span>
+                        {session.status === 'paid-confirmed' && (
+                          <div className="p-3 rounded-lg bg-parchment border border-mist space-y-2 text-xs">
+                            <Label htmlFor={`meeting-link-${session.id}`}>
+                              Session Meeting Link (https://)
+                            </Label>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <Input
+                                id={`meeting-link-${session.id}`}
+                                type="url"
+                                placeholder="https://meet.google.com/..."
+                                value={meetingLinks[session.id] ?? session.meetingLink ?? ''}
+                                onChange={(e) =>
+                                  setMeetingLinks((prev) => ({
+                                    ...prev,
+                                    [session.id]: e.target.value,
+                                  }))
+                                }
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={meetingLinkMutation.isPending}
+                                onClick={() =>
+                                  meetingLinkMutation.mutate({
+                                    bookingId: session.id,
+                                    url: meetingLinks[session.id] ?? session.meetingLink ?? '',
+                                  })
+                                }
+                              >
+                                {session.meetingLink ? 'Update Link' : 'Save Link'}
+                              </Button>
+                            </div>
+                            {meetingLinkFeedback[session.id] && (
+                              <p className="text-xs text-accent-ink font-medium">
+                                {meetingLinkFeedback[session.id]}
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ) : isAwaitingPayment && confirmedSlot ? (
                       <div className="p-3.5 rounded-lg bg-surface-raised border border-mist text-xs space-y-2">

@@ -6,6 +6,7 @@ from dependencies.auth import CurrentPsychologistDep, DbDep
 from models.appointment import AppointmentStatus
 from schemas.appointment import (
     AppointmentRead,
+    MeetingLinkUpdate,
     PendingAppointmentRead,
     SlotInput,
     SlotSelect,
@@ -94,6 +95,18 @@ def complete_appointment(
 ):
     return PsychologistUsecase(db).complete_appointment(
         appointment_id, current_psychologist.psychologist_id
+    )
+
+
+@router.patch("/appointments/{appointment_id}/meeting-link", response_model=AppointmentRead)
+def update_meeting_link(
+    appointment_id: uuid.UUID,
+    payload: MeetingLinkUpdate,
+    db: DbDep,
+    current_psychologist: CurrentPsychologistDep,
+):
+    return PsychologistUsecase(db).update_meeting_link(
+        appointment_id, current_psychologist.psychologist_id, payload.meeting_link
     )
 
 

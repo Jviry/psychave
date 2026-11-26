@@ -563,6 +563,23 @@ export default function ClientBookingsPage() {
 
                         {booking.contactUnlocked && (
                           <div className="space-y-2 text-xs bg-surface-raised p-3 rounded-lg border border-mist">
+                            <div className="space-y-1 pb-2 border-b border-mist/70">
+                              <p className="font-bold text-pine">Session Meeting Link:</p>
+                              {booking.meetingLink ? (
+                                <a
+                                  href={booking.meetingLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-block font-mono text-accent-ink underline underline-offset-4 hover:text-pine break-all"
+                                >
+                                  {booking.meetingLink}
+                                </a>
+                              ) : (
+                                <p className="text-pine/70">
+                                  Pending from your psychologist. It will appear here once added.
+                                </p>
+                              )}
+                            </div>
                             <p className="font-bold text-pine">
                               Psychologist Social Media:
                             </p>
