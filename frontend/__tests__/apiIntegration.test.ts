@@ -275,7 +275,10 @@ describe('live adapters (AppointmentRead → BookingRequest)', () => {
     expect(booking.status).toBe('awaiting-payment');
     expect(booking.selectedSlotId).toBe(SLOT_ROWS[0].slot_id);
     expect(booking.paymentDeadline).toBe('2026-12-04T10:00:00');
-    expect(booking.psychologistSocialLinks).toBeUndefined();
+    expect(booking.contactUnlocked).toBe(true);
+    expect(booking.psychologistSocialLinks).toEqual([
+      { platform: 'Facebook', url: 'https://facebook.com/psych.demo' },
+    ]);
     expect(booking.clientSocialMedia).toEqual({
       platform: 'Facebook',
       username: '@client.demo',

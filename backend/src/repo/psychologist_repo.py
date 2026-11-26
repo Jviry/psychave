@@ -227,6 +227,14 @@ class PsychologistRepo:
 
     # ----- profile -----
 
+    def lock_psychologist(self, psychologist_id: uuid.UUID) -> None:
+        """Acquire a row lock on the psychologist profile to serialize slot acceptance."""
+        self.db.exec(
+            select(PsychologistProfile)
+            .where(PsychologistProfile.psychologist_id == psychologist_id)
+            .with_for_update()
+        ).first()
+
     def get_profile(self, psychologist_id: uuid.UUID) -> PsychologistProfile | None:
         return self.db.get(PsychologistProfile, psychologist_id)
 

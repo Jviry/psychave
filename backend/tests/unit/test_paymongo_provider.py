@@ -6,7 +6,7 @@ import time
 import httpx
 import pytest
 
-from common.exceptions import BadRequestError
+from common.exceptions import BadRequestError, ServiceUnavailableError
 from services.payments.base import InitiatedPayment, WebhookEvent
 from services.payments.paymongo_provider import PayMongoPaymentProvider
 
@@ -98,6 +98,39 @@ class TestPayMongoPaymentProvider:
 
         with pytest.raises(BadRequestError, match="Amount must be at least 10000 cents"):
             provider.create_checkout(amount=50.0, reference="ref", description="desc")
+
+    def test_create_checkout_maintenance_returns_503(self, provider):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                400,
+                json={
+                    "errors": [
+                        {
+                            "detail": "PayMongo is currently under maintenance. See status.paymongo.com.",
+                        }
+                    ]
+                },
+            )
+
+        provider._client = httpx.Client(transport=httpx.MockTransport(handler))
+        with pytest.raises(ServiceUnavailableError, match="temporarily under maintenance"):
+            provider.create_checkout(amount=1500.0, reference="ref", description="desc")
+
+    def test_create_checkout_5xx_returns_503(self, provider):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(503, text="Service Unavailable")
+
+        provider._client = httpx.Client(transport=httpx.MockTransport(handler))
+        with pytest.raises(ServiceUnavailableError):
+            provider.create_checkout(amount=1500.0, reference="ref", description="desc")
+
+    def test_create_checkout_network_error_returns_503(self, provider):
+        def handler(request: httpx.Request) -> httpx.Response:
+            raise httpx.ConnectError("connection refused")
+
+        provider._client = httpx.Client(transport=httpx.MockTransport(handler))
+        with pytest.raises(ServiceUnavailableError, match="temporarily unreachable"):
+            provider.create_checkout(amount=1500.0, reference="ref", description="desc")
 
     # ----- verify_signature tests -----
     def test_verify_signature_valid(self, provider):

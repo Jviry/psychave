@@ -197,6 +197,14 @@ class AppointmentRepo:
         appointment.status = AppointmentStatus.CANCELLED
         appointment.scheduling_turn = None
         self.db.add(appointment)
+        self.db.exec(
+            update(Payment)
+            .where(
+                Payment.appointment_id == appointment.appointment_id,
+                Payment.status == PaymentStatus.PENDING,
+            )
+            .values(status=PaymentStatus.FAILED)
+        )
         self.db.commit()
         self.db.refresh(appointment)
         return appointment
@@ -349,9 +357,9 @@ class AppointmentRepo:
         for appointment in appointments:
             profile = profiles.get(appointment.profile_id)
             service = services.get(appointment.service_id)
-            contact_unlocked = appointment.status in (
-                AppointmentStatus.CONFIRMED,
-                AppointmentStatus.COMPLETED,
+            contact_unlocked = (
+                appointment.psychologist_id is not None
+                and appointment.status != AppointmentStatus.CANCELLED
             )
             psychologist_profile = (
                 psychologist_profiles.get(appointment.psychologist_id)

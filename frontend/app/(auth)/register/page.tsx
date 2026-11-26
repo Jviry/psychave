@@ -34,6 +34,8 @@ import {
   wizardStep4Schema,
 } from '../../../lib/schemas';
 import { authApi } from '../../../authApi';
+import { api } from '../../../lib/api';
+import type { ConsentFormTemplate, WizardBlock } from '../../../lib/types';
 import { Toast } from '../../../components/auth/Toast';
 import {
   Button,
@@ -434,6 +436,50 @@ export default function RegisterPage() {
   const [phase, setPhase] = useState<'register' | 'confirm' | 'done'>('register');
   const [registeredUsername, setRegisteredUsername] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [activeTemplate, setActiveTemplate] = useState<ConsentFormTemplate | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getActiveConsentForm()
+      .then((tpl) => {
+        if (!cancelled) setActiveTemplate(tpl);
+      })
+      .catch(() => {
+        // Fallback to static consent defaults if template fetch fails.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const findBlock = (blockId: string, fieldKey?: string): WizardBlock | undefined => {
+    if (!activeTemplate?.wizardPages) return undefined;
+    for (const page of activeTemplate.wizardPages) {
+      for (const b of page.blocks) {
+        if (b.blockId === blockId || (fieldKey && b.fieldKey === fieldKey)) {
+          return b;
+        }
+      }
+    }
+    return undefined;
+  };
+
+  const liveConsentVersion = activeTemplate?.consentVersion || CONSENT_VERSION;
+  const liveInformedConsentText =
+    findBlock('informed_consent_doc')?.content || INFORMED_CONSENT_TEXT;
+  const liveTypingStatement =
+    findBlock('terms_signer_name', 'terms_signer_name')?.helperText || TYPING_STATEMENT;
+  const liveScopeLimitationsText =
+    findBlock('scope_limitations_doc')?.content || SCOPE_LIMITATIONS_TEXT;
+  const liveScopeAckText =
+    findBlock('scope_acknowledged', 'scope_acknowledged')?.label || SCOPE_ACK_TEXT;
+  const liveOverseasLimitationsText =
+    findBlock('overseas_limitations_doc')?.content || OVERSEAS_LIMITATIONS_TEXT;
+  const liveOverseasAckText =
+    findBlock('overseas_acknowledged', 'overseas_acknowledged')?.label || OVERSEAS_ACK_TEXT;
+  const liveFinalConsentStatement =
+    findBlock('final_consent_doc')?.content || FINAL_CONSENT_STATEMENT;
 
   const updateDraft = (partial: Partial<RegistrationDraft>) => {
     setDraft((prev) => {
@@ -512,7 +558,7 @@ export default function RegisterPage() {
           emergency_contact_number: draft.emergency_contact_number.trim(),
         },
         consent: {
-          consent_version: CONSENT_VERSION,
+          consent_version: liveConsentVersion,
           terms_signer_name: draft.terms_signer_name.trim(),
           terms_signer_relation: 'self',
           scope_acknowledged: draft.scope_acknowledged,
@@ -731,14 +777,14 @@ export default function RegisterPage() {
               </div>
               <div>
                 <Label htmlFor="reg-consent-text" variant="doc">
-                  Informed consent text ({CONSENT_VERSION}) — scroll to read
+                  Informed consent text ({liveConsentVersion}) — scroll to read
                 </Label>
                 <div
                   id="reg-consent-text"
                   tabIndex={0}
                   className="mt-1.5 max-h-48 overflow-y-auto p-4 rounded-lg bg-parchment border border-mist text-xs text-pine/90 leading-relaxed whitespace-pre-wrap"
                 >
-                  {INFORMED_CONSENT_TEXT}
+                  {liveInformedConsentText}
                 </div>
               </div>
               <div>
@@ -753,7 +799,7 @@ export default function RegisterPage() {
                   aria-describedby={stepErrors.terms_signer_name ? 'reg-signer-name-error' : undefined}
                 />
                 <FieldError id="reg-signer-name-error" message={stepErrors.terms_signer_name} />
-                <p className="text-xs text-pine/70 mt-1.5 leading-relaxed">{TYPING_STATEMENT}</p>
+                <p className="text-xs text-pine/70 mt-1.5 leading-relaxed">{liveTypingStatement}</p>
               </div>
             </div>
           )}
@@ -770,7 +816,7 @@ export default function RegisterPage() {
                   tabIndex={0}
                   className="mt-1.5 max-h-48 overflow-y-auto p-4 rounded-lg bg-parchment border border-mist text-xs text-pine/90 leading-relaxed whitespace-pre-wrap"
                 >
-                  {SCOPE_LIMITATIONS_TEXT}
+                  {liveScopeLimitationsText}
                 </div>
               </div>
               <label className="flex items-start gap-3 text-sm text-pine cursor-pointer p-4 rounded-xl border border-mist hover:border-mint transition-colors">
@@ -782,7 +828,7 @@ export default function RegisterPage() {
                   aria-invalid={!!stepErrors.scope_acknowledged}
                   aria-describedby={stepErrors.scope_acknowledged ? 'reg-scope-error' : undefined}
                 />
-                <span className="leading-relaxed text-xs">{SCOPE_ACK_TEXT}</span>
+                <span className="leading-relaxed text-xs">{liveScopeAckText}</span>
               </label>
               <FieldError id="reg-scope-error" message={stepErrors.scope_acknowledged} />
 
@@ -811,7 +857,7 @@ export default function RegisterPage() {
                     tabIndex={0}
                     className="max-h-48 overflow-y-auto p-4 rounded-lg bg-parchment border border-mist text-xs text-pine/90 leading-relaxed whitespace-pre-wrap"
                   >
-                    {OVERSEAS_LIMITATIONS_TEXT}
+                    {liveOverseasLimitationsText}
                   </div>
                   <label className="flex items-start gap-3 text-sm text-pine cursor-pointer p-4 rounded-xl bg-surface-sunken border border-sage/50">
                     <Checkbox
@@ -822,7 +868,7 @@ export default function RegisterPage() {
                       aria-invalid={!!stepErrors.overseas_acknowledged}
                       aria-describedby={stepErrors.overseas_acknowledged ? 'reg-overseas-error' : undefined}
                     />
-                    <span className="leading-relaxed text-xs">{OVERSEAS_ACK_TEXT}</span>
+                    <span className="leading-relaxed text-xs">{liveOverseasAckText}</span>
                   </label>
                 </div>
               )}
@@ -1126,7 +1172,7 @@ export default function RegisterPage() {
                 />
                 <label htmlFor="reg-confirm-checkbox" className="text-xs text-pine leading-relaxed cursor-pointer">
                   I confirm that the information I have provided is accurate and complete.{' '}
-                  {FINAL_CONSENT_STATEMENT}
+                  {liveFinalConsentStatement}
                 </label>
               </div>
               <FieldError id="reg-confirm-info-error" message={stepErrors.information_confirmed} />
