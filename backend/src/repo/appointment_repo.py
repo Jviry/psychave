@@ -6,7 +6,7 @@ from sqlmodel import Session, select
 
 from common.time import now_manila
 from models.appointment import Appointment, AppointmentStatus, SchedulingTurn
-from models.payment import Payment, PaymentStatus
+from models.payment import Payment, PaymentStatus, PaymentType
 from models.profile import Profile
 from models.proposed_slot import ProposedSlot, SlotProposer, SlotStatus
 from models.psychologist_profile import PsychologistProfile
@@ -115,7 +115,9 @@ class AppointmentRepo:
         self,
         appointment: Appointment,
         slot: ProposedSlot,
-        payment_deadline: datetime,
+        payment_deadline: datetime | None,
+        *,
+        already_paid: bool = False,
     ) -> Appointment:
         self.db.exec(
             update(ProposedSlot)
@@ -132,9 +134,13 @@ class AppointmentRepo:
         self.db.add(slot)
 
         appointment.selected_slot_id = slot.slot_id
-        appointment.status = AppointmentStatus.AWAITING_PAYMENT
+        appointment.status = (
+            AppointmentStatus.CONFIRMED
+            if already_paid
+            else AppointmentStatus.AWAITING_PAYMENT
+        )
         appointment.scheduling_turn = None
-        appointment.payment_deadline = payment_deadline
+        appointment.payment_deadline = None if already_paid else payment_deadline
         self.db.add(appointment)
         self.db.commit()
         self.db.refresh(appointment)
@@ -211,6 +217,87 @@ class AppointmentRepo:
 
     def confirm(self, appointment: Appointment) -> Appointment:
         appointment.status = AppointmentStatus.CONFIRMED
+        self.db.add(appointment)
+        self.db.commit()
+        self.db.refresh(appointment)
+        return appointment
+
+    def release_selected_slot(self, appointment: Appointment) -> None:
+        if appointment.selected_slot_id is not None:
+            slot = self.db.get(ProposedSlot, appointment.selected_slot_id)
+            if slot is not None:
+                slot.status = SlotStatus.EXPIRED
+                self.db.add(slot)
+            appointment.selected_slot_id = None
+
+    def start_reschedule_negotiation(
+        self,
+        appointment: Appointment,
+        *,
+        turn: SchedulingTurn,
+        requested_by: str | None = None,
+        reason: str | None = None,
+        waived: bool | None = None,
+    ) -> Appointment:
+        self.release_selected_slot(appointment)
+        appointment.payment_deadline = None
+        appointment.status = AppointmentStatus.AWAITING_SCHEDULE
+        appointment.scheduling_turn = turn
+        if requested_by is not None:
+            appointment.reschedule_requested_by = requested_by
+        if reason is not None:
+            appointment.reschedule_reason = reason
+        if waived is not None:
+            appointment.reschedule_fee_waived = waived
+        self.db.add(appointment)
+        self.db.commit()
+        self.db.refresh(appointment)
+        return appointment
+
+    def request_paid_reschedule(
+        self,
+        appointment: Appointment,
+        *,
+        requested_by: str,
+        reason: str | None = None,
+    ) -> Appointment:
+        self.release_selected_slot(appointment)
+        appointment.payment_deadline = None
+        appointment.status = AppointmentStatus.RESCHEDULE_REQUESTED
+        appointment.scheduling_turn = None
+        appointment.reschedule_requested_by = requested_by
+        appointment.reschedule_reason = reason
+        appointment.reschedule_fee_waived = False
+        self.db.add(appointment)
+        self.db.commit()
+        self.db.refresh(appointment)
+        return appointment
+
+    def mark_no_show(self, appointment: Appointment) -> Appointment:
+        self.release_selected_slot(appointment)
+        appointment.payment_deadline = None
+        appointment.status = AppointmentStatus.NO_SHOW
+        appointment.scheduling_turn = None
+        appointment.reschedule_fee_waived = False
+        self.db.add(appointment)
+        self.db.commit()
+        self.db.refresh(appointment)
+        return appointment
+
+    def waive_reschedule_fee(self, appointment: Appointment) -> Appointment:
+        self.release_selected_slot(appointment)
+        appointment.payment_deadline = None
+        appointment.reschedule_fee_waived = True
+        appointment.status = AppointmentStatus.AWAITING_SCHEDULE
+        appointment.scheduling_turn = SchedulingTurn.CLIENT
+        self.db.exec(
+            update(Payment)
+            .where(
+                Payment.appointment_id == appointment.appointment_id,
+                Payment.status == PaymentStatus.PENDING,
+            )
+            .values(status=PaymentStatus.FAILED)
+        )
         self.db.add(appointment)
         self.db.commit()
         self.db.refresh(appointment)
@@ -353,6 +440,18 @@ class AppointmentRepo:
         ).all():
             slots_by_appointment[slot.appointment_id].append(slot)
 
+        paid_session_appt_ids = set(
+            self.db.exec(
+                select(Payment.appointment_id).where(
+                    Payment.appointment_id.in_(appointment_ids),
+                    Payment.payment_type == PaymentType.SESSION,
+                    Payment.status.in_(
+                        [PaymentStatus.PAID, PaymentStatus.PARTIALLY_REFUNDED]
+                    ),
+                )
+            ).all()
+        )
+
         reads: list[AppointmentRead] = []
         for appointment in appointments:
             profile = profiles.get(appointment.profile_id)
@@ -404,6 +503,13 @@ class AppointmentRepo:
                     scheduling_turn=appointment.scheduling_turn,
                     scheduling_round=appointment.scheduling_round,
                     payment_deadline=appointment.payment_deadline,
+                    reschedule_fee_waived=appointment.reschedule_fee_waived,
+                    reschedule_requested_by=appointment.reschedule_requested_by,
+                    reschedule_reason=appointment.reschedule_reason,
+                    refund_amount_centavos=appointment.refund_amount_centavos,
+                    refund_reason=appointment.refund_reason,
+                    refunded_at=appointment.refunded_at,
+                    is_session_paid=appointment.appointment_id in paid_session_appt_ids,
                     proposed_slots=[self._slot_read(slot) for slot in slots],
                     profile_socmed_platform=(
                         profile.socmed_platform if profile else None

@@ -13,6 +13,7 @@ from models.appointment import Appointment, AppointmentStatus, SchedulingTurn
 from models.proposed_slot import ProposedSlot, SlotProposer, SlotStatus
 from models.psychologist_profile import PsychologistProfile
 from repo.appointment_repo import AppointmentRepo
+from repo.payment_repo import PaymentRepo
 from repo.psychologist_repo import PsychologistRepo
 from repo.service_repo import ServiceRepo
 from schemas.appointment import (
@@ -263,11 +264,25 @@ class PsychologistUsecase:
                 "You already have a session at this time; offer an alternative schedule"
             )
 
+        already_paid = PaymentRepo(self.db).has_paid_session(appt.appointment_id)
         updated = self.repo.accept_slot(
-            appt, slot, payment_deadline_for(session_start)
+            appt,
+            slot,
+            None if already_paid else payment_deadline_for(session_start),
+            already_paid=already_paid,
         )
         client_email = self.appointment_repo.get_client_email(updated)
-        if client_email and updated.price is not None:
+        if already_paid:
+            if client_email:
+                self.email_service.send_payment_confirmed(
+                    client_email, str(updated.appointment_id), "client"
+                )
+            psych_email = self.appointment_repo.get_psychologist_email(updated)
+            if psych_email:
+                self.email_service.send_payment_confirmed(
+                    psych_email, str(updated.appointment_id), "psychologist"
+                )
+        elif client_email and updated.price is not None:
             self.email_service.send_schedule_accepted(
                 client_email,
                 str(updated.appointment_id),
@@ -359,6 +374,37 @@ class PsychologistUsecase:
         if appt.status != AppointmentStatus.CONFIRMED:
             raise BadRequestError("Only confirmed appointments can be marked as completed")
         return self.appointment_repo.build_read(self.repo.complete(appt))
+
+    def mark_no_show(self, appointment_id: uuid.UUID, psychologist_id: uuid.UUID) -> AppointmentRead:
+        appt = self._get_owned_appointment(appointment_id, psychologist_id)
+        if appt.status != AppointmentStatus.CONFIRMED:
+            raise BadRequestError("Only confirmed appointments can be marked as no-show")
+        if appt.selected_slot_id is not None:
+            slot = self.appointment_repo.get_slot_by_id(appt.selected_slot_id)
+            if slot is not None:
+                start_dt = slot_start(slot.session_date, slot.start_time)
+                if now_manila() < start_dt:
+                    raise BadRequestError(
+                        "Cannot mark no-show before the scheduled session start time"
+                    )
+        return self.appointment_repo.build_read(
+            self.appointment_repo.mark_no_show(appt)
+        )
+
+    def waive_reschedule_fee(
+        self, appointment_id: uuid.UUID, psychologist_id: uuid.UUID
+    ) -> AppointmentRead:
+        appt = self._get_owned_appointment(appointment_id, psychologist_id)
+        if appt.status not in (
+            AppointmentStatus.RESCHEDULE_REQUESTED,
+            AppointmentStatus.NO_SHOW,
+        ):
+            raise BadRequestError(
+                "Only appointments awaiting a reschedule fee or marked no-show can have the fee waived"
+            )
+        return self.appointment_repo.build_read(
+            self.appointment_repo.waive_reschedule_fee(appt)
+        )
 
     # ----- profile -----
 

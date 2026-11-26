@@ -27,5 +27,10 @@ async def payment_webhook(
         provider_ref=event.provider_ref,
         paid=event.paid,
         payment_method=event.payment_method,
+        gateway_payment_id=event.gateway_payment_id,
+        event_type=event.event_type,
+        refund_id=event.refund_id,
+        refund_amount_centavos=event.refund_amount_centavos,
+        refund_status=event.refund_status,
     )
     return PaymentRead.model_validate(payment)

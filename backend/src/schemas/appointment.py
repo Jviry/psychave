@@ -55,6 +55,13 @@ class AppointmentRead(SQLModel):
     scheduling_turn: SchedulingTurn | None = None
     scheduling_round: int = 1
     payment_deadline: datetime | None = None
+    reschedule_fee_waived: bool = False
+    reschedule_requested_by: str | None = None
+    reschedule_reason: str | None = None
+    refund_amount_centavos: int | None = None
+    refund_reason: str | None = None
+    refunded_at: datetime | None = None
+    is_session_paid: bool = False
     proposed_slots: list[ProposedSlotRead] = Field(default_factory=list)
     conflicting_slot_ids: list[uuid.UUID] = Field(default_factory=list)
     # Client contact details are visible to the assigned psychologist at every
@@ -72,3 +79,7 @@ class PendingAppointmentRead(AppointmentRead):
 
 class SlotSelect(SQLModel):
     slot_id: uuid.UUID
+
+
+class RescheduleRequest(SQLModel):
+    reason: str | None = None

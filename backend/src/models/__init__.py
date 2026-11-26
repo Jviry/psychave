@@ -5,7 +5,7 @@ from models.client_profile import ClientProfile
 from models.cms import CmsContent, Testimonial
 from models.consent_template import ConsentFormTemplate
 from models.forms import Forms
-from models.payment import Payment, PaymentStatus
+from models.payment import Payment, PaymentStatus, PaymentType
 from models.profile import ContactMode, Profile, ProfileRelation
 from models.proposed_slot import ProposedSlot, SlotProposer, SlotStatus
 from models.psychologist_invitation import PsychologistInvitation
@@ -35,5 +35,6 @@ __all__ = [
     "SchedulingTurn",
     "Payment",
     "PaymentStatus",
+    "PaymentType",
     "Service",
 ]

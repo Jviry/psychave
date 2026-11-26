@@ -459,9 +459,24 @@ export function BookingStatusTag({ status }: { status: BookingStatus }) {
       dotClass: 'bg-pine/50',
     },
     'reschedule-requested': {
-      label: 'reschedule-requested · under review',
+      label: 'reschedule-requested · ₱600 fee or waiver needed',
       textClass: 'text-amber-800 font-semibold',
       dotClass: 'bg-amber-500',
+    },
+    'no-show': {
+      label: 'no-show · ₱600 reschedule fee or waiver needed',
+      textClass: 'text-amber-900 font-semibold',
+      dotClass: 'bg-amber-600',
+    },
+    'partially-refunded': {
+      label: 'partially-refunded · partial refund issued',
+      textClass: 'text-pine/80 font-semibold',
+      dotClass: 'bg-sage',
+    },
+    refunded: {
+      label: 'refunded · full refund issued',
+      textClass: 'text-pine/70 font-medium',
+      dotClass: 'bg-pine/40',
     },
     cancelled: {
       label: 'cancelled · archived',
