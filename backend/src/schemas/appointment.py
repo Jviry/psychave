@@ -65,6 +65,8 @@ class AppointmentRead(SQLModel):
     profile_socmed_username: str | None = None
     psychologist_social_links: list[SocialMediaLink] = Field(default_factory=list)
     meeting_link: str | None = None
+    reminder_24h_sent_at: datetime | None = None
+    reminder_1h_sent_at: datetime | None = None
 
 
 class PendingAppointmentRead(AppointmentRead):

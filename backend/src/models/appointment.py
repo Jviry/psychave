@@ -41,3 +41,7 @@ class Appointment(SQLModel, table=True):
     scheduling_round: int = Field(default=1)
     payment_deadline: datetime | None = None
     meeting_link: str | None = None
+    reminder_24h_sent_at: datetime | None = None
+    reminder_1h_sent_at: datetime | None = None
+    sla_24h_alerted_at: datetime | None = None
+    sla_48h_alerted_at: datetime | None = None

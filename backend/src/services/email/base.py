@@ -383,3 +383,114 @@ Choose the one that works for you and complete payment to confirm the session.</
 """,
         )
         self.send_email(to, subject, html, text)
+
+    def send_payment_expired(self, to: str, appointment_id: str) -> None:
+        subject = "Payment deadline passed — submit new preferred schedules"
+        link = f"{self.frontend_base_url}/proposal/{appointment_id}"
+        text = (
+            "Hi,\n\n"
+            "The payment deadline for your agreed session schedule has passed, "
+            "so the reserved slot has been released. Please submit a new set of "
+            "preferred schedules to continue.\n\n"
+            f"Submit new schedules: {link}\n\n"
+            f"{TEXT_FOOTER}"
+        )
+        html = self._wrap_html(
+            subject,
+            f"""\
+<p style="margin:0 0 16px;">The payment deadline for your agreed session schedule
+has passed, so the reserved slot has been released. Please submit a new set of
+preferred schedules to continue.</p>
+<p style="margin:0 0 16px;"><a href="{escape(link)}" style="color:#25372d;">Submit new preferred schedules</a></p>
+<p style="margin:0;">PsychAvenuePH</p>
+""",
+        )
+        self.send_email(to, subject, html, text)
+
+    def send_pending_sla_alert(
+        self, to: str, appointment_id: str, hours_waiting: int
+    ) -> None:
+        subject = f"Pending booking awaiting pickup ({hours_waiting}h+)"
+        link = f"{self.frontend_base_url}/psych/queue"
+        text = (
+            "Hi,\n\n"
+            f"Booking {appointment_id} has been in the pending queue for over "
+            f"{hours_waiting} hours without being picked up.\n\n"
+            f"View queue: {link}\n\n"
+            f"{TEXT_FOOTER}"
+        )
+        html = self._wrap_html(
+            subject,
+            f"""\
+<p style="margin:0 0 16px;">Booking <code>{escape(str(appointment_id))}</code>
+has been in the pending queue for over {hours_waiting} hours without being picked up.</p>
+<p style="margin:0 0 16px;"><a href="{escape(link)}" style="color:#25372d;">View queue</a></p>
+<p style="margin:0;">PsychAvenuePH</p>
+""",
+        )
+        self.send_email(to, subject, html, text)
+
+    def send_session_reminder(
+        self,
+        to: str,
+        appointment_id: str,
+        slot: SlotTime,
+        hours_before: int,
+        meeting_link: str | None = None,
+        recipient: Recipient = "client",
+    ) -> None:
+        subject = f"Reminder: your session starts in {hours_before} hour{'s' if hours_before != 1 else ''}"
+        formatted_slot = self._format_slot(slot)
+        portal_path = "/psych/schedule" if recipient == "psychologist" else f"/proposal/{appointment_id}"
+        portal_link = f"{self.frontend_base_url}{portal_path}"
+        meeting_line = f"Meeting link: {meeting_link}\n" if meeting_link else ""
+        meeting_html = (
+            f'<p style="margin:0 0 12px;"><strong>Meeting link:</strong> <a href="{escape(meeting_link)}" style="color:#25372d;">{escape(meeting_link)}</a></p>'
+            if meeting_link
+            else ""
+        )
+        text = (
+            "Hi,\n\n"
+            f"This is a reminder that your confirmed session is in about {hours_before} hour(s).\n\n"
+            f"Schedule: {formatted_slot}\n"
+            f"{meeting_line}"
+            f"View booking: {portal_link}\n\n"
+            f"{TEXT_FOOTER}"
+        )
+        html = self._wrap_html(
+            subject,
+            f"""\
+<p style="margin:0 0 16px;">This is a reminder that your confirmed session is in about {hours_before} hour(s).</p>
+<p style="margin:0 0 8px;"><strong>Schedule:</strong> {escape(formatted_slot)}</p>
+{meeting_html}
+<p style="margin:0 0 16px;"><a href="{escape(portal_link)}" style="color:#25372d;">View booking</a></p>
+<p style="margin:0;">PsychAvenuePH</p>
+""",
+        )
+        self.send_email(to, subject, html, text)
+
+    def send_evaluation_request(
+        self,
+        to: str,
+        appointment_id: str,
+        evaluation_form_url: str | None = None,
+    ) -> None:
+        subject = "How was your session? Share your feedback"
+        link = evaluation_form_url or f"{self.frontend_base_url}/proposal/{appointment_id}"
+        text = (
+            "Hi,\n\n"
+            "Your session has been marked as completed. We would appreciate your "
+            "feedback in a brief post-session evaluation form.\n\n"
+            f"Evaluation form: {link}\n\n"
+            f"{TEXT_FOOTER}"
+        )
+        html = self._wrap_html(
+            subject,
+            f"""\
+<p style="margin:0 0 16px;">Your session has been marked as completed. We would
+appreciate your feedback in a brief post-session evaluation form.</p>
+<p style="margin:0 0 16px;"><a href="{escape(link)}" style="color:#25372d;font-weight:bold;">Open Evaluation Form</a></p>
+<p style="margin:0;">PsychAvenuePH</p>
+""",
+        )
+        self.send_email(to, subject, html, text)
