@@ -23,9 +23,3 @@ class PaymentRead(SQLModel):
     status: PaymentStatus
     paid_at: datetime | None = None
     created_at: datetime
-
-
-class PaymentWebhookRequest(SQLModel):
-    provider_ref: str
-    outcome: Literal["paid", "failed"]
-    payment_method: str | None = None
