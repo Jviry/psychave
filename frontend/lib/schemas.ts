@@ -98,18 +98,6 @@ export const psychologistProfileSchema = z.object({
 export type PsychologistProfileValues = z.infer<typeof psychologistProfileSchema>;
 
 /**
- * Flow C Step 4: Client Proposal Slot Selection & Payment Schema
- */
-export const slotSelectionPaymentSchema = z.object({
-  selectedSlotId: z.string().min(1, 'Please select exactly 1 of the 3 proposed schedule slots.'),
-  acknowledgeFinalizationRule: z.boolean().refine((val) => val === true, {
-    message: 'Please confirm that booking finalizes and unlocks contact details only upon payment success.',
-  }),
-});
-
-export type SlotSelectionPaymentValues = z.infer<typeof slotSelectionPaymentSchema>;
-
-/**
  * Admin CMS Editor Schema
  */
 export const cmsOverviewSchema = z.object({

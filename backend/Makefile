@@ -1,4 +1,4 @@
-.PHONY: help db-start db-stop db-status db-reset db-migrate db-migrate-down db-new-migration test test-unit test-integration dev
+.PHONY: help db-start db-stop db-status db-reset db-migrate db-migrate-down db-new-migration test test-unit test-integration test-ephemeral dev
 
 VENV := .venv/bin
 PYTHON := $(VENV)/python
@@ -47,13 +47,16 @@ db-new-migration:
 	DATABASE_URL="$(DB_URL)" $(ALEMBIC) revision --autogenerate -m "$(name)"
 
 test:
-	$(PYTEST) -v
+	$(PYTEST) --ignore=tests/ephemeral -v
 
 test-unit:
 	$(PYTEST) tests/unit -v
 
 test-integration:
 	PYTEST_STRICT_INTEGRATION=1 $(PYTEST) tests/integration -v
+
+test-ephemeral:
+	$(PYTEST) tests/ephemeral -v
 
 dev:
 	DATABASE_URL="$(DB_URL)" $(UVICORN) main:app --app-dir src --reload --host 0.0.0.0 --port 8000

@@ -23,23 +23,6 @@ const SERVICE_TINTS: Array<'sage' | 'mint' | 'lime' | 'mist'> = [
   'lime',
 ];
 
-/**
- * One-line card subtexts — minimal editorial copy owned by the page, so the
- * service records keep their full descriptions for the booking flow.
- */
-const SERVICE_SUBTEXTS: Record<string, string> = {
-  'srv-consultation': 'Initial screening, booking clarity, and care navigation.',
-  'srv-individual': 'One-on-one therapy for anxiety, mood, and life transitions.',
-  'srv-couples': 'Structured therapy for communication, trust, and conflict repair.',
-  'srv-family-group': 'Systemic counseling for families and therapeutic groups.',
-  'srv-coaching': 'Goal-oriented coaching for career, habits, and milestones.',
-  'srv-supervision': 'Case conceptualization and skill-building for early-career practitioners.',
-  'srv-academic': 'Methodology, research design, and data analysis guidance.',
-};
-
-/**
- * Single public scroll page: Hero → #services → #about → consent governance.
- */
 export default function HomePage() {
   const router = useRouter();
   const updateBookingDraft = useAppStore((s) => s.updateBookingDraft);
@@ -170,7 +153,7 @@ export default function HomePage() {
                       <div aria-hidden="true" className="h-px w-full bg-current opacity-20" />
                       <div className="flex items-end justify-between gap-6">
                         <p className="text-base leading-relaxed opacity-85">
-                          {SERVICE_SUBTEXTS[srv.id] ?? srv.description}
+                          {srv.description}
                         </p>
                         <CircleArrow tone={tint === 'sage' ? 'light' : 'dark'} />
                       </div>

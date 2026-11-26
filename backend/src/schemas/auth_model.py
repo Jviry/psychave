@@ -62,12 +62,6 @@ class ForgotPasswordConfirm(BaseModel):
     confirmation_code: str
 
 
-class ResetPasswordRequest(BaseModel):
-    email: EmailStr
-    confirmation_code: str
-    new_password: str
-
-
 class PsychologistInvitationVerifyRead(BaseModel):
     email: EmailStr
     expires_at: datetime

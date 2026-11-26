@@ -92,14 +92,6 @@ class AppointmentRepo:
     def get_slot_by_id(self, slot_id: uuid.UUID) -> ProposedSlot | None:
         return self.db.get(ProposedSlot, slot_id)
 
-    def get_current_round_slots(self, appointment_id: uuid.UUID, round_number: int) -> list[ProposedSlot]:
-        return self.db.exec(
-            select(ProposedSlot).where(
-                ProposedSlot.appointment_id == appointment_id,
-                ProposedSlot.round == round_number,
-            )
-        ).all()
-
     def _decline_round(self, appointment_id: uuid.UUID, round_number: int) -> None:
         self.db.exec(
             update(ProposedSlot)

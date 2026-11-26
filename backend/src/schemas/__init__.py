@@ -23,7 +23,6 @@ from schemas.auth_model import (
 from schemas.payment import (
     PaymentInitiateRequest,
     PaymentRead,
-    PaymentWebhookRequest,
 )
 from schemas.profile import (
     ConsentCreate,
@@ -72,7 +71,6 @@ __all__ = [
     "UserLogin",
     "PaymentInitiateRequest",
     "PaymentRead",
-    "PaymentWebhookRequest",
     "ConsentCreate",
     "ConsentRead",
     "ProfileCreate",
