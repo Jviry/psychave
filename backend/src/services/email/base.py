@@ -357,3 +357,29 @@ Choose the one that works for you and complete payment to confirm the session.</
   </body>
 </html>
 """
+
+    def send_meeting_link_ready(
+        self,
+        to: str,
+        appointment_id: str,
+        meeting_link: str,
+    ) -> None:
+        subject = "Your session meeting link is ready"
+        booking_url = f"{self.frontend_base_url}/proposal/{appointment_id}"
+        text = (
+            "Hi,\n\n"
+            "Your psychologist has added the video meeting link for your confirmed session.\n\n"
+            f"Meeting link: {meeting_link}\n"
+            f"Booking details: {booking_url}\n\n"
+            f"{TEXT_FOOTER}"
+        )
+        html = self._wrap_html(
+            subject,
+            f"""\
+<p style="margin:0 0 16px;">Your psychologist has added the video meeting link for your confirmed session.</p>
+<p style="margin:0 0 16px;"><a href="{escape(meeting_link)}" style="color:#25372d;font-weight:bold;">Join Session</a></p>
+<p style="margin:0 0 16px;"><a href="{escape(booking_url)}" style="color:#25372d;">View your booking</a></p>
+<p style="margin:0;">PsychAvenuePH</p>
+""",
+        )
+        self.send_email(to, subject, html, text)

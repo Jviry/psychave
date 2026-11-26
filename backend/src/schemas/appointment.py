@@ -1,5 +1,7 @@
 import uuid
 from datetime import date, datetime, time
+from urllib.parse import urlparse
+from pydantic import field_validator
 from sqlmodel import SQLModel, Field
 
 from models.appointment import AppointmentStatus, SchedulingTurn
@@ -62,6 +64,7 @@ class AppointmentRead(SQLModel):
     profile_socmed_platform: str | None = None
     profile_socmed_username: str | None = None
     psychologist_social_links: list[SocialMediaLink] = Field(default_factory=list)
+    meeting_link: str | None = None
 
 
 class PendingAppointmentRead(AppointmentRead):
@@ -72,3 +75,16 @@ class PendingAppointmentRead(AppointmentRead):
 
 class SlotSelect(SQLModel):
     slot_id: uuid.UUID
+
+
+class MeetingLinkUpdate(SQLModel):
+    meeting_link: str
+
+    @field_validator("meeting_link")
+    @classmethod
+    def validate_meeting_link(cls, value: str) -> str:
+        cleaned = value.strip()
+        parsed = urlparse(cleaned)
+        if parsed.scheme != "https" or not parsed.netloc:
+            raise ValueError("Meeting link must be a valid https:// URL")
+        return cleaned

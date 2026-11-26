@@ -213,6 +213,7 @@ export interface BookingRequest {
   selectedSlotId?: string;
   paidAt?: string;
   contactUnlocked: boolean;
+  meetingLink?: string;
   psychologistSocialLinks?: SocialMediaLink[];
   clientSocialMedia?: {
     platform: string;

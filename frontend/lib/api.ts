@@ -394,6 +394,7 @@ interface AppointmentRaw {
   profile_socmed_platform: string | null;
   profile_socmed_username: string | null;
   psychologist_social_links: SocialMediaLink[];
+  meeting_link?: string | null;
 }
 
 interface ProposedSlotRaw {
@@ -704,6 +705,7 @@ function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
     conflictingSlotIds: raw.conflicting_slot_ids ?? [],
     selectedSlotId: raw.selected_slot_id ?? undefined,
     contactUnlocked,
+    ...(raw.meeting_link ? { meetingLink: raw.meeting_link } : {}),
     psychologistSocialLinks,
     clientSocialMedia,
     reminders: contactUnlocked
@@ -1467,6 +1469,20 @@ export const api = {
     const raw = await liveRequest<AppointmentRaw>(
       `/appointments/${bookingId}/complete`,
       { method: 'POST' }
+    );
+    return mapAppointmentRaw(raw);
+  },
+
+  updateMeetingLink: async (
+    bookingId: string,
+    meetingLink: string
+  ): Promise<BookingRequest> => {
+    const raw = await liveRequest<AppointmentRaw>(
+      `/appointments/${assertUuid(bookingId, 'bookingId')}/meeting-link`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ meeting_link: meetingLink.trim() }),
+      }
     );
     return mapAppointmentRaw(raw);
   },

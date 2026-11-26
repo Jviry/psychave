@@ -40,3 +40,4 @@ class Appointment(SQLModel, table=True):
     scheduling_turn: SchedulingTurn | None = Field(default=None)
     scheduling_round: int = Field(default=1)
     payment_deadline: datetime | None = None
+    meeting_link: str | None = None

@@ -404,6 +404,12 @@ class AppointmentRepo:
                     scheduling_turn=appointment.scheduling_turn,
                     scheduling_round=appointment.scheduling_round,
                     payment_deadline=appointment.payment_deadline,
+                    meeting_link=(
+                        appointment.meeting_link
+                        if appointment.status
+                        in (AppointmentStatus.CONFIRMED, AppointmentStatus.COMPLETED)
+                        else None
+                    ),
                     proposed_slots=[self._slot_read(slot) for slot in slots],
                     profile_socmed_platform=(
                         profile.socmed_platform if profile else None
