@@ -289,6 +289,7 @@ export interface CmsContent {
   mission: string;
   clinicOverview: string;
   impactNarrative: string;
+  evaluationFormUrl?: string | null;
   updatedAt?: string;
   testimonials: TestimonialItem[];
   impactMetrics?: {

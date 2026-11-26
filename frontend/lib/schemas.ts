@@ -117,6 +117,14 @@ export const cmsOverviewSchema = z.object({
   mission: z.string().min(20, 'Mission statement must be at least 20 characters.'),
   clinicOverview: z.string().min(30, 'Clinic overview must be at least 30 characters.'),
   impactNarrative: z.string().min(20, 'Impact narrative must be at least 20 characters.'),
+  evaluationFormUrl: z
+    .string()
+    .trim()
+    .refine(
+      (val) => !val || /^https:\/\/.+/i.test(val),
+      'Evaluation form link must be a valid https:// URL.'
+    )
+    .optional(),
 });
 
 export type CmsOverviewFormValues = z.infer<typeof cmsOverviewSchema>;

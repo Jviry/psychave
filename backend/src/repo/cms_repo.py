@@ -30,6 +30,7 @@ class CmsRepo:
         content.mission = payload.mission
         content.clinic_overview = payload.clinic_overview
         content.impact_narrative = payload.impact_narrative
+        content.evaluation_form_url = payload.evaluation_form_url
         content.updated_at = datetime.now(timezone.utc)
         self.db.add(content)
         self.db.commit()

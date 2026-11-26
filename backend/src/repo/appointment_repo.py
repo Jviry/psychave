@@ -404,6 +404,8 @@ class AppointmentRepo:
                     scheduling_turn=appointment.scheduling_turn,
                     scheduling_round=appointment.scheduling_round,
                     payment_deadline=appointment.payment_deadline,
+                    reminder_24h_sent_at=appointment.reminder_24h_sent_at,
+                    reminder_1h_sent_at=appointment.reminder_1h_sent_at,
                     meeting_link=(
                         appointment.meeting_link
                         if appointment.status
