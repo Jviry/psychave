@@ -33,6 +33,13 @@ from schemas.consent_template import (
 )
 from schemas.profile import ConsentCreate, ProfileCreate, ProfileWithConsentCreate
 from schemas.service import ServiceCreate, ServiceUpdate
+from pathlib import Path
+import sys
+
+_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1] / "scripts")
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
 from seed_services import seed_services
 from usecase.appointment_usecase import AppointmentUsecase
 from usecase.consent_template_usecase import ConsentTemplateUsecase
