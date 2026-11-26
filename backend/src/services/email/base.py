@@ -258,8 +258,8 @@ Choose the one that works for you and complete payment to confirm the session.</
             subject = "A session has been confirmed"
             lead = (
                 "A client completed payment for a session with you. The booking "
-                "is now confirmed, and the client's contact details are available "
-                "in your schedule."
+                "is now confirmed — please add the session meeting link in your "
+                "schedule so the client can join."
             )
             link = f"{self.frontend_base_url}/psych/schedule"
             cta = "View your schedule"
