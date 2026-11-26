@@ -45,7 +45,7 @@ backend/
 │   │   ├── appointment.py        # Consultation appointments
 │   │   ├── proposed_slot.py      # Available / proposed time slots
 │   │   └── payment.py            # Payment records
-│   ├── seed_services.py          # Idempotent services catalog seed
+│   └── scripts/                  # CLI scripts (seed_services, drop_schema, seed_ephemeral_users)
 │   └── main.py                   # FastAPI entry point & Mangum handler
 ├── .env.example                  # Environment variable reference
 ├── alembic.ini                   # Alembic configuration
@@ -138,7 +138,7 @@ The `services` table ships empty. Seed the seven catalog entries from
 `docs/services-catalog.md` with:
 
 ```bash
-python src/seed_services.py
+PYTHONPATH=src python scripts/seed_services.py
 ```
 
 The script is idempotent — it upserts by a stable UUID per service slug, so

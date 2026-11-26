@@ -296,8 +296,22 @@ export default function ScheduleAgreementPage() {
 
             <div className="space-y-2">
               <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                Psychologist Social Media
+                Session Meeting Link &amp; Contact
               </span>
+              {booking.meetingLink ? (
+                <a
+                  href={booking.meetingLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block font-mono font-semibold text-accent-ink underline underline-offset-4 hover:text-pine break-all"
+                >
+                  {booking.meetingLink}
+                </a>
+              ) : (
+                <p className="text-pine/70">
+                  Meeting link pending from your psychologist.
+                </p>
+              )}
               <SocialLinksList
                 links={booking.psychologistSocialLinks}
                 emptyMessage="Your psychologist has not added social media links yet."
