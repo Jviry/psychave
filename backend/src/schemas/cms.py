@@ -1,4 +1,5 @@
 from datetime import datetime
+from urllib.parse import urlparse
 import uuid
 from pydantic import field_validator
 from sqlmodel import SQLModel
@@ -53,6 +54,7 @@ class CmsContentRead(SQLModel):
     mission: str
     clinic_overview: str
     impact_narrative: str
+    evaluation_form_url: str | None = None
     updated_at: datetime
     testimonials: list[TestimonialRead] = []
 
@@ -62,6 +64,7 @@ class CmsContentUpdate(SQLModel):
     mission: str
     clinic_overview: str
     impact_narrative: str
+    evaluation_form_url: str | None = None
 
     @field_validator("vision", "mission", "clinic_overview", "impact_narrative")
     @classmethod
@@ -69,4 +72,17 @@ class CmsContentUpdate(SQLModel):
         cleaned = value.strip()
         if not cleaned:
             raise ValueError("Field cannot be blank")
+        return cleaned
+
+    @field_validator("evaluation_form_url")
+    @classmethod
+    def validate_evaluation_form_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        if not cleaned:
+            return None
+        parsed = urlparse(cleaned)
+        if parsed.scheme != "https" or not parsed.netloc:
+            raise ValueError("Evaluation form URL must be a valid https:// URL")
         return cleaned
