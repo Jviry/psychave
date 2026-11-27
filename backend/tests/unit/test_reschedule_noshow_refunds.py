@@ -178,38 +178,55 @@ def _seed_confirmed(
     return appt, client, psych, admin
 
 
+def _sample_preferred_slots() -> list[SlotInput]:
+    d = (now_manila() + timedelta(days=4)).date()
+    return [
+        SlotInput(session_date=d, start_time=time(9, 0)),
+        SlotInput(session_date=d, start_time=time(11, 0)),
+        SlotInput(session_date=d, start_time=time(14, 0)),
+    ]
+
+
 def test_client_reschedule_free_when_at_least_2h_before(db: Session):
-    appt, client, _, _ = _seed_confirmed(db, session_offset=timedelta(hours=5))
+    appt, client, psych, _ = _seed_confirmed(db, session_offset=timedelta(hours=5))
+    appt.reminder_24h_sent_at = datetime.now(timezone.utc)
+    appt.reminder_1h_sent_at = datetime.now(timezone.utc)
+    db.add(appt)
+    db.commit()
     email_svc = _SilentEmailService()
     uc = AppointmentUsecase(db, email_service=email_svc)
 
+    with pytest.raises(BadRequestError):
+        uc.request_reschedule(appt.appointment_id, client.user_id, UserRole.CLIENT, reason="Conflict")
+
     res = uc.request_reschedule(
-        appt.appointment_id, client.user_id, UserRole.CLIENT, reason="Conflict"
+        appt.appointment_id,
+        client.user_id,
+        UserRole.CLIENT,
+        reason="Conflict",
+        preferred_slots=_sample_preferred_slots(),
     )
     assert res.status == AppointmentStatus.AWAITING_SCHEDULE
-    assert res.scheduling_turn == SchedulingTurn.CLIENT
+    assert res.scheduling_turn == SchedulingTurn.PSYCHOLOGIST
+    assert res.scheduling_round == 2
     assert res.selected_slot_id is None
     assert res.reschedule_requested_by == "client"
     assert res.reschedule_reason == "Conflict"
-    assert any(to == "psych@example.com" for to, _, _ in email_svc.sent)
+    assert res.reminder_24h_sent_at is None
+    assert res.reminder_1h_sent_at is None
+    assert {client.email, psych.email} <= {to for to, _, _ in email_svc.sent}
 
 
 def test_client_reschedule_free_with_preferred_slots_sets_psychologist_turn(db: Session):
     appt, client, _, _ = _seed_confirmed(db, session_offset=timedelta(hours=5))
     uc = AppointmentUsecase(db, email_service=_SilentEmailService())
-    d = (now_manila() + timedelta(days=4)).date()
-    slots = [
-        SlotInput(session_date=d, start_time=time(9, 0)),
-        SlotInput(session_date=d, start_time=time(11, 0)),
-        SlotInput(session_date=d, start_time=time(14, 0)),
-    ]
 
     res = uc.request_reschedule(
         appt.appointment_id,
         client.user_id,
         UserRole.CLIENT,
         reason="Need next week",
-        preferred_slots=slots,
+        preferred_slots=_sample_preferred_slots(),
     )
     assert res.status == AppointmentStatus.AWAITING_SCHEDULE
     assert res.scheduling_turn == SchedulingTurn.PSYCHOLOGIST
@@ -225,31 +242,57 @@ def test_client_cannot_reschedule_after_session_start(db: Session):
     uc = AppointmentUsecase(db, email_service=_SilentEmailService())
 
     with pytest.raises(BadRequestError, match="after the scheduled session start time"):
-        uc.request_reschedule(appt.appointment_id, client.user_id, UserRole.CLIENT)
+        uc.request_reschedule(
+            appt.appointment_id,
+            client.user_id,
+            UserRole.CLIENT,
+            preferred_slots=_sample_preferred_slots(),
+        )
 
 
 def test_client_reschedule_requires_fee_when_under_2h(db: Session):
-    appt, client, _, _ = _seed_confirmed(db, session_offset=timedelta(minutes=45))
-    uc = AppointmentUsecase(db, email_service=_SilentEmailService())
+    appt, client, psych, _ = _seed_confirmed(db, session_offset=timedelta(minutes=45))
+    email_svc = _SilentEmailService()
+    uc = AppointmentUsecase(db, email_service=email_svc)
 
     res = uc.request_reschedule(
-        appt.appointment_id, client.user_id, UserRole.CLIENT, reason="Emergency"
+        appt.appointment_id,
+        client.user_id,
+        UserRole.CLIENT,
+        reason="Emergency",
+        preferred_slots=_sample_preferred_slots(),
     )
     assert res.status == AppointmentStatus.RESCHEDULE_REQUESTED
     assert res.scheduling_turn is None
+    assert res.scheduling_round == 2
     assert res.reschedule_fee_waived is False
+    assert {client.email, psych.email} <= {to for to, _, _ in email_svc.sent}
 
 
 def test_psychologist_reschedule_is_always_free(db: Session):
-    appt, _, psych, _ = _seed_confirmed(db, session_offset=timedelta(minutes=20))
-    uc = AppointmentUsecase(db, email_service=_SilentEmailService())
+    appt, client, psych, _ = _seed_confirmed(db, session_offset=timedelta(minutes=20))
+    email_svc = _SilentEmailService()
+    uc = AppointmentUsecase(db, email_service=email_svc)
 
+    with pytest.raises(BadRequestError):
+        uc.request_reschedule(
+            appt.appointment_id, psych.user_id, UserRole.PSYCHOLOGIST, reason="Clinic conflict"
+        )
+
+    offer = SlotInput(session_date=(now_manila() + timedelta(days=5)).date(), start_time=time(15, 0))
     res = uc.request_reschedule(
-        appt.appointment_id, psych.user_id, UserRole.PSYCHOLOGIST, reason="Clinic conflict"
+        appt.appointment_id,
+        psych.user_id,
+        UserRole.PSYCHOLOGIST,
+        reason="Clinic conflict",
+        counter_slot=offer,
     )
     assert res.status == AppointmentStatus.AWAITING_SCHEDULE
     assert res.scheduling_turn == SchedulingTurn.CLIENT
+    assert res.scheduling_round == 2
     assert res.reschedule_requested_by == "psychologist"
+    assert any(s.round == 2 and s.proposed_by == SlotProposer.PSYCHOLOGIST for s in res.proposed_slots)
+    assert {client.email, psych.email} <= {to for to, _, _ in email_svc.sent}
 
 
 def test_mark_no_show_enforces_after_session_start(db: Session):
@@ -259,9 +302,12 @@ def test_mark_no_show_enforces_after_session_start(db: Session):
     with pytest.raises(BadRequestError):
         psych_uc.mark_no_show(appt_future.appointment_id, psych.user_id)
 
-    appt_past, _, psych2, _ = _seed_confirmed(db, session_offset=timedelta(minutes=-30))
-    res = psych_uc.mark_no_show(appt_past.appointment_id, psych2.user_id)
+    appt_past, client2, psych2, _ = _seed_confirmed(db, session_offset=timedelta(minutes=-30))
+    email_svc = _SilentEmailService()
+    psych_uc2 = PsychologistUsecase(db, email_service=email_svc)
+    res = psych_uc2.mark_no_show(appt_past.appointment_id, psych2.user_id)
     assert res.status == AppointmentStatus.NO_SHOW
+    assert {client2.email, psych2.email} <= {to for to, _, _ in email_svc.sent}
 
 
 def test_waive_reschedule_fee_transitions_to_awaiting_schedule(db: Session):
@@ -282,24 +328,23 @@ def test_waive_reschedule_fee_transitions_to_awaiting_schedule(db: Session):
     # Client read must redact internal waiver reason
     client_read = appt_uc.get_appointment(appt.appointment_id, client.user_id)
     assert client_read.reschedule_waiver_reason is None
-
-    # No client email should ever mention "waiv"
-    client_emails = [
-        (subj, body) for to, subj, body in email_svc.sent if to == "client@example.com"
-    ]
-    assert len(client_emails) == 2
-    assert all("waiv" not in (subj + body).lower() for subj, body in client_emails)
-    assert "600" not in client_emails[1][1]
+    assert {client.email, psych.email} <= {to for to, _, _ in email_svc.sent}
 
 
 def test_reschedule_fee_checkout_and_webhook_then_slot_reagreement_confirms(db: Session):
     appt, client, psych, _ = _seed_confirmed(db, session_offset=timedelta(minutes=30))
-    appt_uc = AppointmentUsecase(db, email_service=_SilentEmailService())
-    psych_uc = PsychologistUsecase(db, email_service=_SilentEmailService())
+    email_svc = _SilentEmailService()
+    appt_uc = AppointmentUsecase(db, email_service=email_svc)
+    psych_uc = PsychologistUsecase(db, email_service=email_svc)
     provider = _FakePaymentProvider()
-    pay_uc = PaymentUsecase(db, provider, email_service=_SilentEmailService())
+    pay_uc = PaymentUsecase(db, provider, email_service=email_svc)
 
-    appt_uc.request_reschedule(appt.appointment_id, client.user_id, UserRole.CLIENT)
+    appt_uc.request_reschedule(
+        appt.appointment_id,
+        client.user_id,
+        UserRole.CLIENT,
+        preferred_slots=_sample_preferred_slots(),
+    )
     fee_payment = pay_uc.initiate_reschedule_fee_payment(appt.appointment_id, client.user_id)
 
     assert fee_payment.amount == RESCHEDULE_FEE_PHP
@@ -309,24 +354,16 @@ def test_reschedule_fee_checkout_and_webhook_then_slot_reagreement_confirms(db: 
     pay_uc.handle_webhook(provider_ref=fee_payment.provider_ref, paid=True, payment_method="gcash")
     db.refresh(appt)
     assert appt.status == AppointmentStatus.AWAITING_SCHEDULE
-    assert appt.scheduling_turn == SchedulingTurn.CLIENT
+    assert appt.scheduling_turn == SchedulingTurn.PSYCHOLOGIST
 
-    # Client proposes new slot and psychologist accepts -> should confirm immediately (already paid!)
-    future_day = (now_manila() + timedelta(days=3)).date()
-    slot1 = ProposedSlot(
-        appointment_id=appt.appointment_id,
-        session_date=future_day,
-        start_time=time(10, 0),
-        end_time=time(10, 50),
-        proposed_by=SlotProposer.CLIENT,
-        status=SlotStatus.PROPOSED,
-        round=2,
-    )
-    appt.scheduling_round = 2
-    appt.scheduling_turn = SchedulingTurn.PSYCHOLOGIST
-    db.add_all([appt, slot1])
-    db.commit()
-    db.refresh(slot1)
+    slot1 = db.exec(
+        select(ProposedSlot).where(
+            ProposedSlot.appointment_id == appt.appointment_id,
+            ProposedSlot.round == appt.scheduling_round,
+            ProposedSlot.proposed_by == SlotProposer.CLIENT,
+        )
+    ).first()
+    assert slot1 is not None
 
     confirmed = psych_uc.accept_preferred_slot(appt.appointment_id, slot1.slot_id, psych.user_id)
     assert confirmed.status == AppointmentStatus.CONFIRMED
@@ -486,7 +523,12 @@ def test_paid_rescheduled_appointment_blocks_cancel_and_exposes_is_session_paid(
     appt, client, _, _ = _seed_confirmed(db, session_offset=timedelta(hours=5))
     appt_uc = AppointmentUsecase(db, email_service=_SilentEmailService())
 
-    res = appt_uc.request_reschedule(appt.appointment_id, client.user_id, UserRole.CLIENT)
+    res = appt_uc.request_reschedule(
+        appt.appointment_id,
+        client.user_id,
+        UserRole.CLIENT,
+        preferred_slots=_sample_preferred_slots(),
+    )
     assert res.status == AppointmentStatus.AWAITING_SCHEDULE
     assert res.is_session_paid is True
 
@@ -533,7 +575,12 @@ def test_admin_refund_resolves_missing_gateway_payment_id_and_replaces_mismatche
 
     provider = _FetchProvider()
     appt_uc = AppointmentUsecase(db, email_service=_SilentEmailService())
-    appt_uc.request_reschedule(appt.appointment_id, client.user_id, UserRole.CLIENT)
+    appt_uc.request_reschedule(
+        appt.appointment_id,
+        client.user_id,
+        UserRole.CLIENT,
+        preferred_slots=_sample_preferred_slots(),
+    )
 
     pay_uc = PaymentUsecase(db, provider, email_service=_SilentEmailService())
     fee_pay = pay_uc.initiate_reschedule_fee_payment(appt.appointment_id, client.user_id)

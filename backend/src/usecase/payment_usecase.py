@@ -253,6 +253,9 @@ class PaymentUsecase:
             )
             appt = self.appointments.get_by_id(payment.appointment_id)
             if appt is not None:
+                self.appointments.release_selected_slot(appt)
+                appt.scheduling_turn = None
+                appt.payment_deadline = None
                 appt.status = (
                     AppointmentStatus.REFUNDED
                     if is_full
@@ -290,13 +293,27 @@ class PaymentUsecase:
                 and appt.status
                 in (AppointmentStatus.RESCHEDULE_REQUESTED, AppointmentStatus.NO_SHOW)
             ):
-                self.appointments.start_reschedule_negotiation(
-                    appt, turn=SchedulingTurn.CLIENT
+                updated_appt = self.appointments.start_reschedule_negotiation(appt)
+                has_submitted_slots = (
+                    updated_appt.scheduling_turn == SchedulingTurn.PSYCHOLOGIST
                 )
-                client_email = self.appointments.get_client_email(appt)
+                client_email = self.appointments.get_client_email(updated_appt)
                 if client_email:
-                    self.email_service.send_reschedule_reopened(
-                        client_email, str(appt.appointment_id), fee_paid=True
+                    self.email_service.send_reschedule_fee_resolved(
+                        client_email,
+                        str(updated_appt.appointment_id),
+                        "client",
+                        waived=False,
+                        has_submitted_slots=has_submitted_slots,
+                    )
+                psych_email = self.appointments.get_psychologist_email(updated_appt)
+                if psych_email:
+                    self.email_service.send_reschedule_fee_resolved(
+                        psych_email,
+                        str(updated_appt.appointment_id),
+                        "psychologist",
+                        waived=False,
+                        has_submitted_slots=has_submitted_slots,
                     )
             elif (
                 payment.payment_type == PaymentType.SESSION

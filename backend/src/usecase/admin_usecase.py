@@ -209,6 +209,9 @@ class AdminUsecase:
             refund_reason=payload.reason,
             refunded_at=now,
         )
+        repo.release_selected_slot(appt)
+        appt.scheduling_turn = None
+        appt.payment_deadline = None
         appt.status = AppointmentStatus.PARTIALLY_REFUNDED
         appt.refund_amount_centavos = refund_centavos
         appt.refund_reason = payload.reason
@@ -227,11 +230,23 @@ class AdminUsecase:
         )
         client_email = repo.get_client_email(appt)
         if client_email:
-            self.email_service.send_partial_refund_issued(
+            self.email_service.send_refund_issued(
                 client_email,
                 str(appt.appointment_id),
-                refund_centavos / 100.0,
-                payload.reason,
+                "client",
+                amount_centavos=refund_centavos,
+                is_full=False,
+                reason=payload.reason,
+            )
+        psych_email = repo.get_psychologist_email(appt)
+        if psych_email:
+            self.email_service.send_refund_issued(
+                psych_email,
+                str(appt.appointment_id),
+                "psychologist",
+                amount_centavos=refund_centavos,
+                is_full=False,
+                reason=payload.reason,
             )
         return repo.build_read(appt, include_internal=True)
 
