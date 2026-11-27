@@ -236,18 +236,11 @@ export default function AdminUsersPage() {
   const unchangedRole = !!editingUser && targetRole === editingUser.role;
 
   return (
-    <div className="space-y-10">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-mist pb-6">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs text-accent-ink font-semibold">
-            <span>Admin Dashboard</span>
-            <span aria-hidden="true">·</span>
-            <span>User Accounts &amp; Role Administration</span>
-          </div>
-          <h1 className="font-heading text-4xl font-medium text-pine">
-            User Directory &amp; Access Roles
-          </h1>
-        </div>
+    <div className="space-y-6">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-mist pb-4">
+        <h1 className="font-heading text-3xl font-medium text-pine">
+          User Directory &amp; Access Roles
+        </h1>
         <Button variant="primary" size="md" onClick={openInviteModal}>
           <UserPlus className="h-4 w-4" aria-hidden="true" />
           Invite Psychologist
