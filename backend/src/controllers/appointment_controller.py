@@ -3,7 +3,12 @@ import uuid
 
 from fastapi import APIRouter, Depends
 
-from dependencies.auth import ClientUserDep, DbDep, require_role
+from dependencies.auth import (
+    ClientUserDep,
+    CurrentPsychologistDep,
+    DbDep,
+    require_role,
+)
 from dependencies.payments import PaymentProviderDep
 from models.appointment import AppointmentStatus
 from models.user import User, UserRole
@@ -12,7 +17,9 @@ from schemas.appointment import (
     AppointmentRead,
     PreferredSlotsUpdate,
     ProposedSlotRead,
+    RescheduleRequest,
     SlotSelect,
+    WaiveRescheduleFeeRequest,
 )
 from schemas.payment import PaymentInitiateRequest, PaymentRead
 from usecase.appointment_usecase import AppointmentUsecase
@@ -58,7 +65,11 @@ def get_appointment(
         return PsychologistUsecase(db).get_detail(appointment_id, current_user.user_id)
     uc = AppointmentUsecase(db)
     appt = uc.get_appointment(appointment_id, current_user.user_id)
-    if appt.status == AppointmentStatus.AWAITING_PAYMENT:
+    if appt.status in (
+        AppointmentStatus.AWAITING_PAYMENT,
+        AppointmentStatus.RESCHEDULE_REQUESTED,
+        AppointmentStatus.NO_SHOW,
+    ):
         if PaymentUsecase(db, provider).reconcile_pending_payment(appointment_id):
             appt = uc.get_appointment(appointment_id, current_user.user_id)
     return appt
@@ -135,3 +146,68 @@ def get_payments(
 ):
     uc = PaymentUsecase(db, provider)
     return uc.get_history(appointment_id, current_user.user_id)
+
+
+# ----- rescheduling, no-show, & reschedule fee -----
+@router.post("/{appointment_id}/reschedule-request", response_model=AppointmentRead)
+def request_reschedule(
+    appointment_id: uuid.UUID,
+    db: DbDep,
+    current_user: ClientOrPsychUserDep,
+    payload: RescheduleRequest | None = None,
+):
+    reason = payload.reason if payload is not None else None
+    preferred_slots = payload.preferred_slots if payload is not None else None
+    counter_slot = payload.counter_slot if payload is not None else None
+    return AppointmentUsecase(db).request_reschedule(
+        appointment_id,
+        current_user.user_id,
+        UserRole(current_user.role),
+        reason=reason,
+        preferred_slots=preferred_slots,
+        counter_slot=counter_slot,
+    )
+
+
+@router.post("/{appointment_id}/no-show", response_model=AppointmentRead)
+def mark_no_show(
+    appointment_id: uuid.UUID,
+    db: DbDep,
+    current_psychologist: CurrentPsychologistDep,
+):
+    return PsychologistUsecase(db).mark_no_show(
+        appointment_id, current_psychologist.psychologist_id
+    )
+
+
+@router.post("/{appointment_id}/waive-reschedule-fee", response_model=AppointmentRead)
+def waive_reschedule_fee(
+    appointment_id: uuid.UUID,
+    db: DbDep,
+    current_psychologist: CurrentPsychologistDep,
+    payload: WaiveRescheduleFeeRequest | None = None,
+):
+    reason = payload.reason if payload is not None else None
+    return PsychologistUsecase(db).waive_reschedule_fee(
+        appointment_id,
+        current_psychologist.psychologist_id,
+        reason=reason,
+    )
+
+
+@router.post("/{appointment_id}/reschedule-fee/payment", response_model=PaymentRead)
+def initiate_reschedule_fee_payment(
+    appointment_id: uuid.UUID,
+    db: DbDep,
+    current_user: ClientUserDep,
+    provider: PaymentProviderDep,
+    payload: PaymentInitiateRequest | None = None,
+):
+    uc = PaymentUsecase(db, provider)
+    return uc.initiate_reschedule_fee_payment(
+        appointment_id,
+        current_user.user_id,
+        payment_method=payload.payment_method if payload else None,
+        success_url=payload.success_url if payload else None,
+        cancel_url=payload.cancel_url if payload else None,
+    )

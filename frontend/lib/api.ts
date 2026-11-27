@@ -389,6 +389,14 @@ interface AppointmentRaw {
   scheduling_turn: string | null;
   scheduling_round: number;
   payment_deadline: string | null;
+  reschedule_fee_waived?: boolean;
+  reschedule_requested_by?: string | null;
+  reschedule_reason?: string | null;
+  reschedule_waiver_reason?: string | null;
+  refund_amount_centavos?: number | null;
+  refund_reason?: string | null;
+  refunded_at?: string | null;
+  is_session_paid?: boolean;
   proposed_slots: ProposedSlotRaw[];
   conflicting_slot_ids?: string[];
   profile_socmed_platform: string | null;
@@ -623,6 +631,14 @@ function mapStatusToBookingStatus(
       return 'paid-confirmed';
     case 'completed':
       return 'completed';
+    case 'reschedule_requested':
+      return 'reschedule-requested';
+    case 'no_show':
+      return 'no-show';
+    case 'partially_refunded':
+      return 'partially-refunded';
+    case 'refunded':
+      return 'refunded';
     case 'cancelled':
       return 'cancelled';
     default:
@@ -704,6 +720,14 @@ function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
         : undefined,
     schedulingRound: raw.scheduling_round ?? 1,
     paymentDeadline: raw.payment_deadline ?? undefined,
+    rescheduleFeeWaived: raw.reschedule_fee_waived ?? false,
+    rescheduleRequestedBy: raw.reschedule_requested_by ?? undefined,
+    rescheduleReason: raw.reschedule_reason ?? undefined,
+    rescheduleWaiverReason: raw.reschedule_waiver_reason ?? undefined,
+    refundAmountCentavos: raw.refund_amount_centavos ?? undefined,
+    refundReason: raw.refund_reason ?? undefined,
+    refundedAt: raw.refunded_at ?? undefined,
+    isSessionPaid: raw.is_session_paid ?? false,
     conflictingSlotIds: raw.conflicting_slot_ids ?? [],
     selectedSlotId: raw.selected_slot_id ?? undefined,
     contactUnlocked,
@@ -1484,6 +1508,46 @@ export const api = {
     return mapAppointmentRaw(raw);
   },
 
+  requestReschedule: async (
+    bookingId: string,
+    reasonOrOptions?:
+      | string
+      | {
+          reason?: string;
+          preferredSlots?: string[];
+          counterDateTime?: string;
+        },
+    preferredSlots?: string[],
+    counterDateTime?: string
+  ): Promise<BookingRequest> => {
+    const opts =
+      typeof reasonOrOptions === 'object' && reasonOrOptions !== null
+        ? reasonOrOptions
+        : {
+            reason:
+              typeof reasonOrOptions === 'string' ? reasonOrOptions : undefined,
+            preferredSlots,
+            counterDateTime,
+          };
+    const body: Record<string, unknown> = {
+      reason: opts.reason?.trim() || null,
+    };
+    if (opts.preferredSlots && opts.preferredSlots.length > 0) {
+      body.preferred_slots = opts.preferredSlots.map(toSlotPreference);
+    }
+    if (opts.counterDateTime) {
+      body.counter_slot = toSlotPreference(opts.counterDateTime);
+    }
+    const raw = await liveRequest<AppointmentRaw>(
+      `/appointments/${assertUuid(bookingId, 'bookingId')}/reschedule-request`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }
+    );
+    return mapAppointmentRaw(raw);
+  },
+
   updateMeetingLink: async (
     bookingId: string,
     meetingLink: string
@@ -1498,6 +1562,86 @@ export const api = {
     return mapAppointmentRaw(raw);
   },
 
+  markNoShow: async (bookingId: string): Promise<BookingRequest> => {
+    const raw = await liveRequest<AppointmentRaw>(
+      `/appointments/${assertUuid(bookingId, 'bookingId')}/no-show`,
+      { method: 'POST' }
+    );
+    return mapAppointmentRaw(raw);
+  },
+
+  waiveRescheduleFee: async (
+    bookingId: string,
+    reason?: string
+  ): Promise<BookingRequest> => {
+    const raw = await liveRequest<AppointmentRaw>(
+      `/appointments/${assertUuid(bookingId, 'bookingId')}/waive-reschedule-fee`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ reason: reason?.trim() || null }),
+      }
+    );
+    return mapAppointmentRaw(raw);
+  },
+
+  payRescheduleFee: async (bookingId: string): Promise<BookingRequest> => {
+    const path = `/appointments/${assertUuid(bookingId, 'bookingId')}/reschedule-fee/payment`;
+    const payRes = await liveFetch(path, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+    if (payRes.status < 200 || payRes.status >= 300) {
+      throw buildBackendError(path, payRes.status, payRes.json);
+    }
+    const payment = payRes.json as PaymentRaw | null;
+
+    if (payment?.checkout_url && payment.status !== 'paid') {
+      let safeCheckoutUrl: string | null = null;
+      try {
+        const parsed = new URL(payment.checkout_url);
+        const isPayMongo =
+          parsed.protocol === 'https:' &&
+          (parsed.hostname === 'checkout.paymongo.com' ||
+            parsed.hostname.endsWith('.paymongo.com'));
+        if (isPayMongo) {
+          safeCheckoutUrl = parsed.toString();
+        }
+      } catch {
+        safeCheckoutUrl = null;
+      }
+      if (!safeCheckoutUrl) {
+        throw new Error('Invalid payment checkout URL returned by server.');
+      }
+      if (typeof window !== 'undefined') {
+        window.location.assign(safeCheckoutUrl);
+        return {
+          id: bookingId,
+          clientId: '',
+          profileId: '',
+          profileType: 'self',
+          profileLabel: '',
+          serviceId: '',
+          serviceTitle: '',
+          serviceDuration: '',
+          serviceDurationMinutes: 0,
+          serviceGuardrail: '',
+          concernsSummary: '',
+          submittedAt: new Date().toISOString(),
+          status: 'reschedule-requested',
+          proposedSlots: [],
+          schedulingRound: 1,
+          contactUnlocked: true,
+          isSessionPaid: true,
+          reminders: { reminder24h: 'scheduled', reminder1h: 'scheduled' },
+        };
+      }
+    }
+
+    const appointment = await liveRequest<AppointmentRaw>(
+      `/appointments/${bookingId}`
+    );
+    return mapAppointmentRaw(appointment);
+  },
   /**
    * Admin user directory & role management API.
    */
@@ -1583,6 +1727,24 @@ export const api = {
       {
         method: 'POST',
         body: JSON.stringify({ note: note?.trim() || null }),
+      }
+    );
+    return mapAppointmentRaw(raw);
+  },
+
+  refundAdminAppointment: async (
+    appointmentId: string,
+    payload: { amountCentavos?: number; percentage?: number; reason: string }
+  ): Promise<BookingRequest> => {
+    const raw = await liveRequest<AppointmentRaw>(
+      `/admin/appointments/${assertUuid(appointmentId, 'appointmentId')}/refund`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          amount_centavos: payload.amountCentavos ?? null,
+          percentage: payload.percentage ?? null,
+          reason: payload.reason.trim(),
+        }),
       }
     );
     return mapAppointmentRaw(raw);

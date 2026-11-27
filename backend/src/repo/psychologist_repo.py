@@ -175,10 +175,12 @@ class PsychologistRepo:
         self,
         appointment: Appointment,
         slot: ProposedSlot,
-        payment_deadline: datetime,
+        payment_deadline: datetime | None,
+        *,
+        already_paid: bool = False,
     ) -> Appointment:
         return AppointmentRepo(self.db).accept_slot(
-            appointment, slot, payment_deadline
+            appointment, slot, payment_deadline, already_paid=already_paid
         )
 
     def counter_offer(

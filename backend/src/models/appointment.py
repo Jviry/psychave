@@ -11,6 +11,10 @@ class AppointmentStatus(str, Enum):
     CONFIRMED = "confirmed"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
+    RESCHEDULE_REQUESTED = "reschedule_requested"
+    NO_SHOW = "no_show"
+    REFUNDED = "refunded"
+    PARTIALLY_REFUNDED = "partially_refunded"
 
 
 class SchedulingTurn(str, Enum):
@@ -45,3 +49,11 @@ class Appointment(SQLModel, table=True):
     reminder_1h_sent_at: datetime | None = None
     sla_24h_alerted_at: datetime | None = None
     sla_48h_alerted_at: datetime | None = None
+    reschedule_fee_waived: bool = Field(default=False)
+    reschedule_requested_by: str | None = Field(default=None)
+    reschedule_reason: str | None = Field(default=None)
+    reschedule_waiver_reason: str | None = Field(default=None)
+    refund_amount_centavos: int | None = Field(default=None)
+    refund_reason: str | None = Field(default=None)
+    refunded_at: datetime | None = Field(default=None)
+    refunded_by: uuid.UUID | None = Field(default=None)

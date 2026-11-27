@@ -8,16 +8,18 @@ import {
   clientPreferredSlots,
   formatDeadlineCountdown,
   formatManilaDateTime,
+  parseManilaDateTime,
   psychologistCounterSlot,
 } from '@/lib/booking';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAppStore } from '@/stores/useAppStore';
-import { AlertCircle, Clock, Lock, Plus, Trash2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Lock, Plus, Trash2 } from 'lucide-react';
 import { SocialLinksList } from '@/components/SocialLinksList';
 import {
   BookingStatusTag,
   Button,
   Card,
+  Checkbox,
   Input,
   Label,
   Skeleton,
@@ -50,10 +52,15 @@ export default function ScheduleAgreementPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [isGatewayUnavailable, setIsGatewayUnavailable] = useState(false);
   const [newSlots, setNewSlots] = useState<string[]>(['', '', '']);
+  const [rescheduleSlots, setRescheduleSlots] = useState<string[]>(['', '', '']);
+  const [rescheduleReason, setRescheduleReason] = useState('');
+  const [rescheduleFeeAck, setRescheduleFeeAck] = useState(false);
+  const filledRescheduleSlots = rescheduleSlots.filter(Boolean);
   const [isRedirectingToCheckout, setIsRedirectingToCheckout] = useState(false);
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
   const [pollingRestartKey, setPollingRestartKey] = useState(0);
   const publishedWebhookConfirmRef = useRef(false);
+  const publishedRescheduleFeeRef = useRef(false);
 
   const { data: booking, isLoading } = useQuery({
     queryKey: ['booking', bookingId],
@@ -81,7 +88,29 @@ export default function ScheduleAgreementPage() {
       return;
     }
 
-    if (booking.status !== 'awaiting-payment') return;
+    if (
+      (booking.status === 'awaiting-client' || booking.status === 'awaiting-review') &&
+      booking.isSessionPaid
+    ) {
+      if (!publishedRescheduleFeeRef.current) {
+        publishedRescheduleFeeRef.current = true;
+        queryClient.invalidateQueries({ queryKey: ['bookings'] });
+        publishFlowEvent(
+          '₱600 Reschedule Fee Paid',
+          booking.status === 'awaiting-review'
+            ? `Reschedule fee confirmed for booking ${booking.id}. Your psychologist is now reviewing your preferred schedules.`
+            : `Reschedule fee confirmed for booking ${booking.id}. Submit 3 to 5 new preferred schedules to continue.`
+        );
+      }
+      return;
+    }
+
+    if (
+      booking.status !== 'awaiting-payment' &&
+      booking.status !== 'reschedule-requested' &&
+      booking.status !== 'no-show'
+    )
+      return;
 
     setPollingTimedOut(false);
     const startedAt = Date.now();
@@ -98,10 +127,11 @@ export default function ScheduleAgreementPage() {
   }, [
     paymentQueryState,
     booking?.status,
+    booking?.isSessionPaid,
     booking?.id,
     bookingId,
     pollingRestartKey,
-     publishFlowEvent,
+    publishFlowEvent,
     queryClient,
   ]);
 
@@ -113,8 +143,12 @@ export default function ScheduleAgreementPage() {
       queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       publishFlowEvent(
-        'Counter-Offer Accepted',
-        `Booking ${updated.id} is now awaiting payment for the agreed schedule.`
+        updated.status === 'paid-confirmed'
+          ? 'Rescheduled Session Confirmed'
+          : 'Counter-Offer Accepted',
+        updated.status === 'paid-confirmed'
+          ? `Booking ${updated.id} is confirmed for the rescheduled time.`
+          : `Booking ${updated.id} is now awaiting payment for the agreed schedule.`
       );
     },
     onError: (err: Error) => setActionError(err.message),
@@ -159,6 +193,55 @@ export default function ScheduleAgreementPage() {
     },
   });
 
+  const payRescheduleMutation = useMutation({
+    mutationFn: () => api.payRescheduleFee(bookingId),
+    onSuccess: (updated) => {
+      setActionError(null);
+      setIsGatewayUnavailable(false);
+      if (
+        updated.status === 'reschedule-requested' ||
+        updated.status === 'no-show'
+      ) {
+        setIsRedirectingToCheckout(true);
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+    },
+    onError: (err: Error) => {
+      setIsRedirectingToCheckout(false);
+      setIsGatewayUnavailable(err instanceof ApiError && err.status === 503);
+      setActionError(err.message);
+    },
+  });
+
+  const rescheduleMutation = useMutation({
+    mutationFn: ({
+      reason,
+      preferredSlots,
+    }: {
+      reason?: string;
+      preferredSlots: string[];
+    }) => api.requestReschedule(bookingId, { reason, preferredSlots }),
+    onSuccess: (updated) => {
+      setActionError(null);
+      setRescheduleReason('');
+      setRescheduleFeeAck(false);
+      setRescheduleSlots(['', '', '']);
+      queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      publishFlowEvent(
+        updated.status === 'reschedule-requested'
+          ? 'Reschedule Fee Required (₱600)'
+          : 'Reschedule Requested',
+        updated.status === 'reschedule-requested'
+          ? `Booking ${updated.id} is within 2 hours of the session. Please pay the ₱600 reschedule fee.`
+          : `Booking ${updated.id} returned to schedule negotiation.`
+      );
+    },
+    onError: (err: Error) => setActionError(err.message),
+  });
+
   if (isLoading) {
     return <Skeleton className="h-64" />;
   }
@@ -184,9 +267,20 @@ export default function ScheduleAgreementPage() {
   const counterSlot = psychologistCounterSlot(booking);
   const isFinalized =
     booking.status === 'paid-confirmed' || booking.status === 'completed';
+  const needsRescheduleFee =
+    booking.status === 'reschedule-requested' || booking.status === 'no-show';
+  const isRefunded =
+    booking.status === 'partially-refunded' || booking.status === 'refunded';
   const needsClientAction = booking.status === 'awaiting-client';
   const needsPayment = booking.status === 'awaiting-payment';
   const isWaiting = booking.status === 'pending' || booking.status === 'awaiting-review';
+
+  const slotStartMs = chosenSlot
+    ? parseManilaDateTime(chosenSlot.isoDateTime).getTime()
+    : Number.NaN;
+  const isFutureSession = Number.isNaN(slotStartMs) || slotStartMs > Date.now();
+  const isWithin2Hours =
+    !Number.isNaN(slotStartMs) && slotStartMs - Date.now() < 2 * 60 * 60 * 1000;
 
   const normalizedSlots = newSlots.map((slot) => slot.trim()).filter(Boolean);
   const slotsAreFuture = normalizedSlots.every((value) => {
@@ -343,6 +437,100 @@ export default function ScheduleAgreementPage() {
             </Button>
           </div>
 
+          {booking.status === 'paid-confirmed' && isFutureSession && (
+            <div className="border-t border-mist pt-4 space-y-3">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-pine">Need to Reschedule?</p>
+                <p className="text-xs text-pine/75">
+                  {isWithin2Hours
+                    ? 'Warning: Your session starts in less than 2 hours (outside the standard 2-hour reschedule window), so a ₱600 rescheduling fee applies. If you have a valid reason, please contact your psychologist — they can waive the fee (or mark no-show with a waiver) so your new schedule offers proceed at no extra charge.'
+                    : 'Rescheduling at least 2 hours before the session start time is free (confirmed sessions are non-refundable). Submit 3 to 5 new preferred schedules below.'}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>New Preferred Schedules (3 to 5 required)</Label>
+                {rescheduleSlots.map((slotValue, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <span className="w-6 shrink-0 text-xs font-semibold text-pine/60 tabular-nums">
+                      {index + 1}.
+                    </span>
+                    <Input
+                      type="datetime-local"
+                      value={slotValue}
+                      onChange={(e) => {
+                        const next = [...rescheduleSlots];
+                        next[index] = e.target.value;
+                        setRescheduleSlots(next);
+                      }}
+                    />
+                    {rescheduleSlots.length > 3 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setRescheduleSlots((prev) => prev.filter((_, i) => i !== index))
+                        }
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                {rescheduleSlots.length < 5 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setRescheduleSlots((prev) => [...prev, ''])}
+                  >
+                    + Add Another Slot
+                  </Button>
+                )}
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Input
+                  value={rescheduleReason}
+                  onChange={(e) => setRescheduleReason(e.target.value)}
+                  placeholder="Optional reason for rescheduling"
+                  className="sm:flex-1"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={
+                    rescheduleMutation.isPending ||
+                    filledRescheduleSlots.length < 3 ||
+                    (isWithin2Hours && !rescheduleFeeAck)
+                  }
+                  onClick={() =>
+                    rescheduleMutation.mutate({
+                      reason: rescheduleReason,
+                      preferredSlots: filledRescheduleSlots,
+                    })
+                  }
+                >
+                  {rescheduleMutation.isPending
+                    ? 'Requesting…'
+                    : isWithin2Hours
+                      ? 'Request Reschedule (₱600 fee)'
+                      : 'Request Reschedule'}
+                </Button>
+              </div>
+              {isWithin2Hours && (
+                <label className="flex items-start gap-2 text-xs text-amber-900 cursor-pointer">
+                  <Checkbox
+                    checked={rescheduleFeeAck}
+                    onChange={(e) => setRescheduleFeeAck(e.target.checked)}
+                  />
+                  <span>
+                    I understand a ₱600 rescheduling fee applies unless waived by my psychologist.
+                  </span>
+                </label>
+              )}
+            </div>
+          )}
+
           {booking.status === 'completed' && cms?.evaluationFormUrl && (
             <div className="border-t border-mist pt-5 space-y-2 text-xs">
               <h3 className="font-heading text-xl font-medium text-pine">
@@ -360,6 +548,109 @@ export default function ScheduleAgreementPage() {
                 Open Evaluation Form
               </a>
             </div>
+          )}
+        </Card>
+      )}
+
+      {needsRescheduleFee && (
+        <Card className="border-amber-300 bg-amber-50/70 space-y-4">
+          {paymentQueryState === 'success' && (
+            <div
+              role="status"
+              className="rounded-lg border border-mint bg-parchment px-4 py-3 text-xs text-pine space-y-2"
+            >
+              <div className="flex items-center gap-2 font-semibold text-accent-ink">
+                <Clock className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span>
+                  {pollingTimedOut
+                    ? 'Still waiting for PayMongo reschedule fee confirmation'
+                    : 'Confirming your ₱600 reschedule fee payment…'}
+                </span>
+              </div>
+              <p className="text-pine/80">
+                {pollingTimedOut
+                  ? 'Your checkout completed, but the confirmation webhook has not arrived yet. Click below to check again.'
+                  : 'Checking payment confirmation from PayMongo. This page will unlock schedule selection as soon as it arrives.'}
+              </p>
+              {pollingTimedOut && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setPollingTimedOut(false);
+                    setPollingRestartKey((k) => k + 1);
+                    queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
+                  }}
+                >
+                  Check payment status again
+                </Button>
+              )}
+            </div>
+          )}
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-wider text-amber-900">
+              {booking.status === 'no-show'
+                ? 'Session Marked No-Show'
+                : 'Late Reschedule Fee Required'}
+            </p>
+            <h2 className="font-heading text-2xl font-medium text-pine">
+              ₱600 Reschedule Fee
+            </h2>
+            <p className="text-xs text-pine/80">
+              {booking.status === 'no-show'
+                ? 'This session was marked as a no-show. Pay the ₱600 rescheduling fee to propose new times — or if you had a valid reason, contact your psychologist so they can waive the fee.'
+                : 'Your reschedule request was submitted less than 2 hours before the session. Pay the ₱600 rescheduling fee to proceed with your preferred schedules — or if you have a valid reason, contact your psychologist so they can waive the fee.'}
+            </p>
+          </div>
+          {booking.psychologistSocialLinks && booking.psychologistSocialLinks.length > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-white/70 px-3 py-2 text-xs text-pine space-y-1">
+              <p className="font-semibold text-pine">Contact your psychologist:</p>
+              <div className="flex flex-wrap gap-3">
+                {booking.psychologistSocialLinks.map((item) => (
+                  <a
+                    key={`${item.platform}-${item.url}`}
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-accent-ink underline underline-offset-4 hover:text-pine"
+                  >
+                    {item.platform}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+          <Button
+            variant="primary"
+            size="md"
+            disabled={
+              payRescheduleMutation.isPending ||
+              isRedirectingToCheckout ||
+              (paymentQueryState === 'success' && !pollingTimedOut)
+            }
+            onClick={() => payRescheduleMutation.mutate()}
+          >
+            {isRedirectingToCheckout
+              ? 'Redirecting to PayMongo…'
+              : payRescheduleMutation.isPending
+                ? 'Preparing Checkout…'
+                : 'Pay ₱600 Reschedule Fee'}
+          </Button>
+        </Card>
+      )}
+
+      {isRefunded && (
+        <Card className="bg-surface-sunken border-mist space-y-2">
+          <h2 className="font-heading text-2xl font-medium text-pine">
+            {booking.status === 'refunded' ? 'Full Refund Issued' : 'Partial Refund Issued'}
+          </h2>
+          {booking.refundAmountCentavos != null && (
+            <p className="text-sm font-mono font-semibold text-pine">
+              Refund Amount: ₱{(booking.refundAmountCentavos / 100).toLocaleString()}
+            </p>
+          )}
+          {booking.refundReason && (
+            <p className="text-xs text-pine/75">Reason: {booking.refundReason}</p>
           )}
         </Card>
       )}
@@ -507,6 +798,18 @@ export default function ScheduleAgreementPage() {
             {/* Counter-offer / re-propose */}
             {needsClientAction && (
               <div className="space-y-5">
+                {paymentQueryState === 'success' && booking.isSessionPaid && (
+                  <div
+                    role="status"
+                    className="flex items-center gap-2 rounded-lg border border-sage bg-parchment px-4 py-3 text-xs text-pine font-medium"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-sage shrink-0" aria-hidden="true" />
+                    <span>
+                      ₱600 reschedule fee confirmed. Submit 3 to 5 new preferred schedules below.
+                    </span>
+                  </div>
+                )}
+
                 {counterSlot && (
                   <div className="rounded-xl border border-sage bg-surface-sunken p-4 space-y-3">
                     <p className="text-xs font-semibold uppercase tracking-wider text-accent-ink">
@@ -529,18 +832,35 @@ export default function ScheduleAgreementPage() {
                     >
                       {acceptCounterMutation.isPending
                         ? 'Accepting…'
-                        : 'Accept This Time & Continue to Payment'}
+                        : booking.isSessionPaid
+                          ? 'Accept This Time & Confirm Rescheduled Session'
+                          : 'Accept This Time & Continue to Payment'}
                     </Button>
                   </div>
                 )}
 
                 {!counterSlot && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-xs text-amber-950 space-y-1">
-                    <p className="font-semibold">The agreed slot was released.</p>
-                    <p>
-                      The payment deadline passed, so the held time is no longer reserved. Submit
-                      a fresh set of preferred schedules to restart scheduling.
-                    </p>
+                    {booking.isSessionPaid ? (
+                      <>
+                        <p className="font-semibold">
+                          Rescheduling in progress · Session payment is already on file.
+                        </p>
+                        <p>
+                          Submit 3 to 5 new preferred schedules below. Once your psychologist accepts
+                          a slot, your session is confirmed immediately with no additional session
+                          payment.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-semibold">The agreed slot was released.</p>
+                        <p>
+                          The payment deadline passed, so the held time is no longer reserved. Submit
+                          a fresh set of preferred schedules to restart scheduling.
+                        </p>
+                      </>
+                    )}
                   </div>
                 )}
 

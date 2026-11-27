@@ -1,4 +1,4 @@
-.PHONY: help db-start db-stop db-status db-reset db-migrate db-migrate-down db-new-migration test test-unit test-integration test-ephemeral dev
+.PHONY: help db-start db-stop db-status db-reset db-migrate db-migrate-down db-new-migration db-seed-services db-seed-users test test-unit test-integration test-ephemeral dev
 
 VENV := .venv/bin
 PYTHON := $(VENV)/python
@@ -19,6 +19,8 @@ help:
 	@echo "  make db-migrate        - Apply pending Alembic migrations to local Supabase database"
 	@echo "  make db-migrate-down   - Revert the last Alembic migration"
 	@echo "  make db-new-migration  - Generate a new Alembic migration (usage: make db-new-migration name=\"my_change\")"
+	@echo "  make db-seed-services  - Seed services catalog and default consent template into local Supabase"
+	@echo "  make db-seed-users     - Seed dev_client, dev_psych, and dev_admin in Cognito and local Supabase"
 	@echo "  make test              - Run all tests (unit and integration tests against local Supabase)"
 	@echo "  make test-unit         - Run unit tests only"
 	@echo "  make test-integration  - Run Supabase integration tests only"
@@ -45,6 +47,12 @@ db-migrate-down:
 db-new-migration:
 	@if [ -z "$(name)" ]; then echo "Error: Please specify migration name, e.g. make db-new-migration name=add_field"; exit 1; fi
 	DATABASE_URL="$(DB_URL)" $(ALEMBIC) revision --autogenerate -m "$(name)"
+
+db-seed-services:
+	PYTHONPATH=src DATABASE_URL="$(DB_URL)" $(PYTHON) scripts/seed_services.py
+
+db-seed-users:
+	$(PYTHON) scripts/seed_local_users.py --db-url "$(DB_URL)"
 
 test:
 	$(PYTEST) --ignore=tests/ephemeral -v

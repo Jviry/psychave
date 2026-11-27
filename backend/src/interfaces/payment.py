@@ -18,6 +18,18 @@ class WebhookEvent:
     provider_ref: str
     paid: bool
     payment_method: str | None = None
+    gateway_payment_id: str | None = None
+    event_type: str | None = None
+    refund_id: str | None = None
+    refund_amount_centavos: int | None = None
+    refund_status: str | None = None
+
+
+@dataclass(frozen=True)
+class RefundResult:
+    refund_id: str
+    status: str
+    amount_centavos: int
 
 
 class PaymentProvider(Protocol):

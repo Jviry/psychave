@@ -8,6 +8,9 @@ export type BookingStatus =
   | 'paid-confirmed'
   | 'completed'
   | 'reschedule-requested'
+  | 'no-show'
+  | 'refunded'
+  | 'partially-refunded'
   | 'cancelled';
 
 export type SchedulingTurn = 'client' | 'psychologist';
@@ -209,6 +212,14 @@ export interface BookingRequest {
   schedulingTurn?: SchedulingTurn;
   schedulingRound: number;
   paymentDeadline?: string;
+  rescheduleFeeWaived?: boolean;
+  rescheduleRequestedBy?: string;
+  rescheduleReason?: string;
+  rescheduleWaiverReason?: string;
+  refundAmountCentavos?: number;
+  refundReason?: string;
+  refundedAt?: string;
+  isSessionPaid?: boolean;
   conflictingSlotIds?: string[];
   selectedSlotId?: string;
   paidAt?: string;
