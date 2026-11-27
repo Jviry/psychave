@@ -163,7 +163,7 @@ export function Label({
   const styles =
     variant === 'doc'
       ? 'block text-sm font-medium text-pine mb-1.5'
-      : 'block text-xs font-medium uppercase tracking-wider text-pine/60 mb-1.5';
+      : 'block text-xs font-medium uppercase tracking-wider text-pine/70 mb-1.5';
   return (
     <label htmlFor={htmlFor} className={`${styles} ${className}`}>
       {children}
@@ -291,6 +291,7 @@ export interface ModalProps {
   footer?: React.ReactNode;
   children: React.ReactNode;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
+  dismissible?: boolean;
 }
 
 const modalMaxWidth: Record<NonNullable<ModalProps['maxWidth']>, string> = {
@@ -310,6 +311,7 @@ export function Modal({
   footer,
   children,
   maxWidth = 'md',
+  dismissible = true,
 }: ModalProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -344,7 +346,7 @@ export function Modal({
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        if (dismissible) onClose();
         return;
       }
       if (e.key !== 'Tab' || !panelRef.current) return;
@@ -378,7 +380,7 @@ export function Modal({
       // Functional overlay backdrop (blur here is the allowed use case).
       className="fixed inset-0 z-50 overflow-y-auto bg-pine/50 backdrop-blur-sm p-4 sm:p-6 flex items-start sm:items-center justify-center"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (dismissible && e.target === e.currentTarget) onClose();
       }}
     >
       <div
@@ -392,11 +394,11 @@ export function Modal({
       >
         <div className="flex items-start justify-between gap-4 p-6 pb-3">
           <div>
-            <p id={titleId} className="font-heading text-base font-medium text-pine">
+            <h2 id={titleId} className="font-heading text-base font-medium text-pine">
               {title}
-            </p>
+            </h2>
             {description ? (
-              <p id={descriptionId} className="text-xs text-pine/60 leading-relaxed mt-1">
+              <p id={descriptionId} className="text-xs text-pine/75 leading-relaxed mt-1">
                 {description}
               </p>
             ) : null}
@@ -404,8 +406,9 @@ export function Modal({
           <button
             type="button"
             onClick={onClose}
+            disabled={!dismissible}
             aria-label="Close dialog"
-            className="rounded-lg p-1.5 -m-1.5 text-pine/50 hover:text-pine hover:bg-surface-sunken transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-sage shrink-0"
+            className="rounded-lg p-1.5 -m-1.5 text-pine/60 hover:text-pine hover:bg-surface-sunken disabled:opacity-35 disabled:pointer-events-none transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-sage shrink-0"
           >
             <X className="w-4 h-4" aria-hidden="true" />
           </button>
@@ -429,57 +432,57 @@ export function BookingStatusTag({ status }: { status: BookingStatus }) {
     { label: string; textClass: string; dotClass: string }
   > = {
     pending: {
-      label: 'pending · awaiting psychologist pick-up',
+      label: 'Pending pickup',
       textClass: 'text-amber-900 font-semibold',
       dotClass: 'bg-amber-600',
     },
     'awaiting-review': {
-      label: 'in review · psychologist reviewing your schedules',
+      label: 'In review',
       textClass: 'text-pine font-semibold',
       dotClass: 'bg-sage',
     },
     'awaiting-client': {
-      label: 'action needed · accept the counter-offer',
+      label: 'Counter-offer sent',
       textClass: 'text-amber-900 font-semibold',
       dotClass: 'bg-amber-500',
     },
     'awaiting-payment': {
-      label: 'agreed · awaiting payment',
-      textClass: 'text-pine font-semibold underline decoration-sage underline-offset-4',
+      label: 'Awaiting payment',
+      textClass: 'text-pine font-semibold',
       dotClass: 'bg-sage',
     },
     'paid-confirmed': {
-      label: 'paid-confirmed · contact unlocked',
+      label: 'Confirmed',
       textClass: 'text-pine font-semibold',
       dotClass: 'bg-sage',
     },
     completed: {
-      label: 'completed · session finished',
+      label: 'Completed',
       textClass: 'text-pine/80 font-medium',
       dotClass: 'bg-pine/50',
     },
     'reschedule-requested': {
-      label: 'reschedule-requested · reschedule fee required',
+      label: 'Reschedule requested',
       textClass: 'text-amber-800 font-semibold',
       dotClass: 'bg-amber-500',
     },
     'no-show': {
-      label: 'no-show · reschedule fee required',
+      label: 'No-show',
       textClass: 'text-amber-900 font-semibold',
       dotClass: 'bg-amber-600',
     },
     'partially-refunded': {
-      label: 'partially-refunded · partial refund issued',
+      label: 'Partially refunded',
       textClass: 'text-pine/80 font-semibold',
       dotClass: 'bg-sage',
     },
     refunded: {
-      label: 'refunded · full refund issued',
-      textClass: 'text-pine/70 font-medium',
+      label: 'Refunded',
+      textClass: 'text-pine/75 font-medium',
       dotClass: 'bg-pine/40',
     },
     cancelled: {
-      label: 'cancelled · archived',
+      label: 'Cancelled',
       textClass: 'text-red-800 font-medium',
       dotClass: 'bg-red-600',
     },
