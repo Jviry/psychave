@@ -200,6 +200,8 @@ export interface BookingRequest {
   serviceGuardrail: string;
   concernsSummary: string;
   submittedAt: string;
+  /** Full ISO timestamp from backend `requested_datetime` for exact newest-first sorting. */
+  submittedAtIso?: string;
   status: BookingStatus;
   psychologistId?: string;
   psychologistCode?: string;

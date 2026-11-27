@@ -1,10 +1,8 @@
 'use client';
 
-import React, { useContext, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { QueryClientContext, useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { CognitoRole } from '@/lib/types';
 import { LogOut, User, ChevronDown, Settings } from 'lucide-react';
@@ -34,30 +32,9 @@ function getAccountHref(role: CognitoRole): string {
   return role === 'psychologist' ? '/psych/profile' : '/account';
 }
 
-function PsychPendingDot() {
-  const { data: bookings = [] } = useQuery({
-    queryKey: ['bookings', 'psychologist'],
-    queryFn: () => api.getBookingsForRole('psychologist'),
-    refetchInterval: 30_000,
-  });
-
-  const hasPending = bookings.some((b) => b.status === 'pending');
-  if (!hasPending) return null;
-
-  return (
-    <span
-      data-testid="pending-bookings-dot"
-      aria-hidden="true"
-      title="New pending bookings"
-      className="inline-block h-2 w-2 rounded-full bg-red-500 shrink-0"
-    />
-  );
-}
-
 export function SiteHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const queryClient = useContext(QueryClientContext);
 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
@@ -137,7 +114,6 @@ export function SiteHeader() {
             }`}
           >
             <span>{item.label}</span>
-            {item.href === '/psych/queue' && queryClient && <PsychPendingDot />}
           </Link>
         );
       })}

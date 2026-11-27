@@ -674,6 +674,7 @@ function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
     serviceGuardrail: raw.service_guardrail ?? '',
     concernsSummary: raw.presenting_concern,
     submittedAt: raw.requested_datetime ? raw.requested_datetime.slice(0, 10) : '—',
+    submittedAtIso: raw.requested_datetime ?? undefined,
     status,
     psychologistId: raw.psychologist_id ?? undefined,
     psychologistCode: code ? `Resident Psychologist #${code}` : undefined,

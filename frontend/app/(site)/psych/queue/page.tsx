@@ -6,17 +6,14 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { getFriendlyErrorMessage } from '@/lib/errorMessages';
-import { clientPreferredSlots } from '@/lib/booking';
 import { useActivePsychologist } from '@/hooks/useActivePsychologist';
 import {
   AlertCircle,
-  AlertTriangle,
   CheckCircle2,
   ChevronRight,
   RefreshCw,
 } from 'lucide-react';
 import {
-  BookingStatusTag,
   Button,
   EmptyState,
   Skeleton,
@@ -148,12 +145,6 @@ export default function PsychologistQueuePage() {
                   Service
                 </th>
                 <th scope="col" className="py-3 px-4 font-semibold">
-                  Preferred Schedules
-                </th>
-                <th scope="col" className="py-3 px-4 font-semibold">
-                  Status
-                </th>
-                <th scope="col" className="py-3 px-4 font-semibold">
                   Submitted
                 </th>
                 <th scope="col" className="py-3 px-5 font-semibold text-right">
@@ -165,14 +156,14 @@ export default function PsychologistQueuePage() {
               {isLoading ? (
                 Array.from({ length: 4 }).map((_, index) => (
                   <tr key={`skeleton-${index}`}>
-                    <td colSpan={6} className="py-3.5 px-5">
+                    <td colSpan={4} className="py-3.5 px-5">
                       <Skeleton className="h-10" />
                     </td>
                   </tr>
                 ))
               ) : pendingQueue.length === 0 ? (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={4}>
                     <EmptyState
                       icon={CheckCircle2}
                       title="Pending Queue is All Clear"
@@ -192,11 +183,6 @@ export default function PsychologistQueuePage() {
                 </tr>
               ) : (
                 pendingQueue.map((item) => {
-                  const preferredSlots = clientPreferredSlots(item);
-                  const conflictCount = (item.conflictingSlotIds ?? []).filter((id) =>
-                    preferredSlots.some((slot) => slot.id === id)
-                  ).length;
-                  const firstSlot = preferredSlots[0];
                   const detailHref = `/psych/queue/${encodeURIComponent(item.id)}`;
 
                   return (
@@ -222,9 +208,6 @@ export default function PsychologistQueuePage() {
                               {item.profileType}
                             </span>
                           </div>
-                          <p className="mt-0.5 font-mono text-[11px] text-pine/55 tabular-nums">
-                            {item.id}
-                          </p>
                         </Link>
                       </td>
 
@@ -233,34 +216,6 @@ export default function PsychologistQueuePage() {
                         <p className="mt-0.5 font-mono text-[11px] text-pine/60 tabular-nums">
                           {item.serviceDuration}
                         </p>
-                      </td>
-
-                      <td className="py-4 px-4 align-middle">
-                        {preferredSlots.length === 0 ? (
-                          <span className="text-pine/55">No preferred times</span>
-                        ) : (
-                          <div className="space-y-0.5">
-                            <p className="text-pine font-medium tabular-nums">
-                              {firstSlot.dateLabel} · {firstSlot.timeLabel}
-                            </p>
-                            <div className="flex flex-wrap items-center gap-2 text-[11px] text-pine/60">
-                              <span>
-                                {preferredSlots.length}{' '}
-                                {preferredSlots.length === 1 ? 'option' : 'options'} offered
-                              </span>
-                              {conflictCount > 0 && (
-                                <span className="inline-flex items-center gap-1 font-semibold text-amber-800">
-                                  <AlertTriangle className="w-3 h-3" aria-hidden="true" />
-                                  {conflictCount} {conflictCount === 1 ? 'conflict' : 'conflicts'}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </td>
-
-                      <td className="py-4 px-4 align-middle whitespace-nowrap">
-                        <BookingStatusTag status={item.status} perspective="psychologist" />
                       </td>
 
                       <td className="py-4 px-4 align-middle font-mono text-pine/70 tabular-nums whitespace-nowrap">
@@ -314,7 +269,6 @@ export default function PsychologistQueuePage() {
             />
           ) : (
             pendingQueue.map((item) => {
-              const preferredSlots = clientPreferredSlots(item);
               const detailHref = `/psych/queue/${encodeURIComponent(item.id)}`;
               return (
                 <Link
@@ -334,8 +288,7 @@ export default function PsychologistQueuePage() {
                       </div>
                       <p className="text-xs font-medium text-pine/85">{item.serviceTitle}</p>
                       <p className="text-[11px] font-mono text-pine/60 tabular-nums">
-                        {item.serviceDuration} · {preferredSlots.length}{' '}
-                        {preferredSlots.length === 1 ? 'schedule' : 'schedules'}
+                        {item.serviceDuration}
                       </p>
                     </div>
                     <ChevronRight
@@ -343,8 +296,7 @@ export default function PsychologistQueuePage() {
                       aria-hidden="true"
                     />
                   </div>
-                  <div className="mt-2.5 flex items-center justify-between gap-2 text-[11px]">
-                    <BookingStatusTag status={item.status} perspective="psychologist" />
+                  <div className="mt-2.5 flex items-center justify-end text-[11px]">
                     <span className="font-mono text-pine/60 tabular-nums">{item.submittedAt}</span>
                   </div>
                 </Link>

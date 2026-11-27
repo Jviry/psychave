@@ -98,7 +98,7 @@ describe('SiteHeader role-based navigation', () => {
     expect(screen.getByRole('link', { name: 'Account' })).toHaveAttribute('href', '/account');
   });
 
-  it('shows a red dot on Pending Bookings when pending bookings exist and does not render the banner below the nav bar', () => {
+  it('does not show a notification dot on Pending Bookings or render the banner below the nav bar', () => {
     mockPathname = '/psych/schedule';
     useAuthStore.setState({
       isAuthenticated: true,
@@ -120,7 +120,7 @@ describe('SiteHeader role-based navigation', () => {
       </QueryClientProvider>
     );
 
-    expect(screen.getAllByTestId('pending-bookings-dot').length).toBeGreaterThan(0);
+    expect(screen.queryByTestId('pending-bookings-dot')).not.toBeInTheDocument();
     expect(screen.queryByText(/A client submitted a booking\./i)).not.toBeInTheDocument();
   });
 });
