@@ -15,6 +15,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAppStore } from '@/stores/useAppStore';
 import { AlertCircle, CheckCircle2, Clock, Lock, Plus, Trash2 } from 'lucide-react';
 import { SocialLinksList } from '@/components/SocialLinksList';
+import { DateTimePicker } from '@/components/ui/DateTimePicker';
 import {
   BookingStatusTag,
   Button,
@@ -879,11 +880,11 @@ export default function ScheduleAgreementPage() {
                         <span className="w-6 shrink-0 text-xs font-semibold text-pine/60 tabular-nums">
                           {index + 1}.
                         </span>
-                        <Input
-                          type="datetime-local"
+                        <DateTimePicker
                           value={value}
-                          onChange={(event) => updateSlot(index, event.target.value)}
+                          onChange={(nextValue) => updateSlot(index, nextValue)}
                           disabled={replaceSlotsMutation.isPending}
+                          aria-label={`Preferred schedule ${index + 1}`}
                         />
                         {newSlots.length > 3 && (
                           <button

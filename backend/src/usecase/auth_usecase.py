@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from sqlmodel import Session
 
-from common.exceptions import BadRequestError, ConflictError, ValidationError
+from common.exceptions import BadRequestError, ConflictError, NotFoundError, ValidationError
 from common.rate_limit import verification_rate_limiter
 from interfaces.auth import AuthService, AuthTokens, AuthUser
 from models.psychologist_invitation import PsychologistInvitation
@@ -12,6 +12,7 @@ from repo.profile_repo import ProfileRepo
 from repo.psychologist_invitation_repo import PsychologistInvitationRepo
 from repo.user_repo import UserRepository
 from schemas.auth_model import (
+    CheckAvailabilityResponse,
     ConfirmUserRequest,
     ForgotPasswordConfirm,
     PsychologistInvitationVerifyRead,
@@ -74,12 +75,59 @@ class AuthUsecase:
     def refresh_access_token(self, refresh_token: str) -> AuthTokens:
         return self.auth.refresh_access_token(refresh_token)
 
+    def check_availability(
+        self,
+        email: str | None = None,
+        username: str | None = None,
+        client_ip: str | None = None,
+    ) -> CheckAvailabilityResponse:
+        if client_ip:
+            verification_rate_limiter.check_and_record(
+                checks=[
+                    (
+                        f"availability:ip:{client_ip}",
+                        30,
+                        900,
+                        "Too many availability checks. Please wait a moment and try again.",
+                    )
+                ]
+            )
+
+        email_available = True
+        if email and email.strip():
+            norm_email = email.strip().lower()
+            if (
+                self.user_repo.get_by_email(norm_email) is not None
+                or self.auth.get_username_by_email(norm_email) is not None
+            ):
+                email_available = False
+
+        username_available = True
+        if username and username.strip():
+            try:
+                self.auth.describe_user(username.strip())
+                username_available = False
+            except NotFoundError:
+                username_available = True
+
+        return CheckAvailabilityResponse(
+            email_available=email_available,
+            username_available=username_available,
+        )
+
     def create_user(self, credentials: UserCreate):
         """Create a Cognito account, its local rows, and its primary 'self' profile.
 
         Self-service signup is always a client. Psychologist and admin roles
         can only be assigned by an existing admin after registration.
         """
+        norm_email = str(credentials.email).strip().lower()
+        if (
+            self.user_repo.get_by_email(norm_email) is not None
+            or self.auth.get_username_by_email(norm_email) is not None
+        ):
+            raise ConflictError("An account with this email is already registered")
+
         active_template = ConsentTemplateRepo(self.db).ensure_default_seeded()
         details, responses, _sections = (
             ConsentTemplateUsecase.validate_wizard_submission(
@@ -110,7 +158,7 @@ class AuthUsecase:
                 user = self.user_repo.create(
                     User(
                         cognito_sub=sub,
-                        email=credentials.email,
+                        email=norm_email,
                         role=UserRole.CLIENT.value,
                     )
                 )

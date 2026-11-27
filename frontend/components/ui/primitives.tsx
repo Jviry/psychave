@@ -426,8 +426,14 @@ export function Modal({
 
 /* ─── BookingStatusTag (single source of status labels — rule 6) ──────── */
 
-export function BookingStatusTag({ status }: { status: BookingStatus }) {
-  const config: Record<
+export function BookingStatusTag({
+  status,
+  perspective = 'client',
+}: {
+  status: BookingStatus;
+  perspective?: 'client' | 'psychologist';
+}) {
+  const clientConfig: Record<
     BookingStatus,
     { label: string; textClass: string; dotClass: string }
   > = {
@@ -488,6 +494,68 @@ export function BookingStatusTag({ status }: { status: BookingStatus }) {
     },
   };
 
+  const psychologistConfig: Record<
+    BookingStatus,
+    { label: string; textClass: string; dotClass: string }
+  > = {
+    pending: {
+      label: 'Pending pick-up',
+      textClass: 'text-amber-900 font-semibold',
+      dotClass: 'bg-amber-600',
+    },
+    'awaiting-review': {
+      label: 'Awaiting your schedule review',
+      textClass: 'text-pine font-semibold',
+      dotClass: 'bg-sage',
+    },
+    'awaiting-client': {
+      label: 'Waiting for client response',
+      textClass: 'text-amber-900 font-semibold',
+      dotClass: 'bg-amber-500',
+    },
+    'awaiting-payment': {
+      label: 'Schedule agreed · Awaiting payment',
+      textClass: 'text-pine font-semibold underline decoration-sage underline-offset-4',
+      dotClass: 'bg-sage',
+    },
+    'paid-confirmed': {
+      label: 'Paid & confirmed',
+      textClass: 'text-pine font-semibold',
+      dotClass: 'bg-sage',
+    },
+    completed: {
+      label: 'Completed',
+      textClass: 'text-pine/80 font-medium',
+      dotClass: 'bg-pine/50',
+    },
+    'reschedule-requested': {
+      label: 'Reschedule requested · Fee pending',
+      textClass: 'text-amber-800 font-semibold',
+      dotClass: 'bg-amber-500',
+    },
+    'no-show': {
+      label: 'No-show · Fee pending',
+      textClass: 'text-amber-900 font-semibold',
+      dotClass: 'bg-amber-600',
+    },
+    'partially-refunded': {
+      label: 'Partial refund issued',
+      textClass: 'text-pine/80 font-semibold',
+      dotClass: 'bg-sage',
+    },
+    refunded: {
+      label: 'Full refund issued',
+      textClass: 'text-pine/70 font-medium',
+      dotClass: 'bg-pine/40',
+    },
+    cancelled: {
+      label: 'Cancelled',
+      textClass: 'text-red-800 font-medium',
+      dotClass: 'bg-red-600',
+    },
+  };
+
+  const config = perspective === 'psychologist' ? psychologistConfig : clientConfig;
   const item = config[status] || config.pending;
 
   return (

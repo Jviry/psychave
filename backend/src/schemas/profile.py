@@ -35,7 +35,9 @@ class ProfileCreate(SQLModel):
     model_config = ConfigDict(extra="allow")
 
     relation_to_account_holder: ProfileRelation = ProfileRelation.self_
-    profile_name: str
+    profile_name: str = ""
+    first_name: str | None = None
+    last_name: str | None = None
     date_of_birth: date
     socmed_platform: str | None = None
     socmed_username: str | None = None
@@ -59,9 +61,27 @@ class ProfileCreate(SQLModel):
             raise ValueError("Date of birth cannot be in the future")
         return v
 
+    @model_validator(mode="after")
+    def compose_profile_name(self):
+        fn = self.first_name
+        ln = self.last_name
+        if fn is None and isinstance(self.details, dict) and "first_name" in self.details:
+            fn = str(self.details.get("first_name") or "")
+        if ln is None and isinstance(self.details, dict) and "last_name" in self.details:
+            ln = str(self.details.get("last_name") or "")
+        if not (self.profile_name or "").strip():
+            parts = [p.strip() for p in (fn or "", ln or "") if p and p.strip()]
+            self.profile_name = " ".join(parts)
+        if not (self.profile_name or "").strip():
+            raise ValueError("profile_name (or first_name and last_name) is required")
+        self.profile_name = self.profile_name.strip()
+        return self
+
     def merged_details(self) -> dict[str, Any]:
         merged: dict[str, Any] = dict(self.details or {})
         legacy_keys = (
+            "first_name",
+            "last_name",
             "occupation",
             "nationality",
             "permanent_address",
@@ -91,6 +111,7 @@ class ConsentCreate(SQLModel):
     responses: dict[str, Any] = Field(default_factory=dict)
     custom_responses: dict[str, Any] = Field(default_factory=dict)
 
+    terms_agreed: bool | None = None
     terms_signer_name: str | None = None
     terms_signer_relation: str | None = None
     scope_acknowledged: bool | None = None
@@ -105,6 +126,7 @@ class ConsentCreate(SQLModel):
             **(self.custom_responses or {}),
         }
         legacy_keys = (
+            "terms_agreed",
             "terms_signer_name",
             "terms_signer_relation",
             "scope_acknowledged",
@@ -201,6 +223,7 @@ class ConsentRead(SQLModel):
     responses: dict[str, Any] = Field(default_factory=dict)
 
     # Backwards-compatible consent fields populated from responses JSON
+    terms_agreed: bool = False
     terms_signer_name: str = ""
     terms_signer_relation: str = "self"
     scope_acknowledged: bool = False
@@ -219,6 +242,7 @@ class ConsentRead(SQLModel):
         return cls(
             consent_version=form.consent_version,
             responses=clean_responses,
+            terms_agreed=bool(clean_responses.get("terms_agreed", False)),
             terms_signer_name=str(clean_responses.get("terms_signer_name") or ""),
             terms_signer_relation=str(
                 clean_responses.get("terms_signer_relation") or "self"

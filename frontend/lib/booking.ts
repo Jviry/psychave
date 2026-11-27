@@ -55,3 +55,23 @@ export function formatDeadlineCountdown(value: string, nowMs = Date.now()): stri
   const rest = minutes % 60;
   return rest === 0 ? `${hours}h left` : `${hours}h ${rest}m left`;
 }
+
+function bookingSubmittedTimestamp(booking: BookingRequest): number {
+  const raw = booking.submittedAtIso || booking.submittedAt;
+  if (!raw || raw === '—') return Number.NEGATIVE_INFINITY;
+  const hasTimezone = /[zZ]|([+-]\d{2}:?\d{2})$/.test(raw);
+  const normalized = raw.includes('T')
+    ? hasTimezone
+      ? raw
+      : `${raw}Z`
+    : `${raw}T00:00:00Z`;
+  const parsed = Date.parse(normalized);
+  return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+}
+
+/** Return a new array of bookings ordered newest-first by submission timestamp. */
+export function sortBookingsNewestFirst(bookings: BookingRequest[]): BookingRequest[] {
+  return [...bookings].sort(
+    (a, b) => bookingSubmittedTimestamp(b) - bookingSubmittedTimestamp(a)
+  );
+}

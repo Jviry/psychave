@@ -94,13 +94,12 @@ export interface ProfileReview {
   };
   consent: {
     version: string;
-    termsSignerName: string;
+    termsAgreed: boolean;
     termsSignerRelation: string;
     scopeAcknowledged: boolean;
     isOverseasOrForeign: boolean;
     overseasAcknowledged: boolean;
     informationConfirmed: boolean;
-    consentSignerName: string;
     signedAt: string | null;
     responses?: Record<string, unknown>;
   };
@@ -203,6 +202,8 @@ export interface BookingRequest {
   serviceGuardrail: string;
   concernsSummary: string;
   submittedAt: string;
+  /** Full ISO timestamp from backend `requested_datetime` for exact newest-first sorting. */
+  submittedAtIso?: string;
   status: BookingStatus;
   psychologistId?: string;
   psychologistName?: string;
@@ -258,9 +259,32 @@ export interface ResidentPsychologist {
 export interface AdminUser {
   userId: string;
   email: string;
+  username: string | null;
   role: CognitoRole;
   fullName: string | null;
   createdAt: string;
+}
+
+export interface AdminUserPsychologistProfile {
+  fullName: string;
+  licenseNumber: string | null;
+  specialization: string | null;
+  bio: string | null;
+  socialMediaLinks: SocialMediaLink[];
+}
+
+export interface AdminUserClientProfile {
+  profileId: string;
+  profileName: string;
+  relationToAccountHolder: string;
+  dateOfBirth: string;
+  socmedPlatform: string | null;
+  socmedUsername: string | null;
+}
+
+export interface AdminUserDetail extends AdminUser {
+  psychologistProfile: AdminUserPsychologistProfile | null;
+  clientProfiles: AdminUserClientProfile[];
 }
 
 export interface AdminUserPage {

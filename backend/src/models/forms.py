@@ -19,6 +19,10 @@ class Forms(SQLModel, table=True):
     )
 
     @property
+    def terms_agreed(self) -> bool:
+        return bool((self.responses or {}).get("terms_agreed", False))
+
+    @property
     def terms_signer_name(self) -> str:
         return str((self.responses or {}).get("terms_signer_name", ""))
 

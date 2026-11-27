@@ -19,7 +19,8 @@ from models.consent_template import (
 
 REQUIRED_OPERATIONAL_KEYS = (
     "relation_to_account_holder",
-    "profile_name",
+    "first_name",
+    "last_name",
     "date_of_birth",
     "socmed_platform",
     "socmed_username",
@@ -222,8 +223,8 @@ class ConsentFormTemplateUpsert(SQLModel):
                 # Sync top-level legacy text fields from known blocks when present
                 if block.block_id == "informed_consent_doc" and block.content:
                     self.informed_consent_text = block.content
-                elif block.block_id == "terms_signer_name" and block.helper_text:
-                    self.typing_statement = block.helper_text
+                elif block.block_id == "terms_agreed" and block.label:
+                    self.typing_statement = block.label
                 elif block.block_id == "scope_limitations_doc" and block.content:
                     self.scope_limitations_text = block.content
                 elif block.block_id == "scope_acknowledged" and block.label:

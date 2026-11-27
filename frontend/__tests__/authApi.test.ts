@@ -59,6 +59,34 @@ describe('auth API — real fetch', () => {
     );
   });
 
+  it('checkAvailability calls POST /auth/check-availability and maps camelCase fields', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        email_available: false,
+        username_available: true,
+      }),
+    });
+
+    const { authApi } = await import('../authApi');
+    const result = await authApi.checkAvailability({
+      email: 'taken@example.com',
+      username: 'fresh_user',
+    });
+
+    const [url, opts] = mockFetch.mock.calls[0];
+    expect(url).toContain('/auth/check-availability');
+    expect(opts.method).toBe('POST');
+    expect(JSON.parse(opts.body)).toEqual({
+      email: 'taken@example.com',
+      username: 'fresh_user',
+    });
+    expect(result).toEqual({
+      emailAvailable: false,
+      usernameAvailable: true,
+    });
+  });
+
   it('registerUser calls POST /auth/create-user with self-profile and consent', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -88,13 +116,12 @@ describe('auth API — real fetch', () => {
       },
       consent: {
         consent_version: 'v2',
-        terms_signer_name: 'User One',
+        terms_agreed: true,
         terms_signer_relation: 'self',
         scope_acknowledged: true,
         is_overseas_or_foreign: false,
         overseas_acknowledged: false,
         information_confirmed: true,
-        consent_signer_name: 'User One',
       },
     });
 

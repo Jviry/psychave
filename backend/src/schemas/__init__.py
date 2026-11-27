@@ -2,8 +2,6 @@
 from schemas.admin import (
     AdminUserPage,
     AdminUserRead,
-    PromotePsychologistRequest,
-    UpdateUserRoleRequest,
 )
 from schemas.appointment import (
     AppointmentCreate,
@@ -56,8 +54,6 @@ from schemas.consent_template import (
 __all__ = [
     "AdminUserPage",
     "AdminUserRead",
-    "PromotePsychologistRequest",
-    "UpdateUserRoleRequest",
     "AppointmentCreate",
     "AppointmentRead",
     "PendingAppointmentRead",

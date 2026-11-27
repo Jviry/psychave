@@ -22,7 +22,8 @@ import {
   PsychologistInvitationInfo,
 } from '@/lib/authApi';
 import {
-  getPasswordStrength,
+  analyzePasswordStrength,
+  isAcceptablePasswordStrength,
   PsychologistInviteRegisterFormValues,
   psychologistInviteRegisterSchema,
   PasswordStrength,
@@ -132,10 +133,31 @@ function PsychologistInviteRegisterContent() {
   }, [token]);
 
   const passwordValue = form.watch('password', '');
-  const strength = passwordValue ? getPasswordStrength(passwordValue) : null;
+  const usernameValue = form.watch('username', '');
+  const fullNameValue = form.watch('fullName', '');
+  const strengthAnalysis = passwordValue
+    ? analyzePasswordStrength(passwordValue, [
+        usernameValue,
+        fullNameValue,
+        invitation?.email ?? '',
+      ])
+    : null;
 
   const onSubmit = async (values: PsychologistInviteRegisterFormValues) => {
     if (!token || !invitation) return;
+    if (
+      !isAcceptablePasswordStrength(values.password, [
+        values.username,
+        values.fullName,
+        invitation.email,
+      ])
+    ) {
+      form.setError('password', {
+        type: 'manual',
+        message: 'Password must be rated Good or Strong',
+      });
+      return;
+    }
     setToast(null);
     try {
       await authApi.registerInvitedPsychologist({
@@ -317,15 +339,18 @@ function PsychologistInviteRegisterContent() {
                     )}
                   </button>
                 </div>
-                {strength && (
+                {strengthAnalysis && (
                   <div className="mt-1.5 space-y-1">
                     <div className="h-1 w-full rounded-full bg-mist overflow-hidden">
                       <div
-                        className={`h-full transition-all ${strengthConfig[strength].color} ${strengthConfig[strength].width}`}
+                        className={`h-full transition-all ${strengthConfig[strengthAnalysis.strength].color} ${strengthConfig[strengthAnalysis.strength].width}`}
                       />
                     </div>
                     <p className="text-[11px] text-pine/65">
-                      Strength: <strong>{strengthConfig[strength].label}</strong>
+                      Strength:{' '}
+                      <strong>
+                        {strengthConfig[strengthAnalysis.strength].label}
+                      </strong>
                     </p>
                   </div>
                 )}

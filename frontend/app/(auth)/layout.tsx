@@ -1,6 +1,5 @@
 import React from 'react';
 import Link from 'next/link';
-import { Check } from 'lucide-react';
 
 /**
  * Split-screen auth chrome. This is NOT a root layout — html/body belong to
@@ -12,10 +11,10 @@ import { Check } from 'lucide-react';
  */
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex bg-parchment">
-      {/* ── Left: Brand Panel ────────────────────────────────── */}
-      <div className="hidden lg:flex lg:w-[45%] xl:w-[40%] flex-col justify-between bg-pine p-20">
-        {/* Logo + subtext as a centered unit */}
+    <div className="min-h-screen lg:h-screen lg:overflow-hidden flex bg-parchment">
+      {/* ── Left: Brand Panel (fixed on desktop) ─────────────── */}
+      <div className="hidden lg:flex lg:w-[45%] xl:w-[40%] lg:h-screen shrink-0 flex-col justify-between bg-pine p-14 xl:p-20 overflow-hidden">
+        {/* Logo */}
         <div className="flex flex-col items-center gap-5">
           <Link href="/" className="inline-block">
             <img
@@ -29,7 +28,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </div>
 
         {/* Center content */}
-        <div className="space-y-6 mt-4">
+        <div className="space-y-6">
           <h1 className="font-heading text-4xl xl:text-5xl font-semibold leading-tight tracking-tight text-parchment">
             Your mental health
             <br />
@@ -48,16 +47,18 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </p>
       </div>
 
-      {/* ── Right: Form Panel ────────────────────────────────── */}
-      <div className="flex-1 flex flex-col justify-center items-center px-6 py-12 lg:px-12 overflow-y-auto">
-        {/* Mobile-only logo */}
-        <Link href="/" className="lg:hidden mb-8">
-          <span className="font-heading text-2xl font-semibold tracking-wide uppercase text-pine">
-            PSYCHAVE PH
-          </span>
-        </Link>
+      {/* ── Right: Form Panel (only scrollable pane on desktop) ─ */}
+      <div className="flex-1 flex flex-col items-center px-6 py-12 lg:px-12 lg:h-screen lg:overflow-y-auto">
+        <div className="my-auto w-full flex flex-col items-center">
+          {/* Mobile-only logo */}
+          <Link href="/" className="lg:hidden mb-8">
+            <span className="font-heading text-2xl font-semibold tracking-wide uppercase text-pine">
+              PSYCHAVE PH
+            </span>
+          </Link>
 
-        {children}
+          {children}
+        </div>
       </div>
     </div>
   );

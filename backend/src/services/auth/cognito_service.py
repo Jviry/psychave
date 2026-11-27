@@ -44,7 +44,7 @@ def _handle_cognito_errors():
             raise UnauthenticatedError(message) from exc
         if code == "UserNotFoundException":
             raise NotFoundError(message) from exc
-        if code == "UsernameExistsException":
+        if code in ("UsernameExistsException", "AliasExistsException"):
             raise ConflictError(message) from exc
         if code in (
             "InvalidPasswordException",

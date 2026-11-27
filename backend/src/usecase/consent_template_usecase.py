@@ -179,13 +179,29 @@ class ConsentTemplateUsecase:
             consent_data.merged_responses() if consent_data is not None else {}
         )
 
-        # Build unified lookup context for show_if & validation
+        # Build unified lookup context for show_if & validation.
+        # Support both split first_name/last_name and legacy single profile_name payloads.
+        has_explicit_first = (
+            profile_data.first_name is not None or "first_name" in details
+        )
+        has_explicit_last = (
+            profile_data.last_name is not None or "last_name" in details
+        )
+        derived_first: str | None = None
+        derived_last: str | None = None
+        if not has_explicit_first and not has_explicit_last and profile_data.profile_name:
+            name_parts = profile_data.profile_name.strip().split(None, 1)
+            derived_first = name_parts[0] if name_parts else ""
+            derived_last = name_parts[1] if len(name_parts) > 1 else name_parts[0]
+
         context: dict[str, Any] = {
             "relation_to_account_holder": rel_val,
             "profile_name": profile_data.profile_name,
             "date_of_birth": profile_data.date_of_birth.isoformat(),
             "socmed_platform": profile_data.socmed_platform,
             "socmed_username": profile_data.socmed_username,
+            **({"first_name": derived_first} if derived_first is not None else {}),
+            **({"last_name": derived_last} if derived_last is not None else {}),
             **details,
             **responses,
         }
@@ -261,18 +277,6 @@ class ConsentTemplateUsecase:
                 )
 
         if validate_consent and consent_data is not None:
-            # Cross-field signer name match only when both blocks are active & present
-            if (
-                "terms_signer_name" in present_keys
-                and "consent_signer_name" in present_keys
-            ):
-                t_name = str(responses.get("terms_signer_name") or "").strip().lower()
-                c_name = str(responses.get("consent_signer_name") or "").strip().lower()
-                if t_name and c_name and t_name != c_name:
-                    raise ValidationError(
-                        "Terms signer name and consent signer name must match"
-                    )
-
             # Minor signer relation check when terms_signer_relation is present or minor rule applies
             is_minor = _calculate_age(profile_data.date_of_birth) < MINOR_CUTOFF_AGE
             signer_rel = str(
@@ -307,6 +311,15 @@ class ConsentTemplateUsecase:
             else str(profile.relation_to_account_holder)
         )
         is_self = rel_val == ProfileRelation.self_.value
+        has_explicit_first = "first_name" in details
+        has_explicit_last = "last_name" in details
+        derived_first: str | None = None
+        derived_last: str | None = None
+        if not has_explicit_first and not has_explicit_last and profile.profile_name:
+            name_parts = str(profile.profile_name).strip().split(None, 1)
+            derived_first = name_parts[0] if name_parts else ""
+            derived_last = name_parts[1] if len(name_parts) > 1 else name_parts[0]
+
         context: dict[str, Any] = {
             "relation_to_account_holder": rel_val,
             "profile_name": profile.profile_name,
@@ -317,6 +330,8 @@ class ConsentTemplateUsecase:
             ),
             "socmed_platform": profile.socmed_platform,
             "socmed_username": profile.socmed_username,
+            **({"first_name": derived_first} if derived_first is not None else {}),
+            **({"last_name": derived_last} if derived_last is not None else {}),
             **details,
             **{k: v for k, v in raw_responses.items() if not k.startswith("_")},
         }

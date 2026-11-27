@@ -51,17 +51,15 @@ def _valid_profile_payload(
 
 
 def _valid_consent_payload(
-    signer_name: str = "John Doe",
     signer_relation: str = "self",
     version: str = "v2",
 ) -> dict:
     return {
         "consent_version": version,
-        "terms_signer_name": signer_name,
+        "terms_agreed": True,
         "terms_signer_relation": signer_relation,
         "scope_acknowledged": True,
         "information_confirmed": True,
-        "consent_signer_name": signer_name,
         "is_overseas_or_foreign": False,
         "overseas_acknowledged": False,
     }
@@ -285,9 +283,7 @@ def test_profile_usecase_blocks_self_creation_and_deletion_and_allows_self_edit(
             profile=_valid_profile_payload(
                 profile_name="Child Doe", dob="2015-05-01", relation="child"
             ),
-            consent=_valid_consent_payload(
-                signer_name="John Doe", signer_relation="parent"
-            ),
+            consent=_valid_consent_payload(signer_relation="parent"),
         ),
         user.user_id,
     )
@@ -506,3 +502,50 @@ def test_cognito_service_forwards_aws_session_token(monkeypatch):
     }
     assert captured["service_name"] == "cognito-idp"
     assert captured["region_name"] == "ap-southeast-1"
+
+
+def test_create_user_rejects_duplicate_email_and_username(auth_usecase):
+    first = _make_user_create(username="unique_user", email="Unique@Example.com")
+    auth_usecase.create_user(first)
+
+    # Duplicate email (case-insensitive) with different username
+    with pytest.raises(ConflictError, match="email"):
+        auth_usecase.create_user(
+            _make_user_create(username="another_user", email="unique@example.com")
+        )
+
+    # Duplicate username with different email
+    with pytest.raises(ConflictError):
+        auth_usecase.create_user(
+            _make_user_create(username="unique_user", email="other@example.com")
+        )
+
+
+def test_check_availability_reports_email_and_username(auth_usecase):
+    auth_usecase.create_user(
+        _make_user_create(username="taken_user", email="Taken@Example.com")
+    )
+
+    both_free = auth_usecase.check_availability(
+        email="fresh@example.com", username="fresh_user"
+    )
+    assert both_free.email_available is True
+    assert both_free.username_available is True
+
+    email_taken = auth_usecase.check_availability(
+        email="taken@example.com", username="fresh_user"
+    )
+    assert email_taken.email_available is False
+    assert email_taken.username_available is True
+
+    username_taken = auth_usecase.check_availability(
+        email="fresh@example.com", username="taken_user"
+    )
+    assert username_taken.email_available is True
+    assert username_taken.username_available is False
+
+    both_taken = auth_usecase.check_availability(
+        email="TAKEN@example.com", username="taken_user"
+    )
+    assert both_taken.email_available is False
+    assert both_taken.username_available is False

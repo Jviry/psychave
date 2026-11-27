@@ -8,7 +8,7 @@ import { X, Loader2, AlertCircle, Eye, EyeOff, ArrowLeft, RefreshCcw } from 'luc
 import {
   forgotPasswordRequestSchema,
   forgotPasswordConfirmSchema,
-  getPasswordStrength,
+  analyzePasswordStrength,
   type ForgotPasswordRequestValues,
   type ForgotPasswordConfirmValues,
   type PasswordStrength,
@@ -34,10 +34,17 @@ const STRENGTH_CONFIG: Record<
   strong: { label: 'Strong', trackClass: 'bg-pine', textClass: 'text-pine', width: '100%' },
 };
 
-function PasswordStrengthBar({ password }: { password: string }) {
+function PasswordStrengthBar({
+  password,
+  userInputs,
+}: {
+  password: string;
+  userInputs?: string[];
+}) {
   if (!password) return null;
-  const strength = getPasswordStrength(password);
+  const { strength, warning, suggestions } = analyzePasswordStrength(password, userInputs);
   const config = STRENGTH_CONFIG[strength];
+  const hint = warning || suggestions[0];
   return (
     <div className="mt-2 space-y-1">
       <div className="h-1 rounded-full bg-mist overflow-hidden">
@@ -47,6 +54,7 @@ function PasswordStrengthBar({ password }: { password: string }) {
         />
       </div>
       <p className={`text-xs ${config.textClass}`}>{config.label} password</p>
+      {hint && <p className="text-xs text-pine/60">{hint}</p>}
     </div>
   );
 }
@@ -338,7 +346,10 @@ export function ForgotPasswordModal({
                   {confirmForm.formState.errors.newPassword.message}
                 </p>
               ) : (
-                <PasswordStrengthBar password={newPasswordValue} />
+                <PasswordStrengthBar
+                  password={newPasswordValue}
+                  userInputs={[submittedUsername || initialUsername]}
+                />
               )}
             </div>
 

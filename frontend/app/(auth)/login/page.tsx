@@ -157,7 +157,7 @@ export default function LoginPage() {
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-pine/40 hover:text-pine transition-colors cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
               </button>
             </div>
             {errors.password && (
@@ -188,20 +188,12 @@ export default function LoginPage() {
         </form>
 
         {/* Footer */}
-        <div className="mt-6 space-y-2 text-center text-sm text-pine/60">
-          <p>
-            Don&apos;t have an account?{' '}
-            <Link href="/register" id="go-to-register" className="text-sage hover:text-pine font-semibold transition-colors">
-              Create account
-            </Link>
-          </p>
-          <p className="text-xs">
-            Unverified account?{' '}
-            <Link href="/verify-email" id="go-to-verify-email" className="text-sage hover:text-pine font-semibold transition-colors">
-              Verify your email
-            </Link>
-          </p>
-        </div>
+        <p className="mt-6 text-center text-sm text-pine/60">
+          Don&apos;t have an account?{' '}
+          <Link href="/register" id="go-to-register" className="text-sage hover:text-pine font-semibold transition-colors">
+            Create account
+          </Link>
+        </p>
       </div>
 
       {/* Forgot Password Modal */}

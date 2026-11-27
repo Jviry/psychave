@@ -177,11 +177,11 @@ describe('Multi-Page Wizard & Consent Forms CMS API & Diff Helper', () => {
           description: null,
           blocks: [
             {
-              block_id: 'terms_signer_name',
-              type: 'text',
-              label: 'Signer full name',
+              block_id: 'terms_agreed',
+              type: 'checkbox',
+              label: 'I agree to the informed consent terms',
               target: 'consent',
-              field_key: 'terms_signer_name',
+              field_key: 'terms_agreed',
               applies_to: 'all',
               required: true,
               options: [],
@@ -230,7 +230,7 @@ describe('Multi-Page Wizard & Consent Forms CMS API & Diff Helper', () => {
     expect(String(mockFetch.mock.calls[0][0])).toContain('/forms/active');
     expect(active.consentVersion).toBe('v2.1');
     expect(active.wizardPages).toHaveLength(1);
-    expect(active.wizardPages[0].blocks[0].fieldKey).toBe('terms_signer_name');
+    expect(active.wizardPages[0].blocks[0].fieldKey).toBe('terms_agreed');
 
     const saved = await api.updateActiveConsentForm({
       consentVersion: 'v2.1',
@@ -245,7 +245,7 @@ describe('Multi-Page Wizard & Consent Forms CMS API & Diff Helper', () => {
       '7a3c11a2-1b2c-4d3e-8f90-112233445566',
       {
         consent_version: 'v3',
-        terms_signer_name: 'Maria Santos',
+        terms_agreed: true,
       }
     );
     expect(String(mockFetch.mock.calls[2][0])).toContain(

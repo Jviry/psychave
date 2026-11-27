@@ -45,6 +45,7 @@ resource "aws_apigatewayv2_route" "default" {
 resource "aws_apigatewayv2_route" "public" {
   for_each = toset([
     "POST /auth/login",
+    "POST /auth/check-availability",
     "POST /auth/create-user",
     "POST /auth/confirm",
     "POST /auth/resend-code",

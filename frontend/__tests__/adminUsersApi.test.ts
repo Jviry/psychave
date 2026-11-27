@@ -23,6 +23,7 @@ function userPage(overrides: Record<string, unknown> = {}) {
       {
         user_id: 'usr-001',
         email: 'admin@example.com',
+        username: 'clinic_admin',
         role: 'admin',
         full_name: 'Clinic Administrator',
         created_at: '2026-01-05T09:00:00+08:00',
@@ -57,7 +58,46 @@ describe('admin user directory', () => {
     expect(parsed.searchParams.get('search')).toBe('admin');
     expect(parsed.searchParams.get('role')).toBe('admin');
     expect(result.pageSize).toBe(10);
+    expect(result.items[0].username).toBe('clinic_admin');
     expect(result.items[0].fullName).toBe('Clinic Administrator');
+  });
+
+  it('fetches and maps single user details', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          user_id: 'usr-002',
+          email: 'client@example.com',
+          username: 'juan_delacruz',
+          role: 'client',
+          full_name: null,
+          created_at: '2026-02-01T09:00:00+08:00',
+          psychologist_profile: null,
+          client_profiles: [
+            {
+              profile_id: 'prof-001',
+              profile_name: 'Juan Dela Cruz',
+              relation_to_account_holder: 'self',
+              date_of_birth: '1995-05-12',
+              socmed_platform: 'Instagram',
+              socmed_username: '@juandc',
+            },
+          ],
+        }),
+        { status: 200 }
+      )
+    );
+
+    const { api } = await import('../lib/api');
+    const detail = await api.getAdminUserDetail('usr-002');
+
+    const [url] = mockFetch.mock.calls[0];
+    expect(String(url)).toContain('/admin/users/usr-002');
+    expect(detail.username).toBe('juan_delacruz');
+    expect(detail.psychologistProfile).toBeNull();
+    expect(detail.clientProfiles).toHaveLength(1);
+    expect(detail.clientProfiles[0].profileName).toBe('Juan Dela Cruz');
+    expect(detail.clientProfiles[0].socmedUsername).toBe('@juandc');
   });
 
   it('omits search and role when empty/all', async () => {
@@ -72,51 +112,6 @@ describe('admin user directory', () => {
     const parsed = new URL(String(url));
     expect(parsed.searchParams.has('search')).toBe(false);
     expect(parsed.searchParams.has('role')).toBe(false);
-  });
-
-  it('maps a role update response', async () => {
-    mockFetch.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          user_id: 'usr-003',
-          email: 'maria.santos@example.com',
-          role: 'psychologist',
-          full_name: 'Maria Santos',
-          created_at: '2026-01-18T09:00:00+08:00',
-        }),
-        { status: 200 }
-      )
-    );
-
-    const { api } = await import('../lib/api');
-    const updated = await api.updateAdminUserRole('usr-003', {
-      role: 'psychologist',
-      fullName: 'Maria Santos',
-    });
-
-    const [url, opts] = mockFetch.mock.calls[0];
-    expect(String(url)).toContain('/admin/users/usr-003/role');
-    expect(opts.method).toBe('PATCH');
-    expect(JSON.parse(opts.body)).toEqual({
-      role: 'psychologist',
-      full_name: 'Maria Santos',
-    });
-    expect(updated.role).toBe('psychologist');
-    expect(updated.fullName).toBe('Maria Santos');
-  });
-
-  it('surfaces the backend guardrail error', async () => {
-    mockFetch.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({ detail: 'Cannot change the role of the last admin account' }),
-        { status: 409 }
-      )
-    );
-
-    const { api } = await import('../lib/api');
-    await expect(
-      api.updateAdminUserRole('usr-001', { role: 'client' })
-    ).rejects.toThrow(/last admin/i);
   });
 
   it('creates a psychologist invitation and maps response fields', async () => {

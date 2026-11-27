@@ -168,13 +168,12 @@ def test_wizard_cms_json_storage_minor_vs_major_versioning_and_resign(
             ),
             consent=ConsentCreate(
                 consent_version="v2",
-                terms_signer_name="Juan Dela Cruz Sr.",
+                terms_agreed=True,
                 terms_signer_relation="parent",
                 scope_acknowledged=True,
                 is_overseas_or_foreign=False,
                 overseas_acknowledged=False,
                 information_confirmed=True,
-                consent_signer_name="Juan Dela Cruz Sr.",
             ),
         ),
         client_user.user_id,
@@ -197,7 +196,7 @@ def test_wizard_cms_json_storage_minor_vs_major_versioning_and_resign(
         select(Forms).where(Forms.profile_id == created_read.profile_id)
     ).first()
     assert db_form is not None
-    assert db_form.responses["terms_signer_name"] == "Juan Dela Cruz Sr."
+    assert db_form.responses["terms_agreed"] is True
     assert isinstance(db_form.responses.get("_review_sections"), list)
 
     # Psychologist review returns labeled review_sections when profile has a PENDING appointment
@@ -217,14 +216,16 @@ def test_wizard_cms_json_storage_minor_vs_major_versioning_and_resign(
     step3_fields = {
         f.field_key: f.value for f in review["review_sections"][2].fields
     }
-    assert step3_fields["profile_name"] == "Juan Dela Cruz Jr."
+    assert step3_fields["first_name"] == "Juan"
+    assert step3_fields["last_name"] == "Dela Cruz Jr."
     assert step3_fields["socmed_username"] == "@juan.dc"
 
     # 3. Admin edits ONLY demographic fields on Step 3 (removes occupation, nationality, addresses,
     #    emergency contact; adds a custom demographic field "work_schedule")
     pages_demographic_edit = deepcopy(active_v2.wizard_pages)
     kept_step3_ids = {
-        "profile_name",
+        "first_name",
+        "last_name",
         "date_of_birth",
         "contact_number",
         "socmed_platform",
@@ -388,13 +389,12 @@ def test_wizard_cms_json_storage_minor_vs_major_versioning_and_resign(
             created_read.profile_id,
             ConsentCreate(
                 consent_version="v3",
-                terms_signer_name="Juan Dela Cruz Sr.",
+                terms_agreed=True,
                 terms_signer_relation="parent",
                 scope_acknowledged=True,
                 is_overseas_or_foreign=False,
                 overseas_acknowledged=False,
                 information_confirmed=True,
-                consent_signer_name="Juan Dela Cruz Sr.",
                 responses={
                     "previous_therapy": "yes",
                     "telehealth_consent_ack": True,
@@ -408,13 +408,12 @@ def test_wizard_cms_json_storage_minor_vs_major_versioning_and_resign(
         created_read.profile_id,
         ConsentCreate(
             consent_version="v3",
-            terms_signer_name="Juan Dela Cruz Sr.",
+            terms_agreed=True,
             terms_signer_relation="parent",
             scope_acknowledged=True,
             is_overseas_or_foreign=False,
             overseas_acknowledged=False,
             information_confirmed=True,
-            consent_signer_name="Juan Dela Cruz Sr.",
             responses={
                 "previous_therapy": "yes",
                 "previous_therapist_notes": "6 months of CBT in 2024.",
@@ -617,13 +616,12 @@ def test_postgres_migration_seed_and_api_integration():
                     },
                     "consent": {
                         "consent_version": active_form["consent_version"],
-                        "terms_signer_name": "Jose Santos",
+                        "terms_agreed": True,
                         "terms_signer_relation": "parent",
                         "scope_acknowledged": True,
                         "is_overseas_or_foreign": False,
                         "overseas_acknowledged": False,
                         "information_confirmed": True,
-                        "consent_signer_name": "Jose Santos",
                     },
                 },
             )

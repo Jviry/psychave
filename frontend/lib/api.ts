@@ -1,5 +1,6 @@
 import {
   AdminUser,
+  AdminUserDetail,
   AdminUserPage,
   BookingRequest,
   BookingStatus,
@@ -484,13 +485,12 @@ interface ProfileReviewRaw {
   };
   consent: {
     consent_version: string;
-    terms_signer_name?: string;
+    terms_agreed?: boolean;
     terms_signer_relation?: string;
     scope_acknowledged?: boolean;
     is_overseas_or_foreign?: boolean;
     overseas_acknowledged?: boolean;
     information_confirmed?: boolean;
-    consent_signer_name?: string;
     signed_at?: string | null;
     responses?: Record<string, unknown>;
   };
@@ -571,9 +571,32 @@ interface PsychologistProfileRaw {
 interface AdminUserRaw {
   user_id: string;
   email: string;
+  username?: string | null;
   role: CognitoRole;
   full_name: string | null;
   created_at: string;
+}
+
+interface AdminUserPsychologistProfileRaw {
+  full_name: string;
+  license_number: string | null;
+  specialization: string | null;
+  bio: string | null;
+  social_media_links: SocialMediaLink[];
+}
+
+interface AdminUserClientProfileRaw {
+  profile_id: string;
+  profile_name: string;
+  relation_to_account_holder: string;
+  date_of_birth: string;
+  socmed_platform: string | null;
+  socmed_username: string | null;
+}
+
+interface AdminUserDetailRaw extends AdminUserRaw {
+  psychologist_profile?: AdminUserPsychologistProfileRaw | null;
+  client_profiles?: AdminUserClientProfileRaw[];
 }
 
 interface AdminUserPageRaw {
@@ -587,9 +610,33 @@ function mapAdminUserRaw(raw: AdminUserRaw): AdminUser {
   return {
     userId: raw.user_id,
     email: raw.email,
+    username: raw.username ?? null,
     role: raw.role,
     fullName: raw.full_name ?? null,
     createdAt: raw.created_at,
+  };
+}
+
+function mapAdminUserDetailRaw(raw: AdminUserDetailRaw): AdminUserDetail {
+  return {
+    ...mapAdminUserRaw(raw),
+    psychologistProfile: raw.psychologist_profile
+      ? {
+          fullName: raw.psychologist_profile.full_name,
+          licenseNumber: raw.psychologist_profile.license_number ?? null,
+          specialization: raw.psychologist_profile.specialization ?? null,
+          bio: raw.psychologist_profile.bio ?? null,
+          socialMediaLinks: raw.psychologist_profile.social_media_links ?? [],
+        }
+      : null,
+    clientProfiles: (raw.client_profiles ?? []).map((p) => ({
+      profileId: p.profile_id,
+      profileName: p.profile_name,
+      relationToAccountHolder: p.relation_to_account_holder,
+      dateOfBirth: p.date_of_birth,
+      socmedPlatform: p.socmed_platform ?? null,
+      socmedUsername: p.socmed_username ?? null,
+    })),
   };
 }
 
@@ -710,6 +757,7 @@ function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
     serviceGuardrail: raw.service_guardrail ?? '',
     concernsSummary: raw.presenting_concern,
     submittedAt: raw.requested_datetime ? raw.requested_datetime.slice(0, 10) : '—',
+    submittedAtIso: raw.requested_datetime ?? undefined,
     status,
     psychologistId: raw.psychologist_id ?? undefined,
     psychologistName: raw.psychologist_name ?? undefined,
@@ -863,8 +911,8 @@ function mapProfileReviewRaw(raw: ProfileReviewRaw): ProfileReview {
     },
     consent: {
       version: raw.consent.consent_version,
-      termsSignerName: String(
-        raw.consent.terms_signer_name ?? responses.terms_signer_name ?? ''
+      termsAgreed: Boolean(
+        raw.consent.terms_agreed ?? responses.terms_agreed
       ),
       termsSignerRelation: String(
         raw.consent.terms_signer_relation ?? responses.terms_signer_relation ?? 'self'
@@ -880,9 +928,6 @@ function mapProfileReviewRaw(raw: ProfileReviewRaw): ProfileReview {
       ),
       informationConfirmed: Boolean(
         raw.consent.information_confirmed ?? responses.information_confirmed
-      ),
-      consentSignerName: String(
-        raw.consent.consent_signer_name ?? responses.consent_signer_name ?? ''
       ),
       signedAt: raw.consent.signed_at ?? null,
       ...(raw.consent.responses ? { responses: raw.consent.responses } : {}),
@@ -1175,6 +1220,11 @@ export const api = {
     const raw = await liveRequest<ProfileRaw[]>('/profiles');
     const list = Array.isArray(raw) ? raw : [];
     return list.map(mapProfileRaw);
+  },
+
+  getProfile: async (profileId: string): Promise<Profile> => {
+    const raw = await liveRequest<ProfileRaw>(`/profiles/${assertUuid(profileId, 'profileId')}`);
+    return mapProfileRaw(raw);
   },
 
   getProfileReview: async (profileId: string): Promise<ProfileReview> => {
@@ -1678,18 +1728,9 @@ export const api = {
     };
   },
 
-  updateAdminUserRole: async (
-    userId: string,
-    payload: { role: CognitoRole; fullName?: string }
-  ): Promise<AdminUser> => {
-    const raw = await liveRequest<AdminUserRaw>(`/admin/users/${userId}/role`, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        role: payload.role,
-        full_name: payload.fullName,
-      }),
-    });
-    return mapAdminUserRaw(raw);
+  getAdminUserDetail: async (userId: string): Promise<AdminUserDetail> => {
+    const raw = await liveRequest<AdminUserDetailRaw>(`/admin/users/${userId}`);
+    return mapAdminUserDetailRaw(raw);
   },
 
   invitePsychologist: async (email: string): Promise<PsychologistInvitation> => {

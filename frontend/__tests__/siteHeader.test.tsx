@@ -2,8 +2,10 @@ import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SiteHeader } from '../components/SiteHeader';
 import { useAuthStore } from '../stores/authStore';
+import { useAppStore } from '../stores/useAppStore';
 
 let mockPathname = '/';
 
@@ -96,5 +98,31 @@ describe('SiteHeader role-based navigation', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /admin1/i }));
     expect(screen.getByRole('link', { name: 'Account' })).toHaveAttribute('href', '/account');
+  });
+
+  it('does not show a notification dot on Pending Bookings or render the banner below the nav bar', () => {
+    mockPathname = '/psych/schedule';
+    useAuthStore.setState({
+      isAuthenticated: true,
+      user: { username: 'dr1', email: 'dr@example.com', role: 'psychologist', cognitoSub: '2' },
+    });
+    useAppStore.getState().publishFlowEvent('New Booking', 'A client submitted a booking.');
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, enabled: false } },
+    });
+    queryClient.setQueryData(
+      ['bookings', 'psychologist'],
+      [{ id: 'b-1', status: 'pending' }]
+    );
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SiteHeader />
+      </QueryClientProvider>
+    );
+
+    expect(screen.queryByTestId('pending-bookings-dot')).not.toBeInTheDocument();
+    expect(screen.queryByText(/A client submitted a booking\./i)).not.toBeInTheDocument();
   });
 });

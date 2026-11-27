@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   keepPreviousData,
   useMutation,
   useQuery,
-  useQueryClient,
 } from '@tanstack/react-query';
 import {
   Check,
@@ -19,7 +20,8 @@ import {
   Users,
 } from 'lucide-react';
 import { api } from '@/lib/api';
-import { AdminUser, CognitoRole, PsychologistInvitation } from '@/lib/types';
+import { getFriendlyErrorMessage } from '@/lib/errorMessages';
+import { CognitoRole, PsychologistInvitation } from '@/lib/types';
 import { useAuthStore } from '@/stores/authStore';
 import { useAppStore } from '@/stores/useAppStore';
 import {
@@ -68,7 +70,7 @@ function formatDate(iso: string): string {
 }
 
 export default function AdminUsersPage() {
-  const queryClient = useQueryClient();
+  const router = useRouter();
   const publishFlowEvent = useAppStore((s) => s.publishFlowEvent);
   const currentEmail = useAuthStore((state) => state.user?.email);
 
@@ -77,11 +79,6 @@ export default function AdminUsersPage() {
   const [roleFilter, setRoleFilter] = useState<CognitoRole | 'all'>('all');
   const [page, setPage] = useState(1);
   const [pageSize] = useState(PAGE_SIZE);
-
-  const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
-  const [targetRole, setTargetRole] = useState<CognitoRole>('client');
-  const [fullName, setFullName] = useState('');
-  const [formError, setFormError] = useState<string | null>(null);
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -101,7 +98,7 @@ export default function AdminUsersPage() {
     setPage(1);
   }, [search, roleFilter]);
 
-  const { data, isLoading, isFetching, error } = useQuery({
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['admin', 'users', { search, role: roleFilter, page, pageSize }],
     queryFn: () => api.getAdminUsers({ search, role: roleFilter, page, pageSize }),
     placeholderData: keepPreviousData,
@@ -118,43 +115,6 @@ export default function AdminUsersPage() {
     if (data && page > totalPages) setPage(totalPages);
   }, [data, page, totalPages]);
 
-  const roleMutation = useMutation({
-    mutationFn: ({
-      userId,
-      role,
-      name,
-    }: {
-      userId: string;
-      role: CognitoRole;
-      name?: string;
-    }) => api.updateAdminUserRole(userId, { role, fullName: name }),
-    onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
-      publishFlowEvent(
-        'User Role Updated',
-        `${updated.email} is now ${roleLabels[updated.role]}. They must sign in again before the new role takes effect.`
-      );
-      closeModal();
-    },
-    onError: (err) => {
-      setFormError(
-        err instanceof Error ? err.message : 'Could not change this user’s role.'
-      );
-    },
-  });
-
-  function openModal(user: AdminUser) {
-    setEditingUser(user);
-    setTargetRole(user.role);
-    setFullName(user.fullName ?? '');
-    setFormError(null);
-  }
-
-  function closeModal() {
-    setEditingUser(null);
-    setFormError(null);
-  }
-
   const inviteMutation = useMutation({
     mutationFn: (email: string) => api.invitePsychologist(email),
     onSuccess: (invitation) => {
@@ -168,9 +128,10 @@ export default function AdminUsersPage() {
     },
     onError: (err) => {
       setInviteError(
-        err instanceof Error
-          ? err.message
-          : 'Could not create the psychologist invitation.'
+        getFriendlyErrorMessage(
+          err,
+          'Could not create the psychologist invitation.'
+        )
       );
     },
   });
@@ -211,29 +172,6 @@ export default function AdminUsersPage() {
       setCopiedLink(false);
     }
   }
-
-  function submitRoleChange(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!editingUser || roleMutation.isPending) return;
-
-    const trimmedName = fullName.trim();
-    if (targetRole === 'psychologist' && !trimmedName && !editingUser.fullName) {
-      setFormError(
-        'Full name is required when assigning the psychologist role.'
-      );
-      return;
-    }
-
-    roleMutation.mutate({
-      userId: editingUser.userId,
-      role: targetRole,
-      name: trimmedName || undefined,
-    });
-  }
-
-  const nameRequired =
-    targetRole === 'psychologist' && !editingUser?.fullName;
-  const unchangedRole = !!editingUser && targetRole === editingUser.role;
 
   return (
     <div className="space-y-6">
@@ -296,47 +234,76 @@ export default function AdminUsersPage() {
         {error && (
           <div
             role="alert"
-            className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-xs text-red-800"
+            className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-red-800"
           >
-            {error instanceof Error
-              ? error.message
-              : 'Could not load the user directory.'}
+            <span>
+              {getFriendlyErrorMessage(
+                error,
+                'Could not load the user directory. Please try again.'
+              )}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="shrink-0"
+            >
+              {isFetching ? 'Retrying…' : 'Try Again'}
+            </Button>
           </div>
         )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <caption className="sr-only">
-              Registered user accounts with their access roles and join dates
+              Registered user accounts with their usernames, access roles, and join dates
             </caption>
             <thead>
               <tr className="border-b border-mist text-pine/70 bg-parchment">
                 <th className="py-3 px-4 font-semibold">Account</th>
-                <th className="py-3 px-4 font-semibold">Name</th>
+                <th className="py-3 px-4 font-semibold">Username</th>
                 <th className="py-3 px-4 font-semibold">Role</th>
                 <th className="py-3 px-4 font-semibold">Joined</th>
-                <th className="py-3 px-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-mist/60">
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, index) => (
                   <tr key={`skeleton-${index}`}>
-                    <td colSpan={5} className="py-3 px-4">
+                    <td colSpan={4} className="py-3 px-4">
                       <Skeleton className="h-9" />
                     </td>
                   </tr>
                 ))
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>
+                  <td colSpan={4}>
                     <EmptyState
                       icon={Users}
                       title="No user accounts found"
                       description={
                         search || roleFilter !== 'all'
-                          ? 'No accounts match the current search and role filter. Try clearing them.'
+                          ? 'No accounts match the current search and role filter.'
                           : 'Registered accounts will appear here once users sign up.'
+                      }
+                      action={
+                        search || roleFilter !== 'all' ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSearchInput('');
+                              setSearch('');
+                              setRoleFilter('all');
+                              setPage(1);
+                            }}
+                          >
+                            Clear Filters
+                          </Button>
+                        ) : undefined
                       }
                     />
                   </td>
@@ -344,12 +311,21 @@ export default function AdminUsersPage() {
               ) : (
                 users.map((user) => {
                   const isSelf = !!currentEmail && user.email === currentEmail;
+                  const detailHref = `/admin/users/${user.userId}`;
                   return (
-                    <tr key={user.userId} className="hover:bg-parchment">
+                    <tr
+                      key={user.userId}
+                      onClick={() => router.push(detailHref)}
+                      className="cursor-pointer hover:bg-parchment focus-within:bg-parchment transition-colors"
+                    >
                       <td className="py-3.5 px-4 align-middle">
-                        <p className="font-medium text-pine break-all">
+                        <Link
+                          href={detailHref}
+                          onClick={(event) => event.stopPropagation()}
+                          className="font-medium text-pine break-all hover:underline focus-visible:outline-none focus-visible:underline"
+                        >
                           {user.email}
-                        </p>
+                        </Link>
                         {isSelf && (
                           <p className="text-xs text-accent-ink font-semibold mt-0.5">
                             Your account
@@ -357,28 +333,13 @@ export default function AdminUsersPage() {
                         )}
                       </td>
                       <td className="py-3.5 px-4 align-middle text-pine/80">
-                        {user.fullName || '—'}
+                        {user.username || '—'}
                       </td>
                       <td className="py-3.5 px-4 align-middle">
                         <RoleTag role={user.role} />
                       </td>
                       <td className="py-3.5 px-4 align-middle font-mono text-pine/70 tabular-nums whitespace-nowrap">
                         {formatDate(user.createdAt)}
-                      </td>
-                      <td className="py-3.5 px-4 align-middle text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openModal(user)}
-                          disabled={isSelf}
-                          title={
-                            isSelf
-                              ? 'You cannot change your own role'
-                              : `Change role for ${user.email}`
-                          }
-                        >
-                          Change role
-                        </Button>
                       </td>
                     </tr>
                   );
@@ -428,106 +389,6 @@ export default function AdminUsersPage() {
           </div>
         </div>
       </Card>
-
-      <Modal
-        open={!!editingUser}
-        onClose={closeModal}
-        title="Change user role"
-        description={
-          editingUser
-            ? `Update access for ${editingUser.email}.`
-            : undefined
-        }
-        maxWidth="md"
-        footer={
-          <>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={closeModal}
-              disabled={roleMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              form="role-change-form"
-              disabled={
-                roleMutation.isPending || unchangedRole || !editingUser
-              }
-            >
-              {roleMutation.isPending ? 'Saving…' : 'Save role'}
-            </Button>
-          </>
-        }
-      >
-        <form
-          id="role-change-form"
-          onSubmit={submitRoleChange}
-          className="space-y-4"
-        >
-          <div>
-            <Label htmlFor="role-change-select">New role</Label>
-            <Select
-              id="role-change-select"
-              value={targetRole}
-              onChange={(event) =>
-                setTargetRole(event.target.value as CognitoRole)
-              }
-              data-autofocus
-            >
-              <option value="client">Client</option>
-              {editingUser?.role === 'psychologist' && (
-                <option value="psychologist">Psychologist</option>
-              )}
-              <option value="admin">Admin</option>
-            </Select>
-            {editingUser && (
-              <p className="mt-1.5 text-xs text-pine/60">
-                Current role: <span className="font-semibold">{roleLabels[editingUser.role]}</span>
-                {editingUser.role === 'client' && (
-                  <span>
-                    {' '}
-                    · Psychologists are onboarded via <strong>Invite Psychologist</strong>.
-                  </span>
-                )}
-              </p>
-            )}
-          </div>
-
-          {targetRole !== 'client' && (
-            <div>
-              <Label htmlFor="role-change-name">
-                Full name{nameRequired ? '' : ' (optional)'}
-              </Label>
-              <Input
-                id="role-change-name"
-                value={fullName}
-                onChange={(event) => setFullName(event.target.value)}
-                placeholder="Display name shown on internal records"
-                aria-required={nameRequired}
-              />
-              {targetRole === 'psychologist' && (
-                <p className="mt-1.5 text-xs text-pine/60">
-                  Required for the psychologist profile clients see after booking.
-                </p>
-              )}
-            </div>
-          )}
-
-          <div className="rounded-lg border border-mist bg-surface-sunken px-3.5 py-3 text-xs text-pine/75 leading-relaxed">
-            Role changes swap the user’s Cognito access group immediately, but their
-            current session keeps the old group. They must sign out and sign in again
-            before the new dashboard unlocks.
-          </div>
-
-          {formError && (
-            <p role="alert" className="text-xs text-red-700">
-              {formError}
-            </p>
-          )}
-        </form>
-      </Modal>
 
       <Modal
         open={inviteOpen}
@@ -616,7 +477,7 @@ export default function AdminUsersPage() {
                 </Button>
               </div>
               <p className="text-xs text-pine/60">
-                An invitation email has been dispatched via Brevo. You can also copy this link to share directly.
+                An invitation email has been sent. You can also copy this link to share directly.
               </p>
             </div>
           </div>

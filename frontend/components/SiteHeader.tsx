@@ -3,11 +3,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAppStore } from '@/stores/useAppStore';
 import { useAuthStore } from '@/stores/authStore';
 import { authApi } from '@/lib/authApi';
 import { CognitoRole } from '@/lib/types';
-import { LogOut, User, ChevronDown, Bell, Settings } from 'lucide-react';
+import { LogOut, User, ChevronDown, Settings } from 'lucide-react';
 
 const ROLE_NAV_ITEMS: Record<CognitoRole, { label: string; href: string }[]> = {
   client: [
@@ -38,8 +37,6 @@ function getAccountHref(role: CognitoRole): string {
 export function SiteHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const lastFlowEvent = useAppStore((s) => s.lastFlowEvent);
-  const clearFlowEvent = useAppStore((s) => s.clearFlowEvent);
 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
@@ -113,13 +110,13 @@ export function SiteHeader() {
             key={item.href}
             href={item.href}
             aria-current={active ? 'page' : undefined}
-            className={`py-1 transition-colors whitespace-nowrap border-b-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage rounded-xs ${
+            className={`inline-flex items-center gap-1.5 py-1 transition-colors whitespace-nowrap border-b-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage rounded-xs ${
               active
                 ? 'text-pine border-sage font-semibold'
                 : 'border-transparent hover:text-pine hover:border-mist'
             }`}
           >
-            {item.label}
+            <span>{item.label}</span>
           </Link>
         );
       })}
@@ -281,32 +278,6 @@ export function SiteHeader() {
       {!isHome && roleTabs.length > 0 && (
         <div className="md:hidden border-t border-mist/70 px-4 py-2 overflow-x-auto bg-surface-raised">
           {renderRoleTabs('justify-center', 'Mobile workspace navigation')}
-        </div>
-      )}
-
-      {/* Real-time Flow C Notification Banner when active */}
-      {lastFlowEvent && (
-        <div
-          role="status"
-          className="bg-surface-sunken border-t border-mist px-4 lg:px-8 py-2 text-xs text-pine"
-        >
-          <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <Bell className="w-4 h-4 text-pine shrink-0" aria-hidden="true" />
-              <div>
-                <span className="font-semibold">{lastFlowEvent.title}:</span>{' '}
-                <span>{lastFlowEvent.detail}</span>
-                <span className="ml-2 text-pine/70">({lastFlowEvent.timestamp})</span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={clearFlowEvent}
-              className="text-xs font-medium text-pine/75 hover:text-pine underline cursor-pointer whitespace-nowrap rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
-            >
-              Dismiss
-            </button>
-          </div>
         </div>
       )}
     </div>
