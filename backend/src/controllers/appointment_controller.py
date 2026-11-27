@@ -158,12 +158,14 @@ def request_reschedule(
 ):
     reason = payload.reason if payload is not None else None
     preferred_slots = payload.preferred_slots if payload is not None else None
+    counter_slot = payload.counter_slot if payload is not None else None
     return AppointmentUsecase(db).request_reschedule(
         appointment_id,
         current_user.user_id,
         UserRole(current_user.role),
         reason=reason,
         preferred_slots=preferred_slots,
+        counter_slot=counter_slot,
     )
 
 

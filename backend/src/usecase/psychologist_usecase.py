@@ -427,7 +427,12 @@ class PsychologistUsecase:
         client_email = self.appointment_repo.get_client_email(updated)
         if client_email:
             self.email_service.send_no_show_marked(
-                client_email, str(updated.appointment_id)
+                client_email, str(updated.appointment_id), "client"
+            )
+        psych_email = self.appointment_repo.get_psychologist_email(updated)
+        if psych_email:
+            self.email_service.send_no_show_marked(
+                psych_email, str(updated.appointment_id), "psychologist"
             )
         return self.appointment_repo.build_read(updated, include_internal=True)
 
@@ -451,10 +456,25 @@ class PsychologistUsecase:
         updated = self.appointment_repo.waive_reschedule_fee(
             appt, reason=cleaned_reason
         )
+        has_submitted_slots = updated.scheduling_turn == SchedulingTurn.PSYCHOLOGIST
         client_email = self.appointment_repo.get_client_email(updated)
         if client_email:
-            self.email_service.send_reschedule_reopened(
-                client_email, str(updated.appointment_id), fee_paid=False
+            self.email_service.send_reschedule_fee_resolved(
+                client_email,
+                str(updated.appointment_id),
+                "client",
+                waived=True,
+                has_submitted_slots=has_submitted_slots,
+            )
+        psych_email = self.appointment_repo.get_psychologist_email(updated)
+        if psych_email:
+            self.email_service.send_reschedule_fee_resolved(
+                psych_email,
+                str(updated.appointment_id),
+                "psychologist",
+                waived=True,
+                has_submitted_slots=has_submitted_slots,
+                waiver_reason=cleaned_reason,
             )
         return self.appointment_repo.build_read(updated, include_internal=True)
 

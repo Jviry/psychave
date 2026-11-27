@@ -1,5 +1,6 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timezone
+from typing import Sequence
 
 from sqlalchemy import update
 from sqlmodel import Session, select
@@ -229,20 +230,75 @@ class AppointmentRepo:
                 slot.status = SlotStatus.EXPIRED
                 self.db.add(slot)
             appointment.selected_slot_id = None
+        appointment.reminder_24h_sent_at = None
+        appointment.reminder_1h_sent_at = None
+
+    def has_proposed_slots(
+        self,
+        appointment_id: uuid.UUID,
+        round_number: int,
+        proposed_by: SlotProposer,
+    ) -> bool:
+        return (
+            self.db.exec(
+                select(ProposedSlot.slot_id).where(
+                    ProposedSlot.appointment_id == appointment_id,
+                    ProposedSlot.round == round_number,
+                    ProposedSlot.proposed_by == proposed_by,
+                    ProposedSlot.status == SlotStatus.PROPOSED,
+                )
+            ).first()
+            is not None
+        )
+
+    def prepare_reschedule_round(
+        self,
+        appointment: Appointment,
+        *,
+        slots: Sequence[tuple[date, time, time]],
+        proposed_by: SlotProposer,
+    ) -> int:
+        self._decline_round(appointment.appointment_id, appointment.scheduling_round)
+        next_round = appointment.scheduling_round + 1
+        appointment.scheduling_round = next_round
+        for session_date, start_time, end_time in slots:
+            self.db.add(
+                ProposedSlot(
+                    appointment_id=appointment.appointment_id,
+                    session_date=session_date,
+                    start_time=start_time,
+                    end_time=end_time,
+                    proposed_by=proposed_by,
+                    status=SlotStatus.PROPOSED,
+                    round=next_round,
+                )
+            )
+        self.db.add(appointment)
+        return next_round
 
     def start_reschedule_negotiation(
         self,
         appointment: Appointment,
         *,
-        turn: SchedulingTurn,
+        turn: SchedulingTurn | None = None,
         requested_by: str | None = None,
         reason: str | None = None,
         waived: bool | None = None,
-        slot_rows: list[tuple] | None = None,
     ) -> Appointment:
         self.release_selected_slot(appointment)
         appointment.payment_deadline = None
         appointment.status = AppointmentStatus.AWAITING_SCHEDULE
+        if turn is None:
+            has_client_slots = self.has_proposed_slots(
+                appointment.appointment_id,
+                appointment.scheduling_round,
+                SlotProposer.CLIENT,
+            )
+            turn = (
+                SchedulingTurn.PSYCHOLOGIST
+                if has_client_slots
+                else SchedulingTurn.CLIENT
+            )
         appointment.scheduling_turn = turn
         if requested_by is not None:
             appointment.reschedule_requested_by = requested_by
@@ -250,23 +306,6 @@ class AppointmentRepo:
             appointment.reschedule_reason = reason
         if waived is not None:
             appointment.reschedule_fee_waived = waived
-        if slot_rows:
-            self._decline_round(
-                appointment.appointment_id, appointment.scheduling_round
-            )
-            appointment.scheduling_round += 1
-            for session_date, start_time, end_time in slot_rows:
-                self.db.add(
-                    ProposedSlot(
-                        appointment_id=appointment.appointment_id,
-                        session_date=session_date,
-                        start_time=start_time,
-                        end_time=end_time,
-                        proposed_by=SlotProposer.CLIENT,
-                        status=SlotStatus.PROPOSED,
-                        round=appointment.scheduling_round,
-                    )
-                )
         self.db.add(appointment)
         self.db.commit()
         self.db.refresh(appointment)
@@ -310,7 +349,16 @@ class AppointmentRepo:
         appointment.reschedule_fee_waived = True
         appointment.reschedule_waiver_reason = reason
         appointment.status = AppointmentStatus.AWAITING_SCHEDULE
-        appointment.scheduling_turn = SchedulingTurn.CLIENT
+        has_client_slots = self.has_proposed_slots(
+            appointment.appointment_id,
+            appointment.scheduling_round,
+            SlotProposer.CLIENT,
+        )
+        appointment.scheduling_turn = (
+            SchedulingTurn.PSYCHOLOGIST
+            if has_client_slots
+            else SchedulingTurn.CLIENT
+        )
         self.db.exec(
             update(Payment)
             .where(

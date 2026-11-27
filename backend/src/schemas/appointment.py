@@ -92,6 +92,7 @@ class RescheduleRequest(SQLModel):
     preferred_slots: list[SlotInput] | None = Field(
         default=None, min_length=3, max_length=5
     )
+    counter_slot: SlotInput | None = None
 
 
 class WaiveRescheduleFeeRequest(SQLModel):
