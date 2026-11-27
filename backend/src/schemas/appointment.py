@@ -49,6 +49,7 @@ class AppointmentRead(SQLModel):
     service_duration_minutes: int | None = None
     service_guardrail: str | None = None
     psychologist_id: uuid.UUID | None
+    psychologist_name: str | None = None
     selected_slot_id: uuid.UUID | None
     price: float | None
     presenting_concern: str
@@ -68,7 +69,7 @@ class AppointmentRead(SQLModel):
     proposed_slots: list[ProposedSlotRead] = Field(default_factory=list)
     conflicting_slot_ids: list[uuid.UUID] = Field(default_factory=list)
     # Client contact details are visible to the assigned psychologist at every
-    # stage; psychologist contact links only unlock after confirmation.
+    # stage; psychologist contact links unlock on psychologist pickup (unless cancelled).
     profile_socmed_platform: str | None = None
     profile_socmed_username: str | None = None
     psychologist_social_links: list[SocialMediaLink] = Field(default_factory=list)

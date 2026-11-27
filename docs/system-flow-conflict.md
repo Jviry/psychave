@@ -4,7 +4,7 @@ Companion to `system-flow.md`. `system-flow.md` uses **Flow C (Official Queue Fl
 
 ## TL;DR
 
-- **Flow C — Official (canonical):** Client submits (persona) → pending queue visible to psychologists → verified psychologist picks up + sets price + proposes exactly 3 times → client selects 1 + pays → finalized only on payment success → contact unlock.
+- **Flow C — Official (canonical):** Client submits (persona) → pending queue visible to psychologists → promoted psychologist picks up (unlocking contact) + sets price + agrees on schedule → client pays → finalized only on payment success.
 - **Flow A — Admin-Guided (legacy):** Client → Admin approves + assigns psychologist → Email payment link → Client pays → Client picks schedule (pay-then-schedule, admin assigns). Superseded; kept for traceability.
 - **Flow B — Psychologist-Review / early Current Workflow (legacy):** Psychologist reviews → proposes slots + price (count unspecified) → client picks → pays → contact unlock. Absorbed into Flow C except for the exact-3 rule and queue semantics.
 
@@ -19,7 +19,7 @@ Source: revised official plan 2026-09-27.
 3. Verified psychologist picks up, sets price, proposes exactly 3 candidate times.
 4. Client reviews 3, selects 1 (`selected_slot_id`), completes payment; finalized only on `payments(status=paid)`.
 5. Notifications: new-request → psychologists; proposal → client; payment confirmation → both; 24h/1h reminders; real-time status updates.
-6. Contact unlock after verified payment + final confirmations.
+6. Contact unlocks on psychologist pickup (unless cancelled); payment finalizes the session and triggers confirmations.
 7. Auth: AWS Cognito with Cognito Groups (client/psychologist/admin), verified every request.
 
 Key properties: **queue pick-up, exactly 3 proposals, schedule-then-pay, payment-gated finalization.**

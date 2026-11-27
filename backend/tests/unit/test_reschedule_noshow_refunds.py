@@ -645,3 +645,27 @@ def test_alembic_migration_runs_cleanly_without_pg_enum_types():
         assert {"reschedule_fee_waived", "reschedule_requested_by", "reschedule_reason", "reschedule_waiver_reason", "refund_amount_centavos", "refund_reason", "refunded_at", "refunded_by"}.issubset(appt_cols)
         assert {"payment_type", "gateway_payment_id", "refund_amount_centavos", "refund_ref", "refund_reason", "refunded_at"}.issubset(pay_cols)
 
+
+def test_admin_refund_blocks_completed_and_exposes_psychologist_name(db: Session):
+    appt, _, _, admin = _seed_confirmed(db, session_offset=timedelta(hours=4))
+    appt.status = AppointmentStatus.COMPLETED
+    db.add(appt)
+    db.commit()
+
+    provider = _FakePaymentProvider()
+    admin_uc = AdminUsecase(FakeAuthService(), db, email_service=_SilentEmailService())
+
+    with pytest.raises(BadRequestError, match="Completed appointments cannot be refunded"):
+        admin_uc.refund_appointment(
+            appt.appointment_id,
+            AdminRefundRequest(percentage=50, reason="Too late"),
+            acting_admin_id=admin.user_id,
+            provider=provider,
+        )
+    assert len(provider.refunds) == 0
+
+    completed_reads = admin_uc.list_appointments(status="completed")
+    assert len(completed_reads) == 1
+    assert completed_reads[0].psychologist_name == "Dr. Psych"
+
+

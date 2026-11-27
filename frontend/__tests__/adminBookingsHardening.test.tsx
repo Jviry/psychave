@@ -106,7 +106,7 @@ describe('AdminBookingsPage hardening', () => {
     );
 
     const confirmBtn = screen.getByRole('button', {
-      name: 'Confirm Manual Payment',
+      name: /Confirm ₱1,500 Paid/i,
     });
     expect(confirmBtn).toBeDisabled();
 
@@ -158,9 +158,12 @@ describe('AdminBookingsPage hardening', () => {
 
     await userEvent.clear(amtInput);
     await userEvent.type(amtInput, '750.50');
-    expect(submitBtn).toBeEnabled();
+    const confirmRefundBtn = screen.getByRole('button', {
+      name: /Issue ₱750\.5 Refund/i,
+    });
+    expect(confirmRefundBtn).toBeEnabled();
 
-    await userEvent.click(submitBtn);
+    await userEvent.click(confirmRefundBtn);
 
     await waitFor(() => {
       expect(api.refundAdminAppointment).toHaveBeenCalledWith(paidBooking.id, {
@@ -169,5 +172,26 @@ describe('AdminBookingsPage hardening', () => {
         reason: 'Session shortened',
       });
     });
+  });
+
+  it('displays psychologistName instead of anonymized code and excludes Completed from refund status filter', async () => {
+    const booking = makeBooking({
+      psychologistName: 'Dr. Elena Reyes',
+      psychologistCode: 'Resident Psychologist #RP-11',
+    });
+    vi.mocked(api.getAdminAppointments).mockResolvedValue([booking]);
+
+    renderPage();
+
+    expect(await screen.findByText('Dr. Elena Reyes')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Resident Psychologist #RP-11')
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole('tab', { name: 'Paid & Refunds' })
+    );
+    const statusSelect = screen.getByLabelText(/Filter by status/i);
+    expect(statusSelect).not.toHaveTextContent('Completed');
   });
 });

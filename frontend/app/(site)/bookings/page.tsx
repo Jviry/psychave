@@ -166,7 +166,7 @@ export default function ClientBookingsPage() {
           <p className="text-sm text-pine/80 max-w-2xl">
             Track your request from <strong className="font-semibold">pending</strong> to{' '}
             <strong className="font-semibold">schedule agreement</strong> and{' '}
-            <strong className="font-semibold">paid-confirmed</strong> (contact unlocked), then{' '}
+            <strong className="font-semibold">paid-confirmed</strong>, then{' '}
             <strong className="font-semibold">completed</strong> once the session is done.
           </p>
         </div>
