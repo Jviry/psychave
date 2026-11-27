@@ -277,18 +277,6 @@ class ConsentTemplateUsecase:
                 )
 
         if validate_consent and consent_data is not None:
-            # Cross-field signer name match only when both blocks are active & present
-            if (
-                "terms_signer_name" in present_keys
-                and "consent_signer_name" in present_keys
-            ):
-                t_name = str(responses.get("terms_signer_name") or "").strip().lower()
-                c_name = str(responses.get("consent_signer_name") or "").strip().lower()
-                if t_name and c_name and t_name != c_name:
-                    raise ValidationError(
-                        "Terms signer name and consent signer name must match"
-                    )
-
             # Minor signer relation check when terms_signer_relation is present or minor rule applies
             is_minor = _calculate_age(profile_data.date_of_birth) < MINOR_CUTOFF_AGE
             signer_rel = str(

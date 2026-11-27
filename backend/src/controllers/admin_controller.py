@@ -10,12 +10,9 @@ from schemas.admin import (
     AdminRefundRequest,
     AdminUserDetailRead,
     AdminUserPage,
-    AdminUserRead,
     ManualPaymentConfirmRequest,
-    PromotePsychologistRequest,
     PsychologistInvitationCreate,
     PsychologistInvitationRead,
-    UpdateUserRoleRequest,
 )
 from schemas.appointment import AppointmentRead
 from usecase.admin_usecase import AdminUsecase
@@ -48,35 +45,6 @@ def get_user_detail(
 ):
     """Retrieve account and profile details for a single user."""
     return AdminUsecase(auth_service, db).get_user_detail(user_id)
-
-
-@router.patch("/users/{user_id}/role", response_model=AdminUserRead)
-def update_user_role(
-    user_id: uuid.UUID,
-    payload: UpdateUserRoleRequest,
-    auth_service: AuthServiceDep,
-    current_user: AdminUserDep,
-    db: DbDep,
-):
-    """Change a user's role and swap their Cognito access group."""
-    return AdminUsecase(auth_service, db).change_role(
-        user_id,
-        payload.role,
-        payload.full_name,
-        current_user.user_id,
-    )
-
-
-@router.post("/users/{user_id}/promote", response_model=AdminUserRead)
-def promote_psychologist(
-    user_id: uuid.UUID,
-    payload: PromotePsychologistRequest,
-    auth_service: AuthServiceDep,
-    current_user: AdminUserDep,
-    db: DbDep,
-):
-    """Promote an existing client to psychologist and create their profile."""
-    return AdminUsecase(auth_service, db).promote_to_psychologist(user_id, payload)
 
 
 @router.post(

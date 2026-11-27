@@ -168,13 +168,12 @@ def test_wizard_cms_json_storage_minor_vs_major_versioning_and_resign(
             ),
             consent=ConsentCreate(
                 consent_version="v2",
-                terms_signer_name="Juan Dela Cruz Sr.",
+                terms_agreed=True,
                 terms_signer_relation="parent",
                 scope_acknowledged=True,
                 is_overseas_or_foreign=False,
                 overseas_acknowledged=False,
                 information_confirmed=True,
-                consent_signer_name="Juan Dela Cruz Sr.",
             ),
         ),
         client_user.user_id,
@@ -197,7 +196,7 @@ def test_wizard_cms_json_storage_minor_vs_major_versioning_and_resign(
         select(Forms).where(Forms.profile_id == created_read.profile_id)
     ).first()
     assert db_form is not None
-    assert db_form.responses["terms_signer_name"] == "Juan Dela Cruz Sr."
+    assert db_form.responses["terms_agreed"] is True
     assert isinstance(db_form.responses.get("_review_sections"), list)
 
     # Psychologist review returns labeled review_sections when profile has a PENDING appointment
@@ -390,13 +389,12 @@ def test_wizard_cms_json_storage_minor_vs_major_versioning_and_resign(
             created_read.profile_id,
             ConsentCreate(
                 consent_version="v3",
-                terms_signer_name="Juan Dela Cruz Sr.",
+                terms_agreed=True,
                 terms_signer_relation="parent",
                 scope_acknowledged=True,
                 is_overseas_or_foreign=False,
                 overseas_acknowledged=False,
                 information_confirmed=True,
-                consent_signer_name="Juan Dela Cruz Sr.",
                 responses={
                     "previous_therapy": "yes",
                     "telehealth_consent_ack": True,
@@ -410,13 +408,12 @@ def test_wizard_cms_json_storage_minor_vs_major_versioning_and_resign(
         created_read.profile_id,
         ConsentCreate(
             consent_version="v3",
-            terms_signer_name="Juan Dela Cruz Sr.",
+            terms_agreed=True,
             terms_signer_relation="parent",
             scope_acknowledged=True,
             is_overseas_or_foreign=False,
             overseas_acknowledged=False,
             information_confirmed=True,
-            consent_signer_name="Juan Dela Cruz Sr.",
             responses={
                 "previous_therapy": "yes",
                 "previous_therapist_notes": "6 months of CBT in 2024.",
@@ -619,13 +616,12 @@ def test_postgres_migration_seed_and_api_integration():
                     },
                     "consent": {
                         "consent_version": active_form["consent_version"],
-                        "terms_signer_name": "Jose Santos",
+                        "terms_agreed": True,
                         "terms_signer_relation": "parent",
                         "scope_acknowledged": True,
                         "is_overseas_or_foreign": False,
                         "overseas_acknowledged": False,
                         "information_confirmed": True,
-                        "consent_signer_name": "Jose Santos",
                     },
                 },
             )

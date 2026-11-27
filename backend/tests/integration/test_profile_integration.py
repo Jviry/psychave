@@ -29,11 +29,10 @@ def test_create_and_fetch_profile_with_consent(client, auth_override, db_session
         },
         "consent": {
             "consent_version": "v2",
-            "terms_signer_name": "Pedro Santos",
+            "terms_agreed": True,
             "terms_signer_relation": "parent",
             "scope_acknowledged": True,
             "information_confirmed": True,
-            "consent_signer_name": "Pedro Santos",
             "is_overseas_or_foreign": False,
             "overseas_acknowledged": False,
         },
@@ -54,7 +53,7 @@ def test_create_and_fetch_profile_with_consent(client, auth_override, db_session
     db_form = db_session.exec(select(Forms).where(Forms.profile_id == profile_id)).first()
     assert db_form is not None
     assert db_form.consent_version == "v2"
-    assert db_form.terms_signer_name == "Pedro Santos"
+    assert db_form.terms_agreed is True
 
     # Verify creating a 'self' profile via POST /profiles is blocked
     self_payload = {

@@ -72,29 +72,6 @@ class TestAdminPsychologistInvitation:
                 acting_admin_id=uuid.uuid4(),
             )
 
-    def test_change_role_blocks_promoting_client_to_psychologist(self):
-        auth = MagicMock()
-        db = MagicMock()
-        uc = AdminUsecase(auth, db, email_service=MagicMock())
-        uc.user_repo = MagicMock()
-        client_user = User(
-            user_id=uuid.uuid4(),
-            cognito_sub="sub-client",
-            email="client@example.com",
-            role=UserRole.CLIENT.value,
-        )
-        uc.user_repo.get_by_id.return_value = client_user
-
-        with pytest.raises(
-            ConflictError, match="Send a psychologist invitation instead"
-        ):
-            uc.change_role(
-                user_id=client_user.user_id,
-                target_role=UserRole.PSYCHOLOGIST,
-                full_name="Dr. Fake",
-                acting_admin_id=uuid.uuid4(),
-            )
-
 
 class TestPsychologistInviteRegistration:
     def _build_invitation(

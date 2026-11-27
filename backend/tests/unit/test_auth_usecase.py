@@ -51,17 +51,15 @@ def _valid_profile_payload(
 
 
 def _valid_consent_payload(
-    signer_name: str = "John Doe",
     signer_relation: str = "self",
     version: str = "v2",
 ) -> dict:
     return {
         "consent_version": version,
-        "terms_signer_name": signer_name,
+        "terms_agreed": True,
         "terms_signer_relation": signer_relation,
         "scope_acknowledged": True,
         "information_confirmed": True,
-        "consent_signer_name": signer_name,
         "is_overseas_or_foreign": False,
         "overseas_acknowledged": False,
     }
@@ -285,9 +283,7 @@ def test_profile_usecase_blocks_self_creation_and_deletion_and_allows_self_edit(
             profile=_valid_profile_payload(
                 profile_name="Child Doe", dob="2015-05-01", relation="child"
             ),
-            consent=_valid_consent_payload(
-                signer_name="John Doe", signer_relation="parent"
-            ),
+            consent=_valid_consent_payload(signer_relation="parent"),
         ),
         user.user_id,
     )

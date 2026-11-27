@@ -127,62 +127,6 @@ class UserRepository:
 
         self.session.commit()
 
-    def apply_role_change(
-        self,
-        user: User,
-        target_role: UserRole,
-        full_name: str | None,
-        profile_fields: dict,
-    ) -> User:
-        """Upsert the target role's profile row and update the cached role.
-
-        Existing profile rows are intentionally kept on demotion: client profiles and
-        appointments reference them, and they preserve historical data.
-        Rolls back on error so callers can undo upstream Cognito group changes.
-        """
-        try:
-            if target_role == UserRole.CLIENT:
-                if self.session.get(ClientProfile, user.user_id) is None:
-                    self.session.add(ClientProfile(client_id=user.user_id))
-
-            elif target_role == UserRole.PSYCHOLOGIST:
-                profile = self.session.get(PsychologistProfile, user.user_id)
-                if profile is None:
-                    profile = PsychologistProfile(
-                        psychologist_id=user.user_id,
-                        full_name=full_name or user.email,
-                    )
-                    self.session.add(profile)
-                elif full_name:
-                    profile.full_name = full_name
-
-                for field, value in profile_fields.items():
-                    setattr(profile, field, value)
-                self.session.add(profile)
-
-            elif target_role == UserRole.ADMIN:
-                profile = self.session.get(AdminProfile, user.user_id)
-                if profile is None:
-                    self.session.add(
-                        AdminProfile(
-                            admin_id=user.user_id,
-                            full_name=full_name or user.email,
-                        )
-                    )
-                elif full_name:
-                    profile.full_name = full_name
-                    self.session.add(profile)
-
-            user.role = target_role.value
-            self.session.add(user)
-            self.session.commit()
-        except Exception:
-            self.session.rollback()
-            raise
-
-        self.session.refresh(user)
-        return user
-
     def _joined_users(self):
         return (
             select(User)

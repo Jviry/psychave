@@ -111,6 +111,7 @@ class ConsentCreate(SQLModel):
     responses: dict[str, Any] = Field(default_factory=dict)
     custom_responses: dict[str, Any] = Field(default_factory=dict)
 
+    terms_agreed: bool | None = None
     terms_signer_name: str | None = None
     terms_signer_relation: str | None = None
     scope_acknowledged: bool | None = None
@@ -125,6 +126,7 @@ class ConsentCreate(SQLModel):
             **(self.custom_responses or {}),
         }
         legacy_keys = (
+            "terms_agreed",
             "terms_signer_name",
             "terms_signer_relation",
             "scope_acknowledged",
@@ -221,6 +223,7 @@ class ConsentRead(SQLModel):
     responses: dict[str, Any] = Field(default_factory=dict)
 
     # Backwards-compatible consent fields populated from responses JSON
+    terms_agreed: bool = False
     terms_signer_name: str = ""
     terms_signer_relation: str = "self"
     scope_acknowledged: bool = False
@@ -239,6 +242,7 @@ class ConsentRead(SQLModel):
         return cls(
             consent_version=form.consent_version,
             responses=clean_responses,
+            terms_agreed=bool(clean_responses.get("terms_agreed", False)),
             terms_signer_name=str(clean_responses.get("terms_signer_name") or ""),
             terms_signer_relation=str(
                 clean_responses.get("terms_signer_relation") or "self"

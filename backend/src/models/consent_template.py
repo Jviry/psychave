@@ -23,9 +23,8 @@ Other situations mandated by Philippine laws and professional regulations
 Important limitation: All sessions, screening, and results are strictly for therapeutic, clinical, and personal use. These will not be used, shared, or submitted for any legal, court, or administrative proceedings, unless otherwise required by law under exceptional circumstances."""
 
 DEFAULT_TYPING_STATEMENT = (
-    "By typing your full name in the designated field, you confirm that you have "
-    "read, understood, and voluntarily agreed to the terms stated above. If filling "
-    "out for a minor, write your full name and relation to the client."
+    "I have read, understood, and voluntarily agree to the Informed Consent "
+    "and Data Privacy Agreement stated above."
 )
 
 DEFAULT_SCOPE_LIMITATIONS_TEXT = """SCOPE & LIMITATIONS OF SERVICES: All services provided are delivered by licensed psychologists and are intended for clinical, therapeutic, coaching, and personal development purposes only. Services are based on professional training, ethical standards, client self-report, and clinical judgement, and are conducted within the psychologists' scope of competence in accordance with PRC Regulations and PAP ethical guidelines.
@@ -58,7 +57,7 @@ DEFAULT_OVERSEAS_ACK_TEXT = (
 )
 
 DEFAULT_FINAL_CONSENT_STATEMENT = (
-    "By typing my full name below, I confirm that I have read and understood the "
+    "By submitting this form, I confirm that I have read and understood the "
     "description, purpose, scope, limitations, confidentiality, data privacy "
     "provisions, and ethical boundaries of the psychological service I am availing."
 )
@@ -84,7 +83,7 @@ def build_default_wizard_pages(
                     {
                         "block_id": "informed_consent_doc",
                         "type": "scrollable_doc",
-                        "label": "Informed consent text — scroll to read",
+                        "label": "Informed consent text",
                         "content": informed_consent_text,
                         "helper_text": None,
                         "placeholder": None,
@@ -138,14 +137,14 @@ def build_default_wizard_pages(
                         "system_locked": False,
                     },
                     {
-                        "block_id": "terms_signer_name",
-                        "type": "text",
-                        "label": "Signer full name (typed signature)",
+                        "block_id": "terms_agreed",
+                        "type": "checkbox",
+                        "label": typing_statement,
                         "content": None,
-                        "helper_text": typing_statement,
-                        "placeholder": "Type full name",
+                        "helper_text": None,
+                        "placeholder": None,
                         "target": "consent",
-                        "field_key": "terms_signer_name",
+                        "field_key": "terms_agreed",
                         "applies_to": "all",
                         "required": True,
                         "options": [],
@@ -157,12 +156,12 @@ def build_default_wizard_pages(
             {
                 "page_id": "step-2-scope",
                 "title": "Services & acknowledgements",
-                "description": "Review offered services and clinical scope guardrails.",
+                "description": None,
                 "blocks": [
                     {
                         "block_id": "services_overview",
                         "type": "services_list",
-                        "label": "Services offered (read-only)",
+                        "label": "Services offered",
                         "content": None,
                         "helper_text": None,
                         "placeholder": None,
@@ -177,7 +176,7 @@ def build_default_wizard_pages(
                     {
                         "block_id": "scope_limitations_doc",
                         "type": "scrollable_doc",
-                        "label": "Scope & limitations of services — scroll to read",
+                        "label": "Scope & limitations of services",
                         "content": scope_limitations_text,
                         "helper_text": None,
                         "placeholder": None,
@@ -222,7 +221,7 @@ def build_default_wizard_pages(
                     {
                         "block_id": "overseas_limitations_doc",
                         "type": "scrollable_doc",
-                        "label": "Limitations for overseas clients and foreign nationals — scroll to read",
+                        "label": "Limitations for overseas clients and foreign nationals",
                         "content": overseas_limitations_text,
                         "helper_text": None,
                         "placeholder": None,
@@ -260,7 +259,7 @@ def build_default_wizard_pages(
             {
                 "page_id": "step-3-demographics",
                 "title": "Demographics",
-                "description": "Provide demographic and contact information.",
+                "description": None,
                 "blocks": [
                     {
                         "block_id": "first_name",
@@ -548,21 +547,6 @@ def build_default_wizard_pages(
                         "field_key": None,
                         "applies_to": "all",
                         "required": False,
-                        "options": [],
-                        "show_if": None,
-                        "system_locked": False,
-                    },
-                    {
-                        "block_id": "consent_signer_name",
-                        "type": "text",
-                        "label": "Final consent signer full name",
-                        "content": None,
-                        "helper_text": None,
-                        "placeholder": "Type full name to sign",
-                        "target": "consent",
-                        "field_key": "consent_signer_name",
-                        "applies_to": "all",
-                        "required": True,
                         "options": [],
                         "show_if": None,
                         "system_locked": False,
