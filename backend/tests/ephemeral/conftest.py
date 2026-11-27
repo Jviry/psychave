@@ -178,13 +178,12 @@ def create_client_profile(api_url: str):
             },
             "consent": {
                 "consent_version": "v2",
-                "terms_signer_name": name,
+                "terms_agreed": True,
                 "terms_signer_relation": "other",
                 "scope_acknowledged": True,
                 "is_overseas_or_foreign": False,
                 "overseas_acknowledged": False,
                 "information_confirmed": True,
-                "consent_signer_name": name,
             },
         }
         res = httpx.post(
