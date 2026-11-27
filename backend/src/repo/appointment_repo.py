@@ -238,6 +238,7 @@ class AppointmentRepo:
         requested_by: str | None = None,
         reason: str | None = None,
         waived: bool | None = None,
+        slot_rows: list[tuple] | None = None,
     ) -> Appointment:
         self.release_selected_slot(appointment)
         appointment.payment_deadline = None
@@ -249,6 +250,23 @@ class AppointmentRepo:
             appointment.reschedule_reason = reason
         if waived is not None:
             appointment.reschedule_fee_waived = waived
+        if slot_rows:
+            self._decline_round(
+                appointment.appointment_id, appointment.scheduling_round
+            )
+            appointment.scheduling_round += 1
+            for session_date, start_time, end_time in slot_rows:
+                self.db.add(
+                    ProposedSlot(
+                        appointment_id=appointment.appointment_id,
+                        session_date=session_date,
+                        start_time=start_time,
+                        end_time=end_time,
+                        proposed_by=SlotProposer.CLIENT,
+                        status=SlotStatus.PROPOSED,
+                        round=appointment.scheduling_round,
+                    )
+                )
         self.db.add(appointment)
         self.db.commit()
         self.db.refresh(appointment)
@@ -284,10 +302,13 @@ class AppointmentRepo:
         self.db.refresh(appointment)
         return appointment
 
-    def waive_reschedule_fee(self, appointment: Appointment) -> Appointment:
+    def waive_reschedule_fee(
+        self, appointment: Appointment, *, reason: str | None = None
+    ) -> Appointment:
         self.release_selected_slot(appointment)
         appointment.payment_deadline = None
         appointment.reschedule_fee_waived = True
+        appointment.reschedule_waiver_reason = reason
         appointment.status = AppointmentStatus.AWAITING_SCHEDULE
         appointment.scheduling_turn = SchedulingTurn.CLIENT
         self.db.exec(
@@ -391,7 +412,12 @@ class AppointmentRepo:
             round=slot.round,
         )
 
-    def build_reads(self, appointments: list[Appointment]) -> list[AppointmentRead]:
+    def build_reads(
+        self,
+        appointments: list[Appointment],
+        *,
+        include_internal: bool = False,
+    ) -> list[AppointmentRead]:
         """Batch-load related entities and assemble AppointmentRead DTOs (no N+1)."""
         if not appointments:
             return []
@@ -506,6 +532,11 @@ class AppointmentRepo:
                     reschedule_fee_waived=appointment.reschedule_fee_waived,
                     reschedule_requested_by=appointment.reschedule_requested_by,
                     reschedule_reason=appointment.reschedule_reason,
+                    reschedule_waiver_reason=(
+                        appointment.reschedule_waiver_reason
+                        if include_internal
+                        else None
+                    ),
                     refund_amount_centavos=appointment.refund_amount_centavos,
                     refund_reason=appointment.refund_reason,
                     refunded_at=appointment.refunded_at,
@@ -531,5 +562,10 @@ class AppointmentRepo:
 
         return reads
 
-    def build_read(self, appointment: Appointment) -> AppointmentRead:
-        return self.build_reads([appointment])[0]
+    def build_read(
+        self,
+        appointment: Appointment,
+        *,
+        include_internal: bool = False,
+    ) -> AppointmentRead:
+        return self.build_reads([appointment], include_internal=include_internal)[0]

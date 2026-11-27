@@ -459,12 +459,12 @@ export function BookingStatusTag({ status }: { status: BookingStatus }) {
       dotClass: 'bg-pine/50',
     },
     'reschedule-requested': {
-      label: 'reschedule-requested · ₱600 fee or waiver needed',
+      label: 'reschedule-requested · reschedule fee required',
       textClass: 'text-amber-800 font-semibold',
       dotClass: 'bg-amber-500',
     },
     'no-show': {
-      label: 'no-show · ₱600 reschedule fee or waiver needed',
+      label: 'no-show · reschedule fee required',
       textClass: 'text-amber-900 font-semibold',
       dotClass: 'bg-amber-600',
     },

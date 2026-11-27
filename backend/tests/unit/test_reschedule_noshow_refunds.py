@@ -18,6 +18,7 @@ from models.psychologist_profile import PsychologistProfile
 from models.service import Service
 from models.user import User, UserRole
 from schemas.admin import AdminRefundRequest
+from schemas.appointment import SlotInput
 from services.auth.fake_service import FakeAuthService
 from services.email.base import BaseEmailService
 from services.payments.base import InitiatedPayment, RefundResult, WebhookEvent
@@ -29,8 +30,12 @@ from usecase.psychologist_usecase import PsychologistUsecase
 
 
 class _SilentEmailService(BaseEmailService):
+    def __init__(self) -> None:
+        super().__init__()
+        self.sent: list[tuple[str, str, str]] = []
+
     def send_email(self, to: str, subject: str, html: str, text: str) -> None:
-        pass
+        self.sent.append((to, subject, text))
 
 
 class _FakePaymentProvider:
@@ -175,16 +180,52 @@ def _seed_confirmed(
 
 def test_client_reschedule_free_when_at_least_2h_before(db: Session):
     appt, client, _, _ = _seed_confirmed(db, session_offset=timedelta(hours=5))
-    uc = AppointmentUsecase(db, email_service=_SilentEmailService())
+    email_svc = _SilentEmailService()
+    uc = AppointmentUsecase(db, email_service=email_svc)
 
     res = uc.request_reschedule(
         appt.appointment_id, client.user_id, UserRole.CLIENT, reason="Conflict"
     )
     assert res.status == AppointmentStatus.AWAITING_SCHEDULE
-    assert res.scheduling_turn == SchedulingTurn.PSYCHOLOGIST
+    assert res.scheduling_turn == SchedulingTurn.CLIENT
     assert res.selected_slot_id is None
     assert res.reschedule_requested_by == "client"
     assert res.reschedule_reason == "Conflict"
+    assert any(to == "psych@example.com" for to, _, _ in email_svc.sent)
+
+
+def test_client_reschedule_free_with_preferred_slots_sets_psychologist_turn(db: Session):
+    appt, client, _, _ = _seed_confirmed(db, session_offset=timedelta(hours=5))
+    uc = AppointmentUsecase(db, email_service=_SilentEmailService())
+    d = (now_manila() + timedelta(days=4)).date()
+    slots = [
+        SlotInput(session_date=d, start_time=time(9, 0)),
+        SlotInput(session_date=d, start_time=time(11, 0)),
+        SlotInput(session_date=d, start_time=time(14, 0)),
+    ]
+
+    res = uc.request_reschedule(
+        appt.appointment_id,
+        client.user_id,
+        UserRole.CLIENT,
+        reason="Need next week",
+        preferred_slots=slots,
+    )
+    assert res.status == AppointmentStatus.AWAITING_SCHEDULE
+    assert res.scheduling_turn == SchedulingTurn.PSYCHOLOGIST
+    assert res.scheduling_round == 2
+    round2_proposed = [
+        s for s in res.proposed_slots if s.round == 2 and s.status == SlotStatus.PROPOSED
+    ]
+    assert len(round2_proposed) == 3
+
+
+def test_client_cannot_reschedule_after_session_start(db: Session):
+    appt, client, _, _ = _seed_confirmed(db, session_offset=timedelta(minutes=-15))
+    uc = AppointmentUsecase(db, email_service=_SilentEmailService())
+
+    with pytest.raises(BadRequestError, match="after the scheduled session start time"):
+        uc.request_reschedule(appt.appointment_id, client.user_id, UserRole.CLIENT)
 
 
 def test_client_reschedule_requires_fee_when_under_2h(db: Session):
@@ -224,14 +265,31 @@ def test_mark_no_show_enforces_after_session_start(db: Session):
 
 
 def test_waive_reschedule_fee_transitions_to_awaiting_schedule(db: Session):
-    appt, _, psych, _ = _seed_confirmed(db, session_offset=timedelta(minutes=-30))
-    psych_uc = PsychologistUsecase(db, email_service=_SilentEmailService())
+    appt, client, psych, _ = _seed_confirmed(db, session_offset=timedelta(minutes=-30))
+    email_svc = _SilentEmailService()
+    psych_uc = PsychologistUsecase(db, email_service=email_svc)
+    appt_uc = AppointmentUsecase(db, email_service=email_svc)
     psych_uc.mark_no_show(appt.appointment_id, psych.user_id)
 
-    waived = psych_uc.waive_reschedule_fee(appt.appointment_id, psych.user_id)
+    waived = psych_uc.waive_reschedule_fee(
+        appt.appointment_id, psych.user_id, reason="Medical emergency"
+    )
     assert waived.status == AppointmentStatus.AWAITING_SCHEDULE
     assert waived.scheduling_turn == SchedulingTurn.CLIENT
     assert waived.reschedule_fee_waived is True
+    assert waived.reschedule_waiver_reason == "Medical emergency"
+
+    # Client read must redact internal waiver reason
+    client_read = appt_uc.get_appointment(appt.appointment_id, client.user_id)
+    assert client_read.reschedule_waiver_reason is None
+
+    # No client email should ever mention "waiv"
+    client_emails = [
+        (subj, body) for to, subj, body in email_svc.sent if to == "client@example.com"
+    ]
+    assert len(client_emails) == 2
+    assert all("waiv" not in (subj + body).lower() for subj, body in client_emails)
+    assert "600" not in client_emails[1][1]
 
 
 def test_reschedule_fee_checkout_and_webhook_then_slot_reagreement_confirms(db: Session):
@@ -432,7 +490,7 @@ def test_paid_rescheduled_appointment_blocks_cancel_and_exposes_is_session_paid(
     assert res.status == AppointmentStatus.AWAITING_SCHEDULE
     assert res.is_session_paid is True
 
-    with pytest.raises(BadRequestError, match="Paid appointments cannot be cancelled"):
+    with pytest.raises(BadRequestError, match="cannot be cancelled \\(non-refundable\\)"):
         appt_uc.cancel_appointment(appt.appointment_id, client.user_id)
 
 
@@ -537,6 +595,6 @@ def test_alembic_migration_runs_cleanly_without_pg_enum_types():
 
         appt_cols = {row[1] for row in conn.execute(sa.text("PRAGMA table_info(appointments)"))}
         pay_cols = {row[1] for row in conn.execute(sa.text("PRAGMA table_info(payments)"))}
-        assert {"reschedule_fee_waived", "reschedule_requested_by", "reschedule_reason", "refund_amount_centavos", "refund_reason", "refunded_at", "refunded_by"}.issubset(appt_cols)
+        assert {"reschedule_fee_waived", "reschedule_requested_by", "reschedule_reason", "reschedule_waiver_reason", "refund_amount_centavos", "refund_reason", "refunded_at", "refunded_by"}.issubset(appt_cols)
         assert {"payment_type", "gateway_payment_id", "refund_amount_centavos", "refund_ref", "refund_reason", "refunded_at"}.issubset(pay_cols)
 

@@ -19,6 +19,7 @@ from schemas.appointment import (
     AppointmentRead,
     PreferredSlotsUpdate,
     ProposedSlotRead,
+    SlotInput,
 )
 from schemas.consent_template import extract_major_version
 from dependencies.email import get_email_service
@@ -196,7 +197,7 @@ class AppointmentUsecase:
         appt = self._get_owned_appointment(appointment_id, client_id)
         if PaymentRepo(self.db).has_paid_session(appt.appointment_id):
             raise BadRequestError(
-                "Paid appointments cannot be cancelled directly; please contact support for a refund"
+                "Confirmed or paid appointments cannot be cancelled (non-refundable). Rescheduling is available if requested at least 2 hours before your session."
             )
         if appt.status not in (
             AppointmentStatus.PENDING,
@@ -212,17 +213,16 @@ class AppointmentUsecase:
         actor_id: uuid.UUID,
         actor_role: UserRole,
         reason: str | None = None,
+        preferred_slots: list[SlotInput] | None = None,
     ) -> AppointmentRead:
         if actor_role == UserRole.PSYCHOLOGIST:
             appt = self.repo.get_by_id(appointment_id)
             if appt is None or appt.psychologist_id != actor_id:
                 raise NotFoundError("Appointment not found")
             requested_by = "psychologist"
-            counterparty_turn = SchedulingTurn.CLIENT
         else:
             appt = self._get_owned_appointment(appointment_id, actor_id)
             requested_by = "client"
-            counterparty_turn = SchedulingTurn.PSYCHOLOGIST
 
         if appt.status != AppointmentStatus.CONFIRMED:
             raise BadRequestError("Only confirmed appointments can be rescheduled")
@@ -238,21 +238,69 @@ class AppointmentUsecase:
                 is_free = True
             else:
                 start_dt = slot_start(slot.session_date, slot.start_time)
-                is_free = (start_dt - now_manila()) >= timedelta(hours=2)
+                current = now_manila()
+                if current >= start_dt:
+                    raise BadRequestError(
+                        "Cannot request a reschedule after the scheduled session start time"
+                    )
+                is_free = (start_dt - current) >= timedelta(hours=2)
 
         cleaned_reason = reason.strip() if isinstance(reason, str) and reason.strip() else None
         if is_free:
+            slot_rows: list[tuple] | None = None
+            if requested_by == "client" and preferred_slots:
+                service = self.service_repo.get_by_id(appt.service_id)
+                if service is None:
+                    raise NotFoundError("Service not found")
+                slot_rows = validate_slot_inputs(
+                    preferred_slots, service.duration_minutes
+                )
+                turn = SchedulingTurn.PSYCHOLOGIST
+            else:
+                # Per BPP Step 5b -> Step 2, rescheduling without pre-supplied
+                # slots returns to the client to submit 3-5 preferred times.
+                turn = SchedulingTurn.CLIENT
+
             updated = self.repo.start_reschedule_negotiation(
                 appt,
-                turn=counterparty_turn,
+                turn=turn,
                 requested_by=requested_by,
                 reason=cleaned_reason,
                 waived=False,
+                slot_rows=slot_rows,
             )
+            if requested_by == "client":
+                psych_email = self.repo.get_psychologist_email(updated)
+                if psych_email:
+                    self.email_service.send_reschedule_requested(
+                        psych_email,
+                        str(updated.appointment_id),
+                        "psychologist",
+                        reason=cleaned_reason,
+                    )
+            else:
+                client_email = self.repo.get_client_email(updated)
+                if client_email:
+                    self.email_service.send_reschedule_requested(
+                        client_email,
+                        str(updated.appointment_id),
+                        "client",
+                        reason=cleaned_reason,
+                    )
         else:
             updated = self.repo.request_paid_reschedule(
                 appt,
                 requested_by=requested_by,
                 reason=cleaned_reason,
             )
-        return self.repo.build_read(updated)
+            psych_email = self.repo.get_psychologist_email(updated)
+            if psych_email:
+                self.email_service.send_reschedule_requested(
+                    psych_email,
+                    str(updated.appointment_id),
+                    "psychologist",
+                    reason=cleaned_reason,
+                )
+        return self.repo.build_read(
+            updated, include_internal=(actor_role == UserRole.PSYCHOLOGIST)
+        )

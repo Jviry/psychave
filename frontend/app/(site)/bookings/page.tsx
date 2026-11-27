@@ -111,7 +111,7 @@ export default function ClientBookingsPage() {
           ? 'Reschedule Fee Required (₱600)'
           : 'Reschedule Requested',
         updated.status === 'reschedule-requested'
-          ? `Booking ${updated.id} is within 2 hours of the session. Pay the ₱600 reschedule fee or request a waiver.`
+          ? `Booking ${updated.id} is within 2 hours of the session. Please pay the ₱600 rescheduling fee to choose new schedules.`
           : `Booking ${updated.id} moved back to schedule negotiation.`
       );
     },
@@ -186,7 +186,7 @@ export default function ClientBookingsPage() {
                 ? 'PAYMENT DUE · YOUR AGREED SLOT IS HELD'
                 : firstAction.status === 'reschedule-requested' ||
                     firstAction.status === 'no-show'
-                  ? 'RESCHEDULE FEE DUE · ₱600 OR RPSY WAIVER REQUIRED'
+                  ? 'RESCHEDULE FEE DUE · ₱600 PAYMENT REQUIRED'
                   : 'ACTION REQUIRED · RESPOND TO THE COUNTER-OFFER'}
             </p>
             <p className="text-sm text-pine/90">
@@ -195,7 +195,7 @@ export default function ClientBookingsPage() {
                 ? ` Pay before ${formatManilaDateTime(firstAction.paymentDeadline)} (${formatDeadlineCountdown(firstAction.paymentDeadline)}).`
                 : firstAction.status === 'reschedule-requested' ||
                     firstAction.status === 'no-show'
-                  ? ' Pay the ₱600 reschedule fee to propose new schedules, or wait for your psychologist to waive it.'
+                  ? ' Pay the ₱600 rescheduling fee to propose new schedules.'
                   : ' Accept the psychologist’s alternative time or propose a fresh set of preferred schedules.'}
             </p>
           </div>
@@ -222,7 +222,13 @@ export default function ClientBookingsPage() {
           aria-label="Filter bookings by status"
           className="flex flex-wrap items-center gap-1 p-1 bg-surface-sunken rounded-lg border border-mist"
         >
-          {FILTER_TABS.map((tab) => {
+          {FILTER_TABS.filter(
+            (tab) =>
+              tab.id !== 'partially-refunded' ||
+              bookings.some(
+                (b) => b.status === 'partially-refunded' || b.status === 'refunded'
+              )
+          ).map((tab) => {
             const count = bookings.filter((b) => matchesFilter(b.status, tab.id)).length;
             return (
               <button
@@ -384,9 +390,7 @@ export default function ClientBookingsPage() {
                         </p>
                         <p className="text-xs text-pine/80">
                           {booking.isSessionPaid
-                            ? booking.rescheduleFeeWaived
-                              ? 'Your reschedule fee was waived. Choose 3 to 5 new preferred times.'
-                              : 'Your session payment is on file. Propose 3 to 5 new preferred times to confirm your new slot.'
+                            ? 'Your session payment is on file. Propose 3 to 5 new preferred times to confirm your new slot.'
                             : 'The payment deadline passed. Submit 3 to 5 new preferred schedules to restart scheduling.'}
                         </p>
                         <Button
@@ -503,7 +507,7 @@ export default function ClientBookingsPage() {
                           booking.status === 'no-show') && (
                           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950 space-y-2">
                             <p className="font-semibold">
-                              ₱600 Reschedule Fee Required (unless waived by your RPsy)
+                              ₱600 Rescheduling Fee Required
                             </p>
                             <Button
                               variant="primary"
@@ -531,6 +535,9 @@ export default function ClientBookingsPage() {
                           const slotStartMs = chosenSlot
                             ? parseManilaDateTime(chosenSlot.isoDateTime).getTime()
                             : Number.NaN;
+                          const isFutureSession =
+                            Number.isNaN(slotStartMs) || slotStartMs > Date.now();
+                          if (!isFutureSession) return null;
                           const isWithin2Hours =
                             !Number.isNaN(slotStartMs) &&
                             slotStartMs - Date.now() < 2 * 60 * 60 * 1000;
@@ -538,7 +545,7 @@ export default function ClientBookingsPage() {
                             <div className="pt-2 border-t border-mist space-y-2">
                               {isWithin2Hours && (
                                 <p className="text-[11px] text-amber-800">
-                                  Session is within 2 hours — rescheduling incurs a ₱600 fee unless waived by your psychologist.
+                                  Session is within 2 hours (outside the standard 2-hour reschedule window) — a ₱600 rescheduling fee applies.
                                 </p>
                               )}
                               <Button
@@ -675,23 +682,23 @@ export default function ClientBookingsPage() {
                     ₱600 Late Reschedule Fee Applies
                   </p>
                   <p>
-                    This session starts in less than 2 hours. Requesting a reschedule releases
-                    your current slot and requires paying a ₱600 reschedule fee (unless your
-                    psychologist waives it) before choosing new times.
+                    This session starts in less than 2 hours (outside the standard 2-hour
+                    reschedule window). Requesting a reschedule releases your current slot and
+                    requires paying a ₱600 rescheduling fee before choosing new times.
                   </p>
                   <label className="flex items-start gap-2 cursor-pointer pt-1">
                     <Checkbox
                       checked={rescheduleFeeAck}
                       onChange={(e) => setRescheduleFeeAck(e.target.checked)}
                     />
-                    <span>I understand a ₱600 reschedule fee applies unless waived.</span>
+                    <span>I understand a ₱600 rescheduling fee applies.</span>
                   </label>
                 </div>
               ) : (
                 <p>
-                  Because your session is at least 2 hours away, rescheduling is free. Your
-                  current slot will be released so you and your psychologist can agree on a new
-                  time.
+                  Because your session is at least 2 hours away, rescheduling is free (confirmed
+                  sessions are non-refundable). Your current slot will be released so you can
+                  submit 3 to 5 new preferred times.
                 </p>
               )}
               <div className="space-y-1.5">

@@ -293,6 +293,11 @@ class PaymentUsecase:
                 self.appointments.start_reschedule_negotiation(
                     appt, turn=SchedulingTurn.CLIENT
                 )
+                client_email = self.appointments.get_client_email(appt)
+                if client_email:
+                    self.email_service.send_reschedule_reopened(
+                        client_email, str(appt.appointment_id), fee_paid=True
+                    )
             elif (
                 payment.payment_type == PaymentType.SESSION
                 and appt.status == AppointmentStatus.AWAITING_PAYMENT

@@ -19,6 +19,7 @@ from schemas.appointment import (
     ProposedSlotRead,
     RescheduleRequest,
     SlotSelect,
+    WaiveRescheduleFeeRequest,
 )
 from schemas.payment import PaymentInitiateRequest, PaymentRead
 from usecase.appointment_usecase import AppointmentUsecase
@@ -156,11 +157,13 @@ def request_reschedule(
     payload: RescheduleRequest | None = None,
 ):
     reason = payload.reason if payload is not None else None
+    preferred_slots = payload.preferred_slots if payload is not None else None
     return AppointmentUsecase(db).request_reschedule(
         appointment_id,
         current_user.user_id,
         UserRole(current_user.role),
         reason=reason,
+        preferred_slots=preferred_slots,
     )
 
 
@@ -180,9 +183,13 @@ def waive_reschedule_fee(
     appointment_id: uuid.UUID,
     db: DbDep,
     current_psychologist: CurrentPsychologistDep,
+    payload: WaiveRescheduleFeeRequest | None = None,
 ):
+    reason = payload.reason if payload is not None else None
     return PsychologistUsecase(db).waive_reschedule_fee(
-        appointment_id, current_psychologist.psychologist_id
+        appointment_id,
+        current_psychologist.psychologist_id,
+        reason=reason,
     )
 
 

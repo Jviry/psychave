@@ -52,6 +52,7 @@ class Appointment(SQLModel, table=True):
     reschedule_fee_waived: bool = Field(default=False)
     reschedule_requested_by: str | None = Field(default=None)
     reschedule_reason: str | None = Field(default=None)
+    reschedule_waiver_reason: str | None = Field(default=None)
     refund_amount_centavos: int | None = Field(default=None)
     refund_reason: str | None = Field(default=None)
     refunded_at: datetime | None = Field(default=None)

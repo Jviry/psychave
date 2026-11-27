@@ -68,6 +68,7 @@ export default function PsychologistSchedulePage() {
     session: BookingRequest;
   } | null>(null);
   const [rescheduleReason, setRescheduleReason] = useState('');
+  const [waiverReason, setWaiverReason] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
   const [reviewTargetId, setReviewTargetId] = useState<string | null>(null);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
@@ -102,10 +103,12 @@ export default function PsychologistSchedulePage() {
   });
 
   const waiveFeeMutation = useMutation({
-    mutationFn: (bookingId: string) => api.waiveRescheduleFee(bookingId),
+    mutationFn: ({ bookingId, reason }: { bookingId: string; reason: string }) =>
+      api.waiveRescheduleFee(bookingId, reason),
     onSuccess: () => {
       setActionError(null);
       setConfirmAction(null);
+      setWaiverReason('');
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
     },
     onError: (err: Error) => setActionError(err.message),
@@ -718,6 +721,7 @@ export default function PsychologistSchedulePage() {
                         onClick={() => {
                           waiveFeeMutation.reset();
                           setActionError(null);
+                          setWaiverReason('');
                           setConfirmAction({ type: 'waive-fee', session });
                         }}
                       >
@@ -779,6 +783,12 @@ export default function PsychologistSchedulePage() {
                             <div className="flex justify-between border-b border-mist/50 pb-1.5">
                               <span className="text-pine/70">Payment Timestamp:</span>
                               <span className="font-mono text-pine">{session.paidAt}</span>
+                            </div>
+                          )}
+                          {session.rescheduleWaiverReason && (
+                            <div className="flex justify-between border-b border-mist/50 pb-1.5">
+                              <span className="text-pine/70">Fee Waiver Reason:</span>
+                              <span className="text-pine">{session.rescheduleWaiverReason}</span>
                             </div>
                           )}
                           {session.refundAmountCentavos != null && (
@@ -862,6 +872,7 @@ export default function PsychologistSchedulePage() {
             return;
           setConfirmAction(null);
           setRescheduleReason('');
+          setWaiverReason('');
         }}
         title={
           confirmAction?.type === 'no-show'
@@ -895,14 +906,18 @@ export default function PsychologistSchedulePage() {
               disabled={
                 noShowMutation.isPending ||
                 waiveFeeMutation.isPending ||
-                rescheduleMutation.isPending
+                rescheduleMutation.isPending ||
+                (confirmAction?.type === 'waive-fee' && !waiverReason.trim())
               }
               onClick={() => {
                 if (!confirmAction) return;
                 if (confirmAction.type === 'no-show') {
                   noShowMutation.mutate(confirmAction.session.id);
                 } else if (confirmAction.type === 'waive-fee') {
-                  waiveFeeMutation.mutate(confirmAction.session.id);
+                  waiveFeeMutation.mutate({
+                    bookingId: confirmAction.session.id,
+                    reason: waiverReason,
+                  });
                 } else {
                   rescheduleMutation.mutate({
                     bookingId: confirmAction.session.id,
@@ -933,10 +948,21 @@ export default function PsychologistSchedulePage() {
               </p>
             )}
             {confirmAction.type === 'waive-fee' && (
-              <p>
-                Waiving the ₱600 reschedule fee lets the client submit new preferred schedules
-                immediately at no extra charge.
-              </p>
+              <div className="space-y-2">
+                <p>
+                  Waiving the ₱600 reschedule fee lets the client submit new preferred schedules
+                  immediately at no extra charge (internal RPsy prerogative for valid reasons).
+                </p>
+                <div className="space-y-1">
+                  <Label htmlFor="psych-waiver-reason">Valid reason for waiving fee</Label>
+                  <Input
+                    id="psych-waiver-reason"
+                    value={waiverReason}
+                    onChange={(e) => setWaiverReason(e.target.value)}
+                    placeholder="Document the valid reason for waiving the ₱600 fee"
+                  />
+                </div>
+              </div>
             )}
             {confirmAction.type === 'reschedule' && (
               <div className="space-y-2">

@@ -331,7 +331,7 @@ class PsychologistUsecase:
     def list_mine(self, psychologist_id: uuid.UUID, status: AppointmentStatus | None = None) -> list[AppointmentRead]:
         self.appointment_repo.expire_overdue_for_psychologist(psychologist_id)
         appointments = self.repo.list_for_psychologist(psychologist_id, status)
-        reads = self.appointment_repo.build_reads(appointments)
+        reads = self.appointment_repo.build_reads(appointments, include_internal=True)
         needs_conflict_check = any(
             r.status == AppointmentStatus.AWAITING_SCHEDULE
             and r.scheduling_turn == SchedulingTurn.PSYCHOLOGIST
@@ -354,7 +354,8 @@ class PsychologistUsecase:
 
     def get_detail(self, appointment_id: uuid.UUID, psychologist_id: uuid.UUID) -> AppointmentRead:
         read = self.appointment_repo.build_read(
-            self._get_owned_appointment(appointment_id, psychologist_id)
+            self._get_owned_appointment(appointment_id, psychologist_id),
+            include_internal=True,
         )
         if (
             read.status == AppointmentStatus.AWAITING_SCHEDULE
@@ -422,12 +423,19 @@ class PsychologistUsecase:
                     raise BadRequestError(
                         "Cannot mark no-show before the scheduled session start time"
                     )
-        return self.appointment_repo.build_read(
-            self.appointment_repo.mark_no_show(appt)
-        )
+        updated = self.appointment_repo.mark_no_show(appt)
+        client_email = self.appointment_repo.get_client_email(updated)
+        if client_email:
+            self.email_service.send_no_show_marked(
+                client_email, str(updated.appointment_id)
+            )
+        return self.appointment_repo.build_read(updated, include_internal=True)
 
     def waive_reschedule_fee(
-        self, appointment_id: uuid.UUID, psychologist_id: uuid.UUID
+        self,
+        appointment_id: uuid.UUID,
+        psychologist_id: uuid.UUID,
+        reason: str | None = None,
     ) -> AppointmentRead:
         appt = self._get_owned_appointment(appointment_id, psychologist_id)
         if appt.status not in (
@@ -437,9 +445,18 @@ class PsychologistUsecase:
             raise BadRequestError(
                 "Only appointments awaiting a reschedule fee or marked no-show can have the fee waived"
             )
-        return self.appointment_repo.build_read(
-            self.appointment_repo.waive_reschedule_fee(appt)
+        cleaned_reason = (
+            reason.strip() if isinstance(reason, str) and reason.strip() else None
         )
+        updated = self.appointment_repo.waive_reschedule_fee(
+            appt, reason=cleaned_reason
+        )
+        client_email = self.appointment_repo.get_client_email(updated)
+        if client_email:
+            self.email_service.send_reschedule_reopened(
+                client_email, str(updated.appointment_id), fee_paid=False
+            )
+        return self.appointment_repo.build_read(updated, include_internal=True)
 
     # ----- profile -----
 

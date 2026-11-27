@@ -75,7 +75,7 @@ class AdminUsecase:
             repo.expire_if_overdue(appt)
         if status is not None:
             appointments = [a for a in appointments if a.status == status]
-        return repo.build_reads(appointments)
+        return repo.build_reads(appointments, include_internal=True)
 
     def confirm_manual_payment(
         self, appointment_id: uuid.UUID, note: str | None = None
@@ -225,7 +225,15 @@ class AdminUsecase:
             refund_ref,
             payload.reason,
         )
-        return repo.build_read(appt)
+        client_email = repo.get_client_email(appt)
+        if client_email:
+            self.email_service.send_partial_refund_issued(
+                client_email,
+                str(appt.appointment_id),
+                refund_centavos / 100.0,
+                payload.reason,
+            )
+        return repo.build_read(appt, include_internal=True)
 
     def change_role(
         self,

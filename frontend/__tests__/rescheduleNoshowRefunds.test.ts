@@ -81,11 +81,17 @@ describe('reschedule, no-show & partial refund API adapters', () => {
         status: 200,
       })
     );
-    const r1 = await api.requestReschedule(BASE_RAW.appointment_id, 'Emergency');
+    const r1 = await api.requestReschedule(BASE_RAW.appointment_id, 'Emergency', [
+      '2026-12-10T10:00',
+      '2026-12-11T10:00',
+      '2026-12-12T10:00',
+    ]);
     expect(r1.status).toBe('reschedule-requested');
     expect(String(mockFetch.mock.calls[0][0])).toContain(
       `/appointments/${BASE_RAW.appointment_id}/reschedule-request`
     );
+    const r1Body = JSON.parse(String(mockFetch.mock.calls[0][1]?.body));
+    expect(r1Body.preferred_slots).toHaveLength(3);
 
     mockFetch.mockResolvedValueOnce(
       new Response(JSON.stringify({ ...BASE_RAW, status: 'no_show' }), { status: 200 })
@@ -103,13 +109,20 @@ describe('reschedule, no-show & partial refund API adapters', () => {
           status: 'awaiting_schedule',
           scheduling_turn: 'client',
           reschedule_fee_waived: true,
+          reschedule_waiver_reason: 'Valid medical reason',
         }),
         { status: 200 }
       )
     );
-    const r3 = await api.waiveRescheduleFee(BASE_RAW.appointment_id);
+    const r3 = await api.waiveRescheduleFee(
+      BASE_RAW.appointment_id,
+      'Valid medical reason'
+    );
     expect(r3.status).toBe('awaiting-client');
     expect(r3.rescheduleFeeWaived).toBe(true);
+    expect(r3.rescheduleWaiverReason).toBe('Valid medical reason');
+    const r3Body = JSON.parse(String(mockFetch.mock.calls[2][1]?.body));
+    expect(r3Body.reason).toBe('Valid medical reason');
     expect(String(mockFetch.mock.calls[2][0])).toContain(
       `/appointments/${BASE_RAW.appointment_id}/waive-reschedule-fee`
     );
