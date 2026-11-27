@@ -381,6 +381,7 @@ interface AppointmentRaw {
   service_duration_minutes: number | null;
   service_guardrail: string | null;
   psychologist_id: string | null;
+  psychologist_name?: string | null;
   selected_slot_id: string | null;
   price: number | null;
   presenting_concern: string;
@@ -711,6 +712,7 @@ function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
     submittedAt: raw.requested_datetime ? raw.requested_datetime.slice(0, 10) : '—',
     status,
     psychologistId: raw.psychologist_id ?? undefined,
+    psychologistName: raw.psychologist_name ?? undefined,
     psychologistCode: code ? `Resident Psychologist #${code}` : undefined,
     pricePhp: raw.price ?? undefined,
     proposedSlots,
@@ -1413,7 +1415,7 @@ export const api = {
     return mapAppointmentRaw(raw);
   },
 
-  /** Pay for an already-agreed slot. Contact unlocks only after confirmation. */
+  /** Pay for an already-agreed slot. Finalizes the booking as confirmed. */
   payBooking: async (bookingId: string): Promise<BookingRequest> => {
     const path = `/appointments/${assertUuid(bookingId, 'bookingId')}/payment`;
     const payRes = await liveFetch(path, {

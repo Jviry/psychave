@@ -4,9 +4,12 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
+  Check,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Clock,
+  Copy,
   CreditCard,
   Loader2,
   Receipt,
@@ -32,7 +35,6 @@ import {
 type AdminTab = 'awaiting_payment' | 'refunds';
 type RefundFilterStatus =
   | 'confirmed'
-  | 'completed'
   | 'no_show'
   | 'reschedule_requested'
   | 'partially_refunded'
@@ -45,7 +47,6 @@ const ADMIN_TABS: { id: AdminTab; label: string }[] = [
 
 const REFUND_STATUS_OPTIONS: { value: RefundFilterStatus; label: string }[] = [
   { value: 'confirmed', label: 'Confirmed' },
-  { value: 'completed', label: 'Completed' },
   { value: 'no_show', label: 'No-Show' },
   { value: 'reschedule_requested', label: 'Reschedule Requested' },
   { value: 'partially_refunded', label: 'Partially Refunded' },
@@ -54,6 +55,7 @@ const REFUND_STATUS_OPTIONS: { value: RefundFilterStatus; label: string }[] = [
 
 const REFUND_PRESETS = [25, 50, 75] as const;
 const PAGE_SIZE = 10;
+const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
 const phpFormatter = new Intl.NumberFormat('en-PH', {
   minimumFractionDigits: 0,
@@ -68,7 +70,7 @@ function formatShortId(id: string): string {
   return id.length > 12 ? `${id.slice(0, 8)}…` : id;
 }
 
-function formatDeadline(iso?: string): string | null {
+function formatDateTime(iso?: string): string | null {
   if (!iso) return null;
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
@@ -80,6 +82,18 @@ function formatDeadline(iso?: string): string | null {
   });
 }
 
+function getDeadlineUrgency(
+  iso?: string
+): 'overdue' | 'soon' | 'normal' | null {
+  if (!iso) return null;
+  const ts = new Date(iso).getTime();
+  if (Number.isNaN(ts)) return null;
+  const diff = ts - Date.now();
+  if (diff <= 0) return 'overdue';
+  if (diff <= TWO_HOURS_MS) return 'soon';
+  return 'normal';
+}
+
 export default function AdminBookingsPage() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<AdminTab>('awaiting_payment');
@@ -87,6 +101,7 @@ export default function AdminBookingsPage() {
     useState<RefundFilterStatus>('confirmed');
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Active modal state
   const [paymentModalAppt, setPaymentModalAppt] =
@@ -129,21 +144,36 @@ export default function AdminBookingsPage() {
 
   const filteredAppointments = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return appointments;
-    return appointments.filter((appt) => {
-      const haystack = [
-        appt.id,
-        appt.profileLabel,
-        appt.serviceTitle,
-        appt.psychologistCode,
-        appt.psychologistId,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(q);
+    const matched = !q
+      ? appointments
+      : appointments.filter((appt) => {
+          const haystack = [
+            appt.id,
+            appt.profileLabel,
+            appt.serviceTitle,
+            appt.psychologistName,
+            appt.psychologistCode,
+            appt.psychologistId,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+          return haystack.includes(q);
+        });
+
+    if (activeTab !== 'awaiting_payment') return matched;
+
+    // Sort awaiting-payment bookings by soonest / overdue deadline first
+    return [...matched].sort((a, b) => {
+      const aTs = a.paymentDeadline
+        ? new Date(a.paymentDeadline).getTime()
+        : Number.POSITIVE_INFINITY;
+      const bTs = b.paymentDeadline
+        ? new Date(b.paymentDeadline).getTime()
+        : Number.POSITIVE_INFINITY;
+      return aTs - bTs;
     });
-  }, [appointments, searchQuery]);
+  }, [appointments, searchQuery, activeTab]);
 
   // Reset pagination whenever filters change
   useEffect(() => {
@@ -210,6 +240,18 @@ export default function AdminBookingsPage() {
     },
   });
 
+  async function handleCopyId(id: string) {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopiedId(id);
+      setTimeout(() => {
+        setCopiedId((prev) => (prev === id ? null : prev));
+      }, 2000);
+    } catch {
+      setCopiedId(null);
+    }
+  }
+
   function openPaymentModal(appt: BookingRequest) {
     setPaymentModalAppt(appt);
     setPaymentNote('');
@@ -264,7 +306,7 @@ export default function AdminBookingsPage() {
     tabRefs.current[nextTab.id]?.focus();
   };
 
-  // Refund modal live calculations (centavo-safe)
+  // Refund modal live calculations (centavo-safe, per-field invalid flags)
   const refundPaidPhp = refundModalAppt?.pricePhp ?? 0;
   const refundPaidCentavos = Math.round(refundPaidPhp * 100);
   const pctValue = refundPercentage ? Number(refundPercentage) : null;
@@ -286,14 +328,16 @@ export default function AdminBookingsPage() {
     amtCentavosValue >= 1 &&
     amtCentavosValue < refundPaidCentavos;
 
+  const pctInvalid = Boolean(refundPercentage) && !validPct;
+  const amtInvalid = Boolean(refundAmountPhp) && !validAmt;
+  const refundRangeInvalid = pctInvalid || amtInvalid;
+
   const refundPreviewPhp = validPct
     ? (refundPaidPhp * (pctValue as number)) / 100
     : validAmt
       ? (amtCentavosValue as number) / 100
       : null;
 
-  const refundRangeInvalid =
-    Boolean(refundPercentage || refundAmountPhp) && refundPreviewPhp === null;
   const canSubmitRefund =
     Boolean(refundModalAppt) &&
     refundPaidCentavos > 0 &&
@@ -314,21 +358,15 @@ export default function AdminBookingsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-mist pb-4">
-        <div className="space-y-1">
-          <h1 className="font-heading text-3xl font-medium text-pine">
-            Payments &amp; Refunds
-          </h1>
-          <p className="text-sm text-pine/70">
-            Confirm offline payments during provider outages or issue partial
-            refunds through the payment provider.
-          </p>
-        </div>
+      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-mist">
+        <h1 className="font-heading text-3xl font-medium text-pine pb-3">
+          Payments &amp; Refunds
+        </h1>
 
         <div
           role="tablist"
           aria-label="Payment administration views"
-          className="flex flex-wrap items-center gap-1 p-1 bg-surface-sunken rounded-lg border border-mist w-fit shrink-0"
+          className="flex items-center gap-6 -mb-px"
         >
           {ADMIN_TABS.map((tab, idx) => {
             const isActive = activeTab === tab.id;
@@ -346,10 +384,10 @@ export default function AdminBookingsPage() {
                 aria-controls={`bookings-panel-${tab.id}`}
                 onClick={() => handleTabChange(tab.id)}
                 onKeyDown={(e) => handleTabKeyDown(e, idx)}
-                className={`px-3.5 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-2 focus-visible:outline-sage ${
+                className={`pb-3 text-sm font-medium border-b-2 transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage ${
                   isActive
-                    ? 'bg-surface-raised text-pine font-semibold shadow-xs'
-                    : 'text-pine/70 hover:text-pine'
+                    ? 'border-sage text-pine font-semibold'
+                    : 'border-transparent text-pine/70 hover:text-pine hover:border-mist'
                 }`}
               >
                 {tab.label}
@@ -521,30 +559,48 @@ export default function AdminBookingsPage() {
                 <table className="w-full text-left border-collapse text-xs">
                   <caption className="sr-only">
                     {activeTab === 'awaiting_payment'
-                      ? 'Bookings awaiting manual payment verification'
+                      ? 'Bookings awaiting manual payment verification, sorted by soonest payment deadline'
                       : `${activeFilterLabel} bookings for partial refund review`}
                   </caption>
                   <thead>
-                    <tr className="border-b border-mist text-pine/70 bg-parchment">
-                      <th scope="col" className="py-3 px-4 font-semibold whitespace-nowrap">
+                    <tr className="border-b border-mist text-pine/75 bg-parchment">
+                      <th
+                        scope="col"
+                        className="py-3 px-4 font-semibold whitespace-nowrap"
+                      >
                         Booking / ID
                       </th>
                       <th scope="col" className="py-3 px-4 font-semibold">
                         Client &amp; Service
                       </th>
-                      <th scope="col" className="py-3 px-4 font-semibold whitespace-nowrap">
+                      <th
+                        scope="col"
+                        className="py-3 px-4 font-semibold whitespace-nowrap"
+                      >
                         RPsy
                       </th>
-                      <th scope="col" className="py-3 px-4 font-semibold whitespace-nowrap">
+                      <th
+                        scope="col"
+                        className="py-3 px-4 font-semibold whitespace-nowrap"
+                      >
                         Schedule
                       </th>
-                      <th scope="col" className="py-3 px-4 font-semibold text-right whitespace-nowrap">
+                      <th
+                        scope="col"
+                        className="py-3 px-4 font-semibold text-right whitespace-nowrap"
+                      >
                         Fee
                       </th>
-                      <th scope="col" className="py-3 px-4 font-semibold whitespace-nowrap">
+                      <th
+                        scope="col"
+                        className="py-3 px-4 font-semibold whitespace-nowrap"
+                      >
                         Status
                       </th>
-                      <th scope="col" className="py-3 px-4 font-semibold text-right whitespace-nowrap">
+                      <th
+                        scope="col"
+                        className="py-3 px-4 font-semibold text-right whitespace-nowrap"
+                      >
                         Action
                       </th>
                     </tr>
@@ -574,7 +630,7 @@ export default function AdminBookingsPage() {
                               searchQuery.trim()
                                 ? 'Try a different booking ID, client name, or psychologist code.'
                                 : activeTab === 'awaiting_payment'
-                                  ? 'Bookings with an agreed schedule waiting on payment will appear here.'
+                                  ? 'Agreed bookings waiting on payment appear here.'
                                   : 'Switch the status filter above to inspect other paid sessions.'
                             }
                             action={
@@ -598,23 +654,75 @@ export default function AdminBookingsPage() {
                           (s) => s.id === appt.selectedSlotId
                         );
                         const paidPhp = appt.pricePhp ?? 0;
-                        const deadline = formatDeadline(appt.paymentDeadline);
+                        const clientLabel =
+                          appt.profileLabel || formatShortId(appt.id);
+                        const deadline = formatDateTime(appt.paymentDeadline);
+                        const urgency = getDeadlineUrgency(
+                          appt.paymentDeadline
+                        );
                         const isAlreadyRefunded =
                           appt.status === 'partially-refunded' ||
                           appt.status === 'refunded';
+                        const isCompleted = appt.status === 'completed';
 
                         return (
                           <tr key={appt.id} className="hover:bg-parchment">
                             <td className="py-3.5 px-4 align-middle whitespace-nowrap">
-                              <span
-                                title={appt.id}
-                                className="font-mono text-pine/80 font-medium"
-                              >
-                                {formatShortId(appt.id)}
-                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  title={appt.id}
+                                  className="font-mono text-pine/85 font-medium"
+                                >
+                                  {formatShortId(appt.id)}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyId(appt.id)}
+                                  aria-label={`Copy full booking ID for ${clientLabel}`}
+                                  title={
+                                    copiedId === appt.id
+                                      ? 'Copied'
+                                      : 'Copy booking ID'
+                                  }
+                                  className="min-h-6 min-w-6 p-1 inline-flex items-center justify-center rounded text-pine/60 hover:text-pine hover:bg-surface-sunken cursor-pointer focus-visible:outline-2 focus-visible:outline-sage"
+                                >
+                                  {copiedId === appt.id ? (
+                                    <Check
+                                      className="w-3.5 h-3.5 text-accent-ink"
+                                      aria-hidden="true"
+                                    />
+                                  ) : (
+                                    <Copy
+                                      className="w-3.5 h-3.5"
+                                      aria-hidden="true"
+                                    />
+                                  )}
+                                </button>
+                              </div>
                               {activeTab === 'awaiting_payment' && deadline && (
-                                <p className="text-xs text-pine/65 mt-0.5 tabular-nums">
-                                  Due {deadline}
+                                <p
+                                  className={`mt-0.5 text-xs tabular-nums inline-flex items-center gap-1 ${
+                                    urgency === 'overdue'
+                                      ? 'text-red-700 font-semibold'
+                                      : urgency === 'soon'
+                                        ? 'text-amber-900 font-semibold'
+                                        : 'text-pine/70'
+                                  }`}
+                                >
+                                  {(urgency === 'overdue' ||
+                                    urgency === 'soon') && (
+                                    <Clock
+                                      className="w-3 h-3 shrink-0"
+                                      aria-hidden="true"
+                                    />
+                                  )}
+                                  <span>
+                                    {urgency === 'overdue'
+                                      ? `Overdue · ${deadline}`
+                                      : urgency === 'soon'
+                                        ? `Due soon · ${deadline}`
+                                        : `Due ${deadline}`}
+                                  </span>
                                 </p>
                               )}
                             </td>
@@ -623,15 +731,23 @@ export default function AdminBookingsPage() {
                               <p className="font-medium text-pine">
                                 {appt.profileLabel || 'Client'}
                               </p>
-                              <p className="text-pine/70 mt-0.5">
+                              <p className="text-pine/75 mt-0.5">
                                 {appt.serviceTitle}
                               </p>
                             </td>
 
-                            <td className="py-3.5 px-4 align-middle font-mono text-pine/80 whitespace-nowrap">
-                              {appt.psychologistCode ||
-                                appt.psychologistId ||
-                                '—'}
+                            <td className="py-3.5 px-4 align-middle whitespace-nowrap">
+                              {appt.psychologistName ? (
+                                <span className="font-medium text-pine">
+                                  {appt.psychologistName}
+                                </span>
+                              ) : (
+                                <span className="font-mono text-pine/80">
+                                  {appt.psychologistCode ||
+                                    appt.psychologistId ||
+                                    '—'}
+                                </span>
+                              )}
                             </td>
 
                             <td className="py-3.5 px-4 align-middle whitespace-nowrap tabular-nums">
@@ -640,12 +756,12 @@ export default function AdminBookingsPage() {
                                   <p className="font-medium text-pine">
                                     {agreedSlot.dateLabel}
                                   </p>
-                                  <p className="text-pine/70 mt-0.5">
+                                  <p className="text-pine/75 mt-0.5">
                                     {agreedSlot.timeLabel}
                                   </p>
                                 </>
                               ) : (
-                                <span className="text-pine/60">—</span>
+                                <span className="text-pine/70">—</span>
                               )}
                             </td>
 
@@ -670,6 +786,13 @@ export default function AdminBookingsPage() {
                                   type="button"
                                   variant="primary"
                                   size="sm"
+                                  disabled={paidPhp <= 0}
+                                  title={
+                                    paidPhp <= 0
+                                      ? 'No fee set on this booking'
+                                      : undefined
+                                  }
+                                  aria-label={`Verify payment for ${clientLabel}`}
                                   onClick={() => openPaymentModal(appt)}
                                 >
                                   <CreditCard
@@ -683,10 +806,15 @@ export default function AdminBookingsPage() {
                                   type="button"
                                   variant="ghost"
                                   size="sm"
+                                  aria-label={`View refund for ${clientLabel}`}
                                   onClick={() => setViewRefundAppt(appt)}
                                 >
                                   View refund
                                 </Button>
+                              ) : isCompleted ? (
+                                <span className="text-xs text-pine/65">
+                                  Non-refundable
+                                </span>
                               ) : (
                                 <Button
                                   type="button"
@@ -698,6 +826,7 @@ export default function AdminBookingsPage() {
                                       ? 'No refundable peso amount recorded'
                                       : undefined
                                   }
+                                  aria-label={`Issue refund for ${clientLabel}`}
                                   onClick={() => openRefundModal(appt)}
                                 >
                                   <RotateCcw
@@ -718,7 +847,7 @@ export default function AdminBookingsPage() {
 
               {filteredAppointments.length > PAGE_SIZE && (
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-mist pt-4 text-xs">
-                  <p className="text-pine/70 tabular-nums" aria-live="polite">
+                  <p className="text-pine/75 tabular-nums" aria-live="polite">
                     Showing {firstRow}–{lastRow} of{' '}
                     {filteredAppointments.length} bookings
                   </p>
@@ -736,7 +865,7 @@ export default function AdminBookingsPage() {
                       />
                       Previous
                     </Button>
-                    <span className="font-mono text-pine/70 tabular-nums px-1">
+                    <span className="font-mono text-pine/75 tabular-nums px-1">
                       Page {safePage} of {totalPages}
                     </span>
                     <Button
@@ -765,6 +894,7 @@ export default function AdminBookingsPage() {
       {/* Modal 1: Confirm Manual Payment */}
       <Modal
         open={Boolean(paymentModalAppt)}
+        dismissible={!confirmMutation.isPending}
         onClose={() => {
           if (!confirmMutation.isPending) closePaymentModal();
         }}
@@ -797,7 +927,9 @@ export default function AdminBookingsPage() {
             >
               {confirmMutation.isPending
                 ? 'Confirming…'
-                : 'Confirm Manual Payment'}
+                : paymentModalAppt?.pricePhp
+                  ? `Confirm ${formatPhp(paymentModalAppt.pricePhp)} Paid`
+                  : 'Confirm Manual Payment'}
             </Button>
           </>
         }
@@ -818,28 +950,35 @@ export default function AdminBookingsPage() {
           >
             <dl className="rounded-lg border border-mist bg-surface-sunken px-4 py-3 space-y-1.5 text-xs">
               <div className="flex justify-between gap-4">
-                <dt className="text-pine/70 shrink-0">Booking ID</dt>
+                <dt className="text-pine/75 shrink-0">Booking ID</dt>
                 <dd className="font-mono text-pine break-all text-right">
                   {paymentModalAppt.id}
                 </dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-pine/70 shrink-0">Service</dt>
+                <dt className="text-pine/75 shrink-0">Service</dt>
                 <dd className="font-medium text-pine text-right break-words">
                   {paymentModalAppt.serviceTitle}
                 </dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-pine/70 shrink-0">Assigned RPsy</dt>
-                <dd className="font-mono text-pine text-right">
-                  {paymentModalAppt.psychologistCode ||
+                <dt className="text-pine/75 shrink-0">Assigned RPsy</dt>
+                <dd
+                  className={
+                    paymentModalAppt.psychologistName
+                      ? 'font-medium text-pine text-right'
+                      : 'font-mono text-pine text-right'
+                  }
+                >
+                  {paymentModalAppt.psychologistName ||
+                    paymentModalAppt.psychologistCode ||
                     paymentModalAppt.psychologistId ||
                     '—'}
                 </dd>
               </div>
               {paymentAgreedSlot && (
                 <div className="flex justify-between gap-4">
-                  <dt className="text-pine/70 shrink-0">Agreed schedule</dt>
+                  <dt className="text-pine/75 shrink-0">Agreed schedule</dt>
                   <dd className="font-medium text-pine text-right tabular-nums">
                     {paymentAgreedSlot.dateLabel} ·{' '}
                     {paymentAgreedSlot.timeLabel}
@@ -847,7 +986,7 @@ export default function AdminBookingsPage() {
                 </div>
               )}
               <div className="flex justify-between gap-4 border-t border-mist pt-1.5">
-                <dt className="text-pine/70 font-medium">Amount due</dt>
+                <dt className="text-pine/75 font-medium">Amount due</dt>
                 <dd className="font-mono font-semibold text-pine tabular-nums">
                   {formatPhp(paymentModalAppt.pricePhp ?? 0)}
                 </dd>
@@ -862,6 +1001,7 @@ export default function AdminBookingsPage() {
                 id="manual-payment-note"
                 value={paymentNote}
                 maxLength={300}
+                disabled={confirmMutation.isPending}
                 aria-describedby="manual-payment-note-hint"
                 onChange={(e) => setPaymentNote(e.target.value)}
                 placeholder="e.g. GCash ref #1234567890 verified via email"
@@ -870,14 +1010,14 @@ export default function AdminBookingsPage() {
               />
               <p
                 id="manual-payment-note-hint"
-                className="mt-1.5 text-xs text-pine/70"
+                className="mt-1.5 text-xs text-pine/75"
               >
                 Required for clinic accounting audit trail during payment
                 provider outages.
               </p>
             </div>
 
-            <div className="rounded-lg border border-mist bg-parchment px-3.5 py-2.5 text-xs text-pine/80 leading-relaxed">
+            <div className="rounded-lg border border-mist bg-parchment px-3.5 py-2.5 text-xs text-pine/85 leading-relaxed">
               Marks this booking as <strong>paid</strong> and sends confirmation
               emails to both client and psychologist. This cannot be undone
               here.
@@ -895,6 +1035,7 @@ export default function AdminBookingsPage() {
       {/* Modal 2: Issue Partial Refund */}
       <Modal
         open={Boolean(refundModalAppt)}
+        dismissible={!refundMutation.isPending}
         onClose={() => {
           if (!refundMutation.isPending) closeRefundModal();
         }}
@@ -923,7 +1064,9 @@ export default function AdminBookingsPage() {
             >
               {refundMutation.isPending
                 ? 'Issuing refund…'
-                : 'Issue Partial Refund'}
+                : refundPreviewPhp !== null
+                  ? `Issue ${formatPhp(refundPreviewPhp)} Refund`
+                  : 'Issue Partial Refund'}
             </Button>
           </>
         }
@@ -950,27 +1093,27 @@ export default function AdminBookingsPage() {
           >
             <dl className="rounded-lg border border-mist bg-surface-sunken px-4 py-3 space-y-1.5 text-xs">
               <div className="flex justify-between gap-4">
-                <dt className="text-pine/70 shrink-0">Booking ID</dt>
+                <dt className="text-pine/75 shrink-0">Booking ID</dt>
                 <dd className="font-mono text-pine break-all text-right">
                   {refundModalAppt.id}
                 </dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-pine/70 shrink-0">Service</dt>
+                <dt className="text-pine/75 shrink-0">Service</dt>
                 <dd className="font-medium text-pine text-right break-words">
                   {refundModalAppt.serviceTitle}
                 </dd>
               </div>
               {refundAgreedSlot && (
                 <div className="flex justify-between gap-4">
-                  <dt className="text-pine/70 shrink-0">Session schedule</dt>
+                  <dt className="text-pine/75 shrink-0">Session schedule</dt>
                   <dd className="font-medium text-pine text-right tabular-nums">
                     {refundAgreedSlot.dateLabel} · {refundAgreedSlot.timeLabel}
                   </dd>
                 </div>
               )}
               <div className="flex justify-between gap-4 border-t border-mist pt-1.5">
-                <dt className="text-pine/70 font-medium">Amount paid</dt>
+                <dt className="text-pine/75 font-medium">Amount paid</dt>
                 <dd className="font-mono font-semibold text-pine tabular-nums">
                   {formatPhp(refundPaidPhp)}
                 </dd>
@@ -984,11 +1127,14 @@ export default function AdminBookingsPage() {
               </p>
             ) : (
               <>
-                <div className="space-y-2">
+                <fieldset
+                  disabled={refundMutation.isPending}
+                  className="space-y-2 border-0 p-0 m-0"
+                >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-medium uppercase tracking-wider text-pine/65">
+                    <legend className="text-xs font-medium uppercase tracking-wider text-pine/70">
                       Partial refund amount (1%–99%)
-                    </span>
+                    </legend>
                     <div className="flex items-center gap-1.5">
                       {REFUND_PRESETS.map((preset) => (
                         <button
@@ -1021,9 +1167,9 @@ export default function AdminBookingsPage() {
                         max="99"
                         step="1"
                         value={refundPercentage}
-                        aria-invalid={refundRangeInvalid}
+                        aria-invalid={pctInvalid}
                         aria-describedby={
-                          refundRangeInvalid ? 'refund-range-error' : undefined
+                          pctInvalid ? 'refund-range-error' : undefined
                         }
                         onChange={(e) => {
                           setRefundPercentage(e.target.value);
@@ -1041,11 +1187,16 @@ export default function AdminBookingsPage() {
                         id="modal-refund-amt"
                         type="number"
                         min="0.01"
+                        max={
+                          refundPaidPhp > 0.01
+                            ? Number((refundPaidPhp - 0.01).toFixed(2))
+                            : undefined
+                        }
                         step="0.01"
                         value={refundAmountPhp}
-                        aria-invalid={refundRangeInvalid}
+                        aria-invalid={amtInvalid}
                         aria-describedby={
-                          refundRangeInvalid ? 'refund-range-error' : undefined
+                          amtInvalid ? 'refund-range-error' : undefined
                         }
                         onChange={(e) => {
                           setRefundAmountPhp(e.target.value);
@@ -1056,12 +1207,14 @@ export default function AdminBookingsPage() {
                     </div>
                   </div>
 
-                  {refundPreviewPhp !== null && (
-                    <p className="text-xs font-medium text-accent-ink tabular-nums">
-                      Will refund {formatPhp(refundPreviewPhp)} of{' '}
-                      {formatPhp(refundPaidPhp)}
-                    </p>
-                  )}
+                  <p
+                    aria-live="polite"
+                    className="text-xs font-medium text-accent-ink tabular-nums min-h-[1rem]"
+                  >
+                    {refundPreviewPhp !== null
+                      ? `Will refund ${formatPhp(refundPreviewPhp)} of ${formatPhp(refundPaidPhp)}`
+                      : ''}
+                  </p>
 
                   {refundRangeInvalid && (
                     <p
@@ -1074,7 +1227,7 @@ export default function AdminBookingsPage() {
                       {formatPhp(refundPaidPhp)}.
                     </p>
                   )}
-                </div>
+                </fieldset>
 
                 <div>
                   <Label htmlFor="modal-refund-reason">Refund reason</Label>
@@ -1082,6 +1235,7 @@ export default function AdminBookingsPage() {
                     id="modal-refund-reason"
                     value={refundReason}
                     maxLength={300}
+                    disabled={refundMutation.isPending}
                     onChange={(e) => setRefundReason(e.target.value)}
                     placeholder="Explain why this partial refund is being issued"
                     required
@@ -1130,28 +1284,44 @@ export default function AdminBookingsPage() {
         {viewRefundAppt && (
           <dl className="rounded-lg border border-mist bg-surface-sunken px-4 py-3 space-y-2 text-xs">
             <div className="flex justify-between gap-4">
-              <dt className="text-pine/70 shrink-0">Booking ID</dt>
+              <dt className="text-pine/75 shrink-0">Booking ID</dt>
               <dd className="font-mono text-pine break-all text-right">
                 {viewRefundAppt.id}
               </dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-pine/70 shrink-0">Status</dt>
+              <dt className="text-pine/75 shrink-0">Status</dt>
               <dd className="text-right">
                 <BookingStatusTag status={viewRefundAppt.status} />
               </dd>
             </div>
+            {viewRefundAppt.pricePhp != null && (
+              <div className="flex justify-between gap-4">
+                <dt className="text-pine/75 shrink-0">Original fee</dt>
+                <dd className="font-mono text-pine tabular-nums">
+                  {formatPhp(viewRefundAppt.pricePhp)}
+                </dd>
+              </div>
+            )}
             <div className="flex justify-between gap-4">
-              <dt className="text-pine/70 shrink-0">Refunded amount</dt>
+              <dt className="text-pine/75 shrink-0">Refunded amount</dt>
               <dd className="font-mono font-semibold text-pine tabular-nums">
                 {viewRefundAppt.refundAmountCentavos != null
                   ? formatPhp(viewRefundAppt.refundAmountCentavos / 100)
                   : 'Recorded'}
               </dd>
             </div>
+            {formatDateTime(viewRefundAppt.refundedAt) && (
+              <div className="flex justify-between gap-4">
+                <dt className="text-pine/75 shrink-0">Refunded at</dt>
+                <dd className="text-pine tabular-nums">
+                  {formatDateTime(viewRefundAppt.refundedAt)}
+                </dd>
+              </div>
+            )}
             {viewRefundAppt.refundReason && (
               <div className="border-t border-mist pt-2 space-y-1">
-                <dt className="text-pine/70">Reason</dt>
+                <dt className="text-pine/75">Reason</dt>
                 <dd className="text-pine leading-relaxed break-words">
                   {viewRefundAppt.refundReason}
                 </dd>
