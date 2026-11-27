@@ -189,6 +189,8 @@ class AdminUsecase:
 
         if appt.status == AppointmentStatus.REFUNDED:
             raise BadRequestError("Appointment has already been fully refunded")
+        if appt.status == AppointmentStatus.COMPLETED:
+            raise BadRequestError("Completed appointments cannot be refunded")
 
         payment_repo = PaymentRepo(self.db)
         session_payment = payment_repo.get_paid_session(appointment_id)

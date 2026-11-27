@@ -82,7 +82,7 @@ export default function ScheduleAgreementPage() {
         publishedWebhookConfirmRef.current = true;
         queryClient.invalidateQueries({ queryKey: ['bookings'] });
         publishFlowEvent(
-          'Payment Confirmed & Contact Unlocked',
+          'Payment Confirmed & Session Finalized',
           `Booking ${booking.id} is now paid-confirmed. Psychologist contact details unlocked and reminders scheduled.`
         );
       }
@@ -183,7 +183,7 @@ export default function ScheduleAgreementPage() {
       queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       publishFlowEvent(
-        'Payment Confirmed & Contact Unlocked',
+        'Payment Confirmed & Session Finalized',
         `Booking ${updated.id} is now paid-confirmed. Psychologist contact details unlocked and reminders scheduled.`
       );
     },
@@ -371,10 +371,10 @@ export default function ScheduleAgreementPage() {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-mist pb-4">
             <div className="space-y-1">
               <p className="text-xs font-medium text-accent-ink">
-                Payment confirmed · Psychologist contact unlocked
+                Payment confirmed · Session finalized
               </p>
               <h2 className="font-heading text-3xl font-medium text-pine">
-                Session Confirmed &amp; Psychologist Contact Unlocked
+                Session Confirmed
               </h2>
             </div>
             <span className="font-mono text-xl font-medium text-pine tabular-nums">

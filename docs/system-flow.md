@@ -44,7 +44,7 @@ Related docs:
 
 **Step 3 — Psychologist Pick-Up & Schedule Agreement**
 
-- In a single atomic pickup transaction, the first psychologist to claim the request sets `appointments.psychologist_id`, sets the session price, and either:
+- In a single atomic pickup transaction, the first psychologist to claim the request sets `appointments.psychologist_id` (unlocking the psychologist's direct contact info for the client as long as the booking is not cancelled), sets the session price, and either:
   - **accepts one client-preferred slot**, moving the appointment directly to `awaiting_payment` with `selected_slot_id` and `payment_deadline`, or
   - **offers exactly one nearest/earliest alternative**, moving the appointment to `awaiting_schedule` with `scheduling_turn=client` and `scheduling_round=2`.
 - If the client later submits new preferred schedules (`scheduling_turn=psychologist`), the assigned psychologist reviews them on `My Schedule` using the dedicated `accept-preferred-slot` / `counter-offer` endpoints.
@@ -72,8 +72,8 @@ Related docs:
 
 **Step 6 — Confirmation & Connection**
 
-- Once payment is verified, system finalizes booking (`appointments(status=confirmed)`) and unlocks the psychologist's direct contact info for the client.
-- Both parties receive final confirmation for coordination.
+- Once payment is verified, system finalizes booking (`appointments(status=confirmed)`).
+- Both parties receive final confirmation and automated 24h/1h session reminders.
 
 ### C.3 Text Diagram (Official)
 
@@ -87,7 +87,7 @@ Client selects Persona + completes intake + submits 3-5 preferred schedules
   -> Client accepts counter OR submits new preferred schedules (scheduling_turn=psychologist -> Round 2+ accept/counter)
   -> Agreement -> selected_slot_id + payment_deadline = agreed - 24h (or pay-now grace)
   -> Client pays (payments: pending -> paid) -> appointments(confirmed)
-  -> Contact unlock + confirmations + 24h/1h reminders
+  -> Confirmations + 24h/1h reminders
   -> Missed deadline -> slot expired, scheduling restarts from client
 ```
 

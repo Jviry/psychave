@@ -71,7 +71,7 @@
 - FR-6: Public sees landing, services, promoted roster section only.
 - FR-7: Admin promotes clients to psychologists with profile details; manages roles/CMS without session-note access.
 - FR-8: Auth via Cognito Groups verified per request.
-- FR-9: Contact info unlock only after verified payment.
+- FR-9: Contact info unlocks when a promoted psychologist picks up the booking (except when cancelled).
 - FR-10: Public Book-a-session fallback shows Facebook link + `psychaveph.info@gmail.com` (permanent, external). See `site-map.md`.
 - Legacy Flow A note: FR-2/FR-3 previously described admin review/assign + email pay link (pay-then-schedule). Superseded by FR-2/FR-3 above.
 

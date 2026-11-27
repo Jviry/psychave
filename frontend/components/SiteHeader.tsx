@@ -18,8 +18,8 @@ const ROLE_NAV_ITEMS: Record<CognitoRole, { label: string; href: string }[]> = {
     { label: 'Schedule', href: '/psych/schedule' },
   ],
   admin: [
-    { label: 'Account Management', href: '/admin/users' },
-    { label: 'Manual Payments', href: '/admin/bookings' },
+    { label: 'Users', href: '/admin/users' },
+    { label: 'Payments & Refunds', href: '/admin/bookings' },
     { label: 'CMS', href: '/admin/cms' },
   ],
 };
@@ -97,9 +97,9 @@ export function SiteHeader() {
 
   const roleTabs = !isHome && isAuthenticated && user ? ROLE_NAV_ITEMS[user.role] : [];
 
-  const renderRoleTabs = (extraClass = '') => (
+  const renderRoleTabs = (extraClass = '', navLabel = 'Workspace navigation') => (
     <nav
-      aria-label="Workspace navigation"
+      aria-label={navLabel}
       className={`flex items-center gap-6 text-sm font-medium text-pine/75 ${extraClass}`}
     >
       {roleTabs.map((item) => {
@@ -109,7 +109,8 @@ export function SiteHeader() {
           <Link
             key={item.href}
             href={item.href}
-            className={`inline-flex items-center gap-1.5 py-1 transition-colors whitespace-nowrap border-b-2 ${
+            aria-current={active ? 'page' : undefined}
+            className={`inline-flex items-center gap-1.5 py-1 transition-colors whitespace-nowrap border-b-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage rounded-xs ${
               active
                 ? 'text-pine border-sage font-semibold'
                 : 'border-transparent hover:text-pine hover:border-mist'
@@ -129,7 +130,7 @@ export function SiteHeader() {
         <Link
           href="/"
           aria-label="PsychAve PH Home"
-          className="flex items-center shrink-0"
+          className="flex items-center shrink-0 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
         >
           <img
             src="/psychave-logo.png"
@@ -155,7 +156,8 @@ export function SiteHeader() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`py-1 transition-colors whitespace-nowrap border-b-2 ${
+                    aria-current={isActive ? 'location' : undefined}
+                    className={`py-1 transition-colors whitespace-nowrap border-b-2 rounded-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage ${
                       isActive
                         ? 'text-pine border-pine font-semibold'
                         : 'border-transparent hover:text-pine hover:border-mist'
@@ -168,7 +170,7 @@ export function SiteHeader() {
               {isAuthenticated && user && (
                 <Link
                   href={getDashboardHref(user.role)}
-                  className="py-1 transition-colors whitespace-nowrap border-b-2 border-transparent hover:text-pine hover:border-mist"
+                  className="py-1 transition-colors whitespace-nowrap border-b-2 border-transparent hover:text-pine hover:border-mist rounded-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
                 >
                   Dashboard
                 </Link>
@@ -187,21 +189,22 @@ export function SiteHeader() {
                 type="button"
                 id="user-menu-trigger"
                 onClick={() => setShowUserMenu((v) => !v)}
-                className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-mist hover:bg-mist/30 transition-colors cursor-pointer"
+                className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-mist hover:bg-mist/30 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
                 aria-haspopup="true"
                 aria-expanded={showUserMenu}
               >
                 <div className="w-6 h-6 rounded-full bg-sage/20 flex items-center justify-center shrink-0">
-                  <User className="w-3.5 h-3.5 text-sage" />
+                  <User className="w-3.5 h-3.5 text-sage" aria-hidden="true" />
                 </div>
                 <span className="hidden sm:block text-xs font-medium text-pine max-w-[110px] truncate">
                   {user.username}
                 </span>
-                <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold bg-surface-sunken text-pine">
+                <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold capitalize bg-surface-sunken text-pine">
                   {user.role}
                 </span>
                 <ChevronDown
-                  className={`w-3.5 h-3.5 text-pine/50 transition-transform ${showUserMenu ? 'rotate-180' : ''}`}
+                  className={`w-3.5 h-3.5 text-pine/70 transition-transform ${showUserMenu ? 'rotate-180' : ''}`}
+                  aria-hidden="true"
                 />
               </button>
 
@@ -211,25 +214,25 @@ export function SiteHeader() {
                     <p className="text-xs font-semibold text-pine truncate">
                       {user.email || user.username}
                     </p>
-                    <p className="text-xs text-pine/50 capitalize mt-0.5">{user.role}</p>
+                    <p className="text-xs text-pine/70 capitalize mt-0.5">{user.role}</p>
                   </div>
                   <Link
                     id="user-menu-account"
                     href={getAccountHref(user.role)}
-                    className="flex items-center gap-2 px-4 py-2 text-xs text-pine hover:bg-mist/40 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 text-xs text-pine hover:bg-mist/40 focus-visible:bg-mist/40 focus-visible:outline-none transition-colors"
                     onClick={() => setShowUserMenu(false)}
                   >
-                    <Settings className="w-3.5 h-3.5 text-sage" />
+                    <Settings className="w-3.5 h-3.5 text-sage" aria-hidden="true" />
                     {user.role === 'psychologist' ? 'Account Management' : 'Account'}
                   </Link>
                   {isHome && (
                     <Link
                       id="user-menu-dashboard"
                       href={getDashboardHref(user.role)}
-                      className="flex items-center gap-2 px-4 py-2 text-xs text-pine hover:bg-mist/40 transition-colors"
+                      className="flex items-center gap-2 px-4 py-2 text-xs text-pine hover:bg-mist/40 focus-visible:bg-mist/40 focus-visible:outline-none transition-colors"
                       onClick={() => setShowUserMenu(false)}
                     >
-                      <User className="w-3.5 h-3.5 text-sage" />
+                      <User className="w-3.5 h-3.5 text-sage" aria-hidden="true" />
                       My Dashboard
                     </Link>
                   )}
@@ -242,9 +245,9 @@ export function SiteHeader() {
                       setShowUserMenu(false);
                       router.push('/');
                     }}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                    className="w-full flex items-center gap-2 px-4 py-2 text-xs text-red-700 hover:bg-red-50 focus-visible:bg-red-50 focus-visible:outline-none transition-colors cursor-pointer"
                   >
-                    <LogOut className="w-3.5 h-3.5" />
+                    <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
                     Log Out
                   </button>
                 </div>
@@ -274,7 +277,7 @@ export function SiteHeader() {
       {/* Mobile role tabs row */}
       {!isHome && roleTabs.length > 0 && (
         <div className="md:hidden border-t border-mist/70 px-4 py-2 overflow-x-auto bg-surface-raised">
-          {renderRoleTabs('justify-center')}
+          {renderRoleTabs('justify-center', 'Mobile workspace navigation')}
         </div>
       )}
     </div>

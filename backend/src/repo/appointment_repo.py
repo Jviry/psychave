@@ -561,6 +561,11 @@ class AppointmentRepo:
                         service.guardrail_notice if service else None
                     ),
                     psychologist_id=appointment.psychologist_id,
+                    psychologist_name=(
+                        psychologist_profile.full_name
+                        if psychologist_profile
+                        else None
+                    ),
                     selected_slot_id=appointment.selected_slot_id,
                     price=appointment.price,
                     presenting_concern=appointment.presenting_concern,

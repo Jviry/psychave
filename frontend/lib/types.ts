@@ -206,6 +206,7 @@ export interface BookingRequest {
   submittedAtIso?: string;
   status: BookingStatus;
   psychologistId?: string;
+  psychologistName?: string;
   psychologistCode?: string;
   psychologistSpecialization?: string;
   pricePhp?: number;
