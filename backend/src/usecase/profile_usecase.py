@@ -22,8 +22,6 @@ from schemas.profile import (
 )
 from usecase.consent_template_usecase import ConsentTemplateUsecase
 
-CURRENT_CONSENT_VERSION = "v2"
-
 
 class ProfileUsecase:
     def __init__(self, db: Session):

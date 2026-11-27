@@ -37,7 +37,7 @@
 - Models (9 tables, UUID PKs): `users`, `admin_profiles`, `psychologist_profiles`, `client_profiles`, `persona`, `forms`, `appointments`, `proposed_slots` (circular FK with `appointments.selected_slot_id`), `payments`.
 - Controllers: `app_router` aggregates `auth_controller.router` (currently empty — no endpoints).
 - Layers `repo/user_repo.py`, `usecase/user_usecase.py`, `services/`, `utils/` are stubs.
-- Auth: official decision is AWS Cognito + Cognito Groups verified per request. `User.cognito_sub` aligns. NOTE: teammate-slimmed `backend/requirements.txt` removed `python-jose` (+ `cryptography`, `rsa`, `ecdsa`) — backend owners must re-add a JWT verifier or choose a replacement before implementing §7.1; JWT/Groups verification still unimplemented.
+- Auth: AWS Cognito + Cognito Groups verified per request via `python-jose` JWKS verification (`backend/src/common/security/cognito.py` + `backend/src/dependencies/auth.py`). `User.cognito_sub` aligns.
 - Official queue rules (application-level, no schema change yet): exactly 3 `proposed_slots` per proposal; pick-up gated on admin promotion (`users.role = psychologist` + Cognito group); finalization gated on `payments(status=paid)`; Flow A (admin-assign, pay-then-schedule) is legacy — see `system-flow-conflict.md`.
 - Migrations: `alembic/versions/8bb9e943352d_initial_tables.py` creates all 9 tables.
 

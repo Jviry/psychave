@@ -203,51 +203,6 @@ offer an alternative schedule.</p>
         )
         self.send_email(to, subject, html, text)
 
-    # unused, this was supposed to be used for when it was psychologists send 3 scheds instead of the client
-    def send_proposal_ready(
-        self,
-        to: str,
-        appointment_id: str,
-        slots: Sequence[SlotTime],
-        price: float,
-    ) -> None:
-        if len(slots) == 1:
-            self.send_counter_offer(to, appointment_id, slots[0], price)
-            return
-
-        subject = "Your session times are ready"
-        link = f"{self.frontend_base_url}/proposal/{appointment_id}"
-        slot_lines = "\n".join(
-            f"  - {self._format_slot(slot)}" for slot in slots
-        )
-        fee = self._format_price(price)
-        text = (
-            "Hi,\n\n"
-            "Your psychologist proposed session times. Choose the one "
-            "that works for you and complete payment to confirm the session.\n\n"
-            f"Session fee: {fee}\n"
-            f"Proposed times:\n{slot_lines}\n\n"
-            f"Choose a time and pay: {link}\n\n"
-            "The session is only confirmed once payment succeeds.\n\n"
-            f"{TEXT_FOOTER}"
-        )
-        slots_html = "".join(
-            f'<li style="margin:0 0 6px;">{escape(self._format_slot(slot))}</li>'
-            for slot in slots
-        )
-        html = self._wrap_html(
-            subject,
-            f"""\
-<p style="margin:0 0 16px;">Your psychologist proposed session times.
-Choose the one that works for you and complete payment to confirm the session.</p>
-<p style="margin:0 0 8px;"><strong>Session fee:</strong> {escape(fee)}</p>
-<ul style="margin:0 0 16px;padding-left:20px;">{slots_html}</ul>
-<p style="margin:0 0 16px;"><a href="{escape(link)}" style="color:#25372d;">Choose a time and pay</a></p>
-<p style="margin:0;">The session is only confirmed once payment succeeds.</p>
-""",
-        )
-        self.send_email(to, subject, html, text)
-
     def send_payment_confirmed(
         self,
         to: str,

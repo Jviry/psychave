@@ -29,9 +29,3 @@ class PaymentRead(SQLModel):
     refund_reason: str | None = None
     refunded_at: datetime | None = None
     created_at: datetime
-
-
-class PaymentWebhookRequest(SQLModel):
-    provider_ref: str
-    outcome: Literal["paid", "failed"]
-    payment_method: str | None = None

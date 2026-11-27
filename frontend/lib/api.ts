@@ -698,7 +698,7 @@ function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
 
   return {
     id: raw.appointment_id,
-    clientId: 'client-01',
+    clientId: '',
     profileId: raw.profile_id,
     profileType: raw.profile_relation === 'self' ? 'self' : 'dependent',
     profileLabel: raw.profile_name,
@@ -771,7 +771,7 @@ function mapProfileRaw(raw: ProfileRaw): Profile {
   const details = (raw.details ?? {}) as Record<string, unknown>;
   return {
     id: raw.profile_id,
-    clientId: 'client-01',
+    clientId: '',
     type: raw.relation_to_account_holder === 'self' ? 'self' : 'dependent',
     label: raw.profile_name,
     ageGroup: isMinorDob(dob) ? 'Minor (<18)' : 'Adult (18+)',
