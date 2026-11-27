@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAppStore } from '@/stores/useAppStore';
+import { QueryClientContext, useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { CognitoRole } from '@/lib/types';
-import { LogOut, User, ChevronDown, Bell, Settings } from 'lucide-react';
+import { LogOut, User, ChevronDown, Settings } from 'lucide-react';
 
 const ROLE_NAV_ITEMS: Record<CognitoRole, { label: string; href: string }[]> = {
   client: [
@@ -33,11 +34,30 @@ function getAccountHref(role: CognitoRole): string {
   return role === 'psychologist' ? '/psych/profile' : '/account';
 }
 
+function PsychPendingDot() {
+  const { data: bookings = [] } = useQuery({
+    queryKey: ['bookings', 'psychologist'],
+    queryFn: () => api.getBookingsForRole('psychologist'),
+    refetchInterval: 30_000,
+  });
+
+  const hasPending = bookings.some((b) => b.status === 'pending');
+  if (!hasPending) return null;
+
+  return (
+    <span
+      data-testid="pending-bookings-dot"
+      aria-hidden="true"
+      title="New pending bookings"
+      className="inline-block h-2 w-2 rounded-full bg-red-500 shrink-0"
+    />
+  );
+}
+
 export function SiteHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const lastFlowEvent = useAppStore((s) => s.lastFlowEvent);
-  const clearFlowEvent = useAppStore((s) => s.clearFlowEvent);
+  const queryClient = useContext(QueryClientContext);
 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
@@ -110,13 +130,14 @@ export function SiteHeader() {
           <Link
             key={item.href}
             href={item.href}
-            className={`py-1 transition-colors whitespace-nowrap border-b-2 ${
+            className={`inline-flex items-center gap-1.5 py-1 transition-colors whitespace-nowrap border-b-2 ${
               active
                 ? 'text-pine border-sage font-semibold'
                 : 'border-transparent hover:text-pine hover:border-mist'
             }`}
           >
-            {item.label}
+            <span>{item.label}</span>
+            {item.href === '/psych/queue' && queryClient && <PsychPendingDot />}
           </Link>
         );
       })}
@@ -275,29 +296,6 @@ export function SiteHeader() {
       {!isHome && roleTabs.length > 0 && (
         <div className="md:hidden border-t border-mist/70 px-4 py-2 overflow-x-auto bg-surface-raised">
           {renderRoleTabs('justify-center')}
-        </div>
-      )}
-
-      {/* Real-time Flow C Notification Banner when active */}
-      {lastFlowEvent && (
-        <div className="bg-surface-sunken border-t border-mist px-4 lg:px-8 py-2 text-xs text-pine">
-          <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <Bell className="w-4 h-4 text-pine shrink-0" aria-hidden="true" />
-              <div>
-                <span className="font-semibold">{lastFlowEvent.title}:</span>{' '}
-                <span>{lastFlowEvent.detail}</span>
-                <span className="ml-2 text-pine/60">({lastFlowEvent.timestamp})</span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={clearFlowEvent}
-              className="text-xs font-medium text-pine/70 hover:text-pine underline cursor-pointer whitespace-nowrap"
-            >
-              Dismiss
-            </button>
-          </div>
         </div>
       )}
     </div>

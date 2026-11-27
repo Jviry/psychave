@@ -423,53 +423,106 @@ export function Modal({
 
 /* ─── BookingStatusTag (single source of status labels — rule 6) ──────── */
 
-export function BookingStatusTag({ status }: { status: BookingStatus }) {
-  const config: Record<
+export function BookingStatusTag({
+  status,
+  perspective = 'client',
+}: {
+  status: BookingStatus;
+  perspective?: 'client' | 'psychologist';
+}) {
+  const clientConfig: Record<
     BookingStatus,
     { label: string; textClass: string; dotClass: string }
   > = {
     pending: {
-      label: 'pending · awaiting psychologist pick-up',
+      label: 'Waiting for a psychologist',
       textClass: 'text-amber-900 font-semibold',
       dotClass: 'bg-amber-600',
     },
     'awaiting-review': {
-      label: 'in review · psychologist reviewing your schedules',
+      label: 'Psychologist reviewing your times',
       textClass: 'text-pine font-semibold',
       dotClass: 'bg-sage',
     },
     'awaiting-client': {
-      label: 'action needed · accept the counter-offer',
+      label: 'Action needed · Review suggested time',
       textClass: 'text-amber-900 font-semibold',
       dotClass: 'bg-amber-500',
     },
     'awaiting-payment': {
-      label: 'agreed · awaiting payment',
+      label: 'Time agreed · Ready for payment',
       textClass: 'text-pine font-semibold underline decoration-sage underline-offset-4',
       dotClass: 'bg-sage',
     },
     'paid-confirmed': {
-      label: 'paid-confirmed · contact unlocked',
+      label: 'Confirmed · Contact details unlocked',
       textClass: 'text-pine font-semibold',
       dotClass: 'bg-sage',
     },
     completed: {
-      label: 'completed · session finished',
+      label: 'Session completed',
       textClass: 'text-pine/80 font-medium',
       dotClass: 'bg-pine/50',
     },
     'reschedule-requested': {
-      label: 'reschedule-requested · under review',
+      label: 'Reschedule requested',
       textClass: 'text-amber-800 font-semibold',
       dotClass: 'bg-amber-500',
     },
     cancelled: {
-      label: 'cancelled · archived',
+      label: 'Cancelled',
       textClass: 'text-red-800 font-medium',
       dotClass: 'bg-red-600',
     },
   };
 
+  const psychologistConfig: Record<
+    BookingStatus,
+    { label: string; textClass: string; dotClass: string }
+  > = {
+    pending: {
+      label: 'Pending pick-up',
+      textClass: 'text-amber-900 font-semibold',
+      dotClass: 'bg-amber-600',
+    },
+    'awaiting-review': {
+      label: 'Awaiting your schedule review',
+      textClass: 'text-pine font-semibold',
+      dotClass: 'bg-sage',
+    },
+    'awaiting-client': {
+      label: 'Waiting for client response',
+      textClass: 'text-amber-900 font-semibold',
+      dotClass: 'bg-amber-500',
+    },
+    'awaiting-payment': {
+      label: 'Schedule agreed · Awaiting payment',
+      textClass: 'text-pine font-semibold underline decoration-sage underline-offset-4',
+      dotClass: 'bg-sage',
+    },
+    'paid-confirmed': {
+      label: 'Paid & confirmed',
+      textClass: 'text-pine font-semibold',
+      dotClass: 'bg-sage',
+    },
+    completed: {
+      label: 'Completed',
+      textClass: 'text-pine/80 font-medium',
+      dotClass: 'bg-pine/50',
+    },
+    'reschedule-requested': {
+      label: 'Reschedule requested',
+      textClass: 'text-amber-800 font-semibold',
+      dotClass: 'bg-amber-500',
+    },
+    cancelled: {
+      label: 'Cancelled',
+      textClass: 'text-red-800 font-medium',
+      dotClass: 'bg-red-600',
+    },
+  };
+
+  const config = perspective === 'psychologist' ? psychologistConfig : clientConfig;
   const item = config[status] || config.pending;
 
   return (

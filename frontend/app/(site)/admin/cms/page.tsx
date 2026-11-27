@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
+  AlertCircle,
   ArrowDown,
   ArrowUp,
   Eye,
@@ -13,6 +14,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { getFriendlyErrorMessage } from '@/lib/errorMessages';
 import {
   DEFAULT_WIZARD_PAGES,
   didConsentBlocksChange,
@@ -43,6 +45,7 @@ import {
   Label,
   Modal,
   Select,
+  Skeleton,
   Textarea,
 } from '@/components/ui/primitives';
 
@@ -87,8 +90,23 @@ export default function AdminCmsPage() {
     'services' | 'wizard' | 'overview' | 'structures'
   >('services');
 
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string;
+    description?: string;
+    body: string;
+    confirmLabel: string;
+    confirmVariant?: 'primary' | 'danger';
+    onConfirm: () => void;
+  } | null>(null);
+
   // ─── Services Catalog State ─────────────────────────────────────────────────
-  const { data: services = [] } = useQuery({
+  const {
+    data: services = [],
+    isLoading: isLoadingServices,
+    error: servicesError,
+    refetch: refetchServices,
+    isFetching: isRefetchingServices,
+  } = useQuery({
     queryKey: ['services', 'admin'],
     queryFn: () => api.getAdminServices(),
   });
@@ -202,12 +220,23 @@ export default function AdminCmsPage() {
   });
 
   // ─── Multi-Page Wizard & Consent Builder State ──────────────────────────────
-  const { data: activeTemplate } = useQuery({
+  const {
+    data: activeTemplate,
+    isLoading: isLoadingTemplate,
+    error: templateError,
+    refetch: refetchTemplate,
+    isFetching: isRefetchingTemplate,
+  } = useQuery({
     queryKey: ['consentForm', 'active'],
     queryFn: () => api.getActiveConsentForm(),
   });
 
-  const { data: templateHistory = [] } = useQuery({
+  const {
+    data: templateHistory = [],
+    isLoading: isLoadingTemplateHistory,
+    error: templateHistoryError,
+    refetch: refetchTemplateHistory,
+  } = useQuery({
     queryKey: ['consentForm', 'templates'],
     queryFn: () => api.getConsentFormTemplates(),
   });
@@ -444,18 +473,25 @@ export default function AdminCmsPage() {
     },
     onError: (err) => {
       setWizardErrorMsg(
-        err instanceof Error ? err.message : 'Could not save wizard template.'
+        getFriendlyErrorMessage(err, 'Could not save wizard template. Please try again.')
       );
     },
   });
 
   // ─── Institutional Copy & Testimonials State (Tabs 3 & 4) ───────────────────
-  const { data: cms } = useQuery({
+  const {
+    data: cms,
+    isLoading: isLoadingCms,
+    error: cmsError,
+    refetch: refetchCms,
+    isFetching: isRefetchingCms,
+  } = useQuery({
     queryKey: ['cms', 'admin'],
     queryFn: () => api.getAdminCmsContent(),
   });
 
   const [overviewStatusMsg, setOverviewStatusMsg] = useState<string | null>(null);
+  const [overviewErrorMsg, setOverviewErrorMsg] = useState<string | null>(null);
   const overviewForm = useForm<CmsOverviewFormValues>({
     resolver: zodResolver(cmsOverviewSchema),
     defaultValues: {
@@ -487,10 +523,16 @@ export default function AdminCmsPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cms'] });
+      setOverviewErrorMsg(null);
       setOverviewStatusMsg('Saved Vision, Mission, Clinic Overview, and Impact Narrative.');
       publishFlowEvent(
         'CMS Overview Updated',
         'Vision, Mission, and Clinic Overview persisted to database.'
+      );
+    },
+    onError: (err) => {
+      setOverviewErrorMsg(
+        getFriendlyErrorMessage(err, 'Could not save overview content. Please try again.')
       );
     },
   });
@@ -499,6 +541,7 @@ export default function AdminCmsPage() {
   const [isCreatingTestimonial, setIsCreatingTestimonial] = useState(false);
   const [editingTestimonialId, setEditingTestimonialId] = useState<string>('');
   const [testimonialStatusMsg, setTestimonialStatusMsg] = useState<string | null>(null);
+  const [testimonialErrorMsg, setTestimonialErrorMsg] = useState<string | null>(null);
 
   const currentTestimonial: TestimonialItem | null = useMemo(() => {
     if (isCreatingTestimonial) return null;
@@ -569,12 +612,18 @@ export default function AdminCmsPage() {
       queryClient.invalidateQueries({ queryKey: ['cms'] });
       setIsCreatingTestimonial(false);
       setEditingTestimonialId(saved.id);
+      setTestimonialErrorMsg(null);
       setTestimonialStatusMsg(
         `Saved testimonial by "${saved.authorLabel}".`
       );
       publishFlowEvent(
         'Testimonials Updated',
         `Saved testimonial for ${saved.serviceCategory}.`
+      );
+    },
+    onError: (err) => {
+      setTestimonialErrorMsg(
+        getFriendlyErrorMessage(err, 'Could not save this testimonial. Please try again.')
       );
     },
   });
@@ -584,9 +633,49 @@ export default function AdminCmsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cms'] });
       setEditingTestimonialId('');
+      setTestimonialErrorMsg(null);
       setTestimonialStatusMsg('Deleted testimonial.');
     },
+    onError: (err) => {
+      setTestimonialErrorMsg(
+        getFriendlyErrorMessage(err, 'Could not delete this testimonial. Please try again.')
+      );
+    },
   });
+
+  const guardServiceSwitch = (proceed: () => void) => {
+    if (serviceForm.formState.isDirty) {
+      setConfirmDialog({
+        title: 'Discard unsaved service edits?',
+        body: 'You have unsaved changes in the current service form. Switching now will discard them.',
+        confirmLabel: 'Discard Changes',
+        confirmVariant: 'danger',
+        onConfirm: () => {
+          setConfirmDialog(null);
+          proceed();
+        },
+      });
+      return;
+    }
+    proceed();
+  };
+
+  const guardTestimonialSwitch = (proceed: () => void) => {
+    if (testimonialForm.formState.isDirty) {
+      setConfirmDialog({
+        title: 'Discard unsaved testimonial edits?',
+        body: 'You have unsaved changes in the current testimonial form. Switching now will discard them.',
+        confirmLabel: 'Discard Changes',
+        confirmVariant: 'danger',
+        onConfirm: () => {
+          setConfirmDialog(null);
+          proceed();
+        },
+      });
+      return;
+    }
+    proceed();
+  };
 
   const watchedDuration = serviceForm.watch('durationMinutes');
 
@@ -659,60 +748,98 @@ export default function AdminCmsPage() {
                 type="button"
                 variant="primary"
                 size="sm"
-                onClick={() => {
-                  setServiceStatusMsg(null);
-                  setIsCreatingService(true);
-                }}
+                onClick={() =>
+                  guardServiceSwitch(() => {
+                    setServiceStatusMsg(null);
+                    setIsCreatingService(true);
+                  })
+                }
               >
                 <Plus className="w-3.5 h-3.5" aria-hidden="true" />
                 New Service
               </Button>
             </div>
 
+            {servicesError && (
+              <div
+                role="alert"
+                className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-900 flex items-center justify-between gap-2"
+              >
+                <span>
+                  {getFriendlyErrorMessage(
+                    servicesError,
+                    'Could not load the services catalog.'
+                  )}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refetchServices()}
+                  disabled={isRefetchingServices}
+                  className="shrink-0"
+                >
+                  {isRefetchingServices ? 'Retrying…' : 'Try Again'}
+                </Button>
+              </div>
+            )}
+
             <div className="space-y-2">
-              {paginatedServices.map((srv) => {
-                const isSelected =
-                  !isCreatingService && currentService?.id === srv.id;
-                const active = srv.isActive !== false;
-                return (
-                  <button
-                    key={srv.id}
-                    type="button"
-                    onClick={() => {
-                      setServiceStatusMsg(null);
-                      setIsCreatingService(false);
-                      setEditingServiceId(srv.id);
-                    }}
-                    className={`w-full text-left p-3.5 rounded-xl border text-xs transition-colors cursor-pointer ${
-                      isSelected
-                        ? 'border-sage bg-surface-sunken'
-                        : 'border-mist bg-surface-raised hover:border-mint hover:bg-surface-sunken/40'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono text-accent-ink font-semibold">
-                        {srv.durationLabel}
-                        {srv.rateLabel ? ` · ${srv.rateLabel}` : ''}
-                      </span>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                          active
-                            ? 'bg-sage/20 text-pine'
-                            : 'bg-mist/70 text-pine/60'
-                        }`}
-                      >
-                        {active ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                    <p className="font-heading text-lg font-medium text-pine mt-1">
-                      {srv.title}
-                    </p>
-                    <p className="text-pine/70 line-clamp-2 mt-0.5">
-                      {srv.description}
-                    </p>
-                  </button>
-                );
-              })}
+              {isLoadingServices ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-24" />
+                ))
+              ) : services.length === 0 ? (
+                <p className="text-xs text-pine/70 py-6 text-center">
+                  No services configured yet. Create your first service to populate the booking catalog.
+                </p>
+              ) : (
+                paginatedServices.map((srv) => {
+                  const isSelected =
+                    !isCreatingService && currentService?.id === srv.id;
+                  const active = srv.isActive !== false;
+                  return (
+                    <button
+                      key={srv.id}
+                      type="button"
+                      onClick={() =>
+                        guardServiceSwitch(() => {
+                          setServiceStatusMsg(null);
+                          setIsCreatingService(false);
+                          setEditingServiceId(srv.id);
+                        })
+                      }
+                      className={`w-full text-left p-3.5 rounded-xl border text-xs transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'border-sage bg-surface-sunken'
+                          : 'border-mist bg-surface-raised hover:border-mint hover:bg-surface-sunken/40'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-accent-ink font-semibold">
+                          {srv.durationLabel}
+                          {srv.rateLabel ? ` · ${srv.rateLabel}` : ''}
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                            active
+                              ? 'bg-sage/20 text-pine'
+                              : 'bg-mist/70 text-pine/60'
+                          }`}
+                        >
+                          {active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                      <p className="font-heading text-lg font-medium text-pine mt-1">
+                        {srv.title}
+                      </p>
+                      <p className="text-pine/70 line-clamp-2 mt-0.5">
+                        {srv.description}
+                      </p>
+                    </button>
+                  );
+                })
+              )}
             </div>
 
             {services.length > SERVICES_PAGE_SIZE && (
@@ -793,9 +920,10 @@ export default function AdminCmsPage() {
                 role="alert"
                 className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-900"
               >
-                {saveServiceMutation.error instanceof Error
-                  ? saveServiceMutation.error.message
-                  : 'Failed to save service.'}
+                {getFriendlyErrorMessage(
+                  saveServiceMutation.error,
+                  'Failed to save service. Please try again.'
+                )}
               </div>
             )}
 
@@ -925,6 +1053,46 @@ export default function AdminCmsPage() {
       {/* Tab 2: Multi-Page Wizard & Consent Forms Builder (Live Backend) */}
       {activeTab === 'wizard' && (
         <div className="space-y-6">
+          {(templateError || templateHistoryError) && (
+            <div
+              role="alert"
+              className="rounded-lg border border-red-200 bg-red-50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-red-900"
+            >
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-red-700 shrink-0 mt-0.5" aria-hidden="true" />
+                <span>
+                  {getFriendlyErrorMessage(
+                    templateError || templateHistoryError,
+                    'Could not load the active wizard template.'
+                  )}
+                </span>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  refetchTemplate();
+                  refetchTemplateHistory();
+                }}
+                disabled={isRefetchingTemplate}
+                className="shrink-0"
+              >
+                {isRefetchingTemplate ? 'Retrying…' : 'Try Again'}
+              </Button>
+            </div>
+          )}
+
+          {isLoadingTemplate || isLoadingTemplateHistory ? (
+            <div className="space-y-4">
+              <Skeleton className="h-32" />
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <Skeleton className="lg:col-span-4 h-80" />
+                <Skeleton className="lg:col-span-8 h-80" />
+              </div>
+            </div>
+          ) : (
+            <>
           {/* Top Bar: Active Version, Live Diff Indicator & Publish Controls */}
           <Card className="space-y-4">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-mist pb-4">
@@ -979,7 +1147,23 @@ export default function AdminCmsPage() {
                   type="button"
                   variant="primary"
                   size="md"
-                  onClick={() => saveWizardMutation.mutate()}
+                  onClick={() => {
+                    if (willTriggerMajorBump) {
+                      setConfirmDialog({
+                        title: 'Publish Major Consent Version?',
+                        description: 'Clients will be required to re-sign consent.',
+                        body: 'Publishing a major version bump updates the legal consent version and will prompt all existing clients to review and re-sign consent before their next booking. Are you sure you want to publish now?',
+                        confirmLabel: 'Publish Major Version',
+                        confirmVariant: 'primary',
+                        onConfirm: () => {
+                          setConfirmDialog(null);
+                          saveWizardMutation.mutate();
+                        },
+                      });
+                    } else {
+                      saveWizardMutation.mutate();
+                    }
+                  }}
                   disabled={saveWizardMutation.isPending}
                 >
                   {saveWizardMutation.isPending
@@ -1026,9 +1210,18 @@ export default function AdminCmsPage() {
                   variant="outline"
                   size="sm"
                   onClick={() =>
-                    setWizardPages(
-                      JSON.parse(JSON.stringify(baselinePages)) as WizardPage[]
-                    )
+                    setConfirmDialog({
+                      title: 'Discard unsaved wizard edits?',
+                      body: 'All unpublished page, block, and consent text edits will be reverted to the currently active template.',
+                      confirmLabel: 'Discard Edits',
+                      confirmVariant: 'danger',
+                      onConfirm: () => {
+                        setConfirmDialog(null);
+                        setWizardPages(
+                          JSON.parse(JSON.stringify(baselinePages)) as WizardPage[]
+                        );
+                      },
+                    })
                   }
                 >
                   Discard Unsaved Edits
@@ -1159,7 +1352,18 @@ export default function AdminCmsPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDeletePage(idx)}
+                            onClick={() =>
+                              setConfirmDialog({
+                                title: `Delete "${page.title}"?`,
+                                body: `This will remove Step ${idx + 1} and its ${page.blocks.length} ${page.blocks.length === 1 ? 'block' : 'blocks'} from the draft wizard.`,
+                                confirmLabel: 'Delete Page',
+                                confirmVariant: 'danger',
+                                onConfirm: () => {
+                                  setConfirmDialog(null);
+                                  handleDeletePage(idx);
+                                },
+                              })
+                            }
                             disabled={
                               hasLockedBlock || wizardPages.length <= 1
                             }
@@ -1301,11 +1505,6 @@ export default function AdminCmsPage() {
                             <p className="font-medium text-sm text-pine">
                               {block.label}
                             </p>
-                            {block.fieldKey && (
-                              <p className="font-mono text-[11px] text-pine/60">
-                                field_key: {block.fieldKey}
-                              </p>
-                            )}
                           </button>
 
                           <div className="flex items-center gap-1">
@@ -1341,7 +1540,18 @@ export default function AdminCmsPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDeleteBlock(block.blockId)}
+                              onClick={() =>
+                                setConfirmDialog({
+                                  title: `Delete "${block.label}"?`,
+                                  body: 'This block will be removed from the current wizard step. You can still discard edits before publishing.',
+                                  confirmLabel: 'Delete Block',
+                                  confirmVariant: 'danger',
+                                  onConfirm: () => {
+                                    setConfirmDialog(null);
+                                    handleDeleteBlock(block.blockId);
+                                  },
+                                })
+                              }
                               disabled={
                                 block.systemLocked ||
                                 currentPage.blocks.length <= 1
@@ -1449,57 +1659,6 @@ export default function AdminCmsPage() {
                               {isInput && (
                                 <>
                                   <div>
-                                    <Label htmlFor={`blk-key-${block.blockId}`}>
-                                      Field Key (JSON attribute key)
-                                    </Label>
-                                    <Input
-                                      id={`blk-key-${block.blockId}`}
-                                      value={block.fieldKey || ''}
-                                      disabled={block.systemLocked}
-                                      onChange={(e) =>
-                                        handleUpdateBlock(block.blockId, {
-                                          fieldKey: e.target.value.replace(
-                                            /\s+/g,
-                                            '_'
-                                          ),
-                                        })
-                                      }
-                                    />
-                                  </div>
-
-                                  <div>
-                                    <Label
-                                      htmlFor={`blk-target-${block.blockId}`}
-                                    >
-                                      Storage &amp; Versioning Target
-                                    </Label>
-                                    <Select
-                                      id={`blk-target-${block.blockId}`}
-                                      value={block.target || 'custom'}
-                                      disabled={block.systemLocked}
-                                      onChange={(e) =>
-                                        handleUpdateBlock(block.blockId, {
-                                          target: e.target
-                                            .value as WizardFieldTarget,
-                                        })
-                                      }
-                                    >
-                                      <option value="profile">
-                                        Profile Demographics (profile.details — minor version bump)
-                                      </option>
-                                      <option value="consent">
-                                        Legal Consent Record (forms.responses — major version bump)
-                                      </option>
-                                      <option value="custom">
-                                        Custom Intake Field (forms.responses)
-                                      </option>
-                                      <option value="ui">
-                                        UI Helper Control Only
-                                      </option>
-                                    </Select>
-                                  </div>
-
-                                  <div>
                                     <Label htmlFor={`blk-ph-${block.blockId}`}>
                                       Placeholder (Optional)
                                     </Label>
@@ -1530,6 +1689,64 @@ export default function AdminCmsPage() {
                                       }
                                     />
                                   </div>
+
+                                  <details className="sm:col-span-2 rounded-lg border border-mist bg-surface-sunken/40 p-3">
+                                    <summary className="cursor-pointer font-medium text-pine/80 select-none">
+                                      Advanced field settings (storage &amp; versioning)
+                                    </summary>
+                                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                      <div>
+                                        <Label htmlFor={`blk-key-${block.blockId}`}>
+                                          Internal Field Key
+                                        </Label>
+                                        <Input
+                                          id={`blk-key-${block.blockId}`}
+                                          value={block.fieldKey || ''}
+                                          disabled={block.systemLocked}
+                                          onChange={(e) =>
+                                            handleUpdateBlock(block.blockId, {
+                                              fieldKey: e.target.value.replace(
+                                                /\s+/g,
+                                                '_'
+                                              ),
+                                            })
+                                          }
+                                        />
+                                      </div>
+
+                                      <div>
+                                        <Label
+                                          htmlFor={`blk-target-${block.blockId}`}
+                                        >
+                                          Data &amp; Versioning Category
+                                        </Label>
+                                        <Select
+                                          id={`blk-target-${block.blockId}`}
+                                          value={block.target || 'custom'}
+                                          disabled={block.systemLocked}
+                                          onChange={(e) =>
+                                            handleUpdateBlock(block.blockId, {
+                                              target: e.target
+                                                .value as WizardFieldTarget,
+                                            })
+                                          }
+                                        >
+                                          <option value="profile">
+                                            Client Profile Info (minor update)
+                                          </option>
+                                          <option value="consent">
+                                            Legal Consent Record (requires client re-sign)
+                                          </option>
+                                          <option value="custom">
+                                            Custom Intake Answer
+                                          </option>
+                                          <option value="ui">
+                                            Display / Helper Only
+                                          </option>
+                                        </Select>
+                                      </div>
+                                    </div>
+                                  </details>
                                 </>
                               )}
                             </div>
@@ -1677,45 +1894,54 @@ export default function AdminCmsPage() {
                                 </label>
 
                                 {block.showIf && (
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <Select
-                                      value={block.showIf.fieldKey}
-                                      onChange={(e) =>
-                                        handleUpdateBlock(block.blockId, {
-                                          showIf: {
-                                            ...block.showIf!,
-                                            fieldKey: e.target.value,
-                                          },
-                                        })
-                                      }
-                                      className="w-44"
-                                    >
-                                      {allAvailableFieldKeys.map((fk) => (
-                                        <option key={fk.key} value={fk.key}>
-                                          {fk.key}
-                                        </option>
-                                      ))}
-                                    </Select>
-                                    <span>equals</span>
-                                    <Input
-                                      value={String(block.showIf.equals)}
-                                      onChange={(e) => {
-                                        const raw = e.target.value;
-                                        const parsed =
-                                          raw === 'true'
-                                            ? true
-                                            : raw === 'false'
-                                              ? false
-                                              : raw;
-                                        handleUpdateBlock(block.blockId, {
-                                          showIf: {
-                                            ...block.showIf!,
-                                            equals: parsed,
-                                          },
-                                        });
-                                      }}
-                                      className="w-28"
-                                    />
+                                  <div className="space-y-1.5">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <Select
+                                        aria-label="Condition source field"
+                                        value={block.showIf.fieldKey}
+                                        onChange={(e) =>
+                                          handleUpdateBlock(block.blockId, {
+                                            showIf: {
+                                              ...block.showIf!,
+                                              fieldKey: e.target.value,
+                                            },
+                                          })
+                                        }
+                                        className="w-56"
+                                      >
+                                        {allAvailableFieldKeys.map((fk) => (
+                                          <option key={fk.key} value={fk.key}>
+                                            {fk.label}
+                                          </option>
+                                        ))}
+                                      </Select>
+                                      <span>equals</span>
+                                      <Input
+                                        aria-label="Condition match value"
+                                        placeholder="true"
+                                        value={String(block.showIf.equals)}
+                                        onChange={(e) => {
+                                          const raw = e.target.value;
+                                          const parsed =
+                                            raw === 'true'
+                                              ? true
+                                              : raw === 'false'
+                                                ? false
+                                                : raw;
+                                          handleUpdateBlock(block.blockId, {
+                                            showIf: {
+                                              ...block.showIf!,
+                                              equals: parsed,
+                                            },
+                                          });
+                                        }}
+                                        className="w-28"
+                                      />
+                                    </div>
+                                    <p className="text-xs text-pine/65">
+                                      For checkboxes, enter &ldquo;true&rdquo; or &ldquo;false&rdquo;.
+                                      For dropdowns, enter the stored option value.
+                                    </p>
                                   </div>
                                 )}
                               </div>
@@ -1788,6 +2014,8 @@ export default function AdminCmsPage() {
               </Card>
             )}
           </div>
+            </>
+          )}
         </div>
       )}
 
@@ -1800,6 +2028,30 @@ export default function AdminCmsPage() {
             </h2>
           </div>
 
+          {cmsError && (
+            <div
+              role="alert"
+              className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-900 flex items-center justify-between gap-2"
+            >
+              <span>
+                {getFriendlyErrorMessage(
+                  cmsError,
+                  'Could not load institutional overview copy.'
+                )}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => refetchCms()}
+                disabled={isRefetchingCms}
+                className="shrink-0"
+              >
+                {isRefetchingCms ? 'Retrying…' : 'Try Again'}
+              </Button>
+            </div>
+          )}
+
           {overviewStatusMsg && (
             <div
               role="status"
@@ -1809,9 +2061,29 @@ export default function AdminCmsPage() {
             </div>
           )}
 
+          {overviewErrorMsg && (
+            <div
+              role="alert"
+              className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-900"
+            >
+              {overviewErrorMsg}
+            </div>
+          )}
+
+          {isLoadingCms ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <Skeleton className="h-28" />
+                <Skeleton className="h-28" />
+              </div>
+              <Skeleton className="h-24" />
+              <Skeleton className="h-20" />
+            </div>
+          ) : (
           <form
             onSubmit={overviewForm.handleSubmit((vals) => {
               setOverviewStatusMsg(null);
+              setOverviewErrorMsg(null);
               saveCmsMutation.mutate(vals);
             })}
             className="space-y-5"
@@ -1883,6 +2155,7 @@ export default function AdminCmsPage() {
               {saveCmsMutation.isPending ? 'Saving…' : 'Save Overview'}
             </Button>
           </form>
+          )}
         </Card>
       )}
 
@@ -1903,59 +2176,95 @@ export default function AdminCmsPage() {
                 type="button"
                 variant="primary"
                 size="sm"
-                onClick={() => {
-                  setTestimonialStatusMsg(null);
-                  setIsCreatingTestimonial(true);
-                }}
+                onClick={() =>
+                  guardTestimonialSwitch(() => {
+                    setTestimonialStatusMsg(null);
+                    setTestimonialErrorMsg(null);
+                    setIsCreatingTestimonial(true);
+                  })
+                }
               >
                 <Plus className="w-3.5 h-3.5" aria-hidden="true" />
                 New Testimonial
               </Button>
             </div>
 
+            {cmsError && (
+              <div
+                role="alert"
+                className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-900 flex items-center justify-between gap-2"
+              >
+                <span>
+                  {getFriendlyErrorMessage(
+                    cmsError,
+                    'Could not load testimonials.'
+                  )}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refetchCms()}
+                  disabled={isRefetchingCms}
+                  className="shrink-0"
+                >
+                  {isRefetchingCms ? 'Retrying…' : 'Try Again'}
+                </Button>
+              </div>
+            )}
+
             <div className="space-y-2">
-              {testimonials.map((item) => {
-                const isSelected =
-                  !isCreatingTestimonial && currentTestimonial?.id === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      setTestimonialStatusMsg(null);
-                      setIsCreatingTestimonial(false);
-                      setEditingTestimonialId(item.id);
-                    }}
-                    className={`w-full text-left p-3.5 rounded-xl border text-xs transition-colors cursor-pointer ${
-                      isSelected
-                        ? 'border-sage bg-surface-sunken'
-                        : 'border-mist bg-surface-raised hover:border-mint hover:bg-surface-sunken/40'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium text-accent-ink">
-                        {item.serviceCategory}
-                      </span>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                          item.isActive
-                            ? 'bg-sage/20 text-pine'
-                            : 'bg-mist/70 text-pine/60'
-                        }`}
-                      >
-                        {item.isActive ? 'Published' : 'Hidden'}
-                      </span>
-                    </div>
-                    <p className="text-pine mt-1.5 line-clamp-2 leading-relaxed">
-                      &ldquo;{item.quote}&rdquo;
-                    </p>
-                    <p className="text-pine/65 mt-1 font-medium">
-                      — {item.authorLabel}
-                    </p>
-                  </button>
-                );
-              })}
-              {testimonials.length === 0 && (
+              {isLoadingCms ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-24" />
+                ))
+              ) : (
+                testimonials.map((item) => {
+                  const isSelected =
+                    !isCreatingTestimonial && currentTestimonial?.id === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() =>
+                        guardTestimonialSwitch(() => {
+                          setTestimonialStatusMsg(null);
+                          setTestimonialErrorMsg(null);
+                          setIsCreatingTestimonial(false);
+                          setEditingTestimonialId(item.id);
+                        })
+                      }
+                      className={`w-full text-left p-3.5 rounded-xl border text-xs transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'border-sage bg-surface-sunken'
+                          : 'border-mist bg-surface-raised hover:border-mint hover:bg-surface-sunken/40'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-accent-ink">
+                          {item.serviceCategory}
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                            item.isActive
+                              ? 'bg-sage/20 text-pine'
+                              : 'bg-mist/70 text-pine/60'
+                          }`}
+                        >
+                          {item.isActive ? 'Published' : 'Hidden'}
+                        </span>
+                      </div>
+                      <p className="text-pine mt-1.5 line-clamp-2 leading-relaxed">
+                        &ldquo;{item.quote}&rdquo;
+                      </p>
+                      <p className="text-pine/65 mt-1 font-medium">
+                        — {item.authorLabel}
+                      </p>
+                    </button>
+                  );
+                })
+              )}
+              {!isLoadingCms && testimonials.length === 0 && (
                 <p className="text-xs text-pine/70 py-4 text-center">
                   No testimonials yet.
                 </p>
@@ -1998,9 +2307,19 @@ export default function AdminCmsPage() {
               </div>
             )}
 
+            {testimonialErrorMsg && (
+              <div
+                role="alert"
+                className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-900"
+              >
+                {testimonialErrorMsg}
+              </div>
+            )}
+
             <form
               onSubmit={testimonialForm.handleSubmit((vals) => {
                 setTestimonialStatusMsg(null);
+                setTestimonialErrorMsg(null);
                 saveTestimonialMutation.mutate(vals);
               })}
               className="space-y-4"
@@ -2081,7 +2400,19 @@ export default function AdminCmsPage() {
                     size="sm"
                     disabled={deleteTestimonialMutation.isPending}
                     onClick={() =>
-                      deleteTestimonialMutation.mutate(currentTestimonial.id)
+                      setConfirmDialog({
+                        title: 'Delete this testimonial?',
+                        description: currentTestimonial.authorLabel,
+                        body: 'This reflection will be permanently deleted and removed from the public homepage carousel.',
+                        confirmLabel: 'Delete Testimonial',
+                        confirmVariant: 'danger',
+                        onConfirm: () => {
+                          setConfirmDialog(null);
+                          setTestimonialStatusMsg(null);
+                          setTestimonialErrorMsg(null);
+                          deleteTestimonialMutation.mutate(currentTestimonial.id);
+                        },
+                      })
                     }
                   >
                     <Trash2 className="w-3.5 h-3.5 text-red-700" aria-hidden="true" />
@@ -2419,6 +2750,38 @@ export default function AdminCmsPage() {
           </Modal>
         );
       })()}
+
+      {/* Shared Destructive & Unsaved-Changes Confirmation Modal */}
+      <Modal
+        open={Boolean(confirmDialog)}
+        onClose={() => setConfirmDialog(null)}
+        title={confirmDialog?.title ?? ''}
+        description={confirmDialog?.description}
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={() => setConfirmDialog(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant={confirmDialog?.confirmVariant ?? 'danger'}
+              size="md"
+              onClick={() => confirmDialog?.onConfirm()}
+            >
+              {confirmDialog?.confirmLabel ?? 'Confirm'}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-pine/85 leading-relaxed">
+          {confirmDialog?.body}
+        </p>
+      </Modal>
     </div>
   );
 }

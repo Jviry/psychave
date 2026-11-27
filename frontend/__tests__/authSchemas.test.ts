@@ -13,8 +13,10 @@ import {
   confirmSchema,
   forgotPasswordRequestSchema,
   forgotPasswordConfirmSchema,
+  psychologistInviteRegisterSchema,
   getPasswordStrength,
   analyzePasswordStrength,
+  isAcceptablePasswordStrength,
 } from '../lib/authSchemas';
 
 // ─────────────────────────────────────────────────────────────────
@@ -24,8 +26,8 @@ describe('registerSchema', () => {
   const valid = {
     email: 'test@example.com',
     username: 'test_user-01',
-    password: 'Secure@123',
-    confirmPassword: 'Secure@123',
+    password: 'C4ctus-V3lv3t!9',
+    confirmPassword: 'C4ctus-V3lv3t!9',
     privacyConsent: true as const,
   };
 
@@ -84,6 +86,51 @@ describe('registerSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects weak password even if it meets character rules', () => {
+    const result = registerSchema.safeParse({ ...valid, password: 'Password1!', confirmPassword: 'Password1!' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.password).toContain(
+        'Password must be rated Good or Strong'
+      );
+    }
+  });
+
+  it('rejects fair password even if it meets character rules', () => {
+    const result = registerSchema.safeParse({ ...valid, password: 'Pass@123', confirmPassword: 'Pass@123' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.password).toContain(
+        'Password must be rated Good or Strong'
+      );
+    }
+  });
+
+  it('rejects password weakened by containing username or email', () => {
+    const result = registerSchema.safeParse({
+      ...valid,
+      username: 'psychave_maria',
+      email: 'maria@example.com',
+      password: 'Psychave_maria99!',
+      confirmPassword: 'Psychave_maria99!',
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.password).toContain(
+        'Password must be rated Good or Strong'
+      );
+    }
+  });
+
+  it('accepts strong password', () => {
+    const result = registerSchema.safeParse({
+      ...valid,
+      password: 'T9#mK2$vP8!qL5@x',
+      confirmPassword: 'T9#mK2$vP8!qL5@x',
+    });
+    expect(result.success).toBe(true);
+  });
+
   it('rejects when passwords do not match', () => {
     const result = registerSchema.safeParse({ ...valid, confirmPassword: 'Different@123' });
     expect(result.success).toBe(false);
@@ -95,6 +142,42 @@ describe('registerSchema', () => {
   it('rejects when privacy consent is false', () => {
     const result = registerSchema.safeParse({ ...valid, privacyConsent: false });
     expect(result.success).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────
+// psychologistInviteRegisterSchema
+// ─────────────────────────────────────────────────────────────────
+describe('psychologistInviteRegisterSchema', () => {
+  const valid = {
+    username: 'dr_santos',
+    password: 'C4ctus-V3lv3t!9',
+    confirmPassword: 'C4ctus-V3lv3t!9',
+    fullName: 'Dr. Maria Santos',
+    prcCredentialCode: 'PRC-RPSY-2024-001',
+    specialization: 'Trauma-Informed CBT',
+    bio: 'Licensed clinical psychologist specializing in trauma-informed care.',
+    socialMediaLinks: [{ platform: 'Facebook', url: 'https://facebook.com/dr.santos' }],
+  };
+
+  it('accepts a valid invited psychologist registration with a good/strong password', () => {
+    expect(psychologistInviteRegisterSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it('rejects weak or fair passwords on invited psychologist registration', () => {
+    const weak = psychologistInviteRegisterSchema.safeParse({
+      ...valid,
+      password: 'Password1!',
+      confirmPassword: 'Password1!',
+    });
+    expect(weak.success).toBe(false);
+
+    const fair = psychologistInviteRegisterSchema.safeParse({
+      ...valid,
+      password: 'Pass@123',
+      confirmPassword: 'Pass@123',
+    });
+    expect(fair.success).toBe(false);
   });
 });
 
@@ -239,5 +322,18 @@ describe('analyzePasswordStrength', () => {
     expect(analysis.strength).toBe('strong');
     expect(analysis.score).toBe(4);
     expect(analysis.warning).toBe('');
+  });
+});
+
+describe('isAcceptablePasswordStrength', () => {
+  it('returns false for weak and fair passwords', () => {
+    expect(isAcceptablePasswordStrength('')).toBe(false);
+    expect(isAcceptablePasswordStrength('Password1!')).toBe(false);
+    expect(isAcceptablePasswordStrength('Pass@123')).toBe(false);
+  });
+
+  it('returns true for good and strong passwords', () => {
+    expect(isAcceptablePasswordStrength('c4ctus-v3lv3t')).toBe(true);
+    expect(isAcceptablePasswordStrength('T9#mK2$vP8!qL5@x')).toBe(true);
   });
 });

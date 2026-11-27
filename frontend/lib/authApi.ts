@@ -41,6 +41,11 @@ export interface ConfirmCredentials {
   confirmationCode: string;
 }
 
+export interface CheckAvailabilityResponse {
+  emailAvailable: boolean;
+  usernameAvailable: boolean;
+}
+
 export interface ForgotPasswordConfirmCredentials {
   username: string;
   newPassword: string;
@@ -159,6 +164,26 @@ export const authApi = {
       accessToken: raw.AccessToken,
       idToken: raw.IdToken,
       refreshToken: raw.RefreshToken,
+    };
+  },
+
+  /**
+   * Check whether an email and/or username are available for registration.
+   */
+  checkAvailability: async (params: {
+    email?: string;
+    username?: string;
+  }): Promise<CheckAvailabilityResponse> => {
+    const raw = await post<{
+      email_available: boolean;
+      username_available: boolean;
+    }>('/auth/check-availability', {
+      email: params.email,
+      username: params.username,
+    });
+    return {
+      emailAvailable: raw.email_available,
+      usernameAvailable: raw.username_available,
     };
   },
 

@@ -15,5 +15,8 @@ export function useActivePsychologist() {
   return {
     activePsych: profileQuery.data,
     isLoading: profileQuery.isLoading,
+    error: profileQuery.error,
+    refetch: profileQuery.refetch,
+    isFetching: profileQuery.isFetching,
   };
 }

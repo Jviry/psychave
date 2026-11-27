@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -9,10 +9,11 @@ import {
   psychologistProfileSchema,
   PsychologistProfileValues,
 } from '@/lib/schemas';
+import { getFriendlyErrorMessage } from '@/lib/errorMessages';
 import { useAppStore } from '@/stores/useAppStore';
 import { useActivePsychologist } from '@/hooks/useActivePsychologist';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 import {
   Button,
   Card,
@@ -36,7 +37,18 @@ export default function PsychologistProfilePage() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const publishFlowEvent = useAppStore((s) => s.publishFlowEvent);
-  const { activePsych, isLoading } = useActivePsychologist();
+  const {
+    activePsych,
+    isLoading,
+    error: profileError,
+    refetch: refetchProfile,
+    isFetching: isRefetchingProfile,
+  } = useActivePsychologist();
+  const [saveFeedback, setSaveFeedback] = useState<{
+    type: 'success' | 'error';
+    message: string;
+    hasSocialLinks?: boolean;
+  } | null>(null);
 
   const profileForm = useForm<PsychologistProfileValues>({
     resolver: zodResolver(psychologistProfileSchema),
@@ -80,10 +92,27 @@ export default function PsychologistProfilePage() {
     },
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['psych-profile'] });
+      const hasSocialLinks = (updated.socialMediaLinks?.length ?? 0) > 0;
+      setSaveFeedback({
+        type: 'success',
+        message: hasSocialLinks
+          ? 'Profile changes saved. You can now pick up pending client requests.'
+          : 'Profile changes saved. Add at least one social media link to unlock booking pick-up.',
+        hasSocialLinks,
+      });
       publishFlowEvent(
         'Profile Updated Successfully',
         `${updated.anonymizedTitle} profile details (specialization, license, bio, and social media links) saved.`
       );
+    },
+    onError: (err) => {
+      setSaveFeedback({
+        type: 'error',
+        message: getFriendlyErrorMessage(
+          err,
+          'Could not save your profile changes. Please try again.'
+        ),
+      });
     },
   });
 
@@ -107,8 +136,39 @@ export default function PsychologistProfilePage() {
         </div>
       </header>
 
+      {/* Profile Load Error */}
+      {profileError && (
+        <div
+          role="alert"
+          className="bg-red-50 border border-red-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-red-900"
+        >
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 text-red-700 shrink-0 mt-0.5" aria-hidden="true" />
+            <div>
+              <p className="font-semibold">Could not load your practitioner profile.</p>
+              <p className="mt-0.5 text-red-800">
+                {getFriendlyErrorMessage(
+                  profileError,
+                  'Please refresh or try again in a moment.'
+                )}
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => refetchProfile()}
+            disabled={isRefetchingProfile}
+            className="shrink-0"
+          >
+            {isRefetchingProfile ? 'Retrying…' : 'Try Again'}
+          </Button>
+        </div>
+      )}
+
       {/* Social media gate */}
-      {(activePsych?.socialMediaLinks?.length ?? 0) === 0 && (
+      {!isLoading && !profileError && (activePsych?.socialMediaLinks?.length ?? 0) === 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-950 space-y-1">
           <p className="font-semibold">Social media contact required before accepting bookings.</p>
           <p>
@@ -131,11 +191,45 @@ export default function PsychologistProfilePage() {
             </p>
           </div>
 
+          {saveFeedback && (
+            <div
+              role={saveFeedback.type === 'error' ? 'alert' : 'status'}
+              className={`rounded-lg border p-3.5 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                saveFeedback.type === 'error'
+                  ? 'border-red-200 bg-red-50 text-red-900'
+                  : 'border-sage/50 bg-surface-sunken text-pine'
+              }`}
+            >
+              <div className="flex items-start gap-2">
+                {saveFeedback.type === 'error' ? (
+                  <AlertCircle className="w-4 h-4 text-red-700 shrink-0 mt-0.5" aria-hidden="true" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4 text-accent-ink shrink-0 mt-0.5" aria-hidden="true" />
+                )}
+                <p className="font-medium">{saveFeedback.message}</p>
+              </div>
+              {saveFeedback.type === 'success' && saveFeedback.hasSocialLinks && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push('/psych/queue')}
+                  className="shrink-0"
+                >
+                  Go to Pending Requests
+                </Button>
+              )}
+            </div>
+          )}
+
           {isLoading ? (
             <Skeleton className="h-64" />
           ) : (
             <form
-              onSubmit={profileForm.handleSubmit((values) => updateMutation.mutate(values))}
+              onSubmit={profileForm.handleSubmit((values) => {
+                setSaveFeedback(null);
+                updateMutation.mutate(values);
+              })}
               className="space-y-5"
             >
               {/* Specialization */}

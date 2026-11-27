@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../../lib/api';
+import { getFriendlyErrorMessage } from '../../../../lib/errorMessages';
 import { useActivePsychologist } from '../../../../hooks/useActivePsychologist';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, AlertTriangle, ChevronDown, CalendarDays, Clock } from 'lucide-react';
@@ -23,6 +24,7 @@ import {
   EmptyState,
   Label,
   Modal,
+  Select,
   Skeleton,
 } from '../../../../components/ui/primitives';
 
@@ -69,7 +71,13 @@ export default function PsychologistSchedulePage() {
 
   const minDateTime = useMemo(() => formatForManilaInput(new Date()), []);
 
-  const { data: bookings = [], isLoading, error: bookingsError } = useQuery({
+  const {
+    data: bookings = [],
+    isLoading,
+    error: bookingsError,
+    refetch: refetchBookings,
+    isFetching: isRefetchingBookings,
+  } = useQuery({
     queryKey: ['bookings', 'psychologist'],
     queryFn: () => api.getBookingsForRole('psychologist'),
   });
@@ -264,70 +272,63 @@ export default function PsychologistSchedulePage() {
     <div className="space-y-8">
       {/* Header */}
       <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 border-b border-mist pb-6">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs text-accent-ink font-semibold">
-            <span>Psychologist Dashboard</span>
-            <span aria-hidden="true">·</span>
-            <span>My Schedule &amp; Clinical Management</span>
-          </div>
-          <h1 className="font-heading text-4xl font-medium text-pine">
-            My Practice Schedule
-          </h1>
-          <p className="text-sm text-pine/80 max-w-2xl">
-            Track schedule negotiations, agreed sessions awaiting payment, and confirmed
-            appointments separated into upcoming and past sessions.
-          </p>
-        </div>
-
+        <h1 className="font-heading text-4xl font-medium text-pine">
+          My Practice Schedule
+        </h1>
       </header>
 
       {bookingsError && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-xs text-red-900">
-          <p className="font-semibold">Could not load your schedule.</p>
-          <p className="mt-1 break-words">{(bookingsError as Error).message}</p>
+        <div
+          role="alert"
+          className="bg-red-50 border border-red-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-red-900"
+        >
+          <div>
+            <p className="font-semibold">Could not load your schedule.</p>
+            <p className="mt-1 break-words">
+              {getFriendlyErrorMessage(
+                bookingsError,
+                'Something went wrong while loading your schedule. Please try again.'
+              )}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => refetchBookings()}
+            disabled={isRefetchingBookings}
+            className="shrink-0"
+          >
+            {isRefetchingBookings ? 'Retrying…' : 'Try Again'}
+          </Button>
         </div>
       )}
 
-      {/* Tabs Navigation for Schedule Separation */}
+      {/* Schedule Status Filter */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-mist pb-3">
-        <div
-          role="group"
-          aria-label="Filter schedule sessions"
-          className="flex flex-wrap items-center gap-1 p-1 bg-surface-sunken rounded-lg border border-mist"
-        >
-          {(
-            [
-              { id: 'upcoming', label: 'Upcoming Confirmed', count: categorizedSessions.upcoming.length },
-              { id: 'negotiating', label: 'In Negotiation', count: categorizedSessions.negotiating.length },
-              { id: 'awaiting-payment', label: 'Awaiting Client Payment', count: categorizedSessions.awaitingPayment.length },
-              { id: 'past', label: 'Past Confirmed', count: categorizedSessions.past.length },
-              { id: 'all', label: `All Assigned (${categorizedSessions.all.length})`, count: null },
-            ] as const
-          ).map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id as ScheduleTab)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-                activeTab === tab.id
-                  ? 'bg-surface-raised text-pine font-semibold shadow-xs'
-                  : 'text-pine/70 hover:text-pine'
-              }`}
-            >
-              <span>{tab.label}</span>
-              {tab.count !== null && (
-                <span
-                  className={`px-1.5 py-0.5 rounded-full text-xs ${
-                    activeTab === tab.id
-                      ? 'bg-sage/15 text-pine font-semibold'
-                      : 'bg-surface-raised text-pine/60'
-                  }`}
-                >
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
+        <div className="w-full sm:w-72">
+          <Select
+            id="schedule-status-filter"
+            aria-label="Filter schedule sessions"
+            value={activeTab}
+            onChange={(e) => setActiveTab(e.target.value as ScheduleTab)}
+          >
+            <option value="upcoming">
+              Upcoming Confirmed ({categorizedSessions.upcoming.length})
+            </option>
+            <option value="negotiating">
+              In Negotiation ({categorizedSessions.negotiating.length})
+            </option>
+            <option value="awaiting-payment">
+              Awaiting Client Payment ({categorizedSessions.awaitingPayment.length})
+            </option>
+            <option value="past">
+              Past Confirmed ({categorizedSessions.past.length})
+            </option>
+            <option value="all">
+              All Assigned ({categorizedSessions.all.length})
+            </option>
+          </Select>
         </div>
 
         <div className="text-xs text-pine/70 font-mono">
@@ -409,7 +410,7 @@ export default function PsychologistSchedulePage() {
 
                   <div className="flex items-center gap-3">
                     {/* Payment status — single label source (BookingStatusTag only) */}
-                    <BookingStatusTag status={session.status} />
+                    <BookingStatusTag status={session.status} perspective="psychologist" />
                   </div>
                 </div>
 
@@ -421,7 +422,7 @@ export default function PsychologistSchedulePage() {
                         {session.serviceTitle} ({session.serviceDuration})
                       </h2>
                       <p className="text-xs text-pine/70 mt-0.5">
-                        Clinical Guardrail: {session.serviceGuardrail}
+                        Scope note: {session.serviceGuardrail}
                       </p>
                     </div>
 
@@ -440,7 +441,7 @@ export default function PsychologistSchedulePage() {
                           </p>
                         </div>
                         <span className="px-2.5 py-1 bg-surface-raised rounded-md font-mono text-xs font-semibold text-pine border border-mist">
-                          Slot 0{confirmedSlot.slotNumber} Selected
+                          Confirmed Time (PHT)
                         </span>
                       </div>
                     ) : isAwaitingPayment && confirmedSlot ? (
@@ -738,8 +739,11 @@ export default function PsychologistSchedulePage() {
             )}
 
             {completeMutation.error && (
-              <p className="text-xs text-red-700">
-                {(completeMutation.error as Error).message}
+              <p role="alert" className="text-xs text-red-700">
+                {getFriendlyErrorMessage(
+                  completeMutation.error,
+                  'Could not mark this session complete. Please try again.'
+                )}
               </p>
             )}
           </div>
@@ -771,8 +775,10 @@ export default function PsychologistSchedulePage() {
                   </p>
                 </div>
                 <p className="text-xs text-red-900 leading-relaxed">
-                  {(reviewMutation.error as Error)?.message ||
-                    'Unable to update schedule right now. Please try again.'}
+                  {getFriendlyErrorMessage(
+                    reviewMutation.error,
+                    'Unable to update schedule right now. Please try again.'
+                  )}
                 </p>
               </div>
             )}

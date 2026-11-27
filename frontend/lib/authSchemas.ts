@@ -36,7 +36,14 @@ export const registerSchema = z
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',
     path: ['confirmPassword'],
-  });
+  })
+  .refine(
+    (data) => isAcceptablePasswordStrength(data.password, [data.email, data.username]),
+    {
+      message: 'Password must be rated Good or Strong',
+      path: ['password'],
+    }
+  );
 
 export type RegisterFormValues = z.infer<typeof registerSchema>;
 
@@ -136,7 +143,14 @@ export const psychologistInviteRegisterSchema = z
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',
     path: ['confirmPassword'],
-  });
+  })
+  .refine(
+    (data) => isAcceptablePasswordStrength(data.password, [data.username, data.fullName]),
+    {
+      message: 'Password must be rated Good or Strong',
+      path: ['password'],
+    }
+  );
 
 export type PsychologistInviteRegisterFormValues = z.infer<
   typeof psychologistInviteRegisterSchema
@@ -184,4 +198,12 @@ export function getPasswordStrength(
   userInputs?: string[]
 ): PasswordStrength {
   return analyzePasswordStrength(password, userInputs).strength;
+}
+
+export function isAcceptablePasswordStrength(
+  password: string,
+  userInputs?: string[]
+): boolean {
+  const { strength } = analyzePasswordStrength(password, userInputs);
+  return strength === 'good' || strength === 'strong';
 }

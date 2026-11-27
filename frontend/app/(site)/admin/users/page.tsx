@@ -19,6 +19,7 @@ import {
   Users,
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { getFriendlyErrorMessage } from '@/lib/errorMessages';
 import { AdminUser, CognitoRole, PsychologistInvitation } from '@/lib/types';
 import { useAuthStore } from '@/stores/authStore';
 import { useAppStore } from '@/stores/useAppStore';
@@ -101,7 +102,7 @@ export default function AdminUsersPage() {
     setPage(1);
   }, [search, roleFilter]);
 
-  const { data, isLoading, isFetching, error } = useQuery({
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['admin', 'users', { search, role: roleFilter, page, pageSize }],
     queryFn: () => api.getAdminUsers({ search, role: roleFilter, page, pageSize }),
     placeholderData: keepPreviousData,
@@ -138,7 +139,7 @@ export default function AdminUsersPage() {
     },
     onError: (err) => {
       setFormError(
-        err instanceof Error ? err.message : 'Could not change this user’s role.'
+        getFriendlyErrorMessage(err, 'Could not change this user’s role.')
       );
     },
   });
@@ -168,9 +169,10 @@ export default function AdminUsersPage() {
     },
     onError: (err) => {
       setInviteError(
-        err instanceof Error
-          ? err.message
-          : 'Could not create the psychologist invitation.'
+        getFriendlyErrorMessage(
+          err,
+          'Could not create the psychologist invitation.'
+        )
       );
     },
   });
@@ -303,11 +305,24 @@ export default function AdminUsersPage() {
         {error && (
           <div
             role="alert"
-            className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-xs text-red-800"
+            className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-red-800"
           >
-            {error instanceof Error
-              ? error.message
-              : 'Could not load the user directory.'}
+            <span>
+              {getFriendlyErrorMessage(
+                error,
+                'Could not load the user directory. Please try again.'
+              )}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="shrink-0"
+            >
+              {isFetching ? 'Retrying…' : 'Try Again'}
+            </Button>
           </div>
         )}
 
@@ -342,8 +357,25 @@ export default function AdminUsersPage() {
                       title="No user accounts found"
                       description={
                         search || roleFilter !== 'all'
-                          ? 'No accounts match the current search and role filter. Try clearing them.'
+                          ? 'No accounts match the current search and role filter.'
                           : 'Registered accounts will appear here once users sign up.'
+                      }
+                      action={
+                        search || roleFilter !== 'all' ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSearchInput('');
+                              setSearch('');
+                              setRoleFilter('all');
+                              setPage(1);
+                            }}
+                          >
+                            Clear Filters
+                          </Button>
+                        ) : undefined
                       }
                     />
                   </td>
@@ -523,9 +555,9 @@ export default function AdminUsersPage() {
           )}
 
           <div className="rounded-lg border border-mist bg-surface-sunken px-3.5 py-3 text-xs text-pine/75 leading-relaxed">
-            Role changes swap the user’s Cognito access group immediately, but their
-            current session keeps the old group. They must sign out and sign in again
-            before the new dashboard unlocks.
+            Role changes update this user’s permissions immediately, but their current
+            session keeps the previous access level. They will need to sign out and sign
+            back in before the new dashboard unlocks.
           </div>
 
           {formError && (
@@ -623,7 +655,7 @@ export default function AdminUsersPage() {
                 </Button>
               </div>
               <p className="text-xs text-pine/60">
-                An invitation email has been dispatched via Brevo. You can also copy this link to share directly.
+                An invitation email has been sent. You can also copy this link to share directly.
               </p>
             </div>
           </div>

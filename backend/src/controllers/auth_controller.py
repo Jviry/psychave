@@ -2,6 +2,8 @@ from fastapi import APIRouter, Request
 
 from dependencies.auth import AuthServiceDep, CurrentUserDep, DbDep
 from schemas.auth_model import (
+    CheckAvailabilityRequest,
+    CheckAvailabilityResponse,
     ConfirmUserRequest,
     ForgotPasswordConfirm,
     PsychologistInvitationVerifyRead,
@@ -46,6 +48,21 @@ def refresh_access_token(
     uc = AuthUsecase(auth_service, db)
     tokens = uc.refresh_access_token(refresh_token)
     return tokens.to_dict()
+
+
+@router.post("/check-availability", response_model=CheckAvailabilityResponse)
+def check_availability(
+    request: CheckAvailabilityRequest,
+    http_request: Request,
+    auth_service: AuthServiceDep,
+    db: DbDep,
+):
+    uc = AuthUsecase(auth_service, db)
+    return uc.check_availability(
+        email=request.email,
+        username=request.username,
+        client_ip=_client_ip(http_request),
+    )
 
 
 @router.post("/create-user")

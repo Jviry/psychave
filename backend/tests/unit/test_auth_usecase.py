@@ -506,3 +506,50 @@ def test_cognito_service_forwards_aws_session_token(monkeypatch):
     }
     assert captured["service_name"] == "cognito-idp"
     assert captured["region_name"] == "ap-southeast-1"
+
+
+def test_create_user_rejects_duplicate_email_and_username(auth_usecase):
+    first = _make_user_create(username="unique_user", email="Unique@Example.com")
+    auth_usecase.create_user(first)
+
+    # Duplicate email (case-insensitive) with different username
+    with pytest.raises(ConflictError, match="email"):
+        auth_usecase.create_user(
+            _make_user_create(username="another_user", email="unique@example.com")
+        )
+
+    # Duplicate username with different email
+    with pytest.raises(ConflictError):
+        auth_usecase.create_user(
+            _make_user_create(username="unique_user", email="other@example.com")
+        )
+
+
+def test_check_availability_reports_email_and_username(auth_usecase):
+    auth_usecase.create_user(
+        _make_user_create(username="taken_user", email="Taken@Example.com")
+    )
+
+    both_free = auth_usecase.check_availability(
+        email="fresh@example.com", username="fresh_user"
+    )
+    assert both_free.email_available is True
+    assert both_free.username_available is True
+
+    email_taken = auth_usecase.check_availability(
+        email="taken@example.com", username="fresh_user"
+    )
+    assert email_taken.email_available is False
+    assert email_taken.username_available is True
+
+    username_taken = auth_usecase.check_availability(
+        email="fresh@example.com", username="taken_user"
+    )
+    assert username_taken.email_available is True
+    assert username_taken.username_available is False
+
+    both_taken = auth_usecase.check_availability(
+        email="TAKEN@example.com", username="taken_user"
+    )
+    assert both_taken.email_available is False
+    assert both_taken.username_available is False

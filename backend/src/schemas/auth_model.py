@@ -48,6 +48,16 @@ class ConfirmUserRequest(BaseModel):
     confirmation_code: str
 
 
+class CheckAvailabilityRequest(BaseModel):
+    email: EmailStr | None = None
+    username: str | None = None
+
+
+class CheckAvailabilityResponse(BaseModel):
+    email_available: bool
+    username_available: bool
+
+
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
 

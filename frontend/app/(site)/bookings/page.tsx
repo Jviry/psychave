@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAppStore } from '@/stores/useAppStore';
 import { useRouter } from 'next/navigation';
-import { BookingStatus } from '@/lib/types';
+import { BookingRequest, BookingStatus } from '@/lib/types';
 import {
   agreedSlot,
   clientPreferredSlots,
@@ -13,24 +13,26 @@ import {
   formatManilaDateTime,
   psychologistCounterSlot,
 } from '@/lib/booking';
-import { Clock } from 'lucide-react';
+import { getFriendlyErrorMessage } from '@/lib/errorMessages';
+import { AlertCircle, Clock } from 'lucide-react';
 import { SocialLinksList } from '@/components/SocialLinksList';
 import {
   BookingStatusTag,
   Button,
   Card,
+  Modal,
   Skeleton,
 } from '@/components/ui/primitives';
 
 const FILTER_TABS: { id: 'all' | BookingStatus; label: string }[] = [
   { id: 'all', label: 'All' },
-  { id: 'pending', label: 'pending' },
-  { id: 'awaiting-review', label: 'in review' },
-  { id: 'awaiting-client', label: 'action needed' },
-  { id: 'awaiting-payment', label: 'payment due' },
-  { id: 'paid-confirmed', label: 'paid-confirmed' },
-  { id: 'completed', label: 'completed' },
-  { id: 'cancelled', label: 'cancelled' },
+  { id: 'pending', label: 'Waiting' },
+  { id: 'awaiting-review', label: 'In Review' },
+  { id: 'awaiting-client', label: 'Action Needed' },
+  { id: 'awaiting-payment', label: 'Payment Due' },
+  { id: 'paid-confirmed', label: 'Confirmed' },
+  { id: 'completed', label: 'Completed' },
+  { id: 'cancelled', label: 'Cancelled' },
 ];
 
 function PreferredScheduleList({
@@ -63,8 +65,16 @@ export default function ClientBookingsPage() {
   const router = useRouter();
   const publishFlowEvent = useAppStore((s) => s.publishFlowEvent);
   const [statusFilter, setStatusFilter] = useState<'all' | BookingStatus>('all');
+  const [cancelTarget, setCancelTarget] = useState<BookingRequest | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
-  const { data: bookings = [], isLoading } = useQuery({
+  const {
+    data: bookings = [],
+    isLoading,
+    error: bookingsError,
+    refetch: refetchBookings,
+    isFetching: isRefetchingBookings,
+  } = useQuery({
     queryKey: ['bookings', 'client'],
     queryFn: () => api.getBookingsForRole('client'),
   });
@@ -73,9 +83,19 @@ export default function ClientBookingsPage() {
     mutationFn: (bookingId: string) => api.cancelBooking(bookingId),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      setCancelError(null);
+      setCancelTarget(null);
       publishFlowEvent(
         'Booking Cancelled',
         `Booking ${updated.id} has been marked as cancelled.`
+      );
+    },
+    onError: (err) => {
+      setCancelError(
+        getFriendlyErrorMessage(
+          err,
+          'We could not cancel this booking right now. Please try again.'
+        )
       );
     },
   });
@@ -94,19 +114,13 @@ export default function ClientBookingsPage() {
       {/* Header */}
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-mist pb-6">
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs text-accent-ink font-semibold">
-            <span>Client Dashboard</span>
-            <span aria-hidden="true">·</span>
-            <span>Tiered Access: Own History Only (Client #C-01)</span>
-          </div>
           <h1 className="font-heading text-4xl font-medium text-pine">
             My Bookings
           </h1>
           <p className="text-sm text-pine/80 max-w-2xl">
-            Track your request from <strong className="font-semibold">pending</strong> to{' '}
-            <strong className="font-semibold">schedule agreement</strong> and{' '}
-            <strong className="font-semibold">paid-confirmed</strong> (contact unlocked), then{' '}
-            <strong className="font-semibold">completed</strong> once the session is done.
+            Track your session requests from psychologist matching and scheduling through payment
+            and completion. Your details remain private and all times are shown in{' '}
+            <strong className="font-semibold text-pine">Philippine Time (PHT, GMT+8)</strong>.
           </p>
         </div>
 
@@ -115,7 +129,7 @@ export default function ClientBookingsPage() {
           size="md"
           onClick={() => router.push('/book')}
         >
-          + New Booking Request
+          + Request a Session
         </Button>
       </header>
 
@@ -123,16 +137,18 @@ export default function ClientBookingsPage() {
       {firstAction && (
         <div className="bg-lime-soft/25 border border-lime-soft/60 rounded-lg p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="space-y-1">
-            <p className="text-xs font-medium text-pine">
+            <p className="text-xs font-semibold text-pine">
               {firstAction.status === 'awaiting-payment'
-                ? 'PAYMENT DUE · YOUR AGREED SLOT IS HELD'
-                : 'ACTION REQUIRED · RESPOND TO THE COUNTER-OFFER'}
+                ? 'Payment due · Your session time is reserved'
+                : 'New time suggested · Please respond'}
             </p>
             <p className="text-sm text-pine/90">
-              You have <strong>{actionNeeded.length}</strong> booking request(s) waiting on you.
+              You have <strong>{actionNeeded.length}</strong>{' '}
+              {actionNeeded.length === 1 ? 'session request' : 'session requests'} waiting for your
+              response.
               {firstAction.status === 'awaiting-payment' && firstAction.paymentDeadline
-                ? ` Pay before ${formatManilaDateTime(firstAction.paymentDeadline)} (${formatDeadlineCountdown(firstAction.paymentDeadline)}).`
-                : ' Accept the psychologist’s alternative time or propose a fresh set of preferred schedules.'}
+                ? ` Please complete payment before ${formatManilaDateTime(firstAction.paymentDeadline)} PHT (${formatDeadlineCountdown(firstAction.paymentDeadline)}) to keep your slot.`
+                : ' Review the psychologist’s suggested time or share new preferred times.'}
             </p>
           </div>
           <Button
@@ -140,8 +156,7 @@ export default function ClientBookingsPage() {
             size="md"
             onClick={() => router.push(`/proposal/${firstAction.id}`)}
           >
-            {firstAction.status === 'awaiting-payment' ? 'Pay Now' : 'Review Counter-Offer'} (
-            {firstAction.id})
+            {firstAction.status === 'awaiting-payment' ? 'Complete Payment' : 'Review Suggested Time'}
           </Button>
         </div>
       )}
@@ -176,10 +191,40 @@ export default function ClientBookingsPage() {
         </div>
 
         <span className="text-xs text-pine/65">
-          Contact details unlock strictly upon <strong className="text-pine">paid-confirmed</strong> status
-          and remain available after the session is marked <strong className="text-pine">completed</strong>.
+          Your psychologist&apos;s contact details unlock automatically once payment is confirmed.
         </span>
       </div>
+
+      {/* Error Banner */}
+      {bookingsError && (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-red-900"
+        >
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 text-red-700 shrink-0 mt-0.5" aria-hidden="true" />
+            <div>
+              <p className="font-semibold">We couldn&apos;t load your bookings.</p>
+              <p className="mt-0.5 text-red-800">
+                {getFriendlyErrorMessage(
+                  bookingsError,
+                  'Something went wrong while fetching your booking history. Please try again.'
+                )}
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => refetchBookings()}
+            disabled={isRefetchingBookings}
+            className="shrink-0"
+          >
+            {isRefetchingBookings ? 'Retrying…' : 'Try Again'}
+          </Button>
+        </div>
+      )}
 
       {/* Bookings List */}
       {isLoading ? (
@@ -188,7 +233,7 @@ export default function ClientBookingsPage() {
             <Skeleton key={n} className="h-44" />
           ))}
         </div>
-      ) : filteredBookings.length === 0 ? (
+      ) : bookingsError && bookings.length === 0 ? null : filteredBookings.length === 0 ? (
         <Card className="text-center py-12 space-y-4">
           <p className="font-heading text-2xl font-medium text-pine">
             No Bookings Matching Selected Status
@@ -249,7 +294,7 @@ export default function ClientBookingsPage() {
                     </div>
 
                     <p className="text-xs text-accent-ink font-medium">
-                      Guardrail: {booking.serviceGuardrail}
+                      Session note: {booking.serviceGuardrail}
                     </p>
 
                     <p className="text-sm text-pine/85 leading-relaxed">
@@ -260,11 +305,11 @@ export default function ClientBookingsPage() {
                       booking.status === 'awaiting-review') && (
                       <div className="space-y-2 border-t border-mist/60 pt-3">
                         <p className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                          Your preferred schedules
+                          Your preferred times (PHT)
                         </p>
                         <PreferredScheduleList
                           slots={preferred}
-                          emptyMessage="No preferred schedules were attached to this legacy request."
+                          emptyMessage="No preferred times were saved for this request."
                         />
                       </div>
                     )}
@@ -276,12 +321,11 @@ export default function ClientBookingsPage() {
                       <div className="p-4 rounded-lg bg-parchment border border-dashed border-mint/50 space-y-3">
                         <div className="flex items-center gap-2 text-xs font-medium text-amber-900">
                           <Clock className="w-4 h-4 text-amber-700 shrink-0" aria-hidden="true" />
-                          <span>No Pick-Up Yet · Waiting Psychologist Review</span>
+                          <span>Waiting for a psychologist</span>
                         </div>
                         <p className="text-xs text-pine/80 leading-relaxed">
-                          Your request and preferred schedules are visible to verified
-                          psychologists. No fee or agreed time is assigned yet, and direct contact
-                          remains locked.
+                          Verified psychologists are reviewing your request and preferred times.
+                          You won&apos;t be charged until you agree on a schedule together.
                         </p>
                       </div>
                     )}
@@ -290,19 +334,19 @@ export default function ClientBookingsPage() {
                       <div className="p-4 rounded-lg bg-surface-raised border border-mist space-y-3">
                         <div className="flex items-center justify-between text-xs">
                           <span className="font-medium text-pine">
-                            Claimed by {booking.psychologistCode}
+                            Assigned to {booking.psychologistCode}
                           </span>
                           <span className="font-mono font-medium text-pine tabular-nums">
                             Fee: ₱{booking.pricePhp?.toLocaleString()}
                           </span>
                         </div>
                         <p className="text-xs text-pine/80">
-                          Your preferred schedules are being reviewed. You will be notified when
-                          the psychologist accepts one or offers an alternative.
+                          Your psychologist is reviewing your preferred times. We&apos;ll notify you
+                          as soon as they confirm a slot or suggest an alternative.
                         </p>
                         <PreferredScheduleList
                           slots={preferred}
-                          emptyMessage="No preferred schedules were attached to this legacy request."
+                          emptyMessage="No preferred times were saved for this request."
                         />
                       </div>
                     )}
@@ -354,7 +398,7 @@ export default function ClientBookingsPage() {
                           <p className="text-xs text-pine/80">
                             Pay by{' '}
                             <strong className="text-pine">
-                              {formatManilaDateTime(booking.paymentDeadline)}
+                              {formatManilaDateTime(booking.paymentDeadline)} PHT
                             </strong>{' '}
                             · {formatDeadlineCountdown(booking.paymentDeadline)}
                           </p>
@@ -399,11 +443,14 @@ export default function ClientBookingsPage() {
                         {booking.contactUnlocked && (
                           <div className="space-y-2 text-xs bg-surface-raised p-3 rounded-lg border border-mist">
                             <p className="font-bold text-pine">
-                              Psychologist Social Media:
+                              How to reach your psychologist:
+                            </p>
+                            <p className="text-pine/75">
+                              Connect using any link below to coordinate your session.
                             </p>
                             <SocialLinksList
                               links={booking.psychologistSocialLinks}
-                              emptyMessage="Your psychologist has not added social media links yet."
+                              emptyMessage="Your psychologist has not added contact links yet."
                             />
                           </div>
                         )}
@@ -413,7 +460,7 @@ export default function ClientBookingsPage() {
                     {booking.status === 'cancelled' && (
                       <div className="p-4 rounded-lg bg-red-50/60 border border-red-200 text-xs text-red-900 space-y-1">
                         <p className="font-bold">Session Cancelled</p>
-                        <p>Real-time cancellation synced across Client and Psychologist schedules.</p>
+                        <p>This session request has been cancelled. You can submit a new request anytime.</p>
                       </div>
                     )}
 
@@ -421,11 +468,14 @@ export default function ClientBookingsPage() {
                       <div className="pt-2 mt-2 border-t border-mist flex items-center justify-end text-xs">
                         <button
                           type="button"
-                          onClick={() => cancelMutation.mutate(booking.id)}
+                          onClick={() => {
+                            setCancelError(null);
+                            setCancelTarget(booking);
+                          }}
                           disabled={cancelMutation.isPending}
                           className="underline text-red-700 hover:text-red-900 cursor-pointer disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
                         >
-                          {cancelMutation.isPending ? 'Cancelling…' : 'Cancel request'}
+                          Cancel request
                         </button>
                       </div>
                     )}
@@ -436,6 +486,68 @@ export default function ClientBookingsPage() {
           })}
         </div>
       )}
+
+      {/* Cancel Booking Confirmation Modal */}
+      <Modal
+        open={Boolean(cancelTarget)}
+        onClose={() => {
+          if (!cancelMutation.isPending) {
+            setCancelTarget(null);
+            setCancelError(null);
+          }
+        }}
+        title="Cancel this booking request?"
+        description={
+          cancelTarget
+            ? `${cancelTarget.serviceTitle} (${cancelTarget.id})`
+            : undefined
+        }
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={() => {
+                setCancelTarget(null);
+                setCancelError(null);
+              }}
+              disabled={cancelMutation.isPending}
+            >
+              Keep Booking
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              size="md"
+              onClick={() => {
+                if (cancelTarget) {
+                  cancelMutation.mutate(cancelTarget.id);
+                }
+              }}
+              disabled={cancelMutation.isPending}
+            >
+              {cancelMutation.isPending ? 'Cancelling…' : 'Yes, Cancel Request'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-sm text-pine/85">
+          <p>
+            If you cancel now, this request will be closed and any held or preferred schedule
+            slots will be released. You can always submit a new booking request whenever
+            you&apos;re ready.
+          </p>
+          {cancelError && (
+            <div
+              role="alert"
+              className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-900"
+            >
+              {cancelError}
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }

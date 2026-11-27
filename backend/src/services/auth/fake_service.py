@@ -149,8 +149,9 @@ class FakeAuthService(AuthService):
         return user["username"] if user else None
 
     def get_username_by_email(self, email: str) -> str | None:
+        normalized = email.strip().lower()
         for user in self.users_by_username.values():
-            if user.get("email") == email:
+            if (user.get("email") or "").strip().lower() == normalized:
                 return user["username"]
         return None
 

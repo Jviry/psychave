@@ -23,6 +23,7 @@ import {
 } from '@/lib/authApi';
 import {
   analyzePasswordStrength,
+  isAcceptablePasswordStrength,
   PsychologistInviteRegisterFormValues,
   psychologistInviteRegisterSchema,
   PasswordStrength,
@@ -141,11 +142,22 @@ function PsychologistInviteRegisterContent() {
         invitation?.email ?? '',
       ])
     : null;
-  const strengthHint =
-    strengthAnalysis?.warning || strengthAnalysis?.suggestions[0] || '';
 
   const onSubmit = async (values: PsychologistInviteRegisterFormValues) => {
     if (!token || !invitation) return;
+    if (
+      !isAcceptablePasswordStrength(values.password, [
+        values.username,
+        values.fullName,
+        invitation.email,
+      ])
+    ) {
+      form.setError('password', {
+        type: 'manual',
+        message: 'Password must be rated Good or Strong',
+      });
+      return;
+    }
     setToast(null);
     try {
       await authApi.registerInvitedPsychologist({
@@ -340,9 +352,6 @@ function PsychologistInviteRegisterContent() {
                         {strengthConfig[strengthAnalysis.strength].label}
                       </strong>
                     </p>
-                    {strengthHint && (
-                      <p className="text-[11px] text-pine/55">{strengthHint}</p>
-                    )}
                   </div>
                 )}
                 <FieldError message={form.formState.errors.password?.message} />

@@ -119,7 +119,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Services — full-bleed infinite carousel */}
+      {/* Services — infinite carousel aligned with page container */}
       <section id="services" className="scroll-mt-24 space-y-6 lg:space-y-8">
         <div className="text-center">
           <h2 className="font-heading text-4xl font-semibold tracking-tight text-pine sm:text-5xl">
@@ -129,8 +129,7 @@ export default function HomePage() {
 
         <ScrollCarousel
           ariaLabel="Clinical and advisory services cards"
-          wrapperClassName="relative left-1/2 transform w-[130vw] -translate-x-1/2"
-          trackClassName="gap-1.5 pb-3 pt-1 md:gap-2"
+          trackClassName="gap-4 pb-3 pt-1"
           loop
           onItemActivate={(index) => selectService(services[index])}
           deps={[services.length]}
@@ -140,7 +139,7 @@ export default function HomePage() {
             return (
               <div
                 key={srv.id}
-                className="flex min-h-[28rem] w-[19rem] shrink-0 snap-start sm:min-h-[30rem] sm:w-[21rem] lg:min-h-[32rem] lg:w-[23rem]"
+                className="flex min-h-[28rem] w-[19rem] shrink-0 snap-start sm:min-h-[30rem] sm:w-[21rem] lg:min-h-[32rem] lg:w-[22rem]"
               >
                 <Card
                   tint={tint}
@@ -149,7 +148,7 @@ export default function HomePage() {
                   <button
                     type="button"
                     onClick={() => selectService(srv)}
-                    className="group flex h-full w-full flex-col justify-between gap-12 rounded-lg text-left cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sage"
+                    className="group flex h-full w-full flex-1 flex-col justify-between gap-12 rounded-lg text-left cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sage"
                   >
                     <div className="space-y-2.5">
                       <div className="flex flex-wrap items-center gap-2 text-xs font-mono font-semibold opacity-80">
@@ -168,8 +167,8 @@ export default function HomePage() {
 
                     <div className="space-y-4">
                       <div aria-hidden="true" className="h-px w-full bg-current opacity-20" />
-                      <div className="flex items-end justify-between gap-6">
-                        <p className="text-base leading-relaxed opacity-85">
+                      <div className="flex min-h-[4.5rem] items-end justify-between gap-6">
+                        <p className="line-clamp-3 text-base leading-relaxed opacity-85">
                           {SERVICE_SUBTEXTS[srv.id] ?? srv.description}
                         </p>
                         <CircleArrow tone={tint === 'sage' ? 'light' : 'dark'} />

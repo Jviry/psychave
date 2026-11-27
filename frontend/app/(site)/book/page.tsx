@@ -93,18 +93,6 @@ function DirectChannelsAndSafety() {
           {copiedField === 'template' && 'Inquiry template copied.'}
         </p>
       </section>
-
-      <section className="bg-surface-sunken border border-mist rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="space-y-0.5">
-          <p className="text-xs font-semibold text-pine">Non-emergency platform</p>
-          <p className="text-xs text-pine/75 leading-relaxed">
-            For acute mental-health emergencies, contact the NCMH Crisis Hotline directly.
-          </p>
-        </div>
-        <div className="text-xs font-semibold text-pine bg-surface-raised px-3 py-2 rounded-lg border border-mist shrink-0 tabular-nums">
-          NCMH 24/7: 1553 / 0917-899-8727
-        </div>
-      </section>
     </div>
   );
 }
