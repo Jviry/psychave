@@ -13,8 +13,8 @@ from typing import Mapping, Sequence
 
 import httpx
 
-from common.exceptions import BadRequestError
-from services.payments.base import InitiatedPayment, WebhookEvent
+from common.exceptions import BadRequestError, ServiceUnavailableError
+from services.payments.base import InitiatedPayment, RefundResult, WebhookEvent
 
 logger = logging.getLogger(__name__)
 
@@ -111,8 +111,9 @@ class PayMongoPaymentProvider:
                     response = client.post(url, json=payload, headers=headers)
         except Exception as exc:
             logger.error("Failed to connect to PayMongo API: %s", exc)
-            raise BadRequestError(
-                f"Could not reach payment gateway: {exc}") from exc
+            raise ServiceUnavailableError(
+                "Payment gateway is temporarily unreachable. Please contact your assigned psychologist to arrange manual payment or try again shortly."
+            ) from exc
 
         if response.status_code >= 400:
             logger.error(
@@ -128,6 +129,10 @@ class PayMongoPaymentProvider:
                     detail = errors[0].get("detail", detail)
             except Exception:
                 pass
+            if response.status_code >= 500 or "maintenance" in detail.lower():
+                raise ServiceUnavailableError(
+                    "Payment gateway is temporarily under maintenance. Please contact your assigned psychologist to arrange manual payment or try again shortly."
+                )
             raise BadRequestError(detail)
 
         data = response.json().get("data", {})
@@ -222,8 +227,10 @@ class PayMongoPaymentProvider:
         if event_type == "checkout_session.payment.paid":
             payments = session_attrs.get("payments", [])
             payment_method = None
+            gateway_payment_id = None
             if payments and isinstance(payments, list):
                 first_payment = payments[0]
+                gateway_payment_id = first_payment.get("id")
                 p_attrs = first_payment.get("attributes", {})
                 source = p_attrs.get("source", {})
                 payment_method = source.get(
@@ -233,6 +240,8 @@ class PayMongoPaymentProvider:
                 provider_ref=session_id or "",
                 paid=True,
                 payment_method=payment_method,
+                gateway_payment_id=gateway_payment_id,
+                event_type=event_type,
             )
 
         # Handle failed or expired checkout session if emitted
@@ -241,6 +250,46 @@ class PayMongoPaymentProvider:
                 provider_ref=session_id or "",
                 paid=False,
                 payment_method=None,
+                event_type=event_type,
+            )
+
+        # Handle payment.refunded / payment.refund.updated
+        if event_type in ("payment.refunded", "payment.refund.updated"):
+            if event_data.get("type") == "payment":
+                payment_id = session_id or ""
+                refunds = session_attrs.get("refunds") or []
+                latest_refund = refunds[-1] if isinstance(refunds, list) and refunds else {}
+                refund_attrs = (
+                    latest_refund.get("attributes", {})
+                    if isinstance(latest_refund, dict)
+                    else {}
+                )
+                refund_id = latest_refund.get("id") if isinstance(latest_refund, dict) else None
+                refund_status = refund_attrs.get("status")
+                non_failed_total = sum(
+                    int(r.get("attributes", {}).get("amount", 0) or 0)
+                    for r in refunds
+                    if isinstance(r, dict)
+                    and r.get("attributes", {}).get("status") != "failed"
+                )
+                amount_centavos = (
+                    non_failed_total
+                    if non_failed_total > 0
+                    else refund_attrs.get("amount")
+                )
+            else:
+                refund_id = event_data.get("id")
+                payment_id = session_attrs.get("payment_id") or session_id or ""
+                amount_centavos = session_attrs.get("amount")
+                refund_status = session_attrs.get("status")
+            return WebhookEvent(
+                provider_ref=payment_id,
+                paid=True,
+                gateway_payment_id=payment_id,
+                event_type=event_type,
+                refund_id=refund_id,
+                refund_amount_centavos=amount_centavos,
+                refund_status=refund_status,
             )
 
         logger.info("Ignoring unhandled PayMongo event type: %s", event_type)
@@ -298,7 +347,9 @@ class PayMongoPaymentProvider:
 
         if pi_status == "succeeded" or has_paid_payment:
             payment_method = None
+            gateway_payment_id = None
             if payments and isinstance(payments, list) and isinstance(payments[0], dict):
+                gateway_payment_id = payments[0].get("id")
                 p_attrs = payments[0].get("attributes", {})
                 source = p_attrs.get("source") or {}
                 payment_method = source.get("type") or p_attrs.get("payment_method_type")
@@ -306,6 +357,8 @@ class PayMongoPaymentProvider:
                 provider_ref=provider_ref,
                 paid=True,
                 payment_method=payment_method,
+                gateway_payment_id=gateway_payment_id,
+                event_type="checkout_session.payment.paid",
             )
 
         if attrs.get("status") == "expired" or pi_status == "failed":
@@ -316,3 +369,86 @@ class PayMongoPaymentProvider:
             )
 
         return None
+
+    def create_refund(
+        self,
+        *,
+        payment_id: str,
+        amount_centavos: int,
+        reason: str = "requested_by_customer",
+        notes: str | None = None,
+    ) -> RefundResult:
+        if not self.secret_key:
+            raise BadRequestError("PayMongo secret key is not configured")
+        if amount_centavos <= 0:
+            raise BadRequestError("Refund amount must be greater than zero")
+        if not payment_id:
+            raise BadRequestError("PayMongo payment ID is required for refund")
+
+        allowed_reasons = {"duplicate", "fraudulent", "requested_by_customer", "others"}
+        paymongo_reason = reason if reason in allowed_reasons else "requested_by_customer"
+        attributes: dict[str, object] = {
+            "amount": int(amount_centavos),
+            "payment_id": payment_id,
+            "reason": paymongo_reason,
+        }
+        if notes:
+            attributes["notes"] = notes
+        elif reason not in allowed_reasons:
+            attributes["notes"] = reason
+
+        payload = {"data": {"attributes": attributes}}
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Authorization": self._get_auth_header(),
+        }
+        url = f"{self.api_base_url}/refunds"
+
+        try:
+            if self._client is not None:
+                response = self._client.post(
+                    url, json=payload, headers=headers, timeout=20.0
+                )
+            else:
+                with httpx.Client(timeout=20.0) as client:
+                    response = client.post(url, json=payload, headers=headers)
+        except Exception as exc:
+            logger.error("Failed to connect to PayMongo Refunds API: %s", exc)
+            raise ServiceUnavailableError(
+                "Payment gateway is temporarily unreachable while processing refund."
+            ) from exc
+
+        if response.status_code >= 400:
+            logger.error(
+                "PayMongo refund creation failed: %d - %s",
+                response.status_code,
+                response.text,
+            )
+            detail = "Payment gateway rejected the refund request"
+            try:
+                err_data = response.json()
+                errors = err_data.get("errors")
+                if errors and isinstance(errors, list):
+                    detail = errors[0].get("detail", detail)
+            except Exception:
+                pass
+            if response.status_code >= 500 or "maintenance" in detail.lower():
+                raise ServiceUnavailableError(
+                    "Payment gateway is temporarily under maintenance."
+                )
+            raise BadRequestError(detail)
+
+        data = response.json().get("data", {})
+        refund_id = data.get("id") or ""
+        refund_attrs = data.get("attributes", {})
+        status = refund_attrs.get("status") or "pending"
+        refunded_amount = int(refund_attrs.get("amount") or amount_centavos)
+        if not refund_id:
+            raise BadRequestError("Malformed refund response from payment gateway")
+
+        return RefundResult(
+            refund_id=refund_id,
+            status=status,
+            amount_centavos=refunded_amount,
+        )

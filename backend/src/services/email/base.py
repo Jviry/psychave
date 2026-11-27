@@ -203,51 +203,6 @@ offer an alternative schedule.</p>
         )
         self.send_email(to, subject, html, text)
 
-    # unused, this was supposed to be used for when it was psychologists send 3 scheds instead of the client
-    def send_proposal_ready(
-        self,
-        to: str,
-        appointment_id: str,
-        slots: Sequence[SlotTime],
-        price: float,
-    ) -> None:
-        if len(slots) == 1:
-            self.send_counter_offer(to, appointment_id, slots[0], price)
-            return
-
-        subject = "Your session times are ready"
-        link = f"{self.frontend_base_url}/proposal/{appointment_id}"
-        slot_lines = "\n".join(
-            f"  - {self._format_slot(slot)}" for slot in slots
-        )
-        fee = self._format_price(price)
-        text = (
-            "Hi,\n\n"
-            "Your psychologist proposed session times. Choose the one "
-            "that works for you and complete payment to confirm the session.\n\n"
-            f"Session fee: {fee}\n"
-            f"Proposed times:\n{slot_lines}\n\n"
-            f"Choose a time and pay: {link}\n\n"
-            "The session is only confirmed once payment succeeds.\n\n"
-            f"{TEXT_FOOTER}"
-        )
-        slots_html = "".join(
-            f'<li style="margin:0 0 6px;">{escape(self._format_slot(slot))}</li>'
-            for slot in slots
-        )
-        html = self._wrap_html(
-            subject,
-            f"""\
-<p style="margin:0 0 16px;">Your psychologist proposed session times.
-Choose the one that works for you and complete payment to confirm the session.</p>
-<p style="margin:0 0 8px;"><strong>Session fee:</strong> {escape(fee)}</p>
-<ul style="margin:0 0 16px;padding-left:20px;">{slots_html}</ul>
-<p style="margin:0 0 16px;"><a href="{escape(link)}" style="color:#25372d;">Choose a time and pay</a></p>
-<p style="margin:0;">The session is only confirmed once payment succeeds.</p>
-""",
-        )
-        self.send_email(to, subject, html, text)
-
     def send_payment_confirmed(
         self,
         to: str,
@@ -258,8 +213,8 @@ Choose the one that works for you and complete payment to confirm the session.</
             subject = "A session has been confirmed"
             lead = (
                 "A client completed payment for a session with you. The booking "
-                "is now confirmed, and the client's contact details are available "
-                "in your schedule."
+                "is now confirmed — please add the session meeting link in your "
+                "schedule so the client can join."
             )
             link = f"{self.frontend_base_url}/psych/schedule"
             cta = "View your schedule"
@@ -319,6 +274,265 @@ Choose the one that works for you and complete payment to confirm the session.</
         )
         self.send_email(to, subject, html, text)
 
+    # ----- rescheduling, no-show, waiver & refund emails -----
+
+    def send_reschedule_requested(
+        self,
+        to: str,
+        appointment_id: str,
+        recipient: Recipient,
+        *,
+        initiated_by: Recipient,
+        fee_required: bool = False,
+        reason: str | None = None,
+        slots: Sequence[SlotTime] = (),
+    ) -> None:
+        link = (
+            f"{self.frontend_base_url}/psych/schedule"
+            if recipient == "psychologist"
+            else f"{self.frontend_base_url}/proposal/{appointment_id}"
+        )
+        if initiated_by == "psychologist":
+            if recipient == "client":
+                subject = "Your psychologist requested to reschedule your session"
+                lead = (
+                    "Your psychologist requested to reschedule your confirmed session "
+                    "at no extra charge and offered their earliest available schedule. "
+                    "You can accept this time or submit 3–5 new preferred schedules."
+                )
+                slot_heading = "Offered earliest available schedule"
+            else:
+                subject = "Reschedule request sent to your client"
+                lead = (
+                    "Your reschedule request and earliest available schedule have "
+                    "been sent to your client for review."
+                )
+                slot_heading = "Your offered earliest available schedule"
+        else:
+            if recipient == "client":
+                if fee_required:
+                    subject = "Reschedule request received — ₱600 reschedule fee required"
+                    lead = (
+                        "Your reschedule request was submitted less than 2 hours before "
+                        "the scheduled session. Please complete the ₱600 reschedule fee "
+                        "to proceed with your preferred schedules. If you have a valid "
+                        "reason, please contact your psychologist — they can waive the "
+                        "fee so your new schedule offers proceed at no extra charge."
+                    )
+                else:
+                    subject = "Your reschedule request was received"
+                    lead = (
+                        "Your reschedule request was received with no extra fee. Your "
+                        "psychologist will review your new preferred schedules and "
+                        "confirm a time or offer an alternative."
+                    )
+                slot_heading = "Your new preferred schedules"
+            else:
+                if fee_required:
+                    subject = "A client requested a late reschedule (< 2 hours)"
+                    lead = (
+                        "A client requested to reschedule within 2 hours of the "
+                        "session. Their new preferred schedules are attached below. "
+                        "Scheduling will reopen once they pay the ₱600 reschedule fee, "
+                        "or you can waive the fee on your schedule dashboard if they "
+                        "have a valid reason."
+                    )
+                else:
+                    subject = "A client requested to reschedule a session"
+                    lead = (
+                        "A client requested to reschedule an appointment assigned to "
+                        "you and submitted new preferred schedules. Please accept one "
+                        "of the times or offer an alternative schedule."
+                    )
+                slot_heading = "Client's preferred schedules"
+
+        reason_line = f"\nReason: {reason}\n" if reason else ""
+        slot_lines = (
+            "\n".join(f"  - {self._format_slot(slot)}" for slot in slots)
+            if slots
+            else ""
+        )
+        slots_text_block = (
+            f"\n{slot_heading}:\n{slot_lines}\n" if slot_lines else ""
+        )
+        text = (
+            f"Hi,\n\n{lead}\n"
+            f"\nBooking reference: {appointment_id}{reason_line}{slots_text_block}\n"
+            f"Open booking: {link}\n\n"
+            f"{TEXT_FOOTER}"
+        )
+
+        reason_html = (
+            f'<p style="margin:0 0 12px;"><strong>Reason:</strong> {escape(reason)}</p>'
+            if reason
+            else ""
+        )
+        slots_html_block = ""
+        if slots:
+            items = "".join(
+                f'<li style="margin:0 0 6px;">{escape(self._format_slot(slot))}</li>'
+                for slot in slots
+            )
+            slots_html_block = (
+                f'<p style="margin:0 0 8px;"><strong>{escape(slot_heading)}:</strong></p>'
+                f'<ul style="margin:0 0 16px;padding-left:20px;">{items}</ul>'
+            )
+
+        html = self._wrap_html(
+            subject,
+            f"""\
+<p style="margin:0 0 16px;">{escape(lead)}</p>
+<p style="margin:0 0 4px;font-size:13px;color:#5d8b69;">Booking reference</p>
+<p style="margin:0 0 12px;font-family:monospace;">{escape(str(appointment_id))}</p>
+{reason_html}{slots_html_block}<p style="margin:0 0 16px;"><a href="{escape(link)}" style="color:#25372d;font-weight:bold;">Open booking</a></p>
+""",
+        )
+        self.send_email(to, subject, html, text)
+
+    def send_reschedule_fee_resolved(
+        self,
+        to: str,
+        appointment_id: str,
+        recipient: Recipient,
+        *,
+        waived: bool,
+        has_submitted_slots: bool,
+        waiver_reason: str | None = None,
+    ) -> None:
+        status_label = "waived by the psychologist" if waived else "paid"
+        if recipient == "psychologist":
+            link = f"{self.frontend_base_url}/psych/schedule"
+            subject = f"Reschedule fee {('waived' if waived else 'paid')} — scheduling reopened"
+            lead = (
+                f"The ₱600 reschedule fee for this booking has been {status_label}. "
+                + (
+                    "The client's preferred schedules are ready for your review."
+                    if has_submitted_slots
+                    else "The client has been prompted to submit 3–5 new preferred schedules."
+                )
+            )
+        else:
+            link = f"{self.frontend_base_url}/proposal/{appointment_id}"
+            subject = f"Reschedule fee {('waived' if waived else 'confirmed')} — next step"
+            lead = (
+                f"Your ₱600 reschedule fee has been {status_label}. "
+                + (
+                    "Your psychologist is now reviewing your submitted preferred schedules."
+                    if has_submitted_slots
+                    else "Please submit 3–5 new preferred schedules so your psychologist can confirm a new time."
+                )
+            )
+        reason_text = f"\nReason: {waiver_reason}\n" if waiver_reason else ""
+        reason_html = (
+            f'<p style="margin:0 0 12px;"><strong>Reason:</strong> {escape(waiver_reason)}</p>'
+            if waiver_reason
+            else ""
+        )
+        text = (
+            f"Hi,\n\n{lead}\n"
+            f"\nBooking reference: {appointment_id}{reason_text}\n"
+            f"Open booking: {link}\n\n"
+            f"{TEXT_FOOTER}"
+        )
+        html = self._wrap_html(
+            subject,
+            f"""\
+<p style="margin:0 0 16px;">{escape(lead)}</p>
+<p style="margin:0 0 4px;font-size:13px;color:#5d8b69;">Booking reference</p>
+<p style="margin:0 0 16px;font-family:monospace;">{escape(str(appointment_id))}</p>
+{reason_html}<p style="margin:0 0 16px;"><a href="{escape(link)}" style="color:#25372d;font-weight:bold;">Open booking</a></p>
+""",
+        )
+        self.send_email(to, subject, html, text)
+
+    def send_no_show_marked(
+        self,
+        to: str,
+        appointment_id: str,
+        recipient: Recipient,
+    ) -> None:
+        if recipient == "psychologist":
+            link = f"{self.frontend_base_url}/psych/schedule"
+            subject = "Session marked as No-Show"
+            lead = (
+                "You marked this session as a No-Show. The scheduled slot has been "
+                "released. If the client contacts you with a valid reason, you can "
+                "waive the ₱600 reschedule fee from your schedule dashboard."
+            )
+        else:
+            link = f"{self.frontend_base_url}/proposal/{appointment_id}"
+            subject = "Your session was marked as a No-Show"
+            lead = (
+                "Your session was marked as a No-Show. To reschedule, a ₱600 "
+                "reschedule fee applies. If you had a valid reason, please contact "
+                "your psychologist — they may waive the fee so you can submit new "
+                "preferred schedules."
+            )
+        text = (
+            f"Hi,\n\n{lead}\n\n"
+            f"Booking reference: {appointment_id}\n"
+            f"Open booking: {link}\n\n"
+            f"{TEXT_FOOTER}"
+        )
+        html = self._wrap_html(
+            subject,
+            f"""\
+<p style="margin:0 0 16px;">{escape(lead)}</p>
+<p style="margin:0 0 4px;font-size:13px;color:#5d8b69;">Booking reference</p>
+<p style="margin:0 0 16px;font-family:monospace;">{escape(str(appointment_id))}</p>
+<p style="margin:0 0 16px;"><a href="{escape(link)}" style="color:#25372d;font-weight:bold;">Open booking</a></p>
+""",
+        )
+        self.send_email(to, subject, html, text)
+
+    def send_refund_issued(
+        self,
+        to: str,
+        appointment_id: str,
+        recipient: Recipient,
+        *,
+        amount_centavos: int,
+        is_full: bool,
+        reason: str | None = None,
+    ) -> None:
+        refund_php = self._format_price(amount_centavos / 100.0)
+        kind = "full" if is_full else "partial"
+        if recipient == "psychologist":
+            link = f"{self.frontend_base_url}/psych/schedule"
+            subject = f"Booking {kind}ly refunded — slot released"
+            lead = (
+                f"An administrator issued a {kind} refund ({refund_php}) for this "
+                "appointment and released the scheduled slot from your calendar."
+            )
+        else:
+            link = f"{self.frontend_base_url}/proposal/{appointment_id}"
+            subject = f"Your {kind} refund ({refund_php}) has been processed"
+            lead = (
+                f"A {kind} refund of {refund_php} has been processed for your booking."
+            )
+        reason_line = f"\nReason: {reason}\n" if reason else ""
+        reason_html = (
+            f'<p style="margin:0 0 12px;"><strong>Reason:</strong> {escape(reason)}</p>'
+            if reason
+            else ""
+        )
+        text = (
+            f"Hi,\n\n{lead}\n"
+            f"\nBooking reference: {appointment_id}{reason_line}\n"
+            f"Open booking: {link}\n\n"
+            f"{TEXT_FOOTER}"
+        )
+        html = self._wrap_html(
+            subject,
+            f"""\
+<p style="margin:0 0 16px;">{escape(lead)}</p>
+<p style="margin:0 0 4px;font-size:13px;color:#5d8b69;">Booking reference</p>
+<p style="margin:0 0 12px;font-family:monospace;">{escape(str(appointment_id))}</p>
+{reason_html}<p style="margin:0 0 16px;"><a href="{escape(link)}" style="color:#25372d;font-weight:bold;">Open booking</a></p>
+""",
+        )
+        self.send_email(to, subject, html, text)
+
     # ----- formatting -----
 
     @staticmethod
@@ -357,3 +571,140 @@ Choose the one that works for you and complete payment to confirm the session.</
   </body>
 </html>
 """
+
+    def send_meeting_link_ready(
+        self,
+        to: str,
+        appointment_id: str,
+        meeting_link: str,
+    ) -> None:
+        subject = "Your session meeting link is ready"
+        booking_url = f"{self.frontend_base_url}/proposal/{appointment_id}"
+        text = (
+            "Hi,\n\n"
+            "Your psychologist has added the video meeting link for your confirmed session.\n\n"
+            f"Meeting link: {meeting_link}\n"
+            f"Booking details: {booking_url}\n\n"
+            f"{TEXT_FOOTER}"
+        )
+        html = self._wrap_html(
+            subject,
+            f"""\
+<p style="margin:0 0 16px;">Your psychologist has added the video meeting link for your confirmed session.</p>
+<p style="margin:0 0 16px;"><a href="{escape(meeting_link)}" style="color:#25372d;font-weight:bold;">Join Session</a></p>
+<p style="margin:0 0 16px;"><a href="{escape(booking_url)}" style="color:#25372d;">View your booking</a></p>
+<p style="margin:0;">PsychAvenuePH</p>
+""",
+        )
+        self.send_email(to, subject, html, text)
+
+    def send_payment_expired(self, to: str, appointment_id: str) -> None:
+        subject = "Payment deadline passed — submit new preferred schedules"
+        link = f"{self.frontend_base_url}/proposal/{appointment_id}"
+        text = (
+            "Hi,\n\n"
+            "The payment deadline for your agreed session schedule has passed, "
+            "so the reserved slot has been released. Please submit a new set of "
+            "preferred schedules to continue.\n\n"
+            f"Submit new schedules: {link}\n\n"
+            f"{TEXT_FOOTER}"
+        )
+        html = self._wrap_html(
+            subject,
+            f"""\
+<p style="margin:0 0 16px;">The payment deadline for your agreed session schedule
+has passed, so the reserved slot has been released. Please submit a new set of
+preferred schedules to continue.</p>
+<p style="margin:0 0 16px;"><a href="{escape(link)}" style="color:#25372d;">Submit new preferred schedules</a></p>
+<p style="margin:0;">PsychAvenuePH</p>
+""",
+        )
+        self.send_email(to, subject, html, text)
+
+    def send_pending_sla_alert(
+        self, to: str, appointment_id: str, hours_waiting: int
+    ) -> None:
+        subject = f"Pending booking awaiting pickup ({hours_waiting}h+)"
+        link = f"{self.frontend_base_url}/psych/queue"
+        text = (
+            "Hi,\n\n"
+            f"Booking {appointment_id} has been in the pending queue for over "
+            f"{hours_waiting} hours without being picked up.\n\n"
+            f"View queue: {link}\n\n"
+            f"{TEXT_FOOTER}"
+        )
+        html = self._wrap_html(
+            subject,
+            f"""\
+<p style="margin:0 0 16px;">Booking <code>{escape(str(appointment_id))}</code>
+has been in the pending queue for over {hours_waiting} hours without being picked up.</p>
+<p style="margin:0 0 16px;"><a href="{escape(link)}" style="color:#25372d;">View queue</a></p>
+<p style="margin:0;">PsychAvenuePH</p>
+""",
+        )
+        self.send_email(to, subject, html, text)
+
+    def send_session_reminder(
+        self,
+        to: str,
+        appointment_id: str,
+        slot: SlotTime,
+        hours_before: int,
+        meeting_link: str | None = None,
+        recipient: Recipient = "client",
+    ) -> None:
+        subject = f"Reminder: your session starts in {hours_before} hour{'s' if hours_before != 1 else ''}"
+        formatted_slot = self._format_slot(slot)
+        portal_path = "/psych/schedule" if recipient == "psychologist" else f"/proposal/{appointment_id}"
+        portal_link = f"{self.frontend_base_url}{portal_path}"
+        meeting_line = f"Meeting link: {meeting_link}\n" if meeting_link else ""
+        meeting_html = (
+            f'<p style="margin:0 0 12px;"><strong>Meeting link:</strong> <a href="{escape(meeting_link)}" style="color:#25372d;">{escape(meeting_link)}</a></p>'
+            if meeting_link
+            else ""
+        )
+        text = (
+            "Hi,\n\n"
+            f"This is a reminder that your confirmed session is in about {hours_before} hour(s).\n\n"
+            f"Schedule: {formatted_slot}\n"
+            f"{meeting_line}"
+            f"View booking: {portal_link}\n\n"
+            f"{TEXT_FOOTER}"
+        )
+        html = self._wrap_html(
+            subject,
+            f"""\
+<p style="margin:0 0 16px;">This is a reminder that your confirmed session is in about {hours_before} hour(s).</p>
+<p style="margin:0 0 8px;"><strong>Schedule:</strong> {escape(formatted_slot)}</p>
+{meeting_html}
+<p style="margin:0 0 16px;"><a href="{escape(portal_link)}" style="color:#25372d;">View booking</a></p>
+<p style="margin:0;">PsychAvenuePH</p>
+""",
+        )
+        self.send_email(to, subject, html, text)
+
+    def send_evaluation_request(
+        self,
+        to: str,
+        appointment_id: str,
+        evaluation_form_url: str | None = None,
+    ) -> None:
+        subject = "How was your session? Share your feedback"
+        link = evaluation_form_url or f"{self.frontend_base_url}/proposal/{appointment_id}"
+        text = (
+            "Hi,\n\n"
+            "Your session has been marked as completed. We would appreciate your "
+            "feedback in a brief post-session evaluation form.\n\n"
+            f"Evaluation form: {link}\n\n"
+            f"{TEXT_FOOTER}"
+        )
+        html = self._wrap_html(
+            subject,
+            f"""\
+<p style="margin:0 0 16px;">Your session has been marked as completed. We would
+appreciate your feedback in a brief post-session evaluation form.</p>
+<p style="margin:0 0 16px;"><a href="{escape(link)}" style="color:#25372d;font-weight:bold;">Open Evaluation Form</a></p>
+<p style="margin:0;">PsychAvenuePH</p>
+""",
+        )
+        self.send_email(to, subject, html, text)

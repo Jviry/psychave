@@ -162,11 +162,11 @@ async function refreshAccessToken(): Promise<string | null> {
     refreshInFlight = (async () => {
       try {
         const res = await fetchWithTimeout(
-          `${API_BASE_URL}/auth/refresh-token?refresh_token=${encodeURIComponent(refreshToken)}`,
+          `${API_BASE_URL}/auth/refresh-token`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: '{}',
+            body: JSON.stringify({ refresh_token: refreshToken }),
           },
           8000
         );
@@ -196,7 +196,16 @@ async function refreshAccessToken(): Promise<string | null> {
 /**
  * Builds the loud backend error format used across the live client.
  */
-function buildBackendError(endpoint: string, status: number, json: unknown): Error {
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+function buildBackendError(_endpoint: string, status: number, json: unknown): Error {
   let errDetail = `HTTP ${status}`;
   if (json && typeof json === 'object') {
     const obj = json as { message?: string; detail?: string | unknown };
@@ -205,7 +214,10 @@ function buildBackendError(endpoint: string, status: number, json: unknown): Err
       errDetail = typeof obj.detail === 'string' ? obj.detail : JSON.stringify(obj.detail);
     }
   }
-  return new Error(`Backend Error (${status}) on ${endpoint}: ${errDetail}`);
+  if (status === 503) {
+    return new ApiError(errDetail, status);
+  }
+  return new ApiError(`Request failed (${status}): ${errDetail}`, status);
 }
 
 /**
@@ -244,7 +256,7 @@ async function liveFetch(
       if (useAuthStore.getState()?.isAuthenticated) {
         useAuthStore.getState().logout();
       }
-      if (!endpoint.startsWith('/services/active')) {
+      if (!endpoint.startsWith('/services/active') && endpoint !== '/cms') {
         return {
           status: 401,
           json: { detail: 'Session expired. Please sign in again.' },
@@ -256,9 +268,13 @@ async function liveFetch(
   const callOnce = () => {
     // Backend contract (backend/README.md): verify_token() requires the **ID
     // token** (aud = COGNITO_APP_CLIENT_ID); access tokens are rejected.
-    const token = useAuthStore.getState()?.idToken ?? null;
+    const state = useAuthStore.getState();
+    const token = state?.idToken ?? null;
+    const useBffProxy =
+      typeof window !== 'undefined' && Boolean(state?.isAuthenticated) && !token;
+    const url = useBffProxy ? `/api/proxy${endpoint}` : `${API_BASE_URL}${endpoint}`;
     return fetchWithTimeout(
-      `${API_BASE_URL}${endpoint}`,
+      url,
       {
         ...options,
         headers: {
@@ -373,11 +389,22 @@ interface AppointmentRaw {
   scheduling_turn: string | null;
   scheduling_round: number;
   payment_deadline: string | null;
+  reschedule_fee_waived?: boolean;
+  reschedule_requested_by?: string | null;
+  reschedule_reason?: string | null;
+  reschedule_waiver_reason?: string | null;
+  refund_amount_centavos?: number | null;
+  refund_reason?: string | null;
+  refunded_at?: string | null;
+  is_session_paid?: boolean;
   proposed_slots: ProposedSlotRaw[];
   conflicting_slot_ids?: string[];
   profile_socmed_platform: string | null;
   profile_socmed_username: string | null;
   psychologist_social_links: SocialMediaLink[];
+  meeting_link?: string | null;
+  reminder_24h_sent_at?: string | null;
+  reminder_1h_sent_at?: string | null;
 }
 
 interface ProposedSlotRaw {
@@ -604,6 +631,14 @@ function mapStatusToBookingStatus(
       return 'paid-confirmed';
     case 'completed':
       return 'completed';
+    case 'reschedule_requested':
+      return 'reschedule-requested';
+    case 'no_show':
+      return 'no-show';
+    case 'partially_refunded':
+      return 'partially-refunded';
+    case 'refunded':
+      return 'refunded';
     case 'cancelled':
       return 'cancelled';
     default:
@@ -615,7 +650,7 @@ function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
   const status = mapStatusToBookingStatus(raw.status, raw.scheduling_turn);
   const code = anonymizedPsychCode(raw.psychologist_id);
   const contactUnlocked =
-    raw.status === 'confirmed' || raw.status === 'completed';
+    Boolean(raw.psychologist_id) && raw.status !== 'cancelled';
   const durationMinutes = raw.service_duration_minutes ?? 60;
 
   const psychologistSocialLinks = contactUnlocked
@@ -663,7 +698,7 @@ function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
 
   return {
     id: raw.appointment_id,
-    clientId: 'client-01',
+    clientId: '',
     profileId: raw.profile_id,
     profileType: raw.profile_relation === 'self' ? 'self' : 'dependent',
     profileLabel: raw.profile_name,
@@ -686,14 +721,32 @@ function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
         : undefined,
     schedulingRound: raw.scheduling_round ?? 1,
     paymentDeadline: raw.payment_deadline ?? undefined,
+    rescheduleFeeWaived: raw.reschedule_fee_waived ?? false,
+    rescheduleRequestedBy: raw.reschedule_requested_by ?? undefined,
+    rescheduleReason: raw.reschedule_reason ?? undefined,
+    rescheduleWaiverReason: raw.reschedule_waiver_reason ?? undefined,
+    refundAmountCentavos: raw.refund_amount_centavos ?? undefined,
+    refundReason: raw.refund_reason ?? undefined,
+    refundedAt: raw.refunded_at ?? undefined,
+    isSessionPaid: raw.is_session_paid ?? false,
     conflictingSlotIds: raw.conflicting_slot_ids ?? [],
     selectedSlotId: raw.selected_slot_id ?? undefined,
     contactUnlocked,
+    ...(raw.meeting_link ? { meetingLink: raw.meeting_link } : {}),
     psychologistSocialLinks,
     clientSocialMedia,
-    reminders: contactUnlocked
-      ? { reminder24h: 'scheduled', reminder1h: 'scheduled' }
-      : { reminder24h: 'pending', reminder1h: 'pending' },
+    reminders: {
+      reminder24h: raw.reminder_24h_sent_at
+        ? 'dispatched'
+        : contactUnlocked
+          ? 'scheduled'
+          : 'pending',
+      reminder1h: raw.reminder_1h_sent_at
+        ? 'dispatched'
+        : contactUnlocked
+          ? 'scheduled'
+          : 'pending',
+    },
   };
 }
 
@@ -719,7 +772,7 @@ function mapProfileRaw(raw: ProfileRaw): Profile {
   const details = (raw.details ?? {}) as Record<string, unknown>;
   return {
     id: raw.profile_id,
-    clientId: 'client-01',
+    clientId: '',
     type: raw.relation_to_account_holder === 'self' ? 'self' : 'dependent',
     label: raw.profile_name,
     ageGroup: isMinorDob(dob) ? 'Minor (<18)' : 'Adult (18+)',
@@ -1377,8 +1430,46 @@ export const api = {
       payment?.checkout_url &&
       payment.status !== 'paid'
     ) {
+      let safeCheckoutUrl: string | null = null;
+      try {
+        const parsed = new URL(payment.checkout_url);
+        const isPayMongo =
+          parsed.protocol === 'https:' &&
+          (parsed.hostname === 'checkout.paymongo.com' ||
+            parsed.hostname.endsWith('.paymongo.com'));
+        if (isPayMongo) {
+          safeCheckoutUrl = parsed.toString();
+        }
+      } catch {
+        safeCheckoutUrl = null;
+      }
+
+      if (!safeCheckoutUrl) {
+        throw new Error('Invalid payment checkout URL returned by server.');
+      }
+
       if (typeof window !== 'undefined') {
-        window.location.assign(payment.checkout_url);
+        window.location.assign(safeCheckoutUrl);
+        return {
+          id: bookingId,
+          clientId: '',
+          profileId: '',
+          profileType: 'self',
+          profileLabel: '',
+          serviceId: '',
+          serviceTitle: '',
+          serviceDuration: '',
+          serviceDurationMinutes: 0,
+          serviceGuardrail: '',
+          concernsSummary: '',
+          submittedAt: new Date().toISOString(),
+          status: 'awaiting-payment',
+          proposedSlots: [],
+          schedulingTurn: 'client',
+          schedulingRound: 1,
+          contactUnlocked: false,
+          reminders: { reminder24h: 'pending', reminder1h: 'pending' },
+        };
       }
       const appointment = await liveRequest<AppointmentRaw>(
         `/appointments/${bookingId}`
@@ -1418,6 +1509,140 @@ export const api = {
     return mapAppointmentRaw(raw);
   },
 
+  requestReschedule: async (
+    bookingId: string,
+    reasonOrOptions?:
+      | string
+      | {
+          reason?: string;
+          preferredSlots?: string[];
+          counterDateTime?: string;
+        },
+    preferredSlots?: string[],
+    counterDateTime?: string
+  ): Promise<BookingRequest> => {
+    const opts =
+      typeof reasonOrOptions === 'object' && reasonOrOptions !== null
+        ? reasonOrOptions
+        : {
+            reason:
+              typeof reasonOrOptions === 'string' ? reasonOrOptions : undefined,
+            preferredSlots,
+            counterDateTime,
+          };
+    const body: Record<string, unknown> = {
+      reason: opts.reason?.trim() || null,
+    };
+    if (opts.preferredSlots && opts.preferredSlots.length > 0) {
+      body.preferred_slots = opts.preferredSlots.map(toSlotPreference);
+    }
+    if (opts.counterDateTime) {
+      body.counter_slot = toSlotPreference(opts.counterDateTime);
+    }
+    const raw = await liveRequest<AppointmentRaw>(
+      `/appointments/${assertUuid(bookingId, 'bookingId')}/reschedule-request`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }
+    );
+    return mapAppointmentRaw(raw);
+  },
+
+  updateMeetingLink: async (
+    bookingId: string,
+    meetingLink: string
+  ): Promise<BookingRequest> => {
+    const raw = await liveRequest<AppointmentRaw>(
+      `/appointments/${assertUuid(bookingId, 'bookingId')}/meeting-link`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ meeting_link: meetingLink.trim() }),
+      }
+    );
+    return mapAppointmentRaw(raw);
+  },
+
+  markNoShow: async (bookingId: string): Promise<BookingRequest> => {
+    const raw = await liveRequest<AppointmentRaw>(
+      `/appointments/${assertUuid(bookingId, 'bookingId')}/no-show`,
+      { method: 'POST' }
+    );
+    return mapAppointmentRaw(raw);
+  },
+
+  waiveRescheduleFee: async (
+    bookingId: string,
+    reason?: string
+  ): Promise<BookingRequest> => {
+    const raw = await liveRequest<AppointmentRaw>(
+      `/appointments/${assertUuid(bookingId, 'bookingId')}/waive-reschedule-fee`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ reason: reason?.trim() || null }),
+      }
+    );
+    return mapAppointmentRaw(raw);
+  },
+
+  payRescheduleFee: async (bookingId: string): Promise<BookingRequest> => {
+    const path = `/appointments/${assertUuid(bookingId, 'bookingId')}/reschedule-fee/payment`;
+    const payRes = await liveFetch(path, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+    if (payRes.status < 200 || payRes.status >= 300) {
+      throw buildBackendError(path, payRes.status, payRes.json);
+    }
+    const payment = payRes.json as PaymentRaw | null;
+
+    if (payment?.checkout_url && payment.status !== 'paid') {
+      let safeCheckoutUrl: string | null = null;
+      try {
+        const parsed = new URL(payment.checkout_url);
+        const isPayMongo =
+          parsed.protocol === 'https:' &&
+          (parsed.hostname === 'checkout.paymongo.com' ||
+            parsed.hostname.endsWith('.paymongo.com'));
+        if (isPayMongo) {
+          safeCheckoutUrl = parsed.toString();
+        }
+      } catch {
+        safeCheckoutUrl = null;
+      }
+      if (!safeCheckoutUrl) {
+        throw new Error('Invalid payment checkout URL returned by server.');
+      }
+      if (typeof window !== 'undefined') {
+        window.location.assign(safeCheckoutUrl);
+        return {
+          id: bookingId,
+          clientId: '',
+          profileId: '',
+          profileType: 'self',
+          profileLabel: '',
+          serviceId: '',
+          serviceTitle: '',
+          serviceDuration: '',
+          serviceDurationMinutes: 0,
+          serviceGuardrail: '',
+          concernsSummary: '',
+          submittedAt: new Date().toISOString(),
+          status: 'reschedule-requested',
+          proposedSlots: [],
+          schedulingRound: 1,
+          contactUnlocked: true,
+          isSessionPaid: true,
+          reminders: { reminder24h: 'scheduled', reminder1h: 'scheduled' },
+        };
+      }
+    }
+
+    const appointment = await liveRequest<AppointmentRaw>(
+      `/appointments/${bookingId}`
+    );
+    return mapAppointmentRaw(appointment);
+  },
   /**
    * Admin user directory & role management API.
    */
@@ -1486,6 +1711,46 @@ export const api = {
     };
   },
 
+  getAdminAppointments: async (
+    status = 'awaiting_payment'
+  ): Promise<BookingRequest[]> => {
+    const query = status ? `?status=${encodeURIComponent(status)}` : '';
+    const raw = await liveRequest<AppointmentRaw[]>(`/admin/appointments${query}`);
+    return (Array.isArray(raw) ? raw : []).map(mapAppointmentRaw);
+  },
+
+  confirmManualPayment: async (
+    appointmentId: string,
+    note?: string
+  ): Promise<BookingRequest> => {
+    const raw = await liveRequest<AppointmentRaw>(
+      `/admin/appointments/${assertUuid(appointmentId, 'appointmentId')}/confirm-payment`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ note: note?.trim() || null }),
+      }
+    );
+    return mapAppointmentRaw(raw);
+  },
+
+  refundAdminAppointment: async (
+    appointmentId: string,
+    payload: { amountCentavos?: number; percentage?: number; reason: string }
+  ): Promise<BookingRequest> => {
+    const raw = await liveRequest<AppointmentRaw>(
+      `/admin/appointments/${assertUuid(appointmentId, 'appointmentId')}/refund`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          amount_centavos: payload.amountCentavos ?? null,
+          percentage: payload.percentage ?? null,
+          reason: payload.reason.trim(),
+        }),
+      }
+    );
+    return mapAppointmentRaw(raw);
+  },
+
   /**
    * Live CMS Content (Vision, Mission, Clinic Overview, Impact Narrative) & Testimonials API.
    */
@@ -1495,6 +1760,7 @@ export const api = {
       mission: string;
       clinic_overview: string;
       impact_narrative: string;
+      evaluation_form_url?: string | null;
       updated_at: string;
       testimonials: Array<{
         testimonial_id: string;
@@ -1511,6 +1777,7 @@ export const api = {
       mission: raw.mission,
       clinicOverview: raw.clinic_overview,
       impactNarrative: raw.impact_narrative,
+      evaluationFormUrl: raw.evaluation_form_url ?? null,
       updatedAt: raw.updated_at,
       testimonials: (raw.testimonials ?? []).map((t) => ({
         id: t.testimonial_id,
@@ -1530,6 +1797,7 @@ export const api = {
       mission: string;
       clinic_overview: string;
       impact_narrative: string;
+      evaluation_form_url?: string | null;
       updated_at: string;
       testimonials: Array<{
         testimonial_id: string;
@@ -1546,6 +1814,7 @@ export const api = {
       mission: raw.mission,
       clinicOverview: raw.clinic_overview,
       impactNarrative: raw.impact_narrative,
+      evaluationFormUrl: raw.evaluation_form_url ?? null,
       updatedAt: raw.updated_at,
       testimonials: (raw.testimonials ?? []).map((t) => ({
         id: t.testimonial_id,
@@ -1564,12 +1833,14 @@ export const api = {
     mission: string;
     clinicOverview: string;
     impactNarrative: string;
+    evaluationFormUrl?: string | null;
   }): Promise<CmsContent> => {
     const raw = await liveRequest<{
       vision: string;
       mission: string;
       clinic_overview: string;
       impact_narrative: string;
+      evaluation_form_url?: string | null;
       updated_at: string;
       testimonials: Array<{
         testimonial_id: string;
@@ -1587,6 +1858,7 @@ export const api = {
         mission: payload.mission.trim(),
         clinic_overview: payload.clinicOverview.trim(),
         impact_narrative: payload.impactNarrative.trim(),
+        evaluation_form_url: payload.evaluationFormUrl?.trim() || null,
       }),
     });
     return {
@@ -1594,6 +1866,7 @@ export const api = {
       mission: raw.mission,
       clinicOverview: raw.clinic_overview,
       impactNarrative: raw.impact_narrative,
+      evaluationFormUrl: raw.evaluation_form_url ?? null,
       updatedAt: raw.updated_at,
       testimonials: (raw.testimonials ?? []).map((t) => ({
         id: t.testimonial_id,

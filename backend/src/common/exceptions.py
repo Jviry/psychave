@@ -67,6 +67,16 @@ class BadRequestError(DomainError):
         super().__init__(detail)
 
 
+class ServiceUnavailableError(DomainError):
+    status_code = 503
+
+    def __init__(
+        self,
+        detail: str = "Payment gateway is temporarily unavailable. Please try again in a few minutes.",
+    ):
+        super().__init__(detail, status_code=503)
+
+
 class UserNotConfirmedError(DomainError):
     status_code = 403
     code = "USER_NOT_CONFIRMED"

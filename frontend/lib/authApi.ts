@@ -237,23 +237,75 @@ export const authApi = {
     }),
 
   /**
+   * Log in via the Next.js BFF so Cognito tokens are stored in httpOnly cookies
+   * and never exposed to browser JS or localStorage.
+   */
+  loginSession: async (
+    credentials: LoginCredentials
+  ): Promise<{
+    user: {
+      email: string;
+      username: string;
+      role: 'client' | 'psychologist' | 'admin';
+      cognitoSub: string;
+    };
+  }> => {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(credentials),
+    });
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`;
+      let code: string | undefined;
+      try {
+        const data = await res.json();
+        if (data?.detail) {
+          detail = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+        } else if (data?.message) {
+          detail = data.message;
+        }
+        if (typeof data?.code === 'string') code = data.code;
+      } catch {
+        /* ignore */
+      }
+      throw new AuthApiError(detail, res.status, code);
+    }
+    return res.json();
+  },
+
+  /**
+   * Clear httpOnly session cookies and revoke the Cognito session server-side.
+   */
+  logoutSession: async (): Promise<void> => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      /* best effort */
+    }
+  },
+
+  /**
    * Refresh access token using the stored refresh token.
    */
   refreshAccessToken: async (refreshToken: string): Promise<{ accessToken: string }> => {
-    const raw = await post<{ AccessToken: string }>(
-      `/auth/refresh-token?refresh_token=${encodeURIComponent(refreshToken)}`,
-      {}
-    );
+    const raw = await post<{ AccessToken: string }>('/auth/refresh-token', {
+      refresh_token: refreshToken,
+    });
     return { accessToken: raw.AccessToken };
   },
 
   /**
    * Sign out the user from Cognito (invalidates the access token).
    */
-  logoutUser: async (accessToken: string): Promise<MessageResponse> =>
-    post<MessageResponse>(`/auth/logout?access_token=${encodeURIComponent(accessToken)}`, {}, {
-      Authorization: `Bearer ${accessToken}`,
-    }),
+  logoutUser: async (accessToken: string, idToken?: string): Promise<MessageResponse> =>
+    post<MessageResponse>(
+      '/auth/logout',
+      { access_token: accessToken },
+      {
+        Authorization: `Bearer ${idToken || accessToken}`,
+      }
+    ),
 
   /**
    * Validate a single-use psychologist invitation token and return the invited email.

@@ -1,4 +1,4 @@
-.PHONY: help db-start db-stop db-status db-reset db-migrate db-migrate-down db-new-migration test test-unit test-integration dev
+.PHONY: help db-start db-stop db-status db-reset db-migrate db-migrate-down db-new-migration db-seed-services db-seed-users test test-unit test-integration dev
 
 help:
 	@$(MAKE) -C backend help
@@ -23,6 +23,12 @@ db-migrate-down:
 
 db-new-migration:
 	@$(MAKE) -C backend db-new-migration name="$(name)"
+
+db-seed-services:
+	@$(MAKE) -C backend db-seed-services
+
+db-seed-users:
+	@$(MAKE) -C backend db-seed-users
 
 test:
 	@$(MAKE) -C backend test

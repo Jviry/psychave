@@ -1,7 +1,8 @@
+import math
 import uuid
 from datetime import datetime
 
-from pydantic import EmailStr, field_validator
+from pydantic import EmailStr, field_validator, model_validator
 from sqlmodel import Field, SQLModel
 
 from models.user import UserRole
@@ -76,3 +77,42 @@ class PsychologistInvitationRead(SQLModel):
     invitation_url: str
     expires_at: datetime
     created_at: datetime
+
+
+class ManualPaymentConfirmRequest(SQLModel):
+    note: str | None = None
+
+    @field_validator("note")
+    @classmethod
+    def strip_note(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        return cleaned or None
+
+
+class AdminRefundRequest(SQLModel):
+    amount_centavos: int | None = None
+    percentage: float | None = None
+    reason: str
+
+    @field_validator("reason")
+    @classmethod
+    def reason_not_blank(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("Refund reason is required")
+        return cleaned
+
+    @model_validator(mode="after")
+    def validate_amount_or_percentage(self) -> "AdminRefundRequest":
+        if self.amount_centavos is not None and self.percentage is not None:
+            raise ValueError("Provide either amount_centavos or percentage, not both")
+        if self.amount_centavos is None and self.percentage is None:
+            raise ValueError("Provide either amount_centavos or percentage for the refund")
+        if self.amount_centavos is not None and self.amount_centavos <= 0:
+            raise ValueError("amount_centavos must be greater than zero")
+        if self.percentage is not None:
+            if not math.isfinite(self.percentage) or self.percentage <= 0 or self.percentage >= 100:
+                raise ValueError("percentage must be strictly between 0 and 100")
+        return self

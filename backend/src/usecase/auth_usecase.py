@@ -44,8 +44,30 @@ class AuthUsecase:
     def get_user(self, access_token: str) -> AuthUser:
         return self.auth.get_user(access_token)
 
-    def login_user(self, credentials: UserLogin) -> AuthTokens:
+    def login_user(
+        self, credentials: UserLogin, client_ip: str | None = None
+    ) -> AuthTokens:
+        username_key = f"login:user:{credentials.username.strip().lower()}"
+        checks: list[tuple[str, int, int, str]] = [
+            (
+                username_key,
+                10,
+                300,
+                "Too many login attempts. Please wait 5 minutes before trying again.",
+            ),
+        ]
+        if client_ip:
+            checks.append(
+                (
+                    f"login:ip:{client_ip}",
+                    25,
+                    300,
+                    "Too many login attempts from this network. Please try again later.",
+                )
+            )
+        verification_rate_limiter.check_and_record(checks=checks)
         tokens = self.auth.login_user(credentials)
+        verification_rate_limiter.reset(username_key)
         id_token = tokens.id_token if hasattr(tokens, "id_token") else (tokens.get("IdToken") if isinstance(tokens, dict) else None)
         self._ensure_local_user(id_token)
         return tokens

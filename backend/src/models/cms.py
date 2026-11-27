@@ -80,6 +80,7 @@ class CmsContent(SQLModel, table=True):
     mission: str = Field(default=DEFAULT_MISSION)
     clinic_overview: str = Field(default=DEFAULT_CLINIC_OVERVIEW)
     impact_narrative: str = Field(default=DEFAULT_IMPACT_NARRATIVE)
+    evaluation_form_url: str | None = None
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), nullable=False),

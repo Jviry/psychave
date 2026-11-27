@@ -2,12 +2,14 @@ from fastapi import APIRouter, Request
 
 from dependencies.auth import AuthServiceDep, CurrentUserDep, DbDep
 from schemas.auth_model import (
+    AccessTokenRequest,
     CheckAvailabilityRequest,
     CheckAvailabilityResponse,
     ConfirmUserRequest,
     ForgotPasswordConfirm,
     PsychologistInvitationVerifyRead,
     PsychologistInviteRegisterRequest,
+    RefreshTokenRequest,
     UserCreate,
     UserLogin,
 )
@@ -18,35 +20,36 @@ router = APIRouter()
 
 @router.post("/me")
 def get_user(
-    access_token: str,
+    payload: AccessTokenRequest,
     auth_service: AuthServiceDep,
     current_user: CurrentUserDep,
     db: DbDep,
 ):
     uc = AuthUsecase(auth_service, db)
-    user = uc.get_user(access_token)
+    user = uc.get_user(payload.access_token)
     return user.to_dict()
 
 
 @router.post("/login")
 def login_user(
     credentials: UserLogin,
+    http_request: Request,
     auth_service: AuthServiceDep,
     db: DbDep,
 ):
     uc = AuthUsecase(auth_service, db)
-    tokens = uc.login_user(credentials)
+    tokens = uc.login_user(credentials, client_ip=_client_ip(http_request))
     return tokens.to_dict()
 
 
 @router.post("/refresh-token")
 def refresh_access_token(
-    refresh_token: str,
+    payload: RefreshTokenRequest,
     auth_service: AuthServiceDep,
     db: DbDep,
 ):
     uc = AuthUsecase(auth_service, db)
-    tokens = uc.refresh_access_token(refresh_token)
+    tokens = uc.refresh_access_token(payload.refresh_token)
     return tokens.to_dict()
 
 
@@ -99,10 +102,21 @@ def register_invited_psychologist(
 
 
 def _client_ip(http_request: Request) -> str:
+    aws_event = http_request.scope.get("aws.event")
+    if isinstance(aws_event, dict):
+        source_ip = (
+            aws_event.get("requestContext", {}).get("http", {}).get("sourceIp")
+        )
+        if isinstance(source_ip, str) and source_ip.strip():
+            return source_ip.strip()
+    if http_request.client and http_request.client.host:
+        return http_request.client.host
     forwarded_for = http_request.headers.get("x-forwarded-for")
     if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
-    return http_request.client.host if http_request.client else "unknown"
+        parts = [p.strip() for p in forwarded_for.split(",") if p.strip()]
+        if parts:
+            return parts[-1]
+    return "unknown"
 
 
 @router.post("/confirm")
@@ -129,13 +143,13 @@ def resend_confirmation_code(
 
 @router.post("/logout")
 def logout_user(
-    access_token: str,
+    payload: AccessTokenRequest,
     auth_service: AuthServiceDep,
     current_user: CurrentUserDep,
     db: DbDep,
 ):
     uc = AuthUsecase(auth_service, db)
-    return uc.logout_user(access_token)
+    return uc.logout_user(payload.access_token)
 
 
 @router.post("/request-forgot-password")
@@ -162,10 +176,10 @@ def confirm_forgot_password(
 
 @router.delete("/delete")
 def delete_user(
-    access_token: str,
+    payload: AccessTokenRequest,
     auth_service: AuthServiceDep,
     current_user: CurrentUserDep,
     db: DbDep,
 ):
     uc = AuthUsecase(auth_service, db)
-    return uc.delete_user(access_token)
+    return uc.delete_user(payload.access_token)

@@ -98,18 +98,6 @@ export const psychologistProfileSchema = z.object({
 export type PsychologistProfileValues = z.infer<typeof psychologistProfileSchema>;
 
 /**
- * Flow C Step 4: Client Proposal Slot Selection & Payment Schema
- */
-export const slotSelectionPaymentSchema = z.object({
-  selectedSlotId: z.string().min(1, 'Please select exactly 1 of the 3 proposed schedule slots.'),
-  acknowledgeFinalizationRule: z.boolean().refine((val) => val === true, {
-    message: 'Please confirm that booking finalizes and unlocks contact details only upon payment success.',
-  }),
-});
-
-export type SlotSelectionPaymentValues = z.infer<typeof slotSelectionPaymentSchema>;
-
-/**
  * Admin CMS Editor Schema
  */
 export const cmsOverviewSchema = z.object({
@@ -117,6 +105,14 @@ export const cmsOverviewSchema = z.object({
   mission: z.string().min(20, 'Mission statement must be at least 20 characters.'),
   clinicOverview: z.string().min(30, 'Clinic overview must be at least 30 characters.'),
   impactNarrative: z.string().min(20, 'Impact narrative must be at least 20 characters.'),
+  evaluationFormUrl: z
+    .string()
+    .trim()
+    .refine(
+      (val) => !val || /^https:\/\/.+/i.test(val),
+      'Evaluation form link must be a valid https:// URL.'
+    )
+    .optional(),
 });
 
 export type CmsOverviewFormValues = z.infer<typeof cmsOverviewSchema>;

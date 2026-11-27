@@ -62,16 +62,14 @@ class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
 
+class AccessTokenRequest(BaseModel):
+    access_token: str
+
+
 class ForgotPasswordConfirm(BaseModel):
     username: str
     new_password: str
     confirmation_code: str
-
-
-class ResetPasswordRequest(BaseModel):
-    email: EmailStr
-    confirmation_code: str
-    new_password: str
 
 
 class PsychologistInvitationVerifyRead(BaseModel):

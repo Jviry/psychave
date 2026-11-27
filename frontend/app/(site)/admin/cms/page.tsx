@@ -499,6 +499,7 @@ export default function AdminCmsPage() {
       mission: cms?.mission || '',
       clinicOverview: cms?.clinicOverview || '',
       impactNarrative: cms?.impactNarrative || '',
+      evaluationFormUrl: cms?.evaluationFormUrl || '',
     },
   });
 
@@ -509,6 +510,7 @@ export default function AdminCmsPage() {
         mission: cms.mission,
         clinicOverview: cms.clinicOverview,
         impactNarrative: cms.impactNarrative,
+        evaluationFormUrl: cms.evaluationFormUrl || '',
       });
     }
   }, [cms, overviewForm]);
@@ -520,6 +522,7 @@ export default function AdminCmsPage() {
         mission: values.mission,
         clinicOverview: values.clinicOverview,
         impactNarrative: values.impactNarrative,
+        evaluationFormUrl: values.evaluationFormUrl || null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cms'] });
@@ -2142,6 +2145,26 @@ export default function AdminCmsPage() {
               {overviewForm.formState.errors.impactNarrative && (
                 <p className="text-xs text-red-700 mt-1">
                   {overviewForm.formState.errors.impactNarrative.message}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="cms-evaluation-form-url">
+                Post-Session Evaluation Form Link (Google Form URL)
+              </Label>
+              <Input
+                id="cms-evaluation-form-url"
+                type="url"
+                placeholder="https://docs.google.com/forms/..."
+                {...overviewForm.register('evaluationFormUrl')}
+              />
+              <p className="text-xs text-pine/65 mt-1">
+                Sent to clients by email and shown on completed bookings.
+              </p>
+              {overviewForm.formState.errors.evaluationFormUrl && (
+                <p className="text-xs text-red-700 mt-1">
+                  {overviewForm.formState.errors.evaluationFormUrl.message}
                 </p>
               )}
             </div>

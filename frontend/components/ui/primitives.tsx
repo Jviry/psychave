@@ -465,9 +465,24 @@ export function BookingStatusTag({
       dotClass: 'bg-pine/50',
     },
     'reschedule-requested': {
-      label: 'Reschedule requested',
+      label: 'Reschedule requested · Fee required',
       textClass: 'text-amber-800 font-semibold',
       dotClass: 'bg-amber-500',
+    },
+    'no-show': {
+      label: 'No-show · Reschedule fee required',
+      textClass: 'text-amber-900 font-semibold',
+      dotClass: 'bg-amber-600',
+    },
+    'partially-refunded': {
+      label: 'Partial refund issued',
+      textClass: 'text-pine/80 font-semibold',
+      dotClass: 'bg-sage',
+    },
+    refunded: {
+      label: 'Full refund issued',
+      textClass: 'text-pine/70 font-medium',
+      dotClass: 'bg-pine/40',
     },
     cancelled: {
       label: 'Cancelled',
@@ -511,9 +526,24 @@ export function BookingStatusTag({
       dotClass: 'bg-pine/50',
     },
     'reschedule-requested': {
-      label: 'Reschedule requested',
+      label: 'Reschedule requested · Fee pending',
       textClass: 'text-amber-800 font-semibold',
       dotClass: 'bg-amber-500',
+    },
+    'no-show': {
+      label: 'No-show · Fee pending',
+      textClass: 'text-amber-900 font-semibold',
+      dotClass: 'bg-amber-600',
+    },
+    'partially-refunded': {
+      label: 'Partial refund issued',
+      textClass: 'text-pine/80 font-semibold',
+      dotClass: 'bg-sage',
+    },
+    refunded: {
+      label: 'Full refund issued',
+      textClass: 'text-pine/70 font-medium',
+      dotClass: 'bg-pine/40',
     },
     cancelled: {
       label: 'Cancelled',

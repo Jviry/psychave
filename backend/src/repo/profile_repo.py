@@ -1,6 +1,6 @@
 from typing import Any
 import uuid
-from sqlmodel import Session, select
+from sqlmodel import Session, or_, select
 from models.profile import Profile, ProfileRelation
 from models.forms import Forms
 from models.appointment import Appointment, AppointmentStatus
@@ -117,6 +117,23 @@ class ProfileRepo:
                 select(Appointment.appointment_id).where(
                     Appointment.profile_id == profile_id,
                     Appointment.status.in_(ACTIVE_APPOINTMENT_STATUSES),
+                )
+            ).first()
+            is not None
+        )
+
+    def is_accessible_to_psychologist(
+        self, profile_id: uuid.UUID, psychologist_id: uuid.UUID
+    ) -> bool:
+        """Allow review if the profile has an open PENDING request or an appointment with this psychologist."""
+        return (
+            self.db.exec(
+                select(Appointment.appointment_id).where(
+                    Appointment.profile_id == profile_id,
+                    or_(
+                        Appointment.status == AppointmentStatus.PENDING,
+                        Appointment.psychologist_id == psychologist_id,
+                    ),
                 )
             ).first()
             is not None

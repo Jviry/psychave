@@ -118,13 +118,50 @@ class TestPaymentUsecase:
         uc.initiate_payment(
             appt_id,
             client_id,
-            success_url="https://myapp.com/custom-success",
-            cancel_url="https://myapp.com/custom-cancel",
+            success_url="http://localhost:3000/custom-success",
+            cancel_url="http://localhost:3000/custom-cancel",
         )
 
         checkout_call = provider.created_checkouts[0]
-        assert checkout_call["success_url"] == "https://myapp.com/custom-success"
-        assert checkout_call["cancel_url"] == "https://myapp.com/custom-cancel"
+        assert checkout_call["success_url"] == "http://localhost:3000/custom-success"
+        assert checkout_call["cancel_url"] == "http://localhost:3000/custom-cancel"
+
+    def test_initiate_payment_rejects_external_redirect_url(self, db, provider):
+        client_id = uuid.uuid4()
+        appt_id = uuid.uuid4()
+        profile_id = uuid.uuid4()
+
+        appt = Appointment(
+            appointment_id=appt_id,
+            profile_id=profile_id,
+            psychologist_id=uuid.uuid4(),
+            status=AppointmentStatus.AWAITING_PAYMENT,
+            price=2500.0,
+            payment_deadline=now_manila() + timedelta(hours=24),
+        )
+        profile = Profile(profile_id=profile_id, client_id=client_id)
+
+        def db_get(model, ident):
+            if model == Appointment:
+                return appt
+            if model == Profile:
+                return profile
+            return None
+
+        db.get.side_effect = db_get
+        mock_exec = MagicMock()
+        mock_exec.first.return_value = None
+        db.exec.return_value = mock_exec
+
+        uc = PaymentUsecase(db, provider)
+        with pytest.raises(BadRequestError, match="Invalid payment redirect URL"):
+            uc.initiate_payment(
+                appt_id,
+                client_id,
+                success_url="https://evil.example/steal",
+                cancel_url="http://localhost:3000/custom-cancel",
+            )
+        assert len(provider.created_checkouts) == 0
 
     def test_initiate_payment_reuses_existing_pending(self, db, provider):
         client_id = uuid.uuid4()

@@ -1,5 +1,7 @@
 import uuid
 from datetime import date, datetime, time
+from urllib.parse import urlparse
+from pydantic import field_validator
 from sqlmodel import SQLModel, Field
 
 from models.appointment import AppointmentStatus, SchedulingTurn
@@ -55,6 +57,14 @@ class AppointmentRead(SQLModel):
     scheduling_turn: SchedulingTurn | None = None
     scheduling_round: int = 1
     payment_deadline: datetime | None = None
+    reschedule_fee_waived: bool = False
+    reschedule_requested_by: str | None = None
+    reschedule_reason: str | None = None
+    reschedule_waiver_reason: str | None = None
+    refund_amount_centavos: int | None = None
+    refund_reason: str | None = None
+    refunded_at: datetime | None = None
+    is_session_paid: bool = False
     proposed_slots: list[ProposedSlotRead] = Field(default_factory=list)
     conflicting_slot_ids: list[uuid.UUID] = Field(default_factory=list)
     # Client contact details are visible to the assigned psychologist at every
@@ -62,6 +72,9 @@ class AppointmentRead(SQLModel):
     profile_socmed_platform: str | None = None
     profile_socmed_username: str | None = None
     psychologist_social_links: list[SocialMediaLink] = Field(default_factory=list)
+    meeting_link: str | None = None
+    reminder_24h_sent_at: datetime | None = None
+    reminder_1h_sent_at: datetime | None = None
 
 
 class PendingAppointmentRead(AppointmentRead):
@@ -72,3 +85,28 @@ class PendingAppointmentRead(AppointmentRead):
 
 class SlotSelect(SQLModel):
     slot_id: uuid.UUID
+
+
+class RescheduleRequest(SQLModel):
+    reason: str | None = None
+    preferred_slots: list[SlotInput] | None = Field(
+        default=None, min_length=3, max_length=5
+    )
+    counter_slot: SlotInput | None = None
+
+
+class WaiveRescheduleFeeRequest(SQLModel):
+    reason: str | None = None
+
+
+class MeetingLinkUpdate(SQLModel):
+    meeting_link: str
+
+    @field_validator("meeting_link")
+    @classmethod
+    def validate_meeting_link(cls, value: str) -> str:
+        cleaned = value.strip()
+        parsed = urlparse(cleaned)
+        if parsed.scheme != "https" or not parsed.netloc:
+            raise ValueError("Meeting link must be a valid https:// URL")
+        return cleaned

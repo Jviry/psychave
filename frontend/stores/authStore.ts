@@ -70,13 +70,10 @@ function createAuthStore() {
       }),
       {
         name: 'psychave-auth',
-        // Only persist the minimal session info — no sensitive tokens in localStorage in production
-        // For the prototype, we persist for convenience. Replace with httpOnly cookies pre-prod.
+        // Never persist JWT tokens in localStorage; tokens live in httpOnly cookies
+        // managed by the Next.js BFF (/api/auth/*) and /api/proxy/*.
         partialize: (state) => ({
           isAuthenticated: state.isAuthenticated,
-          accessToken: state.accessToken,
-          idToken: state.idToken,
-          refreshToken: state.refreshToken,
           user: state.user,
         }),
       }

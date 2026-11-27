@@ -36,6 +36,9 @@ const FILTER_TABS: { id: 'all' | BookingStatus; label: string }[] = [
   { id: 'awaiting-client', label: 'Action Needed' },
   { id: 'awaiting-payment', label: 'Payment Due' },
   { id: 'paid-confirmed', label: 'Confirmed' },
+  { id: 'reschedule-requested', label: 'Reschedule' },
+  { id: 'no-show', label: 'No-Show' },
+  { id: 'partially-refunded', label: 'Refunded' },
   { id: 'completed', label: 'Completed' },
   { id: 'cancelled', label: 'Cancelled' },
 ];
@@ -98,20 +101,29 @@ export default function ClientBookingsPage() {
     [bookings]
   );
 
+  const matchesFilter = (status: BookingStatus, filter: 'all' | BookingStatus) => {
+    if (filter === 'all') return true;
+    if (filter === 'partially-refunded') {
+      return status === 'partially-refunded' || status === 'refunded';
+    }
+    return status === filter;
+  };
+
   const actionNeeded = useMemo(
     () =>
       sortedBookings.filter(
-        (b) => b.status === 'awaiting-client' || b.status === 'awaiting-payment'
+        (b) =>
+          b.status === 'awaiting-client' ||
+          b.status === 'awaiting-payment' ||
+          b.status === 'reschedule-requested' ||
+          b.status === 'no-show'
       ),
     [sortedBookings]
   );
   const firstAction = actionNeeded[0];
 
   const filteredBookings = useMemo(
-    () =>
-      statusFilter === 'all'
-        ? sortedBookings
-        : sortedBookings.filter((b) => b.status === statusFilter),
+    () => sortedBookings.filter((b) => matchesFilter(b.status, statusFilter)),
     [sortedBookings, statusFilter]
   );
 
@@ -156,7 +168,10 @@ export default function ClientBookingsPage() {
             <p className="text-xs font-semibold text-pine">
               {firstAction.status === 'awaiting-payment'
                 ? 'Payment due · Your session time is reserved'
-                : 'New time suggested · Please respond'}
+                : firstAction.status === 'reschedule-requested' ||
+                    firstAction.status === 'no-show'
+                  ? 'Reschedule fee due · ₱600 payment required'
+                  : 'New time suggested · Please respond'}
             </p>
             <p className="text-sm text-pine/90">
               You have <strong>{actionNeeded.length}</strong>{' '}
@@ -164,7 +179,10 @@ export default function ClientBookingsPage() {
               response.
               {firstAction.status === 'awaiting-payment' && firstAction.paymentDeadline
                 ? ` Please complete payment before ${formatManilaDateTime(firstAction.paymentDeadline)} PHT (${formatDeadlineCountdown(firstAction.paymentDeadline)}) to keep your slot.`
-                : ' Review the psychologist’s suggested time or share new preferred times.'}
+                : firstAction.status === 'reschedule-requested' ||
+                    firstAction.status === 'no-show'
+                  ? ' Pay the ₱600 rescheduling fee to propose new schedules.'
+                  : ' Review the psychologist’s suggested time or share new preferred times.'}
             </p>
           </div>
           <Button
@@ -174,7 +192,10 @@ export default function ClientBookingsPage() {
           >
             {firstAction.status === 'awaiting-payment'
               ? 'Complete Payment'
-              : 'Review Suggested Time'}
+              : firstAction.status === 'reschedule-requested' ||
+                  firstAction.status === 'no-show'
+                ? 'Pay ₱600 Reschedule Fee'
+                : 'Review Suggested Time'}
           </Button>
         </div>
       )}
@@ -186,11 +207,16 @@ export default function ClientBookingsPage() {
           aria-label="Filter bookings by status"
           className="flex flex-wrap items-center gap-1 p-1 bg-surface-sunken rounded-lg border border-mist"
         >
-          {FILTER_TABS.map((tab) => {
-            const count =
-              tab.id === 'all'
-                ? sortedBookings.length
-                : sortedBookings.filter((b) => b.status === tab.id).length;
+          {FILTER_TABS.filter(
+            (tab) =>
+              tab.id !== 'partially-refunded' ||
+              sortedBookings.some(
+                (b) => b.status === 'partially-refunded' || b.status === 'refunded'
+              )
+          ).map((tab) => {
+            const count = sortedBookings.filter((b) =>
+              matchesFilter(b.status, tab.id)
+            ).length;
             const isActive = statusFilter === tab.id;
             return (
               <button

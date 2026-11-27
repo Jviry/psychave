@@ -22,6 +22,7 @@ import {
   Card,
   Checkbox,
   EmptyState,
+  Input,
   Label,
   Modal,
   Select,
@@ -65,9 +66,19 @@ export default function PsychologistSchedulePage() {
   const [expandedBookingIds, setExpandedBookingIds] = useState<Record<string, boolean>>({});
   const [completionTarget, setCompletionTarget] = useState<BookingRequest | null>(null);
   const [earlyCompletionAcknowledged, setEarlyCompletionAcknowledged] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{
+    type: 'no-show' | 'reschedule' | 'waive-fee';
+    session: BookingRequest;
+  } | null>(null);
+  const [rescheduleReason, setRescheduleReason] = useState('');
+  const [rescheduleCounterDateTime, setRescheduleCounterDateTime] = useState('');
+  const [waiverReason, setWaiverReason] = useState('');
+  const [actionError, setActionError] = useState<string | null>(null);
   const [reviewTargetId, setReviewTargetId] = useState<string | null>(null);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [counterDateTime, setCounterDateTime] = useState('');
+  const [meetingLinks, setMeetingLinks] = useState<Record<string, string>>({});
+  const [meetingLinkFeedback, setMeetingLinkFeedback] = useState<Record<string, string>>({});
 
   const minDateTime = useMemo(() => formatForManilaInput(new Date()), []);
 
@@ -88,6 +99,67 @@ export default function PsychologistSchedulePage() {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       setCompletionTarget(null);
       setEarlyCompletionAcknowledged(false);
+    },
+  });
+
+  const noShowMutation = useMutation({
+    mutationFn: (bookingId: string) => api.markNoShow(bookingId),
+    onSuccess: () => {
+      setActionError(null);
+      setConfirmAction(null);
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+    },
+    onError: (err: Error) => setActionError(err.message),
+  });
+
+  const waiveFeeMutation = useMutation({
+    mutationFn: ({ bookingId, reason }: { bookingId: string; reason: string }) =>
+      api.waiveRescheduleFee(bookingId, reason),
+    onSuccess: () => {
+      setActionError(null);
+      setConfirmAction(null);
+      setWaiverReason('');
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+    },
+    onError: (err: Error) => setActionError(err.message),
+  });
+
+  const rescheduleMutation = useMutation({
+    mutationFn: ({
+      bookingId,
+      reason,
+      counterDateTime,
+    }: {
+      bookingId: string;
+      reason?: string;
+      counterDateTime: string;
+    }) => api.requestReschedule(bookingId, { reason, counterDateTime }),
+    onSuccess: () => {
+      setActionError(null);
+      setConfirmAction(null);
+      setRescheduleReason('');
+      setRescheduleCounterDateTime('');
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+    },
+    onError: (err: Error) => setActionError(err.message),
+  });
+
+  const meetingLinkMutation = useMutation({
+    mutationFn: ({ bookingId, url }: { bookingId: string; url: string }) =>
+      api.updateMeetingLink(bookingId, url),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['booking', updated.id] });
+      setMeetingLinkFeedback((prev) => ({
+        ...prev,
+        [updated.id]: 'Meeting link saved and emailed to client.',
+      }));
+    },
+    onError: (err: Error, vars) => {
+      setMeetingLinkFeedback((prev) => ({
+        ...prev,
+        [vars.bookingId]: err.message,
+      }));
     },
   });
 
@@ -207,7 +279,11 @@ export default function PsychologistSchedulePage() {
     const awaitingPayment: typeof myAssignedSessions = [];
 
     myAssignedSessions.forEach((session) => {
-      if (session.status === 'completed') {
+      if (
+        session.status === 'completed' ||
+        session.status === 'partially-refunded' ||
+        session.status === 'refunded'
+      ) {
         past.push(session);
       } else if (session.status === 'paid-confirmed') {
         const confirmedSlot = agreedSlot(session);
@@ -220,7 +296,9 @@ export default function PsychologistSchedulePage() {
         awaitingPayment.push(session);
       } else if (
         session.status === 'awaiting-review' ||
-        session.status === 'awaiting-client'
+        session.status === 'awaiting-client' ||
+        session.status === 'reschedule-requested' ||
+        session.status === 'no-show'
       ) {
         negotiating.push(session);
       }
@@ -301,6 +379,16 @@ export default function PsychologistSchedulePage() {
           >
             {isRefetchingBookings ? 'Retrying…' : 'Try Again'}
           </Button>
+        </div>
+      )}
+
+      {actionError && (
+        <div
+          role="alert"
+          className="bg-red-50 border border-red-200 rounded-lg p-4 text-xs text-red-900 flex items-center gap-2"
+        >
+          <AlertCircle className="w-4 h-4 text-red-600 shrink-0" aria-hidden="true" />
+          <span>{actionError}</span>
         </div>
       )}
 
@@ -428,21 +516,63 @@ export default function PsychologistSchedulePage() {
 
                     {/* Selected Slot, Agreed Slot, or Negotiation Preview */}
                     {isConfirmed && confirmedSlot ? (
-                      <div className="p-3.5 rounded-lg bg-surface-raised border border-mist flex flex-wrap items-center justify-between gap-3 text-xs">
-                        <div className="space-y-0.5">
-                          <p className="font-semibold text-accent-ink uppercase tracking-wide text-xs">
-                            Confirmed Session Appointment
-                          </p>
-                          <p className="font-medium text-pine text-sm">
-                            {confirmedSlot.dateLabel}
-                          </p>
-                          <p className="font-mono text-accent-ink font-medium">
-                            {confirmedSlot.timeLabel}
-                          </p>
+                      <div className="space-y-2">
+                        <div className="p-3.5 rounded-lg bg-surface-raised border border-mist flex flex-wrap items-center justify-between gap-3 text-xs">
+                          <div className="space-y-0.5">
+                            <p className="font-semibold text-accent-ink uppercase tracking-wide text-xs">
+                              Confirmed Session Appointment
+                            </p>
+                            <p className="font-medium text-pine text-sm">
+                              {confirmedSlot.dateLabel}
+                            </p>
+                            <p className="font-mono text-accent-ink font-medium">
+                              {confirmedSlot.timeLabel}
+                            </p>
+                          </div>
+                          <span className="px-2.5 py-1 bg-surface-raised rounded-md font-mono text-xs font-semibold text-pine border border-mist">
+                            Slot 0{confirmedSlot.slotNumber} Selected
+                          </span>
                         </div>
-                        <span className="px-2.5 py-1 bg-surface-raised rounded-md font-mono text-xs font-semibold text-pine border border-mist">
-                          Confirmed Time (PHT)
-                        </span>
+                        {session.status === 'paid-confirmed' && (
+                          <div className="p-3 rounded-lg bg-parchment border border-mist space-y-2 text-xs">
+                            <Label htmlFor={`meeting-link-${session.id}`}>
+                              Session Meeting Link (https://)
+                            </Label>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <Input
+                                id={`meeting-link-${session.id}`}
+                                type="url"
+                                placeholder="https://meet.google.com/..."
+                                value={meetingLinks[session.id] ?? session.meetingLink ?? ''}
+                                onChange={(e) =>
+                                  setMeetingLinks((prev) => ({
+                                    ...prev,
+                                    [session.id]: e.target.value,
+                                  }))
+                                }
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={meetingLinkMutation.isPending}
+                                onClick={() =>
+                                  meetingLinkMutation.mutate({
+                                    bookingId: session.id,
+                                    url: meetingLinks[session.id] ?? session.meetingLink ?? '',
+                                  })
+                                }
+                              >
+                                {session.meetingLink ? 'Update Link' : 'Save Link'}
+                              </Button>
+                            </div>
+                            {meetingLinkFeedback[session.id] && (
+                              <p className="text-xs text-accent-ink font-medium">
+                                {meetingLinkFeedback[session.id]}
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ) : isAwaitingPayment && confirmedSlot ? (
                       <div className="p-3.5 rounded-lg bg-surface-raised border border-mist text-xs space-y-2">
@@ -470,12 +600,34 @@ export default function PsychologistSchedulePage() {
                           </p>
                         )}
                       </div>
+                    ) : session.status === 'reschedule-requested' ||
+                        session.status === 'no-show' ? (
+                      <div className="p-3.5 rounded-lg bg-amber-50/70 border border-amber-200 text-xs text-amber-950 space-y-1.5">
+                        <p className="font-semibold uppercase tracking-wide">
+                          {session.status === 'no-show'
+                            ? 'Marked No-Show · ₱600 Reschedule Fee Pending'
+                            : 'Late Reschedule Requested · ₱600 Fee Pending'}
+                        </p>
+                        <p className="text-pine/85">
+                          The client must pay the ₱600 reschedule fee before proposing new times,
+                          or you can waive the fee below to reopen schedule negotiation immediately.
+                        </p>
+                        {session.rescheduleReason && (
+                          <p className="text-pine/75">
+                            Reason: {session.rescheduleReason}
+                          </p>
+                        )}
+                      </div>
                     ) : isNegotiating ? (
                       <div className="p-3.5 rounded-lg bg-surface-raised border border-mist text-xs space-y-2">
                         <p className="font-semibold text-pine">
                           {session.status === 'awaiting-review'
-                            ? 'Client Preferred Schedules — Awaiting Your Review'
-                            : 'Your Alternative Schedule — Awaiting Client Response'}
+                            ? preferredSlots.length > 0
+                              ? 'Client Preferred Schedules — Awaiting Your Review'
+                              : 'Client Requested Reschedule — Offer an Alternative Time'
+                            : counterSlot
+                              ? 'Your Alternative Schedule — Awaiting Client Response'
+                              : 'Awaiting Client’s New Preferred Schedules'}
                         </p>
                         {session.status === 'awaiting-review' &&
                         preferredSlots.length > 0 ? (
@@ -504,7 +656,9 @@ export default function PsychologistSchedulePage() {
                           </div>
                         ) : (
                           <p className="text-pine/65">
-                            Waiting for the other party to submit a new schedule.
+                            {session.status === 'awaiting-review'
+                              ? 'Use Review Preferred Schedules to offer an alternative time.'
+                              : 'Waiting for the client to submit 3 to 5 new preferred schedules.'}
                           </p>
                         )}
                       </div>
@@ -524,17 +678,66 @@ export default function PsychologistSchedulePage() {
                       </Button>
                     )}
                     {session.status === 'paid-confirmed' && (
+                      <>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          className="w-full sm:w-auto"
+                          onClick={() => {
+                            completeMutation.reset();
+                            setEarlyCompletionAcknowledged(false);
+                            setCompletionTarget(session);
+                          }}
+                        >
+                          Mark Session Completed
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full sm:w-auto"
+                          disabled={rescheduleMutation.isPending}
+                          onClick={() => {
+                            rescheduleMutation.reset();
+                            setActionError(null);
+                            setRescheduleReason('');
+                            setRescheduleCounterDateTime('');
+                            setConfirmAction({ type: 'reschedule', session });
+                          }}
+                        >
+                          Request Reschedule
+                        </Button>
+                        {confirmedSlot && isSlotPast(confirmedSlot.isoDateTime) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full sm:w-auto text-amber-900 border-amber-300 hover:bg-amber-50"
+                            disabled={noShowMutation.isPending}
+                            onClick={() => {
+                              noShowMutation.reset();
+                              setActionError(null);
+                              setConfirmAction({ type: 'no-show', session });
+                            }}
+                          >
+                            Mark No-Show
+                          </Button>
+                        )}
+                      </>
+                    )}
+                    {(session.status === 'reschedule-requested' ||
+                      session.status === 'no-show') && (
                       <Button
                         variant="primary"
                         size="sm"
                         className="w-full sm:w-auto"
+                        disabled={waiveFeeMutation.isPending}
                         onClick={() => {
-                          completeMutation.reset();
-                          setEarlyCompletionAcknowledged(false);
-                          setCompletionTarget(session);
+                          waiveFeeMutation.reset();
+                          setActionError(null);
+                          setWaiverReason('');
+                          setConfirmAction({ type: 'waive-fee', session });
                         }}
                       >
-                        Mark Session Completed
+                        Waive ₱600 Reschedule Fee
                       </Button>
                     )}
                     {isCompleted && (
@@ -594,6 +797,26 @@ export default function PsychologistSchedulePage() {
                               <span className="font-mono text-pine">{session.paidAt}</span>
                             </div>
                           )}
+                          {session.rescheduleWaiverReason && (
+                            <div className="flex justify-between border-b border-mist/50 pb-1.5">
+                              <span className="text-pine/70">Fee Waiver Reason:</span>
+                              <span className="text-pine">{session.rescheduleWaiverReason}</span>
+                            </div>
+                          )}
+                          {session.refundAmountCentavos != null && (
+                            <div className="flex justify-between border-b border-mist/50 pb-1.5">
+                              <span className="text-pine/70">Refunded Amount:</span>
+                              <span className="font-mono font-semibold text-pine">
+                                ₱{(session.refundAmountCentavos / 100).toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {session.refundReason && (
+                            <div className="flex justify-between border-b border-mist/50 pb-1.5">
+                              <span className="text-pine/70">Refund Reason:</span>
+                              <span className="text-pine">{session.refundReason}</span>
+                            </div>
+                          )}
                         </div>
 
                         <div className="space-y-1">
@@ -649,6 +872,146 @@ export default function PsychologistSchedulePage() {
           })}
         </div>
       )}
+
+      <Modal
+        open={confirmAction !== null}
+        onClose={() => {
+          if (
+            noShowMutation.isPending ||
+            waiveFeeMutation.isPending ||
+            rescheduleMutation.isPending
+          )
+            return;
+          setConfirmAction(null);
+          setRescheduleReason('');
+          setRescheduleCounterDateTime('');
+          setWaiverReason('');
+        }}
+        title={
+          confirmAction?.type === 'no-show'
+            ? 'Mark Session as No-Show?'
+            : confirmAction?.type === 'waive-fee'
+              ? 'Waive ₱600 Reschedule Fee?'
+              : 'Request Session Reschedule?'
+        }
+        description={
+          confirmAction
+            ? `${confirmAction.session.profileLabel} · ${confirmAction.session.serviceTitle}`
+            : undefined
+        }
+        footer={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={
+                noShowMutation.isPending ||
+                waiveFeeMutation.isPending ||
+                rescheduleMutation.isPending
+              }
+              onClick={() => setConfirmAction(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant={confirmAction?.type === 'no-show' ? 'danger' : 'primary'}
+              size="sm"
+              disabled={
+                noShowMutation.isPending ||
+                waiveFeeMutation.isPending ||
+                rescheduleMutation.isPending ||
+                (confirmAction?.type === 'waive-fee' && !waiverReason.trim()) ||
+                (confirmAction?.type === 'reschedule' && !rescheduleCounterDateTime)
+              }
+              onClick={() => {
+                if (!confirmAction) return;
+                if (confirmAction.type === 'no-show') {
+                  noShowMutation.mutate(confirmAction.session.id);
+                } else if (confirmAction.type === 'waive-fee') {
+                  waiveFeeMutation.mutate({
+                    bookingId: confirmAction.session.id,
+                    reason: waiverReason,
+                  });
+                } else {
+                  rescheduleMutation.mutate({
+                    bookingId: confirmAction.session.id,
+                    reason: rescheduleReason,
+                    counterDateTime: rescheduleCounterDateTime,
+                  });
+                }
+              }}
+            >
+              {noShowMutation.isPending ||
+              waiveFeeMutation.isPending ||
+              rescheduleMutation.isPending
+                ? 'Processing…'
+                : confirmAction?.type === 'no-show'
+                  ? 'Confirm No-Show'
+                  : confirmAction?.type === 'waive-fee'
+                    ? 'Confirm Waiver & Reopen Scheduling'
+                    : 'Confirm Reschedule Request'}
+            </Button>
+          </>
+        }
+      >
+        {confirmAction && (
+          <div className="space-y-3 text-xs text-pine/85">
+            {confirmAction.type === 'no-show' && (
+              <p>
+                Marking this session as a no-show releases the scheduled slot and requires the
+                client to pay a ₱600 reschedule fee unless you waive it.
+              </p>
+            )}
+            {confirmAction.type === 'waive-fee' && (
+              <div className="space-y-2">
+                <p>
+                  Waiving the ₱600 reschedule fee lets the client submit new preferred schedules
+                  immediately at no extra charge (internal RPsy prerogative for valid reasons).
+                </p>
+                <div className="space-y-1">
+                  <Label htmlFor="psych-waiver-reason">Valid reason for waiving fee</Label>
+                  <Input
+                    id="psych-waiver-reason"
+                    value={waiverReason}
+                    onChange={(e) => setWaiverReason(e.target.value)}
+                    placeholder="Document the valid reason for waiving the ₱600 fee"
+                  />
+                </div>
+              </div>
+            )}
+            {confirmAction.type === 'reschedule' && (
+              <div className="space-y-3">
+                <p>
+                  Psychologist-initiated rescheduling is free for the client. Offer your
+                  earliest available schedule below — the client can accept it or propose
+                  3–5 new preferred times.
+                </p>
+                <div className="space-y-1">
+                  <Label htmlFor="psych-reschedule-slot">
+                    Earliest Available Schedule (Required)
+                  </Label>
+                  <Input
+                    id="psych-reschedule-slot"
+                    type="datetime-local"
+                    min={minDateTime}
+                    value={rescheduleCounterDateTime}
+                    onChange={(e) => setRescheduleCounterDateTime(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="psych-reschedule-reason">Reason (optional)</Label>
+                  <Input
+                    id="psych-reschedule-reason"
+                    value={rescheduleReason}
+                    onChange={(e) => setRescheduleReason(e.target.value)}
+                    placeholder="Share a brief reason with the client"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
 
       <Modal
         open={completionTarget !== null}

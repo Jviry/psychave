@@ -3,15 +3,20 @@ import uuid
 from fastapi import APIRouter, Query
 
 from dependencies.auth import AdminUserDep, AuthServiceDep, DbDep
+from dependencies.payments import PaymentProviderDep
+from models.appointment import AppointmentStatus
 from models.user import UserRole
 from schemas.admin import (
+    AdminRefundRequest,
     AdminUserPage,
     AdminUserRead,
+    ManualPaymentConfirmRequest,
     PromotePsychologistRequest,
     PsychologistInvitationCreate,
     PsychologistInvitationRead,
     UpdateUserRoleRequest,
 )
+from schemas.appointment import AppointmentRead
 from usecase.admin_usecase import AdminUsecase
 
 router = APIRouter()
@@ -76,4 +81,54 @@ def invite_psychologist(
     """Generate a single-use expiring psychologist invitation and email the link."""
     return AdminUsecase(auth_service, db).invite_psychologist(
         payload, current_user.user_id
+    )
+
+
+@router.get("/appointments", response_model=list[AppointmentRead])
+def list_admin_appointments(
+    auth_service: AuthServiceDep,
+    current_user: AdminUserDep,
+    db: DbDep,
+    status: AppointmentStatus | None = Query(default=AppointmentStatus.AWAITING_PAYMENT),
+):
+    """List appointments (defaults to awaiting_payment) for admin verification."""
+    return AdminUsecase(auth_service, db).list_appointments(status=status)
+
+
+@router.post(
+    "/appointments/{appointment_id}/confirm-payment",
+    response_model=AppointmentRead,
+)
+def confirm_manual_payment(
+    appointment_id: uuid.UUID,
+    auth_service: AuthServiceDep,
+    current_user: AdminUserDep,
+    db: DbDep,
+    payload: ManualPaymentConfirmRequest | None = None,
+):
+    """Mark an awaiting-payment appointment as manually paid and confirmed."""
+    note = payload.note if payload is not None else None
+    return AdminUsecase(auth_service, db).confirm_manual_payment(
+        appointment_id, note=note
+    )
+
+
+@router.post(
+    "/appointments/{appointment_id}/refund",
+    response_model=AppointmentRead,
+)
+def refund_appointment(
+    appointment_id: uuid.UUID,
+    payload: AdminRefundRequest,
+    auth_service: AuthServiceDep,
+    current_user: AdminUserDep,
+    db: DbDep,
+    provider: PaymentProviderDep,
+):
+    """Issue a partial refund for a paid appointment and record an audit trail."""
+    return AdminUsecase(auth_service, db).refund_appointment(
+        appointment_id,
+        payload,
+        acting_admin_id=current_user.user_id,
+        provider=provider,
     )

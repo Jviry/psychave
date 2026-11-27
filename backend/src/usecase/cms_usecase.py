@@ -26,6 +26,7 @@ class CmsUsecase:
             mission=content.mission,
             clinic_overview=content.clinic_overview,
             impact_narrative=content.impact_narrative,
+            evaluation_form_url=content.evaluation_form_url,
             updated_at=content.updated_at,
             testimonials=[
                 TestimonialRead.model_validate(t, from_attributes=True)
@@ -41,6 +42,7 @@ class CmsUsecase:
             mission=content.mission,
             clinic_overview=content.clinic_overview,
             impact_narrative=content.impact_narrative,
+            evaluation_form_url=content.evaluation_form_url,
             updated_at=content.updated_at,
             testimonials=[
                 TestimonialRead.model_validate(t, from_attributes=True)
