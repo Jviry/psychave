@@ -138,9 +138,8 @@ describe('ProfileWizard dynamic CMS flow', () => {
       emergency_contact_relation: 'Parent',
       emergency_contact_number: '09171234568',
       scope_acknowledged: true,
+      terms_agreed: true,
       terms_signer_relation: 'parent',
-      terms_signer_name: 'Adult Guardian',
-      consent_signer_name: 'Adult Guardian',
       information_confirmed: true,
     });
     store.setStep(4);

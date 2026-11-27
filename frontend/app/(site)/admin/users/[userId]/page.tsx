@@ -1,12 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft,
-  ShieldCheck,
   User as UserIcon,
   Users,
 } from 'lucide-react';
@@ -14,16 +13,11 @@ import { api } from '@/lib/api';
 import { getFriendlyErrorMessage } from '@/lib/errorMessages';
 import { CognitoRole } from '@/lib/types';
 import { useAuthStore } from '@/stores/authStore';
-import { useAppStore } from '@/stores/useAppStore';
 import { SocialLinksList } from '@/components/SocialLinksList';
 import {
   Button,
   Card,
   EmptyState,
-  Input,
-  Label,
-  Modal,
-  Select,
   Skeleton,
 } from '@/components/ui/primitives';
 
@@ -68,14 +62,7 @@ export default function AdminUserDetailPage() {
   const params = useParams<{ userId: string }>();
   const userId = typeof params?.userId === 'string' ? params.userId : '';
 
-  const queryClient = useQueryClient();
-  const publishFlowEvent = useAppStore((s) => s.publishFlowEvent);
   const currentEmail = useAuthStore((state) => state.user?.email);
-
-  const [roleModalOpen, setRoleModalOpen] = useState(false);
-  const [targetRole, setTargetRole] = useState<CognitoRole>('client');
-  const [fullName, setFullName] = useState('');
-  const [formError, setFormError] = useState<string | null>(null);
 
   const {
     data: user,
@@ -88,61 +75,6 @@ export default function AdminUserDetailPage() {
     queryFn: () => api.getAdminUserDetail(userId),
     enabled: Boolean(userId),
   });
-
-  const roleMutation = useMutation({
-    mutationFn: ({
-      role,
-      name,
-    }: {
-      role: CognitoRole;
-      name?: string;
-    }) => api.updateAdminUserRole(userId, { role, fullName: name }),
-    onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
-      queryClient.invalidateQueries({ queryKey: ['admin', 'users', userId] });
-      publishFlowEvent(
-        'User Role Updated',
-        `${updated.email} is now ${roleLabels[updated.role]}. They must sign in again before the new role takes effect.`
-      );
-      closeRoleModal();
-    },
-    onError: (err) => {
-      setFormError(
-        getFriendlyErrorMessage(err, 'Could not change this user’s role.')
-      );
-    },
-  });
-
-  function openRoleModal() {
-    if (!user) return;
-    setTargetRole(user.role);
-    setFullName(user.fullName ?? '');
-    setFormError(null);
-    setRoleModalOpen(true);
-  }
-
-  function closeRoleModal() {
-    setRoleModalOpen(false);
-    setFormError(null);
-  }
-
-  function submitRoleChange(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!user || roleMutation.isPending) return;
-
-    const trimmedName = fullName.trim();
-    if (targetRole === 'psychologist' && !trimmedName && !user.fullName) {
-      setFormError(
-        'Full name is required when assigning the psychologist role.'
-      );
-      return;
-    }
-
-    roleMutation.mutate({
-      role: targetRole,
-      name: trimmedName || undefined,
-    });
-  }
 
   if (isLoading) {
     return (
@@ -197,8 +129,6 @@ export default function AdminUserDetailPage() {
   }
 
   const isSelf = !!currentEmail && user.email === currentEmail;
-  const nameRequired = targetRole === 'psychologist' && !user.fullName;
-  const unchangedRole = targetRole === user.role;
 
   return (
     <div className="space-y-8">
@@ -226,22 +156,6 @@ export default function AdminUserDetailPage() {
             </div>
             <p className="text-sm text-pine/70 break-all">{user.email}</p>
           </div>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="md"
-            onClick={openRoleModal}
-            disabled={isSelf}
-            title={
-              isSelf
-                ? 'You cannot change your own role'
-                : `Change role for ${user.email}`
-            }
-          >
-            <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-            Change role
-          </Button>
         </header>
       </div>
 
@@ -440,100 +354,6 @@ export default function AdminUserDetailPage() {
           )}
         </Card>
       )}
-
-      <Modal
-        open={roleModalOpen}
-        onClose={closeRoleModal}
-        title="Change user role"
-        description={`Update access for ${user.email}.`}
-        maxWidth="md"
-        footer={
-          <>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={closeRoleModal}
-              disabled={roleMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              form="role-change-form"
-              disabled={roleMutation.isPending || unchangedRole}
-            >
-              {roleMutation.isPending ? 'Saving…' : 'Save role'}
-            </Button>
-          </>
-        }
-      >
-        <form
-          id="role-change-form"
-          onSubmit={submitRoleChange}
-          className="space-y-4"
-        >
-          <div>
-            <Label htmlFor="role-change-select">New role</Label>
-            <Select
-              id="role-change-select"
-              value={targetRole}
-              onChange={(event) =>
-                setTargetRole(event.target.value as CognitoRole)
-              }
-              data-autofocus
-            >
-              <option value="client">Client</option>
-              {user.role === 'psychologist' && (
-                <option value="psychologist">Psychologist</option>
-              )}
-              <option value="admin">Admin</option>
-            </Select>
-            <p className="mt-1.5 text-xs text-pine/60">
-              Current role:{' '}
-              <span className="font-semibold">{roleLabels[user.role]}</span>
-              {user.role === 'client' && (
-                <span>
-                  {' '}
-                  · Psychologists are onboarded via{' '}
-                  <strong>Invite Psychologist</strong>.
-                </span>
-              )}
-            </p>
-          </div>
-
-          {targetRole !== 'client' && (
-            <div>
-              <Label htmlFor="role-change-name">
-                Full name{nameRequired ? '' : ' (optional)'}
-              </Label>
-              <Input
-                id="role-change-name"
-                value={fullName}
-                onChange={(event) => setFullName(event.target.value)}
-                placeholder="Display name shown on internal records"
-                aria-required={nameRequired}
-              />
-              {targetRole === 'psychologist' && (
-                <p className="mt-1.5 text-xs text-pine/60">
-                  Required for the psychologist profile clients see after booking.
-                </p>
-              )}
-            </div>
-          )}
-
-          <div className="rounded-lg border border-mist bg-surface-sunken px-3.5 py-3 text-xs text-pine/75 leading-relaxed">
-            Role changes update this user’s permissions immediately, but their current
-            session keeps the previous access level. They will need to sign out and sign
-            back in before the new dashboard unlocks.
-          </div>
-
-          {formError && (
-            <p role="alert" className="text-xs text-red-700">
-              {formError}
-            </p>
-          )}
-        </form>
-      </Modal>
     </div>
   );
 }

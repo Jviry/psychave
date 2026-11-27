@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Facebook, Mail, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Plus, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { bookingFormSchema, BookingFormValues } from '@/lib/schemas';
 import { useAuthStore } from '@/stores/authStore';
@@ -39,64 +39,6 @@ function manilaInputMin(): string {
 
 const EMPTY_SLOTS = [{ dateTime: '' }, { dateTime: '' }, { dateTime: '' }];
 
-const CLINIC_EMAIL = 'psychaveph.info@gmail.com';
-const FACEBOOK_URL = 'https://facebook.com/PsychAvenuePH';
-const INQUIRY_TEMPLATE = `Subject: PsychAvenuePH Session Inquiry
-Profile Type: [Self / Dependent]
-Requested Service: [Consultation 45m / Individual 1hr / Couples 1.5hr / Family-Group 2hr / Life Coaching / Clinical Supervision / Academic Advisory]
-Preferred Language: [English / Filipino / Taglish]
-General Availability Window: [Days & Times]`;
-
-function DirectChannelsAndSafety() {
-  const [copiedField, setCopiedField] = useState<'email' | 'fb' | 'template' | null>(null);
-
-  const handleCopy = (type: 'email' | 'fb' | 'template', text: string) => {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(text).catch(() => {});
-    }
-    setCopiedField(type);
-    setTimeout(() => setCopiedField(null), 2500);
-  };
-
-  return (
-    <div className="space-y-6 pt-2">
-      <section className="space-y-2 border-t border-mist/80 pt-5">
-        <p className="text-xs font-medium text-pine/70">Prefer to reach us directly?</p>
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-pine/80">
-          <button
-            type="button"
-            onClick={() => handleCopy('fb', FACEBOOK_URL)}
-            className="inline-flex items-center gap-1.5 underline underline-offset-4 hover:text-pine transition-colors duration-200 cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
-          >
-            <Facebook className="w-3.5 h-3.5 text-accent-ink" aria-hidden="true" />
-            Facebook page
-          </button>
-          <button
-            type="button"
-            onClick={() => handleCopy('email', CLINIC_EMAIL)}
-            className="inline-flex items-center gap-1.5 underline underline-offset-4 hover:text-pine transition-colors duration-200 cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
-          >
-            <Mail className="w-3.5 h-3.5 text-accent-ink" aria-hidden="true" />
-            {CLINIC_EMAIL}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleCopy('template', INQUIRY_TEMPLATE)}
-            className="underline underline-offset-4 hover:text-pine transition-colors duration-200 cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
-          >
-            Copy inquiry template
-          </button>
-        </div>
-        <p aria-live="polite" className="min-h-4 text-xs text-accent-ink">
-          {copiedField === 'fb' && 'Facebook page link copied.'}
-          {copiedField === 'email' && 'Clinic email copied.'}
-          {copiedField === 'template' && 'Inquiry template copied.'}
-        </p>
-      </section>
-    </div>
-  );
-}
-
 function ClientBookingFlow() {
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -108,7 +50,7 @@ function ClientBookingFlow() {
   const setLastUsedProfileId = useProfileWizardStore((s) => s.setLastUsedProfileId);
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [submittedBookingId, setSubmittedBookingId] = useState<string | null>(null);
+  const [bookingSubmitted, setBookingSubmitted] = useState(false);
   const stepFocus = useRef(false);
   const minDateTime = useRef(manilaInputMin());
 
@@ -222,21 +164,21 @@ function ClientBookingFlow() {
         guardrailAcknowledged: false,
         preferredSlots: EMPTY_SLOTS.map((slot) => ({ ...slot })),
       });
-      setSubmittedBookingId(createdBooking.id);
+      setBookingSubmitted(true);
       setStep(1);
       publishFlowEvent(
         'Booking Submitted',
-        `Request ${createdBooking.id} (${createdBooking.serviceTitle}) entered the Pending Queue with ${createdBooking.proposedSlots.length} preferred schedules.`
+        `Your ${createdBooking.serviceTitle} booking request has been submitted with ${createdBooking.proposedSlots.length} preferred schedules.`
       );
     },
   });
 
-  if (submittedBookingId) {
+  if (bookingSubmitted) {
     return (
       <Card className="p-6 sm:p-8 space-y-5 bg-surface-sunken border-sage/50">
         <div className="space-y-1.5">
           <h2 className="font-heading text-2xl font-medium text-pine">
-            Request #{submittedBookingId} is pending
+            Your booking request has been submitted
           </h2>
           <p className="text-sm text-pine/80 leading-relaxed">
             A verified psychologist will review your preferred schedules and accept one or offer the
@@ -247,7 +189,7 @@ function ClientBookingFlow() {
           <Button variant="primary" onClick={() => router.push('/bookings')}>
             View my bookings
           </Button>
-          <Button variant="outline" onClick={() => setSubmittedBookingId(null)}>
+          <Button variant="outline" onClick={() => setBookingSubmitted(false)}>
             Book another session
           </Button>
         </div>
@@ -498,13 +440,10 @@ function ClientBookingFlow() {
         {step === 3 && (
           <>
             <div className="space-y-3">
-              <div>
-                <Label>Preferred schedules</Label>
-                <p className="text-xs text-pine/65 mt-0.5">
-                  Propose at least 3 times that work for you. A psychologist accepts one or offers
-                  the nearest alternative.
-                </p>
-              </div>
+              <p className="text-xs text-pine/65">
+                Propose at least 3 times that work for you. A psychologist accepts one or offers the
+                nearest alternative.
+              </p>
 
               <div className="space-y-2.5">
                 {fields.map((field, index) => {
@@ -633,11 +572,8 @@ export default function BookPage() {
 
   return (
     <div className="max-w-xl mx-auto space-y-8">
-      <header className="space-y-2 border-b border-mist pb-5">
+      <header className="border-b border-mist pb-5">
         <h1 className="font-heading text-4xl font-medium text-pine">Book a session</h1>
-        <p className="text-sm text-pine/75">
-          Three short steps — pick who it&apos;s for, share your goals, and propose three times.
-        </p>
       </header>
 
       {!hydrated ? (
@@ -684,8 +620,6 @@ export default function BookPage() {
       ) : (
         <ClientBookingFlow />
       )}
-
-      <DirectChannelsAndSafety />
     </div>
   );
 }

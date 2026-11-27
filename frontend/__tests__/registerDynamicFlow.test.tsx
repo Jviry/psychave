@@ -73,9 +73,12 @@ describe('RegisterPage dynamic CMS flow with Account Sign-Up last', () => {
       screen.queryByLabelText(/Signer's relation to the client/i)
     ).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText(/Signer full name/i), {
-      target: { value: 'Maria Santos' },
-    });
+    expect(
+      screen.queryByLabelText(/Signer full name/i)
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByLabelText(/I have read, understood, and voluntarily agree/i)
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     // Step 2: Services & acknowledgements
@@ -136,9 +139,9 @@ describe('RegisterPage dynamic CMS flow with Account Sign-Up last', () => {
     fireEvent.click(
       screen.getByLabelText(/I confirm that the information provided is accurate/i)
     );
-    fireEvent.change(screen.getByLabelText(/Final consent signer full name/i), {
-      target: { value: 'Maria Santos' },
-    });
+    expect(
+      screen.queryByLabelText(/Final consent signer full name/i)
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
 
     // Step 5 (Final): Account & privacy
@@ -175,7 +178,8 @@ describe('RegisterPage dynamic CMS flow with Account Sign-Up last', () => {
     expect(callArg.profile.details?.last_name).toBe('Santos');
     expect(callArg.profile.details?.present_address).toBe('Makati City');
     expect(callArg.consent.terms_signer_relation).toBe('self');
-    expect(callArg.consent.terms_signer_name).toBe('Maria Santos');
-    expect(callArg.consent.consent_signer_name).toBe('Maria Santos');
+    expect(callArg.consent.terms_agreed).toBe(true);
+    expect(callArg.consent).not.toHaveProperty('terms_signer_name');
+    expect(callArg.consent).not.toHaveProperty('consent_signer_name');
   });
 });

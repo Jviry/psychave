@@ -40,13 +40,26 @@ export interface DynamicWizardPageProps {
  * 2. Client profile creation & consent re-sign (/profiles/new, ProfileWizard) — dependent / resign mode
  * 3. Admin CMS Preview modal (/admin/cms) — self or dependent preview toggle
  */
+const HIDDEN_PAGE_DESCRIPTIONS = new Set([
+  'review offered services and clinical scope guardrails.',
+  'review offered services and clinical scope notices.',
+  'provide demographic and contact information.',
+]);
+
+function cleanDocLabel(label: string): string {
+  return label.replace(/\s*[—–-]\s*scroll to read\s*$/i, '').trim();
+}
+
+function cleanServicesLabel(label: string): string {
+  return label.replace(/\s*\(read-only\)\s*$/i, '').trim();
+}
+
 export function DynamicWizardPage({
   page,
   allPages,
   values,
   errors,
   isSelf,
-  consentVersion,
   services = [],
   onChange,
   onJumpToStep,
@@ -71,9 +84,7 @@ export function DynamicWizardPage({
     if (block.type === 'scrollable_doc') {
       return (
         <div key={block.blockId}>
-          <Label variant="doc">
-            {block.label} ({consentVersion})
-          </Label>
+          <Label variant="doc">{cleanDocLabel(block.label)}</Label>
           <div className="mt-1.5 max-h-56 overflow-y-auto p-4 rounded-lg bg-parchment border border-mist text-xs text-pine/90 leading-relaxed whitespace-pre-wrap">
             {block.content}
           </div>
@@ -86,7 +97,7 @@ export function DynamicWizardPage({
       return (
         <div key={block.blockId} className="space-y-2">
           <h3 className="font-heading text-base font-medium text-pine">
-            {block.label}
+            {cleanServicesLabel(block.label)}
           </h3>
           {activeServices.length === 0 ? (
             <p className="text-xs text-pine/65">
@@ -368,10 +379,16 @@ export function DynamicWizardPage({
     );
   };
 
+  const pageDescription =
+    page.description &&
+    !HIDDEN_PAGE_DESCRIPTIONS.has(page.description.trim().toLowerCase())
+      ? page.description
+      : null;
+
   return (
     <div className="space-y-4">
-      {page.description && (
-        <p className="text-xs text-pine/75">{page.description}</p>
+      {pageDescription && (
+        <p className="text-xs text-pine/75">{pageDescription}</p>
       )}
       {visibleBlocks.map((block) => renderBlock(block))}
     </div>

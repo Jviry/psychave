@@ -5,13 +5,12 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, RefreshCcw } from 'lucide-react';
+import { Eye, EyeOff, Loader2, AlertCircle, Check, CheckCircle2, RefreshCcw } from 'lucide-react';
 import {
   registerSchema,
   confirmSchema,
   type ConfirmFormValues,
   analyzePasswordStrength,
-  isAcceptablePasswordStrength,
   type PasswordStrength,
 } from '../../../lib/authSchemas';
 import {
@@ -860,17 +859,19 @@ export default function RegisterPage() {
                     { label: 'One uppercase letter (A–Z)', met: /[A-Z]/.test(account.password) },
                     { label: 'One number (0–9)', met: /[0-9]/.test(account.password) },
                     { label: 'One special character (e.g. !@#$)', met: /[^A-Za-z0-9]/.test(account.password) },
-                    {
-                      label: 'Strength rated Good or Strong',
-                      met: isAcceptablePasswordStrength(account.password, [account.email, account.username]),
-                    },
                   ].map((rule) => (
                     <li
                       key={rule.label}
-                      className={
+                      className={`flex items-center gap-1.5 ${
                         rule.met ? 'text-accent-ink font-medium' : 'text-pine/70'
-                      }
+                      }`}
                     >
+                      <Check
+                        className={`w-3.5 h-3.5 shrink-0 ${
+                          rule.met ? 'text-accent-ink' : 'text-pine/30'
+                        }`}
+                        aria-hidden="true"
+                      />
                       <span>{rule.label}</span>
                     </li>
                   ))}

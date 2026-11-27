@@ -94,13 +94,12 @@ export interface ProfileReview {
   };
   consent: {
     version: string;
-    termsSignerName: string;
+    termsAgreed: boolean;
     termsSignerRelation: string;
     scopeAcknowledged: boolean;
     isOverseasOrForeign: boolean;
     overseasAcknowledged: boolean;
     informationConfirmed: boolean;
-    consentSignerName: string;
     signedAt: string | null;
     responses?: Record<string, unknown>;
   };

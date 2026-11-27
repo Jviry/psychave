@@ -210,7 +210,6 @@ export function ProfileWizard({
       const payloads = buildDynamicWizardPayloads(allCmsPages, lookupValues, {
         isSelf,
         consentVersion: activeConsentVersion,
-        fallbackSignerName: authUser?.username?.trim() || '',
         fallbackProfileName: resignProfile?.label || '',
       });
       if (mode === 'resign' && resignProfile) {

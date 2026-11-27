@@ -184,7 +184,9 @@ export type ServiceCmsFormValues = z.infer<typeof serviceCmsSchema>;
 
 export const wizardStep1Schema = z.object({
   relation_to_account_holder: z.enum(['child', 'spouse', 'parent', 'sibling', 'other']),
-  terms_signer_name: z.string().trim().min(2, 'Type the full name of the person signing consent.'),
+  terms_agreed: z.boolean().refine((v) => v === true, {
+    message: 'Please agree to the informed consent and data privacy terms.',
+  }),
   terms_signer_relation: z.enum(['parent', 'legal guardian', 'spouse', 'other']),
 });
 
@@ -245,7 +247,6 @@ export const wizardStep4Schema = z.object({
   information_confirmed: z.boolean().refine((v) => v === true, {
     message: 'Please confirm the information is accurate and complete.',
   }),
-  consent_signer_name: z.string().trim().min(2, 'Type your full name to sign.'),
 });
 
 export type WizardStep4Values = z.infer<typeof wizardStep4Schema>;
@@ -271,16 +272,18 @@ export const profileWizardPayloadSchema = z
     }),
     consent: z.object({
       consent_version: z.string().min(1),
-      terms_signer_name: z.string().min(2),
+      terms_agreed: z.boolean(),
       terms_signer_relation: z.enum(['parent', 'legal guardian', 'spouse', 'other']),
       scope_acknowledged: z.boolean(),
       is_overseas_or_foreign: z.boolean(),
       overseas_acknowledged: z.boolean(),
       information_confirmed: z.boolean(),
-      consent_signer_name: z.string().min(2),
     }),
   })
   .superRefine((val, ctx) => {
+    if (val.consent.terms_agreed !== true) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'terms_agreed must be true.', path: ['consent', 'terms_agreed'] });
+    }
     if (val.consent.scope_acknowledged !== true) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'scope_acknowledged must be true.', path: ['consent', 'scope_acknowledged'] });
     }
@@ -299,15 +302,6 @@ export const profileWizardPayloadSchema = z
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Invalid date_of_birth.', path: ['profile', 'date_of_birth'] });
     } else if (dob.getTime() > Date.now()) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'date_of_birth cannot be in the future.', path: ['profile', 'date_of_birth'] });
-    }
-    const a = val.consent.terms_signer_name.trim().toLowerCase().replace(/\s+/g, ' ');
-    const b = val.consent.consent_signer_name.trim().toLowerCase().replace(/\s+/g, ' ');
-    if (a.length > 0 && b.length > 0 && a !== b) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'consent_signer_name must match terms_signer_name.',
-        path: ['consent', 'consent_signer_name'],
-      });
     }
   });
 

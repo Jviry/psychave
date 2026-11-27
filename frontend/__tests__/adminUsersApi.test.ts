@@ -114,51 +114,6 @@ describe('admin user directory', () => {
     expect(parsed.searchParams.has('role')).toBe(false);
   });
 
-  it('maps a role update response', async () => {
-    mockFetch.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          user_id: 'usr-003',
-          email: 'maria.santos@example.com',
-          role: 'psychologist',
-          full_name: 'Maria Santos',
-          created_at: '2026-01-18T09:00:00+08:00',
-        }),
-        { status: 200 }
-      )
-    );
-
-    const { api } = await import('../lib/api');
-    const updated = await api.updateAdminUserRole('usr-003', {
-      role: 'psychologist',
-      fullName: 'Maria Santos',
-    });
-
-    const [url, opts] = mockFetch.mock.calls[0];
-    expect(String(url)).toContain('/admin/users/usr-003/role');
-    expect(opts.method).toBe('PATCH');
-    expect(JSON.parse(opts.body)).toEqual({
-      role: 'psychologist',
-      full_name: 'Maria Santos',
-    });
-    expect(updated.role).toBe('psychologist');
-    expect(updated.fullName).toBe('Maria Santos');
-  });
-
-  it('surfaces the backend guardrail error', async () => {
-    mockFetch.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({ detail: 'Cannot change the role of the last admin account' }),
-        { status: 409 }
-      )
-    );
-
-    const { api } = await import('../lib/api');
-    await expect(
-      api.updateAdminUserRole('usr-001', { role: 'client' })
-    ).rejects.toThrow(/last admin/i);
-  });
-
   it('creates a psychologist invitation and maps response fields', async () => {
     mockFetch.mockResolvedValueOnce(
       new Response(

@@ -114,7 +114,7 @@ export default function PsychologistPendingBookingDetailPage() {
   const rawId = Array.isArray(params?.id) ? params.id[0] : params?.id ?? '';
   const bookingId = decodeURIComponent(rawId);
 
-  const [pickupPrice, setPickupPrice] = useState('2500');
+  const [pickupPrice, setPickupPrice] = useState('0');
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [slotInitialized, setSlotInitialized] = useState(false);
   const [counterDateTime, setCounterDateTime] = useState('');
@@ -612,14 +612,12 @@ export default function PsychologistPendingBookingDetailPage() {
                           value={formatReviewDate(review.consent.signedAt, true)}
                         />
                         <ReviewField
-                          label="Terms signer"
-                          value={`${displayValue(review.consent.termsSignerName)} (${displayValue(
-                            review.consent.termsSignerRelation
-                          )})`}
+                          label="Informed consent agreed"
+                          value={yesNo(review.consent.termsAgreed)}
                         />
                         <ReviewField
-                          label="Consent signer"
-                          value={displayValue(review.consent.consentSignerName)}
+                          label="Signer relation"
+                          value={displayValue(review.consent.termsSignerRelation)}
                         />
                         <ReviewField
                           label="Scope acknowledged"
@@ -744,7 +742,7 @@ export default function PsychologistPendingBookingDetailPage() {
                     type="number"
                     step="any"
                     className="font-mono tabular-nums text-base"
-                    placeholder="2500"
+                    placeholder="0"
                     value={pickupPrice}
                     onChange={(event) => setPickupPrice(event.target.value)}
                     disabled={scheduleMutation.isPending}

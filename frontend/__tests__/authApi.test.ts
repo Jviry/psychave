@@ -116,13 +116,12 @@ describe('auth API — real fetch', () => {
       },
       consent: {
         consent_version: 'v2',
-        terms_signer_name: 'User One',
+        terms_agreed: true,
         terms_signer_relation: 'self',
         scope_acknowledged: true,
         is_overseas_or_foreign: false,
         overseas_acknowledged: false,
         information_confirmed: true,
-        consent_signer_name: 'User One',
       },
     });
 

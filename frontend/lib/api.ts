@@ -484,13 +484,12 @@ interface ProfileReviewRaw {
   };
   consent: {
     consent_version: string;
-    terms_signer_name?: string;
+    terms_agreed?: boolean;
     terms_signer_relation?: string;
     scope_acknowledged?: boolean;
     is_overseas_or_foreign?: boolean;
     overseas_acknowledged?: boolean;
     information_confirmed?: boolean;
-    consent_signer_name?: string;
     signed_at?: string | null;
     responses?: Record<string, unknown>;
   };
@@ -910,8 +909,8 @@ function mapProfileReviewRaw(raw: ProfileReviewRaw): ProfileReview {
     },
     consent: {
       version: raw.consent.consent_version,
-      termsSignerName: String(
-        raw.consent.terms_signer_name ?? responses.terms_signer_name ?? ''
+      termsAgreed: Boolean(
+        raw.consent.terms_agreed ?? responses.terms_agreed
       ),
       termsSignerRelation: String(
         raw.consent.terms_signer_relation ?? responses.terms_signer_relation ?? 'self'
@@ -927,9 +926,6 @@ function mapProfileReviewRaw(raw: ProfileReviewRaw): ProfileReview {
       ),
       informationConfirmed: Boolean(
         raw.consent.information_confirmed ?? responses.information_confirmed
-      ),
-      consentSignerName: String(
-        raw.consent.consent_signer_name ?? responses.consent_signer_name ?? ''
       ),
       signedAt: raw.consent.signed_at ?? null,
       ...(raw.consent.responses ? { responses: raw.consent.responses } : {}),
@@ -1733,20 +1729,6 @@ export const api = {
   getAdminUserDetail: async (userId: string): Promise<AdminUserDetail> => {
     const raw = await liveRequest<AdminUserDetailRaw>(`/admin/users/${userId}`);
     return mapAdminUserDetailRaw(raw);
-  },
-
-  updateAdminUserRole: async (
-    userId: string,
-    payload: { role: CognitoRole; fullName?: string }
-  ): Promise<AdminUser> => {
-    const raw = await liveRequest<AdminUserRaw>(`/admin/users/${userId}/role`, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        role: payload.role,
-        full_name: payload.fullName,
-      }),
-    });
-    return mapAdminUserRaw(raw);
   },
 
   invitePsychologist: async (email: string): Promise<PsychologistInvitation> => {

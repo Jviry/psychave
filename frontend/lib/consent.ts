@@ -28,9 +28,9 @@ Court orders or lawful demands
 Other situations mandated by Philippine laws and professional regulations
 Important limitation: All sessions, screening, and results are strictly for therapeutic, clinical, and personal use. These will not be used, shared, or submitted for any legal, court, or administrative proceedings, unless otherwise required by law under exceptional circumstances.`;
 
-/** Typed-signature statement under the page-1 signer field. */
+/** Informed consent agreement checkbox label (wizard page 1). */
 export const TYPING_STATEMENT =
-  'By typing your full name in the designated field, you confirm that you have read, understood, and voluntarily agreed to the terms stated above. If filling out for a minor, write your full name and relation to the client.';
+  'I have read, understood, and voluntarily agree to the Informed Consent and Data Privacy Agreement stated above.';
 
 /** Scope & limitations reference text (wizard page 2, scrollable). */
 export const SCOPE_LIMITATIONS_TEXT = `SCOPE & LIMITATIONS OF SERVICES: All services provided are delivered by licensed psychologists and are intended for clinical, therapeutic, coaching, and personal development purposes only. Services are based on professional training, ethical standards, client self-report, and clinical judgement, and are conducted within the psychologists' scope of competence in accordance with PRC Regulations and PAP ethical guidelines.
@@ -63,7 +63,7 @@ export const OVERSEAS_ACK_TEXT =
 
 /** Final consent & acknowledgement statement (wizard page 4). */
 export const FINAL_CONSENT_STATEMENT =
-  'By typing my full name below, I confirm that I have read and understood the description, purpose, scope, limitations, confidentiality, data privacy provisions, and ethical boundaries of the psychological service I am availing.';
+  'By submitting this form, I confirm that I have read and understood the description, purpose, scope, limitations, confidentiality, data privacy provisions, and ethical boundaries of the psychological service I am availing.';
 
 /** Canonical 4-page v2 wizard schema fallback (matches backend build_default_wizard_pages). */
 export const DEFAULT_WIZARD_PAGES: WizardPage[] = [
@@ -75,7 +75,7 @@ export const DEFAULT_WIZARD_PAGES: WizardPage[] = [
       {
         blockId: 'informed_consent_doc',
         type: 'scrollable_doc',
-        label: 'Informed consent text — scroll to read',
+        label: 'Informed consent text',
         content: INFORMED_CONSENT_TEXT,
         appliesTo: 'all',
         required: false,
@@ -116,13 +116,11 @@ export const DEFAULT_WIZARD_PAGES: WizardPage[] = [
         systemLocked: false,
       },
       {
-        blockId: 'terms_signer_name',
-        type: 'text',
-        label: 'Signer full name (typed signature)',
-        helperText: TYPING_STATEMENT,
-        placeholder: 'Type full name',
+        blockId: 'terms_agreed',
+        type: 'checkbox',
+        label: TYPING_STATEMENT,
         target: 'consent',
-        fieldKey: 'terms_signer_name',
+        fieldKey: 'terms_agreed',
         appliesTo: 'all',
         required: true,
         options: [],
@@ -133,12 +131,11 @@ export const DEFAULT_WIZARD_PAGES: WizardPage[] = [
   {
     pageId: 'step-2-scope',
     title: 'Services & acknowledgements',
-    description: 'Review offered services and clinical scope notices.',
     blocks: [
       {
         blockId: 'services_overview',
         type: 'services_list',
-        label: 'Services offered (read-only)',
+        label: 'Services offered',
         appliesTo: 'all',
         required: false,
         options: [],
@@ -147,7 +144,7 @@ export const DEFAULT_WIZARD_PAGES: WizardPage[] = [
       {
         blockId: 'scope_limitations_doc',
         type: 'scrollable_doc',
-        label: 'Scope & limitations of services — scroll to read',
+        label: 'Scope & limitations of services',
         content: SCOPE_LIMITATIONS_TEXT,
         appliesTo: 'all',
         required: false,
@@ -179,7 +176,7 @@ export const DEFAULT_WIZARD_PAGES: WizardPage[] = [
       {
         blockId: 'overseas_limitations_doc',
         type: 'scrollable_doc',
-        label: 'Limitations for overseas clients and foreign nationals — scroll to read',
+        label: 'Limitations for overseas clients and foreign nationals',
         content: OVERSEAS_LIMITATIONS_TEXT,
         appliesTo: 'all',
         required: false,
@@ -204,7 +201,6 @@ export const DEFAULT_WIZARD_PAGES: WizardPage[] = [
   {
     pageId: 'step-3-demographics',
     title: 'Demographics',
-    description: 'Provide demographic and contact information.',
     blocks: [
       {
         blockId: 'first_name',
@@ -424,18 +420,6 @@ export const DEFAULT_WIZARD_PAGES: WizardPage[] = [
         options: [],
         systemLocked: false,
       },
-      {
-        blockId: 'consent_signer_name',
-        type: 'text',
-        label: 'Final consent signer full name',
-        placeholder: 'Type full name to sign',
-        target: 'consent',
-        fieldKey: 'consent_signer_name',
-        appliesTo: 'all',
-        required: true,
-        options: [],
-        systemLocked: false,
-      },
     ],
   },
 ];
@@ -535,13 +519,12 @@ export interface ProfileWizardProfile {
 
 export interface ProfileWizardConsent {
   consent_version: string;
-  terms_signer_name?: string;
+  terms_agreed?: boolean;
   terms_signer_relation?: TermsSignerRelation | string;
   scope_acknowledged?: boolean;
   is_overseas_or_foreign?: boolean;
   overseas_acknowledged?: boolean;
   information_confirmed?: boolean;
-  consent_signer_name?: string;
   responses?: Record<string, unknown>;
   [key: string]: unknown;
 }
@@ -616,7 +599,7 @@ export function stepForField(field: string, pages?: WizardPage[]): number {
     if (
       [
         'profile.relation_to_account_holder',
-        'consent.terms_signer_name',
+        'consent.terms_agreed',
         'consent.terms_signer_relation',
       ].includes(field)
     )
@@ -630,11 +613,11 @@ export function stepForField(field: string, pages?: WizardPage[]): number {
       )
     )
       return 2;
-    if (['consent.terms_signer_name', 'consent.terms_signer_relation'].includes(field)) return 1;
+    if (['consent.terms_agreed', 'consent.terms_signer_relation'].includes(field)) return 1;
     return 4;
   }
-  if (['relation_to_account_holder', 'terms_signer_name', 'terms_signer_relation'].includes(field)) return 1;
+  if (['relation_to_account_holder', 'terms_agreed', 'terms_signer_relation'].includes(field)) return 1;
   if (['scope_acknowledged', 'is_overseas_or_foreign', 'overseas_acknowledged'].includes(field)) return 2;
-  if (['information_confirmed', 'consent_signer_name'].includes(field)) return 4;
+  if (['information_confirmed'].includes(field)) return 4;
   return 3;
 }

@@ -11,7 +11,7 @@ import {
   CalendarDays,
   Clock,
 } from 'lucide-react';
-import { api } from '@/lib/api';
+import { ApiError, api } from '@/lib/api';
 import { getFriendlyErrorMessage } from '@/lib/errorMessages';
 import type { BookingRequest } from '@/lib/types';
 import {
@@ -62,6 +62,17 @@ function parseSlotDate(isoString?: string): Date | null {
   return Number.isNaN(slotDate.getTime()) ? null : slotDate;
 }
 
+function isValidMeetingLink(raw: string): boolean {
+  const trimmed = raw.trim();
+  if (!trimmed) return false;
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === 'https:' && Boolean(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
 export default function PsychologistScheduleDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -84,7 +95,10 @@ export default function PsychologistScheduleDetailPage() {
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [counterDateTime, setCounterDateTime] = useState('');
   const [meetingLinkInput, setMeetingLinkInput] = useState<string | null>(null);
-  const [meetingLinkFeedback, setMeetingLinkFeedback] = useState<string | null>(null);
+  const [meetingLinkFeedback, setMeetingLinkFeedback] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   const minDateTime = useMemo(() => formatForManilaInput(new Date()), []);
 
@@ -189,10 +203,21 @@ export default function PsychologistScheduleDetailPage() {
       api.updateMeetingLink(id, url),
     onSuccess: () => {
       invalidateSession();
-      setMeetingLinkFeedback('Meeting link saved and emailed to client.');
+      setMeetingLinkFeedback({
+        type: 'success',
+        message: 'Meeting link saved and emailed to client.',
+      });
     },
     onError: (err: Error) => {
-      setMeetingLinkFeedback(err.message);
+      const isInvalidLink =
+        (err instanceof ApiError && err.status === 422) ||
+        /meeting_link|valid https:\/\/ url/i.test(err.message);
+      setMeetingLinkFeedback({
+        type: 'error',
+        message: isInvalidLink
+          ? 'Invalid link. Please enter a valid https:// URL.'
+          : getFriendlyErrorMessage(err, 'Could not save meeting link. Please try again.'),
+      });
     },
   });
 
@@ -346,15 +371,8 @@ export default function PsychologistScheduleDetailPage() {
   };
 
   const selectedSlot = session.proposedSlots.find((s) => s.id === session.selectedSlotId);
-  const slotEndMs = (() => {
-    if (!selectedSlot) return null;
-    const exactEnd = parseSlotDate(selectedSlot.endIsoDateTime);
-    if (exactEnd) return exactEnd.getTime();
-    const start = parseSlotDate(selectedSlot.isoDateTime);
-    if (!start) return null;
-    return start.getTime() + session.serviceDurationMinutes * 60_000;
-  })();
-  const isEarlyCompletion = slotEndMs !== null && slotEndMs > currentTime;
+  const slotStartMs = parseSlotDate(selectedSlot?.isoDateTime)?.getTime() ?? null;
+  const isEarlyCompletion = slotStartMs !== null && currentTime < slotStartMs;
 
   const durationMinutesLabel =
     typeof session.serviceDurationMinutes === 'number' &&
@@ -595,26 +613,44 @@ export default function PsychologistScheduleDetailPage() {
                         type="url"
                         placeholder="https://meet.google.com/..."
                         value={currentMeetingLinkValue}
-                        onChange={(e) => setMeetingLinkInput(e.target.value)}
+                        onChange={(e) => {
+                          setMeetingLinkInput(e.target.value);
+                          if (meetingLinkFeedback) setMeetingLinkFeedback(null);
+                        }}
                       />
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         disabled={meetingLinkMutation.isPending}
-                        onClick={() =>
+                        onClick={() => {
+                          if (!isValidMeetingLink(currentMeetingLinkValue)) {
+                            setMeetingLinkFeedback({
+                              type: 'error',
+                              message: 'Invalid link. Please enter a valid https:// URL.',
+                            });
+                            return;
+                          }
+                          setMeetingLinkFeedback(null);
                           meetingLinkMutation.mutate({
                             id: session.id,
                             url: currentMeetingLinkValue,
-                          })
-                        }
+                          });
+                        }}
                       >
                         {session.meetingLink ? 'Update Link' : 'Save Link'}
                       </Button>
                     </div>
                     {meetingLinkFeedback && (
-                      <p className="text-xs text-accent-ink font-medium">
-                        {meetingLinkFeedback}
+                      <p
+                        role={meetingLinkFeedback.type === 'error' ? 'alert' : 'status'}
+                        className={`text-xs font-medium ${
+                          meetingLinkFeedback.type === 'error'
+                            ? 'text-red-700'
+                            : 'text-accent-ink'
+                        }`}
+                      >
+                        {meetingLinkFeedback.message}
                       </p>
                     )}
                   </div>
@@ -895,7 +931,11 @@ export default function PsychologistScheduleDetailPage() {
               ? 'Waive ₱600 Reschedule Fee?'
               : 'Request Session Reschedule?'
         }
-        description={`${session.profileLabel} · ${session.serviceTitle}`}
+        description={
+          confirmAction === 'reschedule'
+            ? undefined
+            : `${session.profileLabel} · ${session.serviceTitle}`
+        }
         footer={
           <>
             <Button
@@ -973,11 +1013,6 @@ export default function PsychologistScheduleDetailPage() {
           )}
           {confirmAction === 'reschedule' && (
             <div className="space-y-3">
-              <p>
-                Psychologist-initiated rescheduling is free for the client. Offer your earliest
-                available schedule below — the client can accept it or propose 3–5 new preferred
-                times.
-              </p>
               <div className="space-y-1">
                 <Label htmlFor="psych-reschedule-slot">
                   Earliest Available Schedule (Required)
@@ -1058,12 +1093,16 @@ export default function PsychologistScheduleDetailPage() {
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950 space-y-1.5">
                 <p className="flex items-center gap-1.5 font-semibold">
                   <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
-                  This session has not ended yet.
+                  This session has not started yet.
                 </p>
                 <p>
-                  It is scheduled to run through{' '}
-                  <strong>{selectedSlot?.timeLabel ?? 'the proposed end time'}</strong>.
-                  Completing it now will close the session early.
+                  It is scheduled for{' '}
+                  <strong>
+                    {selectedSlot
+                      ? `${selectedSlot.dateLabel} · ${selectedSlot.timeLabel}`
+                      : 'a future time'}
+                  </strong>
+                  . Completing it now will close the session before its start time.
                 </p>
               </div>
 
@@ -1073,15 +1112,14 @@ export default function PsychologistScheduleDetailPage() {
                   onChange={(event) => setEarlyCompletionAcknowledged(event.target.checked)}
                 />
                 <span>
-                  I understand this session is still in progress and want to mark it as completed
+                  I understand this session has not started yet and want to mark it as completed
                   now.
                 </span>
               </label>
             </>
           ) : (
             <p className="text-xs text-pine/75">
-              The session slot has ended. Confirm only if the appointment took place and is ready
-              to be archived.
+              Confirm only if the appointment took place and is ready to be archived.
             </p>
           )}
 

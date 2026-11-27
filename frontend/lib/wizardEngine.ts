@@ -3,7 +3,6 @@ import {
   isMinorDob,
   isValidPhone,
   isWizardBlockVisible,
-  normalizeName,
   type PreferredContactMode,
   type ProfileWizardPayload,
   type RelationToAccountHolder,
@@ -47,13 +46,12 @@ const KNOWN_LEGACY_PROFILE_KEYS = new Set([
 ]);
 
 const KNOWN_LEGACY_CONSENT_KEYS = new Set([
-  'terms_signer_name',
+  'terms_agreed',
   'terms_signer_relation',
   'scope_acknowledged',
   'is_overseas_or_foreign',
   'overseas_acknowledged',
   'information_confirmed',
-  'consent_signer_name',
 ]);
 
 /** Returns true when a CMS page contains at least one consent/legal block (used for resign mode). */
@@ -101,16 +99,6 @@ export function validateWizardPage(
   const { isSelf, resignOnly = false } = options;
   const isOverseas = Boolean(values.is_overseas_or_foreign);
 
-  // Determine whether both terms_signer_name and consent_signer_name exist in the active wizard
-  const allVisibleKeys = new Set<string>();
-  for (const p of allPages) {
-    for (const b of p.blocks) {
-      if (b.fieldKey && isWizardBlockVisible(b, isSelf, values)) {
-        allVisibleKeys.add(b.fieldKey);
-      }
-    }
-  }
-
   for (const block of page.blocks) {
     if (!INPUT_BLOCK_TYPES.has(block.type)) continue;
     if (!block.fieldKey) continue;
@@ -124,13 +112,15 @@ export function validateWizardPage(
     if (block.type === 'checkbox') {
       if (block.required && raw !== true) {
         errs[key] =
-          key === 'scope_acknowledged'
-            ? 'Please acknowledge the scope & limitations.'
-            : key === 'overseas_acknowledged'
-              ? 'Please acknowledge the overseas & foreign national limitations.'
-              : key === 'information_confirmed'
-                ? 'Please confirm that the information provided is accurate and complete.'
-                : `Please confirm "${block.label}".`;
+          key === 'terms_agreed'
+            ? 'Please agree to the informed consent and data privacy terms.'
+            : key === 'scope_acknowledged'
+              ? 'Please acknowledge the scope & limitations.'
+              : key === 'overseas_acknowledged'
+                ? 'Please acknowledge the overseas & foreign national limitations.'
+                : key === 'information_confirmed'
+                  ? 'Please confirm that the information provided is accurate and complete.'
+                  : `Please confirm "${block.label}".`;
       }
       continue;
     }
@@ -146,8 +136,6 @@ export function validateWizardPage(
         errs[key] = 'Select the relation to the account holder.';
       else if (key === 'terms_signer_relation')
         errs[key] = 'Select the signer relation to the client.';
-      else if (key === 'terms_signer_name' || key === 'consent_signer_name')
-        errs[key] = 'Type your full name to sign.';
       else errs[key] = `${block.label} is required.`;
       continue;
     }
@@ -201,17 +189,6 @@ export function validateWizardPage(
         continue;
       }
     }
-
-    if (
-      key === 'consent_signer_name' &&
-      allVisibleKeys.has('terms_signer_name')
-    ) {
-      const termsName = String(values.terms_signer_name ?? '').trim();
-      if (termsName && normalizeName(termsName) !== normalizeName(strVal)) {
-        errs[key] =
-          'Final consent signer name must match the informed consent signer name.';
-      }
-    }
   }
 
   // Cross-field social media check when socmed_username is filled on this page
@@ -239,11 +216,10 @@ export function buildDynamicWizardPayloads(
   options: {
     isSelf: boolean;
     consentVersion: string;
-    fallbackSignerName?: string;
     fallbackProfileName?: string;
   }
 ): ProfileWizardPayload {
-  const { isSelf, consentVersion, fallbackSignerName, fallbackProfileName } = options;
+  const { isSelf, consentVersion, fallbackProfileName } = options;
 
   const fullName =
     composeProfileFullName(values) || (fallbackProfileName ?? '').trim();
@@ -293,12 +269,6 @@ export function buildDynamicWizardPayloads(
   }
 
   // Ensure standard consent defaults when omitted or hidden by appliesTo
-  const signerName =
-    String(responses.terms_signer_name ?? '').trim() ||
-    String(responses.consent_signer_name ?? '').trim() ||
-    (fallbackSignerName ?? '').trim() ||
-    fullName;
-
   const signerRelation: TermsSignerRelation = isSelf
     ? 'self'
     : ((String(responses.terms_signer_relation || values.terms_signer_relation || 'parent') as TermsSignerRelation));
@@ -332,13 +302,12 @@ export function buildDynamicWizardPayloads(
 
   const consentPayload: ProfileWizardPayload['consent'] = {
     consent_version: consentVersion,
-    terms_signer_name: String(responses.terms_signer_name ?? signerName),
+    terms_agreed: Boolean(responses.terms_agreed ?? values.terms_agreed),
     terms_signer_relation: signerRelation,
     scope_acknowledged: Boolean(responses.scope_acknowledged ?? values.scope_acknowledged),
     is_overseas_or_foreign: isOverseas,
     overseas_acknowledged: overseasAck,
     information_confirmed: Boolean(responses.information_confirmed ?? values.information_confirmed),
-    consent_signer_name: String(responses.consent_signer_name ?? signerName),
     responses,
   };
 

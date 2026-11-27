@@ -16,7 +16,6 @@ export interface ProfileWizardDraft {
   relation_to_account_holder: RelationToAccountHolder;
   first_name: string;
   last_name: string;
-  terms_signer_name: string;
   terms_signer_relation: TermsSignerRelation;
   terms_agreed: boolean;
   scope_acknowledged: boolean;
@@ -37,7 +36,6 @@ export interface ProfileWizardDraft {
   emergency_contact_relation: string;
   emergency_contact_number: string;
   information_confirmed: boolean;
-  consent_signer_name: string;
   customValues: Record<string, unknown>;
 }
 
@@ -45,7 +43,6 @@ export const DEFAULT_WIZARD_DRAFT: ProfileWizardDraft = {
   relation_to_account_holder: 'child',
   first_name: '',
   last_name: '',
-  terms_signer_name: '',
   terms_signer_relation: 'parent',
   terms_agreed: false,
   scope_acknowledged: false,
@@ -66,7 +63,6 @@ export const DEFAULT_WIZARD_DRAFT: ProfileWizardDraft = {
   emergency_contact_relation: '',
   emergency_contact_number: '',
   information_confirmed: false,
-  consent_signer_name: '',
   customValues: {},
 };
 
@@ -144,7 +140,6 @@ const TOP_LEVEL_DRAFT_KEYS = new Set<string>([
   'relation_to_account_holder',
   'first_name',
   'last_name',
-  'terms_signer_name',
   'terms_signer_relation',
   'terms_agreed',
   'scope_acknowledged',
@@ -165,7 +160,6 @@ const TOP_LEVEL_DRAFT_KEYS = new Set<string>([
   'emergency_contact_relation',
   'emergency_contact_number',
   'information_confirmed',
-  'consent_signer_name',
 ]);
 
 export function getDraftFieldValue(draft: ProfileWizardDraft, fieldKey: string): unknown {
@@ -181,7 +175,6 @@ export function getDraftLookupMap(draft: ProfileWizardDraft): Record<string, unk
     relation_to_account_holder: draft.relation_to_account_holder,
     first_name: draft.first_name,
     last_name: draft.last_name,
-    terms_signer_name: draft.terms_signer_name,
     terms_signer_relation: draft.terms_signer_relation,
     terms_agreed: draft.terms_agreed,
     scope_acknowledged: draft.scope_acknowledged,
@@ -202,7 +195,6 @@ export function getDraftLookupMap(draft: ProfileWizardDraft): Record<string, unk
     emergency_contact_relation: draft.emergency_contact_relation,
     emergency_contact_number: draft.emergency_contact_number,
     information_confirmed: draft.information_confirmed,
-    consent_signer_name: draft.consent_signer_name,
   };
 }
 
@@ -236,7 +228,6 @@ export const useProfileWizardStore = create<ProfileWizardState>((set) => ({
         ...DEFAULT_WIZARD_DRAFT,
         relation_to_account_holder: (profile.relationshipToClient ||
           (isSelf ? 'self' : 'child')) as RelationToAccountHolder,
-        terms_signer_name: isSelf ? profile.label : '',
         terms_signer_relation: isSelf ? 'self' : 'parent',
         profile_name: profile.label,
         date_of_birth: profile.dateOfBirth || '1995-01-01',
@@ -259,7 +250,6 @@ export const useProfileWizardStore = create<ProfileWizardState>((set) => ({
         emergency_contact_number: String(
           details.emergency_contact_number ?? profile.emergencyContactNumber ?? ''
         ),
-        consent_signer_name: isSelf ? profile.label : '',
         customValues: { ...details },
       };
       return {

@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import PsychologistSchedulePage from '../app/(site)/psych/schedule/page';
 import PsychologistScheduleDetailPage from '../app/(site)/psych/schedule/[id]/page';
 import PsychologistScheduleCalendarPage from '../app/(site)/psych/schedule/calendar/page';
+import PsychologistPendingBookingDetailPage from '../app/(site)/psych/queue/[id]/page';
 import { api } from '../lib/api';
 import type { BookingRequest } from '../lib/types';
 
@@ -213,6 +214,190 @@ describe('PsychologistScheduleDetailPage', () => {
     await waitFor(() => {
       expect(completeSpy).toHaveBeenCalledWith('bk-new');
     });
+  });
+
+  it('shows a concise invalid link error when an invalid meeting link is submitted', async () => {
+    const session = makeSession({
+      id: 'bk-new',
+      proposedSlots: [
+        {
+          id: 'slot-1',
+          slotNumber: 1,
+          isoDateTime: '2026-11-01T10:00:00+08:00',
+          endIsoDateTime: '2026-11-01T11:00:00+08:00',
+          dateLabel: 'Sun, Nov 1, 2026',
+          timeLabel: '10:00 AM – 11:00 AM PHT',
+          proposedBy: 'client',
+          status: 'accepted',
+          round: 1,
+        },
+      ],
+    });
+
+    vi.spyOn(api, 'getBookingsForRole').mockResolvedValue([session]);
+    vi.spyOn(api, 'getBookingById').mockResolvedValue(session);
+    const linkSpy = vi.spyOn(api, 'updateMeetingLink');
+
+    renderWithQuery(<PsychologistScheduleDetailPage />);
+
+    const linkInput = await screen.findByLabelText(/Session Meeting Link/i);
+    fireEvent.change(linkInput, { target: { value: 'not-a-valid-link' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save Link/i }));
+
+    expect(
+      await screen.findByText('Invalid link. Please enter a valid https:// URL.')
+    ).toBeInTheDocument();
+    expect(linkSpy).not.toHaveBeenCalled();
+  });
+
+  it('omits client name subtitle and intro description from the Request Session Reschedule modal', async () => {
+    const session = makeSession({
+      id: 'bk-new',
+      profileLabel: 'Alex Rivera',
+      serviceTitle: 'Standalone Clinical Consultation',
+    });
+
+    vi.spyOn(api, 'getBookingsForRole').mockResolvedValue([session]);
+    vi.spyOn(api, 'getBookingById').mockResolvedValue(session);
+
+    renderWithQuery(<PsychologistScheduleDetailPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Request Reschedule/i }));
+    const dialog = await screen.findByRole('dialog');
+
+    expect(
+      within(dialog).getByText(/Request Session Reschedule\?/i)
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByText(/Alex Rivera · Standalone Clinical Consultation/i)
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByText(/Psychologist-initiated rescheduling is free for the client/i)
+    ).not.toBeInTheDocument();
+  });
+
+  it('warns about early completion only when current time is before the session start time', async () => {
+    const nowMs = Date.now();
+    const startedNotEndedSession = makeSession({
+      id: 'bk-in-progress',
+      proposedSlots: [
+        {
+          id: 'slot-1',
+          slotNumber: 1,
+          isoDateTime: new Date(nowMs - 15 * 60_000).toISOString(),
+          endIsoDateTime: new Date(nowMs + 45 * 60_000).toISOString(),
+          dateLabel: 'Today',
+          timeLabel: 'In progress',
+          proposedBy: 'client',
+          status: 'accepted',
+          round: 1,
+        },
+      ],
+    });
+
+    mockParams = { id: 'bk-in-progress' };
+    vi.spyOn(api, 'getBookingsForRole').mockResolvedValue([startedNotEndedSession]);
+    vi.spyOn(api, 'getBookingById').mockResolvedValue(startedNotEndedSession);
+
+    const { unmount } = renderWithQuery(<PsychologistScheduleDetailPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Mark Session Completed/i }));
+    const inProgressDialog = await screen.findByRole('dialog');
+    expect(
+      within(inProgressDialog).getByText(/Mark this session as completed\?/i)
+    ).toBeInTheDocument();
+    expect(
+      within(inProgressDialog).queryByText(/This session has not started yet/i)
+    ).not.toBeInTheDocument();
+
+    unmount();
+
+    const futureSession = makeSession({
+      id: 'bk-future',
+      proposedSlots: [
+        {
+          id: 'slot-1',
+          slotNumber: 1,
+          isoDateTime: new Date(nowMs + 30 * 60_000).toISOString(),
+          endIsoDateTime: new Date(nowMs + 90 * 60_000).toISOString(),
+          dateLabel: 'Later Today',
+          timeLabel: 'Upcoming',
+          proposedBy: 'client',
+          status: 'accepted',
+          round: 1,
+        },
+      ],
+    });
+
+    mockParams = { id: 'bk-future' };
+    vi.spyOn(api, 'getBookingsForRole').mockResolvedValue([futureSession]);
+    vi.spyOn(api, 'getBookingById').mockResolvedValue(futureSession);
+
+    renderWithQuery(<PsychologistScheduleDetailPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Mark Session Completed/i }));
+    const futureDialog = await screen.findByRole('dialog');
+    expect(
+      within(futureDialog).getByText(/Complete this session early\?/i)
+    ).toBeInTheDocument();
+    expect(
+      within(futureDialog).getByText(/This session has not started yet\./i)
+    ).toBeInTheDocument();
+  });
+});
+
+describe('PsychologistPendingBookingDetailPage', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    pushMock.mockReset();
+    mockParams = { id: 'bk-pending' };
+  });
+
+  it('defaults the proposed session fee input to 0', async () => {
+    const pendingBooking = makeSession({
+      id: 'bk-pending',
+      status: 'pending',
+      psychologistId: undefined,
+      pricePhp: undefined,
+    });
+
+    vi.spyOn(api, 'getBookingsForRole').mockResolvedValue([pendingBooking]);
+    vi.spyOn(api, 'getBookingById').mockResolvedValue(pendingBooking);
+    vi.spyOn(api, 'getProfileReview').mockResolvedValue({
+      profile: {
+        id: 'prof-1',
+        name: 'Alex Rivera',
+        relationToAccountHolder: 'self',
+        dateOfBirth: '1995-01-01',
+        occupation: 'Engineer',
+        nationality: 'Filipino',
+        preferredContactMode: 'Email',
+        permanentAddress: 'Manila',
+        presentAddress: 'Manila',
+        contactNumber: '09171234567',
+        socmedPlatform: 'Instagram',
+        socmedUsername: '@alex',
+        emergencyContactName: 'Sam Rivera',
+        emergencyContactRelation: 'Sibling',
+        emergencyContactNumber: '09170000000',
+      },
+      consent: {
+        version: '1.0',
+        signedAt: '2026-11-20T08:00:00+08:00',
+        termsAgreed: true,
+        termsSignerRelation: 'Self',
+        scopeAcknowledged: true,
+        informationConfirmed: true,
+        isOverseasOrForeign: false,
+        overseasAcknowledged: false,
+      },
+      reviewSections: [],
+    });
+
+    renderWithQuery(<PsychologistPendingBookingDetailPage />);
+
+    const feeInput = await screen.findByLabelText(/Proposed Session Fee/i);
+    expect(feeInput).toHaveValue(0);
   });
 });
 
