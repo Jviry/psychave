@@ -52,8 +52,10 @@ export default function ScheduleAgreementPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [isGatewayUnavailable, setIsGatewayUnavailable] = useState(false);
   const [newSlots, setNewSlots] = useState<string[]>(['', '', '']);
+  const [rescheduleSlots, setRescheduleSlots] = useState<string[]>(['', '', '']);
   const [rescheduleReason, setRescheduleReason] = useState('');
   const [rescheduleFeeAck, setRescheduleFeeAck] = useState(false);
+  const filledRescheduleSlots = rescheduleSlots.filter(Boolean);
   const [isRedirectingToCheckout, setIsRedirectingToCheckout] = useState(false);
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
   const [pollingRestartKey, setPollingRestartKey] = useState(0);
@@ -86,13 +88,18 @@ export default function ScheduleAgreementPage() {
       return;
     }
 
-    if (booking.status === 'awaiting-client' && booking.isSessionPaid) {
+    if (
+      (booking.status === 'awaiting-client' || booking.status === 'awaiting-review') &&
+      booking.isSessionPaid
+    ) {
       if (!publishedRescheduleFeeRef.current) {
         publishedRescheduleFeeRef.current = true;
         queryClient.invalidateQueries({ queryKey: ['bookings'] });
         publishFlowEvent(
           '₱600 Reschedule Fee Paid',
-          `Reschedule fee confirmed for booking ${booking.id}. Submit 3 to 5 new preferred schedules to continue.`
+          booking.status === 'awaiting-review'
+            ? `Reschedule fee confirmed for booking ${booking.id}. Your psychologist is now reviewing your preferred schedules.`
+            : `Reschedule fee confirmed for booking ${booking.id}. Submit 3 to 5 new preferred schedules to continue.`
         );
       }
       return;
@@ -209,11 +216,18 @@ export default function ScheduleAgreementPage() {
   });
 
   const rescheduleMutation = useMutation({
-    mutationFn: (reason?: string) => api.requestReschedule(bookingId, reason),
+    mutationFn: ({
+      reason,
+      preferredSlots,
+    }: {
+      reason?: string;
+      preferredSlots: string[];
+    }) => api.requestReschedule(bookingId, { reason, preferredSlots }),
     onSuccess: (updated) => {
       setActionError(null);
       setRescheduleReason('');
       setRescheduleFeeAck(false);
+      setRescheduleSlots(['', '', '']);
       queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       publishFlowEvent(
@@ -429,9 +443,50 @@ export default function ScheduleAgreementPage() {
                 <p className="text-xs font-semibold text-pine">Need to Reschedule?</p>
                 <p className="text-xs text-pine/75">
                   {isWithin2Hours
-                    ? 'Warning: Your session starts in less than 2 hours (outside the standard 2-hour reschedule window). Requesting a reschedule now requires a ₱600 rescheduling fee.'
-                    : 'Rescheduling at least 2 hours before the session start time is free (confirmed sessions are non-refundable).'}
+                    ? 'Warning: Your session starts in less than 2 hours (outside the standard 2-hour reschedule window), so a ₱600 rescheduling fee applies. If you have a valid reason, please contact your psychologist — they can waive the fee (or mark no-show with a waiver) so your new schedule offers proceed at no extra charge.'
+                    : 'Rescheduling at least 2 hours before the session start time is free (confirmed sessions are non-refundable). Submit 3 to 5 new preferred schedules below.'}
                 </p>
+              </div>
+              <div className="space-y-2">
+                <Label>New Preferred Schedules (3 to 5 required)</Label>
+                {rescheduleSlots.map((slotValue, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <span className="w-6 shrink-0 text-xs font-semibold text-pine/60 tabular-nums">
+                      {index + 1}.
+                    </span>
+                    <Input
+                      type="datetime-local"
+                      value={slotValue}
+                      onChange={(e) => {
+                        const next = [...rescheduleSlots];
+                        next[index] = e.target.value;
+                        setRescheduleSlots(next);
+                      }}
+                    />
+                    {rescheduleSlots.length > 3 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setRescheduleSlots((prev) => prev.filter((_, i) => i !== index))
+                        }
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                {rescheduleSlots.length < 5 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setRescheduleSlots((prev) => [...prev, ''])}
+                  >
+                    + Add Another Slot
+                  </Button>
+                )}
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
                 <Input
@@ -445,9 +500,15 @@ export default function ScheduleAgreementPage() {
                   size="sm"
                   disabled={
                     rescheduleMutation.isPending ||
+                    filledRescheduleSlots.length < 3 ||
                     (isWithin2Hours && !rescheduleFeeAck)
                   }
-                  onClick={() => rescheduleMutation.mutate(rescheduleReason)}
+                  onClick={() =>
+                    rescheduleMutation.mutate({
+                      reason: rescheduleReason,
+                      preferredSlots: filledRescheduleSlots,
+                    })
+                  }
                 >
                   {rescheduleMutation.isPending
                     ? 'Requesting…'
@@ -463,7 +524,7 @@ export default function ScheduleAgreementPage() {
                     onChange={(e) => setRescheduleFeeAck(e.target.checked)}
                   />
                   <span>
-                    I understand a ₱600 rescheduling fee applies.
+                    I understand a ₱600 rescheduling fee applies unless waived by my psychologist.
                   </span>
                 </label>
               )}
@@ -537,10 +598,28 @@ export default function ScheduleAgreementPage() {
             </h2>
             <p className="text-xs text-pine/80">
               {booking.status === 'no-show'
-                ? 'This session was marked as a no-show. Pay the ₱600 rescheduling fee to propose new times.'
-                : 'Your reschedule request was submitted less than 2 hours before the session. Pay the ₱600 rescheduling fee to propose new times.'}
+                ? 'This session was marked as a no-show. Pay the ₱600 rescheduling fee to propose new times — or if you had a valid reason, contact your psychologist so they can waive the fee.'
+                : 'Your reschedule request was submitted less than 2 hours before the session. Pay the ₱600 rescheduling fee to proceed with your preferred schedules — or if you have a valid reason, contact your psychologist so they can waive the fee.'}
             </p>
           </div>
+          {booking.psychologistSocialLinks && booking.psychologistSocialLinks.length > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-white/70 px-3 py-2 text-xs text-pine space-y-1">
+              <p className="font-semibold text-pine">Contact your psychologist:</p>
+              <div className="flex flex-wrap gap-3">
+                {booking.psychologistSocialLinks.map((item) => (
+                  <a
+                    key={`${item.platform}-${item.url}`}
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-accent-ink underline underline-offset-4 hover:text-pine"
+                  >
+                    {item.platform}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
           <Button
             variant="primary"
             size="md"

@@ -1510,12 +1510,33 @@ export const api = {
 
   requestReschedule: async (
     bookingId: string,
-    reason?: string,
-    preferredSlots?: string[]
+    reasonOrOptions?:
+      | string
+      | {
+          reason?: string;
+          preferredSlots?: string[];
+          counterDateTime?: string;
+        },
+    preferredSlots?: string[],
+    counterDateTime?: string
   ): Promise<BookingRequest> => {
-    const body: Record<string, unknown> = { reason: reason?.trim() || null };
-    if (preferredSlots && preferredSlots.length > 0) {
-      body.preferred_slots = preferredSlots.map(toSlotPreference);
+    const opts =
+      typeof reasonOrOptions === 'object' && reasonOrOptions !== null
+        ? reasonOrOptions
+        : {
+            reason:
+              typeof reasonOrOptions === 'string' ? reasonOrOptions : undefined,
+            preferredSlots,
+            counterDateTime,
+          };
+    const body: Record<string, unknown> = {
+      reason: opts.reason?.trim() || null,
+    };
+    if (opts.preferredSlots && opts.preferredSlots.length > 0) {
+      body.preferred_slots = opts.preferredSlots.map(toSlotPreference);
+    }
+    if (opts.counterDateTime) {
+      body.counter_slot = toSlotPreference(opts.counterDateTime);
     }
     const raw = await liveRequest<AppointmentRaw>(
       `/appointments/${assertUuid(bookingId, 'bookingId')}/reschedule-request`,

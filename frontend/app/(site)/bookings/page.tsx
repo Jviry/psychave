@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAppStore } from '@/stores/useAppStore';
@@ -77,6 +77,12 @@ export default function ClientBookingsPage() {
   >(null);
   const [rescheduleReason, setRescheduleReason] = useState('');
   const [rescheduleFeeAck, setRescheduleFeeAck] = useState(false);
+  const [rescheduleSlots, setRescheduleSlots] = useState<string[]>(['', '', '']);
+  const minRescheduleDateTime = useMemo(() => {
+    const d = new Date(Date.now() + 8 * 60 * 60 * 1000);
+    return d.toISOString().slice(0, 16);
+  }, []);
+  const filledRescheduleSlots = rescheduleSlots.filter(Boolean);
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['bookings', 'client'],
@@ -97,13 +103,21 @@ export default function ClientBookingsPage() {
   });
 
   const rescheduleMutation = useMutation({
-    mutationFn: ({ bookingId, reason }: { bookingId: string; reason?: string }) =>
-      api.requestReschedule(bookingId, reason),
+    mutationFn: ({
+      bookingId,
+      reason,
+      preferredSlots,
+    }: {
+      bookingId: string;
+      reason?: string;
+      preferredSlots: string[];
+    }) => api.requestReschedule(bookingId, { reason, preferredSlots }),
     onSuccess: (updated) => {
       setActionError(null);
       setRescheduleTarget(null);
       setRescheduleReason('');
       setRescheduleFeeAck(false);
+      setRescheduleSlots(['', '', '']);
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       queryClient.invalidateQueries({ queryKey: ['booking', updated.id] });
       publishFlowEvent(
@@ -557,6 +571,7 @@ export default function ClientBookingsPage() {
                                   rescheduleMutation.reset();
                                   setRescheduleReason('');
                                   setRescheduleFeeAck(false);
+                                  setRescheduleSlots(['', '', '']);
                                   setRescheduleTarget(booking);
                                 }}
                               >
@@ -639,6 +654,7 @@ export default function ClientBookingsPage() {
               setRescheduleTarget(null);
               setRescheduleReason('');
               setRescheduleFeeAck(false);
+              setRescheduleSlots(['', '', '']);
             }}
             title="Confirm Reschedule Request"
             description={`${rescheduleTarget.serviceTitle} · ${rescheduleTarget.id}`}
@@ -657,12 +673,14 @@ export default function ClientBookingsPage() {
                   size="sm"
                   disabled={
                     rescheduleMutation.isPending ||
+                    filledRescheduleSlots.length < 3 ||
                     (targetWithin2h && !rescheduleFeeAck)
                   }
                   onClick={() =>
                     rescheduleMutation.mutate({
                       bookingId: rescheduleTarget.id,
                       reason: rescheduleReason,
+                      preferredSlots: filledRescheduleSlots,
                     })
                   }
                 >
@@ -683,24 +701,67 @@ export default function ClientBookingsPage() {
                   </p>
                   <p>
                     This session starts in less than 2 hours (outside the standard 2-hour
-                    reschedule window). Requesting a reschedule releases your current slot and
-                    requires paying a ₱600 rescheduling fee before choosing new times.
+                    reschedule window). Requesting a reschedule requires paying a ₱600
+                    rescheduling fee before your psychologist reviews your new times. If you
+                    have a valid reason, please contact your psychologist — they can waive the
+                    fee (or mark no-show with a waiver) so your new schedule offers proceed at
+                    no extra charge.
                   </p>
                   <label className="flex items-start gap-2 cursor-pointer pt-1">
                     <Checkbox
                       checked={rescheduleFeeAck}
                       onChange={(e) => setRescheduleFeeAck(e.target.checked)}
                     />
-                    <span>I understand a ₱600 rescheduling fee applies.</span>
+                    <span>I understand a ₱600 rescheduling fee applies unless waived.</span>
                   </label>
                 </div>
               ) : (
                 <p>
                   Because your session is at least 2 hours away, rescheduling is free (confirmed
-                  sessions are non-refundable). Your current slot will be released so you can
-                  submit 3 to 5 new preferred times.
+                  sessions are non-refundable). Submit 3 to 5 new preferred schedules below for
+                  your psychologist to confirm.
                 </p>
               )}
+              <div className="space-y-2">
+                <Label>New Preferred Schedules (3 to 5 required)</Label>
+                {rescheduleSlots.map((slotValue, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="w-5 shrink-0 text-pine/60 tabular-nums">{idx + 1}.</span>
+                    <Input
+                      type="datetime-local"
+                      min={minRescheduleDateTime}
+                      value={slotValue}
+                      onChange={(e) => {
+                        const next = [...rescheduleSlots];
+                        next[idx] = e.target.value;
+                        setRescheduleSlots(next);
+                      }}
+                    />
+                    {rescheduleSlots.length > 3 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setRescheduleSlots((prev) => prev.filter((_, i) => i !== idx))
+                        }
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                {rescheduleSlots.length < 5 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setRescheduleSlots((prev) => [...prev, ''])}
+                  >
+                    + Add Another Slot
+                  </Button>
+                )}
+              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="bookings-reschedule-reason">Reason (optional)</Label>
                 <Input

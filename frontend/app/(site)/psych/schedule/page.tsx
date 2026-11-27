@@ -68,6 +68,7 @@ export default function PsychologistSchedulePage() {
     session: BookingRequest;
   } | null>(null);
   const [rescheduleReason, setRescheduleReason] = useState('');
+  const [rescheduleCounterDateTime, setRescheduleCounterDateTime] = useState('');
   const [waiverReason, setWaiverReason] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
   const [reviewTargetId, setReviewTargetId] = useState<string | null>(null);
@@ -115,12 +116,20 @@ export default function PsychologistSchedulePage() {
   });
 
   const rescheduleMutation = useMutation({
-    mutationFn: ({ bookingId, reason }: { bookingId: string; reason?: string }) =>
-      api.requestReschedule(bookingId, reason),
+    mutationFn: ({
+      bookingId,
+      reason,
+      counterDateTime,
+    }: {
+      bookingId: string;
+      reason?: string;
+      counterDateTime: string;
+    }) => api.requestReschedule(bookingId, { reason, counterDateTime }),
     onSuccess: () => {
       setActionError(null);
       setConfirmAction(null);
       setRescheduleReason('');
+      setRescheduleCounterDateTime('');
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
     },
     onError: (err: Error) => setActionError(err.message),
@@ -689,6 +698,7 @@ export default function PsychologistSchedulePage() {
                             rescheduleMutation.reset();
                             setActionError(null);
                             setRescheduleReason('');
+                            setRescheduleCounterDateTime('');
                             setConfirmAction({ type: 'reschedule', session });
                           }}
                         >
@@ -872,6 +882,7 @@ export default function PsychologistSchedulePage() {
             return;
           setConfirmAction(null);
           setRescheduleReason('');
+          setRescheduleCounterDateTime('');
           setWaiverReason('');
         }}
         title={
@@ -907,7 +918,8 @@ export default function PsychologistSchedulePage() {
                 noShowMutation.isPending ||
                 waiveFeeMutation.isPending ||
                 rescheduleMutation.isPending ||
-                (confirmAction?.type === 'waive-fee' && !waiverReason.trim())
+                (confirmAction?.type === 'waive-fee' && !waiverReason.trim()) ||
+                (confirmAction?.type === 'reschedule' && !rescheduleCounterDateTime)
               }
               onClick={() => {
                 if (!confirmAction) return;
@@ -922,6 +934,7 @@ export default function PsychologistSchedulePage() {
                   rescheduleMutation.mutate({
                     bookingId: confirmAction.session.id,
                     reason: rescheduleReason,
+                    counterDateTime: rescheduleCounterDateTime,
                   });
                 }
               }}
@@ -965,11 +978,24 @@ export default function PsychologistSchedulePage() {
               </div>
             )}
             {confirmAction.type === 'reschedule' && (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <p>
-                  Psychologist-initiated rescheduling is free for the client. The current slot
-                  will be released and the client will be prompted to propose new preferred times.
+                  Psychologist-initiated rescheduling is free for the client. Offer your
+                  earliest available schedule below — the client can accept it or propose
+                  3–5 new preferred times.
                 </p>
+                <div className="space-y-1">
+                  <Label htmlFor="psych-reschedule-slot">
+                    Earliest Available Schedule (Required)
+                  </Label>
+                  <Input
+                    id="psych-reschedule-slot"
+                    type="datetime-local"
+                    min={minDateTime}
+                    value={rescheduleCounterDateTime}
+                    onChange={(e) => setRescheduleCounterDateTime(e.target.value)}
+                  />
+                </div>
                 <div className="space-y-1">
                   <Label htmlFor="psych-reschedule-reason">Reason (optional)</Label>
                   <Input
