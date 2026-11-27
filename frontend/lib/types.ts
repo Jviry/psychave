@@ -215,6 +215,7 @@ export interface BookingRequest {
   rescheduleFeeWaived?: boolean;
   rescheduleRequestedBy?: string;
   rescheduleReason?: string;
+  rescheduleWaiverReason?: string;
   refundAmountCentavos?: number;
   refundReason?: string;
   refundedAt?: string;

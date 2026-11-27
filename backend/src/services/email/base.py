@@ -319,6 +319,153 @@ Choose the one that works for you and complete payment to confirm the session.</
         )
         self.send_email(to, subject, html, text)
 
+    def send_reschedule_requested(
+        self,
+        to: str,
+        appointment_id: str,
+        recipient: Recipient,
+        reason: str | None = None,
+    ) -> None:
+        if recipient == "psychologist":
+            subject = "A client requested to reschedule a session"
+            lead = (
+                "A client requested to reschedule an upcoming confirmed session. "
+                "Please check your schedule to review or propose new times."
+            )
+            link = f"{self.frontend_base_url}/psych/schedule"
+            cta = "Open your schedule"
+        else:
+            subject = "Your psychologist requested to reschedule your session"
+            lead = (
+                "Your psychologist requested to reschedule your upcoming session. "
+                "Please submit 3 to 5 new preferred schedules so we can confirm a new time."
+            )
+            link = f"{self.frontend_base_url}/proposal/{appointment_id}"
+            cta = "Submit new preferred schedules"
+
+        reason_text = f"Reason: {reason}\n\n" if reason else ""
+        reason_html = (
+            f'<p style="margin:0 0 16px;"><strong>Reason:</strong> {escape(reason)}</p>'
+            if reason
+            else ""
+        )
+        text = (
+            "Hi,\n\n"
+            f"{lead}\n\n"
+            f"{reason_text}"
+            f"Booking reference: {appointment_id}\n"
+            f"{cta}: {link}\n\n"
+            f"{TEXT_FOOTER}"
+        )
+        html = self._wrap_html(
+            subject,
+            f"""\
+<p style="margin:0 0 16px;">{escape(lead)}</p>
+{reason_html}<p style="margin:0 0 4px;font-size:13px;color:#5d8b69;">Booking reference</p>
+<p style="margin:0 0 16px;font-family:monospace;">{escape(str(appointment_id))}</p>
+<p style="margin:0 0 16px;"><a href="{escape(link)}" style="color:#25372d;">{escape(cta)}</a></p>
+""",
+        )
+        self.send_email(to, subject, html, text)
+
+    def send_no_show_marked(
+        self,
+        to: str,
+        appointment_id: str,
+    ) -> None:
+        subject = "Missed session — reschedule fee required to rebook"
+        link = f"{self.frontend_base_url}/proposal/{appointment_id}"
+        lead = (
+            "Your scheduled session was marked as a no-show. To reschedule and "
+            "propose new preferred times, please complete the PHP 600.00 "
+            "rescheduling fee."
+        )
+        text = (
+            "Hi,\n\n"
+            f"{lead}\n\n"
+            f"Booking reference: {appointment_id}\n"
+            f"Pay reschedule fee: {link}\n\n"
+            f"{TEXT_FOOTER}"
+        )
+        html = self._wrap_html(
+            subject,
+            f"""\
+<p style="margin:0 0 16px;">{escape(lead)}</p>
+<p style="margin:0 0 4px;font-size:13px;color:#5d8b69;">Booking reference</p>
+<p style="margin:0 0 16px;font-family:monospace;">{escape(str(appointment_id))}</p>
+<p style="margin:0 0 16px;"><a href="{escape(link)}" style="color:#25372d;">Pay PHP 600.00 reschedule fee</a></p>
+""",
+        )
+        self.send_email(to, subject, html, text)
+
+    def send_reschedule_reopened(
+        self,
+        to: str,
+        appointment_id: str,
+        *,
+        fee_paid: bool = False,
+    ) -> None:
+        link = f"{self.frontend_base_url}/proposal/{appointment_id}"
+        if fee_paid:
+            subject = "Reschedule fee confirmed — submit new preferred schedules"
+            lead = (
+                "Your PHP 600.00 rescheduling fee has been received. Please submit "
+                "3 to 5 new preferred schedules to confirm a new session time."
+            )
+        else:
+            subject = "Rescheduling reopened — submit new preferred schedules"
+            lead = (
+                "Your booking has been reopened for rescheduling. Please submit "
+                "3 to 5 new preferred schedules to confirm a new session time."
+            )
+        text = (
+            "Hi,\n\n"
+            f"{lead}\n\n"
+            f"Booking reference: {appointment_id}\n"
+            f"Submit preferred schedules: {link}\n\n"
+            f"{TEXT_FOOTER}"
+        )
+        html = self._wrap_html(
+            subject,
+            f"""\
+<p style="margin:0 0 16px;">{escape(lead)}</p>
+<p style="margin:0 0 4px;font-size:13px;color:#5d8b69;">Booking reference</p>
+<p style="margin:0 0 16px;font-family:monospace;">{escape(str(appointment_id))}</p>
+<p style="margin:0 0 16px;"><a href="{escape(link)}" style="color:#25372d;">Submit new preferred schedules</a></p>
+""",
+        )
+        self.send_email(to, subject, html, text)
+
+    def send_partial_refund_issued(
+        self,
+        to: str,
+        appointment_id: str,
+        refund_amount_php: float,
+        reason: str,
+    ) -> None:
+        subject = "A partial refund has been processed for your booking"
+        formatted_amount = self._format_price(refund_amount_php)
+        link = f"{self.frontend_base_url}/bookings"
+        text = (
+            "Hi,\n\n"
+            f"A partial refund of {formatted_amount} has been issued for your booking.\n\n"
+            f"Booking reference: {appointment_id}\n"
+            f"Reason: {reason}\n"
+            f"View your bookings: {link}\n\n"
+            f"{TEXT_FOOTER}"
+        )
+        html = self._wrap_html(
+            subject,
+            f"""\
+<p style="margin:0 0 16px;">A partial refund of <strong>{escape(formatted_amount)}</strong> has been issued for your booking.</p>
+<p style="margin:0 0 8px;"><strong>Reason:</strong> {escape(reason)}</p>
+<p style="margin:0 0 4px;font-size:13px;color:#5d8b69;">Booking reference</p>
+<p style="margin:0 0 16px;font-family:monospace;">{escape(str(appointment_id))}</p>
+<p style="margin:0 0 16px;"><a href="{escape(link)}" style="color:#25372d;">View your bookings</a></p>
+""",
+        )
+        self.send_email(to, subject, html, text)
+
     # ----- formatting -----
 
     @staticmethod

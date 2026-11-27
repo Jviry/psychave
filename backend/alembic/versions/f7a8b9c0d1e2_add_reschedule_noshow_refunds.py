@@ -64,6 +64,10 @@ def upgrade() -> None:
     )
     op.add_column(
         "appointments",
+        sa.Column("reschedule_waiver_reason", sa.String(), nullable=True),
+    )
+    op.add_column(
+        "appointments",
         sa.Column("refund_amount_centavos", sa.Integer(), nullable=True),
     )
     op.add_column(
@@ -129,6 +133,7 @@ def downgrade() -> None:
     op.drop_column("appointments", "refunded_at")
     op.drop_column("appointments", "refund_reason")
     op.drop_column("appointments", "refund_amount_centavos")
+    op.drop_column("appointments", "reschedule_waiver_reason")
     op.drop_column("appointments", "reschedule_reason")
     op.drop_column("appointments", "reschedule_requested_by")
     op.drop_column("appointments", "reschedule_fee_waived")

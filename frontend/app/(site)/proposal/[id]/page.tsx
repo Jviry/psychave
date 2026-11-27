@@ -258,6 +258,7 @@ export default function ScheduleAgreementPage() {
   const slotStartMs = chosenSlot
     ? parseManilaDateTime(chosenSlot.isoDateTime).getTime()
     : Number.NaN;
+  const isFutureSession = Number.isNaN(slotStartMs) || slotStartMs > Date.now();
   const isWithin2Hours =
     !Number.isNaN(slotStartMs) && slotStartMs - Date.now() < 2 * 60 * 60 * 1000;
 
@@ -402,14 +403,14 @@ export default function ScheduleAgreementPage() {
             </Button>
           </div>
 
-          {booking.status === 'paid-confirmed' && (
+          {booking.status === 'paid-confirmed' && isFutureSession && (
             <div className="border-t border-mist pt-4 space-y-3">
               <div className="space-y-1">
                 <p className="text-xs font-semibold text-pine">Need to Reschedule?</p>
                 <p className="text-xs text-pine/75">
                   {isWithin2Hours
-                    ? 'Warning: Your session starts in less than 2 hours. Requesting a reschedule now requires a ₱600 fee unless waived by your psychologist.'
-                    : 'Rescheduling at least 2 hours before the session start time is free.'}
+                    ? 'Warning: Your session starts in less than 2 hours (outside the standard 2-hour reschedule window). Requesting a reschedule now requires a ₱600 rescheduling fee.'
+                    : 'Rescheduling at least 2 hours before the session start time is free (confirmed sessions are non-refundable).'}
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
@@ -442,7 +443,7 @@ export default function ScheduleAgreementPage() {
                     onChange={(e) => setRescheduleFeeAck(e.target.checked)}
                   />
                   <span>
-                    I understand a ₱600 reschedule fee applies unless waived by my psychologist.
+                    I understand a ₱600 rescheduling fee applies.
                   </span>
                 </label>
               )}
@@ -497,8 +498,8 @@ export default function ScheduleAgreementPage() {
             </h2>
             <p className="text-xs text-pine/80">
               {booking.status === 'no-show'
-                ? 'This session was marked as a no-show. Pay the ₱600 reschedule fee to propose new times, or wait for your psychologist to waive the fee.'
-                : 'Your reschedule request was submitted less than 2 hours before the session. Pay the ₱600 reschedule fee to propose new times, or wait for your psychologist to waive the fee.'}
+                ? 'This session was marked as a no-show. Pay the ₱600 rescheduling fee to propose new times.'
+                : 'Your reschedule request was submitted less than 2 hours before the session. Pay the ₱600 rescheduling fee to propose new times.'}
             </p>
           </div>
           <Button
@@ -728,9 +729,9 @@ export default function ScheduleAgreementPage() {
                           Rescheduling in progress · Session payment is already on file.
                         </p>
                         <p>
-                          {booking.rescheduleFeeWaived
-                            ? 'Your psychologist waived the reschedule fee. Submit 3 to 5 new preferred schedules below.'
-                            : 'Submit 3 to 5 new preferred schedules below. Once your psychologist accepts a slot, your session is confirmed immediately with no additional session payment.'}
+                          Submit 3 to 5 new preferred schedules below. Once your psychologist accepts
+                          a slot, your session is confirmed immediately with no additional session
+                          payment.
                         </p>
                       </>
                     ) : (

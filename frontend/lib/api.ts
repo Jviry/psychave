@@ -392,6 +392,7 @@ interface AppointmentRaw {
   reschedule_fee_waived?: boolean;
   reschedule_requested_by?: string | null;
   reschedule_reason?: string | null;
+  reschedule_waiver_reason?: string | null;
   refund_amount_centavos?: number | null;
   refund_reason?: string | null;
   refunded_at?: string | null;
@@ -719,6 +720,7 @@ function mapAppointmentRaw(raw: AppointmentRaw): BookingRequest {
     rescheduleFeeWaived: raw.reschedule_fee_waived ?? false,
     rescheduleRequestedBy: raw.reschedule_requested_by ?? undefined,
     rescheduleReason: raw.reschedule_reason ?? undefined,
+    rescheduleWaiverReason: raw.reschedule_waiver_reason ?? undefined,
     refundAmountCentavos: raw.refund_amount_centavos ?? undefined,
     refundReason: raw.refund_reason ?? undefined,
     refundedAt: raw.refunded_at ?? undefined,
@@ -1495,13 +1497,18 @@ export const api = {
 
   requestReschedule: async (
     bookingId: string,
-    reason?: string
+    reason?: string,
+    preferredSlots?: string[]
   ): Promise<BookingRequest> => {
+    const body: Record<string, unknown> = { reason: reason?.trim() || null };
+    if (preferredSlots && preferredSlots.length > 0) {
+      body.preferred_slots = preferredSlots.map(toSlotPreference);
+    }
     const raw = await liveRequest<AppointmentRaw>(
       `/appointments/${assertUuid(bookingId, 'bookingId')}/reschedule-request`,
       {
         method: 'POST',
-        body: JSON.stringify({ reason: reason?.trim() || null }),
+        body: JSON.stringify(body),
       }
     );
     return mapAppointmentRaw(raw);
@@ -1515,10 +1522,16 @@ export const api = {
     return mapAppointmentRaw(raw);
   },
 
-  waiveRescheduleFee: async (bookingId: string): Promise<BookingRequest> => {
+  waiveRescheduleFee: async (
+    bookingId: string,
+    reason?: string
+  ): Promise<BookingRequest> => {
     const raw = await liveRequest<AppointmentRaw>(
       `/appointments/${assertUuid(bookingId, 'bookingId')}/waive-reschedule-fee`,
-      { method: 'POST' }
+      {
+        method: 'POST',
+        body: JSON.stringify({ reason: reason?.trim() || null }),
+      }
     );
     return mapAppointmentRaw(raw);
   },

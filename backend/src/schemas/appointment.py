@@ -58,6 +58,7 @@ class AppointmentRead(SQLModel):
     reschedule_fee_waived: bool = False
     reschedule_requested_by: str | None = None
     reschedule_reason: str | None = None
+    reschedule_waiver_reason: str | None = None
     refund_amount_centavos: int | None = None
     refund_reason: str | None = None
     refunded_at: datetime | None = None
@@ -82,4 +83,11 @@ class SlotSelect(SQLModel):
 
 
 class RescheduleRequest(SQLModel):
+    reason: str | None = None
+    preferred_slots: list[SlotInput] | None = Field(
+        default=None, min_length=3, max_length=5
+    )
+
+
+class WaiveRescheduleFeeRequest(SQLModel):
     reason: str | None = None
