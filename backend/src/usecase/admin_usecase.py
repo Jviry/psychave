@@ -18,12 +18,16 @@ from repo.psychologist_invitation_repo import PsychologistInvitationRepo
 from repo.user_repo import UserRepository
 from schemas.admin import (
     AdminRefundRequest,
+    AdminUserClientProfileRead,
+    AdminUserDetailRead,
     AdminUserPage,
+    AdminUserPsychologistProfileRead,
     AdminUserRead,
     PromotePsychologistRequest,
     PsychologistInvitationCreate,
     PsychologistInvitationRead,
 )
+from schemas.psychologist import SocialMediaLink
 from schemas.appointment import AppointmentRead
 from services.email.base import BaseEmailService
 from services.payments.base import PaymentProvider
@@ -61,6 +65,51 @@ class AdminUsecase:
             total=total,
             page=page,
             page_size=page_size,
+        )
+
+    def get_user_detail(self, user_id: uuid.UUID) -> AdminUserDetailRead:
+        user = self.user_repo.get_by_id(user_id)
+        if user is None:
+            raise NotFoundError("User not found")
+
+        base = self._read_user(user)
+        psych_profile = self.user_repo.get_psychologist_profile(user.user_id)
+        client_profiles = self.user_repo.list_client_profiles(user.user_id)
+
+        psych_read = None
+        if psych_profile is not None:
+            links = [
+                SocialMediaLink.model_validate(link)
+                for link in (psych_profile.social_media_links or [])
+            ]
+            psych_read = AdminUserPsychologistProfileRead(
+                full_name=psych_profile.full_name,
+                license_number=psych_profile.license_number,
+                specialization=psych_profile.specialization,
+                bio=psych_profile.bio,
+                social_media_links=links,
+            )
+
+        client_reads = [
+            AdminUserClientProfileRead(
+                profile_id=p.profile_id,
+                profile_name=p.profile_name,
+                relation_to_account_holder=(
+                    p.relation_to_account_holder.value
+                    if hasattr(p.relation_to_account_holder, "value")
+                    else str(p.relation_to_account_holder)
+                ),
+                date_of_birth=p.date_of_birth,
+                socmed_platform=p.socmed_platform,
+                socmed_username=p.socmed_username,
+            )
+            for p in client_profiles
+        ]
+
+        return AdminUserDetailRead(
+            **base.model_dump(),
+            psychologist_profile=psych_read,
+            client_profiles=client_reads,
         )
 
     def list_appointments(
@@ -422,6 +471,18 @@ class AdminUsecase:
 
         return None
 
+    def _resolve_username(self, user: User) -> str | None:
+        try:
+            return (
+                self.auth.get_username_by_sub(user.cognito_sub)
+                or self.auth.get_username_by_email(user.email)
+            )
+        except Exception:
+            logger.warning(
+                "Could not resolve Cognito username for user %s", user.user_id
+            )
+            return None
+
     def _read_user(self, user: User) -> AdminUserRead:
         psych_profile = self.user_repo.get_psychologist_profile(user.user_id)
         admin_profile = self.user_repo.get_admin_profile(user.user_id)
@@ -439,6 +500,7 @@ class AdminUsecase:
         return AdminUserRead(
             user_id=user.user_id,
             email=user.email,
+            username=self._resolve_username(user),
             role=UserRole(user.role),
             full_name=full_name,
             created_at=user.created_at,

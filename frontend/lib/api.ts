@@ -1,5 +1,6 @@
 import {
   AdminUser,
+  AdminUserDetail,
   AdminUserPage,
   BookingRequest,
   BookingStatus,
@@ -570,9 +571,32 @@ interface PsychologistProfileRaw {
 interface AdminUserRaw {
   user_id: string;
   email: string;
+  username?: string | null;
   role: CognitoRole;
   full_name: string | null;
   created_at: string;
+}
+
+interface AdminUserPsychologistProfileRaw {
+  full_name: string;
+  license_number: string | null;
+  specialization: string | null;
+  bio: string | null;
+  social_media_links: SocialMediaLink[];
+}
+
+interface AdminUserClientProfileRaw {
+  profile_id: string;
+  profile_name: string;
+  relation_to_account_holder: string;
+  date_of_birth: string;
+  socmed_platform: string | null;
+  socmed_username: string | null;
+}
+
+interface AdminUserDetailRaw extends AdminUserRaw {
+  psychologist_profile?: AdminUserPsychologistProfileRaw | null;
+  client_profiles?: AdminUserClientProfileRaw[];
 }
 
 interface AdminUserPageRaw {
@@ -586,9 +610,33 @@ function mapAdminUserRaw(raw: AdminUserRaw): AdminUser {
   return {
     userId: raw.user_id,
     email: raw.email,
+    username: raw.username ?? null,
     role: raw.role,
     fullName: raw.full_name ?? null,
     createdAt: raw.created_at,
+  };
+}
+
+function mapAdminUserDetailRaw(raw: AdminUserDetailRaw): AdminUserDetail {
+  return {
+    ...mapAdminUserRaw(raw),
+    psychologistProfile: raw.psychologist_profile
+      ? {
+          fullName: raw.psychologist_profile.full_name,
+          licenseNumber: raw.psychologist_profile.license_number ?? null,
+          specialization: raw.psychologist_profile.specialization ?? null,
+          bio: raw.psychologist_profile.bio ?? null,
+          socialMediaLinks: raw.psychologist_profile.social_media_links ?? [],
+        }
+      : null,
+    clientProfiles: (raw.client_profiles ?? []).map((p) => ({
+      profileId: p.profile_id,
+      profileName: p.profile_name,
+      relationToAccountHolder: p.relation_to_account_holder,
+      dateOfBirth: p.date_of_birth,
+      socmedPlatform: p.socmed_platform ?? null,
+      socmedUsername: p.socmed_username ?? null,
+    })),
   };
 }
 
@@ -1176,6 +1224,11 @@ export const api = {
     return list.map(mapProfileRaw);
   },
 
+  getProfile: async (profileId: string): Promise<Profile> => {
+    const raw = await liveRequest<ProfileRaw>(`/profiles/${assertUuid(profileId, 'profileId')}`);
+    return mapProfileRaw(raw);
+  },
+
   getProfileReview: async (profileId: string): Promise<ProfileReview> => {
     const raw = await liveRequest<ProfileReviewRaw>(`/profiles/${profileId}/review`);
     return mapProfileReviewRaw(raw);
@@ -1675,6 +1728,11 @@ export const api = {
       page: data.page,
       pageSize: data.page_size,
     };
+  },
+
+  getAdminUserDetail: async (userId: string): Promise<AdminUserDetail> => {
+    const raw = await liveRequest<AdminUserDetailRaw>(`/admin/users/${userId}`);
+    return mapAdminUserDetailRaw(raw);
   },
 
   updateAdminUserRole: async (

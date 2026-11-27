@@ -20,11 +20,9 @@ import {
   ArrowLeft,
   Calendar,
   Clock,
-  Lock,
 } from 'lucide-react';
 import { SocialLinksList } from '@/components/SocialLinksList';
 import {
-  BookingStatusTag,
   Button,
   EmptyState,
   Modal,
@@ -180,6 +178,11 @@ export default function ClientBookingDetailPage() {
     booking.status === 'paid-confirmed' ||
     booking.status === 'completed' ||
     booking.status === 'reschedule-requested';
+  const durationMinutesLabel =
+    typeof booking.serviceDurationMinutes === 'number' &&
+    booking.serviceDurationMinutes > 0
+      ? `${booking.serviceDurationMinutes} mins`
+      : booking.serviceDuration;
 
   return (
     <div className="space-y-6">
@@ -196,45 +199,36 @@ export default function ClientBookingDetailPage() {
 
       {/* Header */}
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-mist pb-5">
-        <div className="space-y-2">
+        <div>
           <h1 className="font-heading text-3xl sm:text-4xl font-medium text-pine tracking-tight">
             {booking.serviceTitle}
           </h1>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-pine/70">
-            <span className="font-mono tabular-nums text-pine/85">{booking.id}</span>
-            <span aria-hidden="true">·</span>
-            <span>
-              Submitted{' '}
-              <span className="font-mono tabular-nums text-pine">{booking.submittedAt}</span>
-            </span>
-            <span aria-hidden="true">·</span>
-            <span className="font-mono tabular-nums">{booking.serviceDuration}</span>
-          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
-          <BookingStatusTag status={booking.status} />
-          {booking.status === 'awaiting-client' && (
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={() => router.push(`/proposal/${booking.id}`)}
-            >
-              Review &amp; Respond
-            </Button>
-          )}
-          {booking.status === 'awaiting-payment' && (
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={() => router.push(`/proposal/${booking.id}`)}
-            >
-              Pay Now
-            </Button>
-          )}
-        </div>
+        {(booking.status === 'awaiting-client' || booking.status === 'awaiting-payment') && (
+          <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
+            {booking.status === 'awaiting-client' && (
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={() => router.push(`/proposal/${booking.id}`)}
+              >
+                Review &amp; Respond
+              </Button>
+            )}
+            {booking.status === 'awaiting-payment' && (
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={() => router.push(`/proposal/${booking.id}`)}
+              >
+                Pay Now
+              </Button>
+            )}
+          </div>
+        )}
       </header>
 
       {/* Main Content */}
@@ -280,7 +274,16 @@ export default function ClientBookingDetailPage() {
                   Duration
                 </dt>
                 <dd className="mt-1 font-mono text-xs text-pine tabular-nums">
-                  {booking.serviceDuration}
+                  {durationMinutesLabel}
+                </dd>
+              </div>
+
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wider text-pine/60">
+                  Submitted
+                </dt>
+                <dd className="mt-1 font-mono text-xs text-pine tabular-nums">
+                  {booking.submittedAt}
                 </dd>
               </div>
 
@@ -428,7 +431,7 @@ export default function ClientBookingDetailPage() {
               id="next-steps-heading"
               className="font-heading text-xl font-medium text-pine"
             >
-              Status &amp; Next Steps
+              Status
             </h2>
 
             {booking.status === 'pending' && (
@@ -547,16 +550,6 @@ export default function ClientBookingDetailPage() {
                 </Button>
               </div>
             )}
-
-            {!booking.contactUnlocked && booking.status !== 'cancelled' && (
-              <div className="pt-4 border-t border-mist/60 flex items-start gap-2 text-xs text-pine/65">
-                <Lock className="w-3.5 h-3.5 text-pine/55 shrink-0 mt-0.5" aria-hidden="true" />
-                <span>
-                  Your psychologist&apos;s contact details unlock automatically once payment is
-                  confirmed.
-                </span>
-              </div>
-            )}
           </section>
 
           {canCancel && (
@@ -599,7 +592,6 @@ export default function ClientBookingDetailPage() {
           }
         }}
         title="Cancel this booking request?"
-        description={`${booking.serviceTitle} (${booking.id})`}
         footer={
           <>
             <Button
@@ -626,21 +618,14 @@ export default function ClientBookingDetailPage() {
           </>
         }
       >
-        <div className="space-y-3 text-sm text-pine/85">
-          <p>
-            If you cancel now, this request will be closed and any held or preferred schedule
-            slots will be released. You can always submit a new booking request whenever
-            you&apos;re ready.
-          </p>
-          {cancelError && (
-            <div
-              role="alert"
-              className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-900"
-            >
-              {cancelError}
-            </div>
-          )}
-        </div>
+        {cancelError && (
+          <div
+            role="alert"
+            className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-900"
+          >
+            {cancelError}
+          </div>
+        )}
       </Modal>
     </div>
   );

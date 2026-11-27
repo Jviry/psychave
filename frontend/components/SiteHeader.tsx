@@ -19,6 +19,7 @@ const ROLE_NAV_ITEMS: Record<CognitoRole, { label: string; href: string }[]> = {
   ],
   admin: [
     { label: 'Account Management', href: '/admin/users' },
+    { label: 'Manual Payments', href: '/admin/bookings' },
     { label: 'CMS', href: '/admin/cms' },
   ],
 };

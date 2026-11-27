@@ -169,8 +169,17 @@ describe('ClientBookingsPage compact table view', () => {
     const rowLink = within(rows[2]).getByRole('link', { name: /Life Coaching/i });
     expect(rowLink).toHaveAttribute('href', '/bookings/bk-mid');
 
-    // Filter to Completed only
-    fireEvent.click(screen.getByRole('button', { name: /Completed \(1\)/i }));
+    // Header omits booking count badge and subtitle description
+    expect(screen.queryByText(/3 bookings/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Select any booking to view full schedule options/i)
+    ).not.toBeInTheDocument();
+
+    // Filter to Completed only via dropdown select
+    const statusSelect = screen.getByRole('combobox', {
+      name: /Filter bookings by status/i,
+    });
+    fireEvent.change(statusSelect, { target: { value: 'completed' } });
     const filteredRows = within(table).getAllByRole('row');
     expect(filteredRows).toHaveLength(2);
     expect(filteredRows[1]).toHaveTextContent('Couples Counseling');
@@ -210,6 +219,15 @@ describe('ClientBookingDetailPage', () => {
     expect(screen.getByText('Initial intake for anxiety management.')).toBeInTheDocument();
     expect(screen.getByText('Resident Psychologist #RP-12')).toBeInTheDocument();
     expect(screen.getByText('₱1,800')).toBeInTheDocument();
+    expect(screen.getByText('60 mins')).toBeInTheDocument();
+    expect(screen.queryByText('1 hr (60 mins)')).not.toBeInTheDocument();
+    expect(screen.getByText('2026-11-27')).toBeInTheDocument();
+    expect(screen.queryByText('bk-new')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Status' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /Status & Next Steps/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/contact details unlock automatically once payment is confirmed/i)
+    ).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Back to My Bookings/i })).toHaveAttribute(
       'href',
       '/bookings'
@@ -217,6 +235,13 @@ describe('ClientBookingDetailPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Cancel Request/i }));
     const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Cancel this booking request?')).toBeInTheDocument();
+    expect(
+      within(dialog).queryByText(/Standalone Clinical Consultation \(bk-new\)/i)
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByText(/If you cancel now, this request will be closed/i)
+    ).not.toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole('button', { name: /Yes, Cancel Request/i }));
 
     await waitFor(() => {

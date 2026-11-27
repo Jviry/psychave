@@ -14,8 +14,11 @@ export type WizardMode = 'create' | 'resign';
 
 export interface ProfileWizardDraft {
   relation_to_account_holder: RelationToAccountHolder;
+  first_name: string;
+  last_name: string;
   terms_signer_name: string;
   terms_signer_relation: TermsSignerRelation;
+  terms_agreed: boolean;
   scope_acknowledged: boolean;
   is_overseas_or_foreign: boolean;
   overseas_acknowledged: boolean;
@@ -40,8 +43,11 @@ export interface ProfileWizardDraft {
 
 export const DEFAULT_WIZARD_DRAFT: ProfileWizardDraft = {
   relation_to_account_holder: 'child',
+  first_name: '',
+  last_name: '',
   terms_signer_name: '',
   terms_signer_relation: 'parent',
+  terms_agreed: false,
   scope_acknowledged: false,
   is_overseas_or_foreign: false,
   overseas_acknowledged: false,
@@ -136,8 +142,11 @@ export function clearWizardDraftStorage() {
 
 const TOP_LEVEL_DRAFT_KEYS = new Set<string>([
   'relation_to_account_holder',
+  'first_name',
+  'last_name',
   'terms_signer_name',
   'terms_signer_relation',
+  'terms_agreed',
   'scope_acknowledged',
   'is_overseas_or_foreign',
   'overseas_acknowledged',
@@ -170,8 +179,11 @@ export function getDraftLookupMap(draft: ProfileWizardDraft): Record<string, unk
   return {
     ...draft.customValues,
     relation_to_account_holder: draft.relation_to_account_holder,
+    first_name: draft.first_name,
+    last_name: draft.last_name,
     terms_signer_name: draft.terms_signer_name,
     terms_signer_relation: draft.terms_signer_relation,
+    terms_agreed: draft.terms_agreed,
     scope_acknowledged: draft.scope_acknowledged,
     is_overseas_or_foreign: draft.is_overseas_or_foreign,
     overseas_acknowledged: draft.overseas_acknowledged,
@@ -274,6 +286,14 @@ export const useProfileWizardStore = create<ProfileWizardState>((set) => ({
           ...(partial.customValues || {}),
         },
       };
+      if (partial.first_name !== undefined || partial.last_name !== undefined) {
+        next = {
+          ...next,
+          profile_name: [next.first_name.trim(), next.last_name.trim()]
+            .filter(Boolean)
+            .join(' '),
+        };
+      }
       if (partial.sameAsPermanent === true) {
         next = { ...next, present_address: next.permanent_address };
       }
@@ -302,8 +322,19 @@ export const useProfileWizardStore = create<ProfileWizardState>((set) => ({
           },
         };
       }
+      if (normalizedKey === 'first_name' || normalizedKey === 'last_name') {
+        next.profile_name = [next.first_name.trim(), next.last_name.trim()]
+          .filter(Boolean)
+          .join(' ');
+      }
+      if (normalizedKey === 'sameAsPermanent' && value === true) {
+        next.present_address = next.permanent_address;
+      }
       if (normalizedKey === 'permanent_address' && next.sameAsPermanent) {
         next.present_address = String(value ?? '');
+      }
+      if (normalizedKey === 'is_overseas_or_foreign' && value === false) {
+        next.overseas_acknowledged = false;
       }
       persistDraft(next);
       return { draft: next };

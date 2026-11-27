@@ -217,14 +217,16 @@ def test_wizard_cms_json_storage_minor_vs_major_versioning_and_resign(
     step3_fields = {
         f.field_key: f.value for f in review["review_sections"][2].fields
     }
-    assert step3_fields["profile_name"] == "Juan Dela Cruz Jr."
+    assert step3_fields["first_name"] == "Juan"
+    assert step3_fields["last_name"] == "Dela Cruz Jr."
     assert step3_fields["socmed_username"] == "@juan.dc"
 
     # 3. Admin edits ONLY demographic fields on Step 3 (removes occupation, nationality, addresses,
     #    emergency contact; adds a custom demographic field "work_schedule")
     pages_demographic_edit = deepcopy(active_v2.wizard_pages)
     kept_step3_ids = {
-        "profile_name",
+        "first_name",
+        "last_name",
         "date_of_birth",
         "contact_number",
         "socmed_platform",

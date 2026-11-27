@@ -259,9 +259,32 @@ export interface ResidentPsychologist {
 export interface AdminUser {
   userId: string;
   email: string;
+  username: string | null;
   role: CognitoRole;
   fullName: string | null;
   createdAt: string;
+}
+
+export interface AdminUserPsychologistProfile {
+  fullName: string;
+  licenseNumber: string | null;
+  specialization: string | null;
+  bio: string | null;
+  socialMediaLinks: SocialMediaLink[];
+}
+
+export interface AdminUserClientProfile {
+  profileId: string;
+  profileName: string;
+  relationToAccountHolder: string;
+  dateOfBirth: string;
+  socmedPlatform: string | null;
+  socmedUsername: string | null;
+}
+
+export interface AdminUserDetail extends AdminUser {
+  psychologistProfile: AdminUserPsychologistProfile | null;
+  clientProfiles: AdminUserClientProfile[];
 }
 
 export interface AdminUserPage {

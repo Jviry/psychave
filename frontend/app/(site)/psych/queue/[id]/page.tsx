@@ -18,7 +18,6 @@ import {
   FileText,
 } from 'lucide-react';
 import {
-  BookingStatusTag,
   Button,
   EmptyState,
   Input,
@@ -364,23 +363,10 @@ export default function PsychologistPendingBookingDetailPage() {
       </Link>
 
       {/* Page Header */}
-      <header className="space-y-2.5 border-b border-mist pb-5">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <h1 className="font-heading text-3xl sm:text-4xl font-medium text-pine tracking-tight">
-            {booking.serviceTitle}
-          </h1>
-          <BookingStatusTag status={booking.status} perspective="psychologist" />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-pine/70">
-          <span className="font-medium text-pine">{booking.profileLabel}</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide bg-surface-sunken text-accent-ink border border-mist/70">
-            {booking.profileType}
-          </span>
-          <span className="font-mono tabular-nums">{booking.serviceDuration}</span>
-          <span className="font-mono tabular-nums text-pine/55">ID: {booking.id}</span>
-          <span className="font-mono tabular-nums">Submitted {booking.submittedAt}</span>
-        </div>
+      <header className="border-b border-mist pb-5">
+        <h1 className="font-heading text-3xl sm:text-4xl font-medium text-pine tracking-tight">
+          {booking.serviceTitle}
+        </h1>
       </header>
 
       {/* Claim confirmation banner */}
@@ -438,6 +424,12 @@ export default function PsychologistPendingBookingDetailPage() {
                 {booking.serviceGuardrail}
               </div>
             )}
+            <div className="pt-3 border-t border-mist/60 flex items-center justify-between text-xs text-pine/65">
+              <span className="uppercase tracking-wider font-medium">Submitted</span>
+              <span className="font-mono tabular-nums text-pine font-medium">
+                {booking.submittedAt}
+              </span>
+            </div>
           </section>
 
           {/* Profile & Consent Review */}

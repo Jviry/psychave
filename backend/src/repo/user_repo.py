@@ -5,6 +5,7 @@ from sqlmodel import Session, select
 
 from models.admin_profile import AdminProfile
 from models.client_profile import ClientProfile
+from models.profile import Profile
 from models.psychologist_profile import PsychologistProfile
 from models.user import User, UserRole
 
@@ -93,6 +94,15 @@ class UserRepository:
 
     def get_admin_profile(self, user_id: uuid.UUID) -> AdminProfile | None:
         return self.session.get(AdminProfile, user_id)
+
+    def list_client_profiles(self, user_id: uuid.UUID) -> list[Profile]:
+        return list(
+            self.session.exec(
+                select(Profile)
+                .where(Profile.client_id == user_id)
+                .order_by(Profile.relation_to_account_holder, Profile.profile_name)
+            ).all()
+        )
 
     def ensure_role_profile(self, user: User, display_name: str) -> None:
         """Create the role's profile row when missing (idempotent)."""

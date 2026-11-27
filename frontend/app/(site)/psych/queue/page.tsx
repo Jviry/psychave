@@ -42,21 +42,15 @@ export default function PsychologistQueuePage() {
     <div className="space-y-6">
       {/* Header */}
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-mist pb-5">
-        <div className="space-y-1.5">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-heading text-3xl sm:text-4xl font-medium text-pine tracking-tight">
-              Pending Booking Requests
-            </h1>
-            {!isLoading && (
-              <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold tabular-nums rounded-full bg-surface-sunken border border-mist text-pine">
-                {pendingQueue.length} {pendingQueue.length === 1 ? 'request' : 'requests'}
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-pine/75 max-w-2xl">
-            Select a booking request to review the client&apos;s full intake profile, preferred
-            schedules, and claim the session.
-          </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="font-heading text-3xl sm:text-4xl font-medium text-pine tracking-tight">
+            Pending Booking Requests
+          </h1>
+          {!isLoading && (
+            <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold tabular-nums rounded-full bg-surface-sunken border border-mist text-pine">
+              {pendingQueue.length} {pendingQueue.length === 1 ? 'request' : 'requests'}
+            </span>
+          )}
         </div>
 
         <Button

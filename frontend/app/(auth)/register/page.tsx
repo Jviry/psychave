@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Loader2, AlertCircle, Check, CheckCircle2, RefreshCcw } from 'lucide-react';
+import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, RefreshCcw } from 'lucide-react';
 import {
   registerSchema,
   confirmSchema,
@@ -16,32 +16,27 @@ import {
 } from '../../../lib/authSchemas';
 import {
   CONSENT_VERSION,
+  DEFAULT_WIZARD_PAGES,
   INFORMED_CONSENT_TEXT,
-  OVERSEAS_ACK_TEXT,
-  OVERSEAS_LIMITATIONS_TEXT,
-  SCOPE_ACK_TEXT,
-  SCOPE_LIMITATIONS_TEXT,
-  isFutureDob,
-  isMinorDob,
-  type PreferredContactMode,
 } from '../../../lib/consent';
 import {
-  wizardStep2Schema,
-  wizardStep3Schema,
-} from '../../../lib/schemas';
+  buildDynamicWizardPayloads,
+  validateWizardPage,
+  type WizardErrors,
+  type WizardValues,
+} from '../../../lib/wizardEngine';
 import { authApi } from '../../../authApi';
 import { getFriendlyErrorMessage } from '../../../lib/errorMessages';
 import { api } from '../../../lib/api';
-import type { ConsentFormTemplate, WizardBlock } from '../../../lib/types';
+import type { ConsentFormTemplate, ServiceItem } from '../../../lib/types';
 import { Toast } from '../../../components/auth/Toast';
+import { DynamicWizardPage } from '../../../components/DynamicWizardPage';
 import {
   Button,
   Checkbox,
   Input,
   Label,
   Modal,
-  Select,
-  Textarea,
 } from '../../../components/ui/primitives';
 
 // ─── Password Strength Indicator ─────────────────────────────────────────────
@@ -298,167 +293,6 @@ function ConfirmStep({
   );
 }
 
-// ─── Registration Wizard State & Validation ──────────────────────────────────
-type RegWizardStep = 1 | 2 | 3 | 4 | 5;
-
-const REG_STEP_TITLES = [
-  'Personal demographics',
-  'Account & privacy',
-  'Scope & acknowledgements',
-  'Informed consent & agreement',
-  'Confirmation & final consent',
-] as const;
-
-interface RegistrationDraft {
-  // Step 1: Personal demographics
-  first_name: string;
-  last_name: string;
-  date_of_birth: string;
-  occupation: string;
-  nationality: string;
-  permanent_address: string;
-  present_address: string;
-  sameAsPermanent: boolean;
-  contact_number: string;
-  socmed_platform: string;
-  socmed_username: string;
-  preferred_contact_mode: PreferredContactMode;
-  emergency_contact_name: string;
-  emergency_contact_relation: string;
-  emergency_contact_number: string;
-  // Step 2: Account & privacy
-  email: string;
-  username: string;
-  password: string;
-  confirmPassword: string;
-  privacyConsent: boolean;
-  // Step 3: Scope & acknowledgements
-  scope_acknowledged: boolean;
-  is_overseas_or_foreign: boolean;
-  overseas_acknowledged: boolean;
-  // Step 4: Informed consent & agreement
-  terms_agreed: boolean;
-  // Step 5: Confirmation & final consent
-  information_confirmed: boolean;
-}
-
-const INITIAL_DRAFT: RegistrationDraft = {
-  first_name: '',
-  last_name: '',
-  date_of_birth: '',
-  occupation: '',
-  nationality: '',
-  permanent_address: '',
-  present_address: '',
-  sameAsPermanent: false,
-  contact_number: '',
-  socmed_platform: '',
-  socmed_username: '',
-  preferred_contact_mode: 'phone',
-  emergency_contact_name: '',
-  emergency_contact_relation: '',
-  emergency_contact_number: '',
-  email: '',
-  username: '',
-  password: '',
-  confirmPassword: '',
-  privacyConsent: false,
-  scope_acknowledged: false,
-  is_overseas_or_foreign: false,
-  overseas_acknowledged: false,
-  terms_agreed: false,
-  information_confirmed: false,
-};
-
-function composeFullName(firstName: string, lastName: string): string {
-  return [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
-}
-
-type Errors = Record<string, string>;
-
-function validateRegStep(step: RegWizardStep, d: RegistrationDraft): Errors {
-  const errs: Errors = {};
-  if (step === 1) {
-    if (!d.first_name.trim()) {
-      errs.first_name = 'Enter your first name.';
-    }
-    if (!d.last_name.trim()) {
-      errs.last_name = 'Enter your last name.';
-    }
-    const r = wizardStep3Schema.safeParse({
-      profile_name: composeFullName(d.first_name, d.last_name),
-      date_of_birth: d.date_of_birth,
-      occupation: d.occupation,
-      nationality: d.nationality,
-      permanent_address: d.permanent_address,
-      present_address: d.present_address,
-      sameAsPermanent: d.sameAsPermanent,
-      contact_number: d.contact_number,
-      socmed_platform: d.socmed_platform,
-      socmed_username: d.socmed_username,
-      preferred_contact_mode: d.preferred_contact_mode,
-      emergency_contact_name: d.emergency_contact_name,
-      emergency_contact_relation: d.emergency_contact_relation,
-      emergency_contact_number: d.emergency_contact_number,
-    });
-    if (!r.success) {
-      r.error.issues.forEach((i) => {
-        const key = String(i.path[0]);
-        if (key === 'profile_name') return;
-        errs[key] = i.message;
-      });
-    }
-    if (
-      !errs.date_of_birth &&
-      d.date_of_birth &&
-      !isFutureDob(d.date_of_birth) &&
-      isMinorDob(d.date_of_birth)
-    ) {
-      errs.date_of_birth =
-        'Account holder must be at least 18 years old to register. Minors can be added as dependent profiles under an adult account.';
-    }
-    if (d.socmed_username.trim() && !d.socmed_platform) {
-      errs.socmed_platform = 'Choose the platform for this username.';
-    }
-  }
-  if (step === 2) {
-    const r = registerSchema.safeParse({
-      email: d.email,
-      username: d.username,
-      password: d.password,
-      confirmPassword: d.confirmPassword,
-      privacyConsent: d.privacyConsent,
-    });
-    if (!r.success) {
-      r.error.issues.forEach((i) => {
-        const key = String(i.path[0]);
-        if (!errs[key]) errs[key] = i.message;
-      });
-    }
-  }
-  if (step === 3) {
-    const r = wizardStep2Schema.safeParse({
-      scope_acknowledged: d.scope_acknowledged,
-      is_overseas_or_foreign: d.is_overseas_or_foreign,
-      overseas_acknowledged: d.overseas_acknowledged,
-    });
-    if (!r.success) {
-      r.error.issues.forEach((i) => (errs[String(i.path[0])] = i.message));
-    }
-  }
-  if (step === 4) {
-    if (!d.terms_agreed) {
-      errs.terms_agreed = 'You must agree to the informed consent and data privacy terms to continue.';
-    }
-  }
-  if (step === 5) {
-    if (!d.information_confirmed) {
-      errs.information_confirmed = 'Please confirm that the information you provided is accurate and complete.';
-    }
-  }
-  return errs;
-}
-
 function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) return null;
   return (
@@ -468,22 +302,70 @@ function FieldError({ id, message }: { id: string; message?: string }) {
   );
 }
 
-const REGISTER_DRAFT_STORAGE_KEY = 'psychave_register_draft_v2';
+// ─── Registration Draft State ─────────────────────────────────────────────────
+interface AccountDraft {
+  email: string;
+  username: string;
+  password: string;
+  confirmPassword: string;
+  privacyConsent: boolean;
+}
+
+const INITIAL_ACCOUNT_DRAFT: AccountDraft = {
+  email: '',
+  username: '',
+  password: '',
+  confirmPassword: '',
+  privacyConsent: false,
+};
+
+const INITIAL_WIZARD_VALUES: WizardValues = {
+  relation_to_account_holder: 'self',
+  terms_signer_relation: 'self',
+  preferred_contact_mode: 'phone',
+  sameAsPermanent: false,
+  is_overseas_or_foreign: false,
+  overseas_acknowledged: false,
+  scope_acknowledged: false,
+  information_confirmed: false,
+};
+
+const REGISTER_DRAFT_STORAGE_KEY = 'psychave_register_draft_v4';
 
 interface PersistedRegisterState {
-  draft: Omit<RegistrationDraft, 'password' | 'confirmPassword'>;
-  wizardStep: RegWizardStep;
+  wizardValues: WizardValues;
+  account: Omit<AccountDraft, 'password' | 'confirmPassword'>;
+  wizardStep: number;
   phase: 'register' | 'confirm';
   registeredUsername: string;
   registeredEmail: string;
+}
+
+function validateAccountStep(account: AccountDraft): WizardErrors {
+  const errs: WizardErrors = {};
+  const r = registerSchema.safeParse({
+    email: account.email,
+    username: account.username,
+    password: account.password,
+    confirmPassword: account.confirmPassword,
+    privacyConsent: account.privacyConsent,
+  });
+  if (!r.success) {
+    r.error.issues.forEach((i) => {
+      const key = String(i.path[0]);
+      if (!errs[key]) errs[key] = i.message;
+    });
+  }
+  return errs;
 }
 
 // ─── Main Register Page ───────────────────────────────────────────────────────
 export default function RegisterPage() {
   const router = useRouter();
 
-  const [draft, setDraft] = useState<RegistrationDraft>(INITIAL_DRAFT);
-  const [wizardStep, setWizardStep] = useState<RegWizardStep>(1);
+  const [wizardValues, setWizardValues] = useState<WizardValues>(INITIAL_WIZARD_VALUES);
+  const [account, setAccount] = useState<AccountDraft>(INITIAL_ACCOUNT_DRAFT);
+  const [wizardStep, setWizardStep] = useState<number>(1);
   const [attempted, setAttempted] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
@@ -502,7 +384,9 @@ export default function RegisterPage() {
   const [registeredEmail, setRegisteredEmail] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [activeTemplate, setActiveTemplate] = useState<ConsentFormTemplate | null>(null);
+  const [services, setServices] = useState<ServiceItem[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -512,64 +396,72 @@ export default function RegisterPage() {
         if (!cancelled) setActiveTemplate(tpl);
       })
       .catch(() => {
-        // Fallback to static consent defaults if template fetch fails.
+        // Fallback to static DEFAULT_WIZARD_PAGES if template fetch fails.
+      });
+    api
+      .getServices()
+      .then((list) => {
+        if (!cancelled) setServices(list);
+      })
+      .catch(() => {
+        // Services list is optional in the form preview.
       });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const findBlock = (blockId: string, fieldKey?: string): WizardBlock | undefined => {
-    if (!activeTemplate?.wizardPages) return undefined;
-    for (const page of activeTemplate.wizardPages) {
-      for (const b of page.blocks) {
-        if (b.blockId === blockId || (fieldKey && b.fieldKey === fieldKey)) {
-          return b;
-        }
-      }
-    }
-    return undefined;
-  };
+  const cmsPages = useMemo(
+    () =>
+      activeTemplate?.wizardPages && activeTemplate.wizardPages.length > 0
+        ? activeTemplate.wizardPages
+        : DEFAULT_WIZARD_PAGES,
+    [activeTemplate]
+  );
+
+  const totalSteps = cmsPages.length + 1;
+  const accountStepNumber = totalSteps;
+  const safeStep = Math.min(Math.max(1, wizardStep), totalSteps);
+  const isAccountStep = safeStep === accountStepNumber;
+  const currentCmsPage = !isAccountStep ? cmsPages[safeStep - 1] : null;
 
   const liveConsentVersion = activeTemplate?.consentVersion || CONSENT_VERSION;
   const liveInformedConsentText =
-    findBlock('informed_consent_doc')?.content || INFORMED_CONSENT_TEXT;
-  const liveScopeLimitationsText =
-    findBlock('scope_limitations_doc')?.content || SCOPE_LIMITATIONS_TEXT;
-  const liveScopeAckText =
-    findBlock('scope_acknowledged', 'scope_acknowledged')?.label || SCOPE_ACK_TEXT;
-  const liveOverseasLimitationsText =
-    findBlock('overseas_limitations_doc')?.content || OVERSEAS_LIMITATIONS_TEXT;
-  const liveOverseasAckText =
-    findBlock('overseas_acknowledged', 'overseas_acknowledged')?.label || OVERSEAS_ACK_TEXT;
-  const liveFinalConsentStatement =
-    findBlock('final_consent_doc')?.content ||
-    'I have read and understood the description, purpose, scope, limitations, confidentiality, data privacy provisions, and ethical boundaries of the psychological service I am availing.';
+    activeTemplate?.informedConsentText || INFORMED_CONSENT_TEXT;
+
+  const stepTitles = useMemo(
+    () => [...cmsPages.map((p) => p.title), 'Account & privacy'],
+    [cmsPages]
+  );
 
   useEffect(() => {
     try {
       const raw = window.sessionStorage.getItem(REGISTER_DRAFT_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<PersistedRegisterState>;
-        if (parsed.draft) {
-          setDraft((prev) => ({
+        if (parsed.wizardValues) {
+          setWizardValues((prev) => ({
             ...prev,
-            ...parsed.draft,
+            ...parsed.wizardValues,
+            relation_to_account_holder: 'self',
+            terms_signer_relation: 'self',
+          }));
+        }
+        if (parsed.account) {
+          setAccount((prev) => ({
+            ...prev,
+            ...parsed.account,
             password: '',
             confirmPassword: '',
           }));
         }
-        if (
-          parsed.wizardStep &&
-          parsed.wizardStep >= 1 &&
-          parsed.wizardStep <= 5
-        ) {
+        if (typeof parsed.wizardStep === 'number' && parsed.wizardStep >= 1) {
           setWizardStep(parsed.wizardStep);
         }
         if (parsed.phase === 'confirm' && parsed.registeredUsername) {
           setPhase('confirm');
           setRegisteredUsername(parsed.registeredUsername);
-          setRegisteredEmail(parsed.registeredEmail ?? parsed.draft?.email ?? '');
+          setRegisteredEmail(parsed.registeredEmail ?? parsed.account?.email ?? '');
         }
       }
     } catch {
@@ -586,10 +478,11 @@ export default function RegisterPage() {
   useEffect(() => {
     if (!hydrated || phase === 'done') return;
     try {
-      const { password: _pw, confirmPassword: _cpw, ...safeDraft } = draft;
+      const { password: _pw, confirmPassword: _cpw, ...safeAccount } = account;
       const payload: PersistedRegisterState = {
-        draft: safeDraft,
-        wizardStep,
+        wizardValues,
+        account: safeAccount,
+        wizardStep: safeStep,
         phase,
         registeredUsername,
         registeredEmail,
@@ -601,7 +494,7 @@ export default function RegisterPage() {
     } catch {
       // Ignore storage write errors in restricted browsers
     }
-  }, [hydrated, draft, wizardStep, phase, registeredUsername, registeredEmail]);
+  }, [hydrated, wizardValues, account, safeStep, phase, registeredUsername, registeredEmail]);
 
   const clearPersistedDraft = useCallback(() => {
     try {
@@ -611,7 +504,23 @@ export default function RegisterPage() {
     }
   }, []);
 
-  const updateDraft = (partial: Partial<RegistrationDraft>) => {
+  const handleWizardFieldChange = (fieldKey: string, value: unknown) => {
+    setWizardValues((prev) => {
+      const next: WizardValues = { ...prev, [fieldKey]: value };
+      if (fieldKey === 'sameAsPermanent' && value === true) {
+        next.present_address = String(next.permanent_address ?? '');
+      }
+      if (fieldKey === 'permanent_address' && next.sameAsPermanent) {
+        next.present_address = String(value ?? '');
+      }
+      if (fieldKey === 'is_overseas_or_foreign' && value === false) {
+        next.overseas_acknowledged = false;
+      }
+      return next;
+    });
+  };
+
+  const updateAccount = (partial: Partial<AccountDraft>) => {
     if (partial.email !== undefined || partial.username !== undefined) {
       setAvailabilityErrors((prev) => {
         if (!prev.email && !prev.username) return prev;
@@ -621,82 +530,49 @@ export default function RegisterPage() {
         };
       });
     }
-    setDraft((prev) => {
-      let next = { ...prev, ...partial };
-      if (partial.sameAsPermanent === true) {
-        next = { ...next, present_address: next.permanent_address };
-      }
-      if (partial.permanent_address !== undefined && next.sameAsPermanent) {
-        next = { ...next, present_address: partial.permanent_address };
-      }
-      return next;
-    });
+    setAccount((prev) => ({ ...prev, ...partial }));
   };
 
-  const baseStepErrors = attempted ? validateRegStep(wizardStep, draft) : {};
-  const stepErrors: Errors =
-    wizardStep === 2
-      ? {
-          ...(availabilityErrors.email ? { email: availabilityErrors.email } : {}),
-          ...(availabilityErrors.username ? { username: availabilityErrors.username } : {}),
-          ...baseStepErrors,
-        }
-      : baseStepErrors;
+  const baseStepErrors: WizardErrors = attempted
+    ? isAccountStep
+      ? validateAccountStep(account)
+      : currentCmsPage
+        ? validateWizardPage(currentCmsPage, cmsPages, wizardValues, { isSelf: true })
+        : {}
+    : {};
+
+  const stepErrors: WizardErrors = isAccountStep
+    ? {
+        ...(availabilityErrors.email ? { email: availabilityErrors.email } : {}),
+        ...(availabilityErrors.username ? { username: availabilityErrors.username } : {}),
+        ...baseStepErrors,
+      }
+    : baseStepErrors;
 
   const goNextStep = async () => {
     if (isCheckingAvailability) return;
     setAttempted(true);
     setApiError(null);
-    const errs = validateRegStep(wizardStep, draft);
+    const errs = currentCmsPage
+      ? validateWizardPage(currentCmsPage, cmsPages, wizardValues, { isSelf: true })
+      : {};
     if (Object.keys(errs).length > 0) return;
 
-    if (wizardStep === 2) {
-      setIsCheckingAvailability(true);
-      setAvailabilityErrors({});
-      try {
-        const res = await authApi.checkAvailability({
-          email: draft.email.trim(),
-          username: draft.username.trim(),
-        });
-        if (!res.emailAvailable || !res.usernameAvailable) {
-          setAvailabilityErrors({
-            ...(!res.emailAvailable
-              ? { email: 'An account with this email is already registered.' }
-              : {}),
-            ...(!res.usernameAvailable
-              ? { username: 'This username is already taken.' }
-              : {}),
-          });
-          return;
-        }
-      } catch (err) {
-        setApiError(
-          getFriendlyErrorMessage(
-            err,
-            'Could not verify email and username availability. Please try again.'
-          )
-        );
-        return;
-      } finally {
-        setIsCheckingAvailability(false);
-      }
-    }
-
     setAttempted(false);
-    setWizardStep((s) => (s + 1) as RegWizardStep);
+    setWizardStep(Math.min(totalSteps, safeStep + 1));
   };
 
   const goPrevStep = () => {
     setAttempted(false);
     setAvailabilityErrors({});
     setApiError(null);
-    setWizardStep((s) => (s - 1) as RegWizardStep);
+    setWizardStep(Math.max(1, safeStep - 1));
   };
 
   const handleSubmitRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLoading || isCheckingAvailability) return;
-    if (wizardStep < 5) {
+    if (!isAccountStep) {
       await goNextStep();
       return;
     }
@@ -704,51 +580,72 @@ export default function RegisterPage() {
     setAttempted(true);
     setApiError(null);
 
-    // Validate all steps 1..5 in order
-    for (const s of [1, 2, 3, 4, 5] as const) {
-      const errs = validateRegStep(s, draft);
+    // Validate all dynamic CMS pages 1..N in order
+    for (let idx = 0; idx < cmsPages.length; idx += 1) {
+      const errs = validateWizardPage(cmsPages[idx], cmsPages, wizardValues, {
+        isSelf: true,
+      });
       if (Object.keys(errs).length > 0) {
-        setWizardStep(s);
+        setWizardStep(idx + 1);
         return;
       }
     }
 
-    setIsLoading(true);
-    const fullName = composeFullName(draft.first_name, draft.last_name);
+    // Validate final account step
+    const accountErrs = validateAccountStep(account);
+    if (Object.keys(accountErrs).length > 0) {
+      return;
+    }
+
+    setIsCheckingAvailability(true);
+    setAvailabilityErrors({});
     try {
-      await authApi.registerUser({
-        email: draft.email.trim(),
-        username: draft.username.trim(),
-        password: draft.password,
-        profile: {
-          relation_to_account_holder: 'self',
-          profile_name: fullName,
-          date_of_birth: draft.date_of_birth,
-          occupation: draft.occupation.trim() ? draft.occupation.trim() : null,
-          nationality: draft.nationality.trim(),
-          permanent_address: draft.permanent_address.trim(),
-          present_address: draft.present_address.trim(),
-          contact_number: draft.contact_number.trim(),
-          socmed_platform: draft.socmed_platform ? draft.socmed_platform : null,
-          socmed_username: draft.socmed_username.trim() ? draft.socmed_username.trim() : null,
-          preferred_contact_mode: draft.preferred_contact_mode,
-          emergency_contact_name: draft.emergency_contact_name.trim(),
-          emergency_contact_relation: draft.emergency_contact_relation.trim(),
-          emergency_contact_number: draft.emergency_contact_number.trim(),
-        },
-        consent: {
-          consent_version: liveConsentVersion,
-          terms_signer_name: fullName,
-          terms_signer_relation: 'self',
-          scope_acknowledged: draft.scope_acknowledged,
-          is_overseas_or_foreign: draft.is_overseas_or_foreign,
-          overseas_acknowledged: draft.is_overseas_or_foreign ? draft.overseas_acknowledged : false,
-          information_confirmed: draft.information_confirmed,
-          consent_signer_name: fullName,
-        },
+      const res = await authApi.checkAvailability({
+        email: account.email.trim(),
+        username: account.username.trim(),
       });
-      setRegisteredUsername(draft.username.trim());
-      setRegisteredEmail(draft.email.trim());
+      if (!res.emailAvailable || !res.usernameAvailable) {
+        setAvailabilityErrors({
+          ...(!res.emailAvailable
+            ? { email: 'An account with this email is already registered.' }
+            : {}),
+          ...(!res.usernameAvailable
+            ? { username: 'This username is already taken.' }
+            : {}),
+        });
+        return;
+      }
+    } catch (err) {
+      setApiError(
+        getFriendlyErrorMessage(
+          err,
+          'Could not verify email and username availability. Please try again.'
+        )
+      );
+      return;
+    } finally {
+      setIsCheckingAvailability(false);
+    }
+
+    setIsLoading(true);
+    try {
+      const { profile, consent } = buildDynamicWizardPayloads(
+        cmsPages,
+        wizardValues,
+        {
+          isSelf: true,
+          consentVersion: liveConsentVersion,
+        }
+      );
+      await authApi.registerUser({
+        email: account.email.trim(),
+        username: account.username.trim(),
+        password: account.password,
+        profile,
+        consent,
+      });
+      setRegisteredUsername(account.username.trim());
+      setRegisteredEmail(account.email.trim());
       setPhase('confirm');
     } catch (err) {
       setApiError(
@@ -811,7 +708,7 @@ export default function RegisterPage() {
         <div className="bg-surface-raised rounded-2xl border border-mist p-8 sm:p-10">
           <ConfirmStep
             username={registeredUsername}
-            email={registeredEmail || draft.email.trim()}
+            email={registeredEmail || account.email.trim()}
             onConfirmed={handleConfirmed}
           />
         </div>
@@ -829,24 +726,27 @@ export default function RegisterPage() {
           <div>
             <h2 className="font-heading text-2xl font-medium text-pine mb-1">Create your account</h2>
             <p className="text-sm text-pine/60">
-              Step {wizardStep} of 5 · {REG_STEP_TITLES[wizardStep - 1]}
+              Step {safeStep} of {totalSteps} · {stepTitles[safeStep - 1]}
             </p>
           </div>
           <ol className="flex items-center gap-2" aria-label="Registration progress">
-            {([1, 2, 3, 4, 5] as const).map((s) => (
-              <li key={s} className="flex-1">
-                <div
-                  className={`h-1.5 rounded-full transition-colors ${
-                    s <= wizardStep ? 'bg-sage' : 'bg-mist/60'
-                  }`}
-                  aria-hidden="true"
-                />
-                <span className="sr-only">
-                  Step {s}
-                  {s === wizardStep ? ' (current)' : ''}
-                </span>
-              </li>
-            ))}
+            {stepTitles.map((title, idx) => {
+              const s = idx + 1;
+              return (
+                <li key={`${s}-${title}`} className="flex-1">
+                  <div
+                    className={`h-1.5 rounded-full transition-colors ${
+                      s <= safeStep ? 'bg-sage' : 'bg-mist/60'
+                    }`}
+                    aria-hidden="true"
+                  />
+                  <span className="sr-only">
+                    Step {s}: {title}
+                    {s === safeStep ? ' (current)' : ''}
+                  </span>
+                </li>
+              );
+            })}
           </ol>
         </div>
 
@@ -863,234 +763,27 @@ export default function RegisterPage() {
         )}
 
         <form id="register-form" onSubmit={handleSubmitRegistration} noValidate className="space-y-5">
-          {/* STEP 1: Personal Demographics */}
-          {wizardStep === 1 && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="reg-first-name">First name</Label>
-                  <Input
-                    id="reg-first-name"
-                    value={draft.first_name}
-                    onChange={(e) => updateDraft({ first_name: e.target.value })}
-                    autoComplete="given-name"
-                    aria-invalid={!!stepErrors.first_name}
-                    aria-describedby={stepErrors.first_name ? 'reg-first-name-error' : undefined}
-                  />
-                  <FieldError id="reg-first-name-error" message={stepErrors.first_name} />
-                </div>
-
-                <div>
-                  <Label htmlFor="reg-last-name">Last name</Label>
-                  <Input
-                    id="reg-last-name"
-                    value={draft.last_name}
-                    onChange={(e) => updateDraft({ last_name: e.target.value })}
-                    autoComplete="family-name"
-                    aria-invalid={!!stepErrors.last_name}
-                    aria-describedby={stepErrors.last_name ? 'reg-last-name-error' : undefined}
-                  />
-                  <FieldError id="reg-last-name-error" message={stepErrors.last_name} />
-                </div>
-
-                <div>
-                  <Label htmlFor="reg-dob">Date of birth (must be 18+)</Label>
-                  <Input
-                    id="reg-dob"
-                    type="date"
-                    value={draft.date_of_birth}
-                    max={new Date().toISOString().slice(0, 10)}
-                    onChange={(e) => updateDraft({ date_of_birth: e.target.value })}
-                    aria-invalid={!!stepErrors.date_of_birth}
-                    aria-describedby={stepErrors.date_of_birth ? 'reg-dob-error' : undefined}
-                  />
-                  <FieldError id="reg-dob-error" message={stepErrors.date_of_birth} />
-                </div>
-
-                <div>
-                  <Label htmlFor="reg-occupation">Occupation (optional)</Label>
-                  <Input
-                    id="reg-occupation"
-                    value={draft.occupation}
-                    onChange={(e) => updateDraft({ occupation: e.target.value })}
-                    autoComplete="organization-title"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="reg-nationality">Nationality</Label>
-                  <Input
-                    id="reg-nationality"
-                    value={draft.nationality}
-                    onChange={(e) => updateDraft({ nationality: e.target.value })}
-                    placeholder="e.g. Filipino"
-                    autoComplete="off"
-                    aria-invalid={!!stepErrors.nationality}
-                    aria-describedby={stepErrors.nationality ? 'reg-nationality-error' : undefined}
-                  />
-                  <FieldError id="reg-nationality-error" message={stepErrors.nationality} />
-                </div>
-
-                <div>
-                  <Label htmlFor="reg-contact">Contact number</Label>
-                  <Input
-                    id="reg-contact"
-                    type="tel"
-                    value={draft.contact_number}
-                    onChange={(e) => updateDraft({ contact_number: e.target.value })}
-                    placeholder={draft.is_overseas_or_foreign ? '+1 555 000 1234' : '09XXXXXXXXX'}
-                    autoComplete="tel"
-                    aria-invalid={!!stepErrors.contact_number}
-                    aria-describedby={stepErrors.contact_number ? 'reg-contact-error' : undefined}
-                  />
-                  <FieldError id="reg-contact-error" message={stepErrors.contact_number} />
-                </div>
-              </div>
-
-              <div className="border-t border-mist/70 pt-4 space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-pine/75">
-                  Addresses
-                </p>
-                <div>
-                  <Label htmlFor="reg-perm-address">Permanent address</Label>
-                  <Textarea
-                    id="reg-perm-address"
-                    rows={2}
-                    value={draft.permanent_address}
-                    onChange={(e) => updateDraft({ permanent_address: e.target.value })}
-                    autoComplete="street-address"
-                    aria-invalid={!!stepErrors.permanent_address}
-                    aria-describedby={stepErrors.permanent_address ? 'reg-perm-error' : undefined}
-                  />
-                  <FieldError id="reg-perm-error" message={stepErrors.permanent_address} />
-                </div>
-
-                <label className="flex items-center gap-2.5 text-xs text-pine cursor-pointer">
-                  <Checkbox
-                    id="reg-same-address"
-                    checked={draft.sameAsPermanent}
-                    onChange={(e) => updateDraft({ sameAsPermanent: e.target.checked })}
-                  />
-                  Present address same as permanent
-                </label>
-
-                <div>
-                  <Label htmlFor="reg-pres-address">Present address</Label>
-                  <Textarea
-                    id="reg-pres-address"
-                    rows={2}
-                    value={draft.present_address}
-                    disabled={draft.sameAsPermanent}
-                    onChange={(e) => updateDraft({ present_address: e.target.value })}
-                    autoComplete="off"
-                    aria-invalid={!!stepErrors.present_address}
-                    aria-describedby={stepErrors.present_address ? 'reg-pres-error' : undefined}
-                  />
-                  <FieldError id="reg-pres-error" message={stepErrors.present_address} />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="reg-socmed-platform">Social media platform (optional)</Label>
-                  <Select
-                    id="reg-socmed-platform"
-                    value={draft.socmed_platform}
-                    onChange={(e) => updateDraft({ socmed_platform: e.target.value })}
-                    aria-invalid={!!stepErrors.socmed_platform}
-                    aria-describedby={stepErrors.socmed_platform ? 'reg-socmed-error' : undefined}
-                  >
-                    <option value="">None</option>
-                    <option value="instagram">Instagram</option>
-                    <option value="facebook">Facebook</option>
-                    <option value="messenger">Messenger</option>
-                    <option value="tiktok">TikTok</option>
-                    <option value="x">X</option>
-                    <option value="other">Other</option>
-                  </Select>
-                  <FieldError id="reg-socmed-error" message={stepErrors.socmed_platform} />
-                </div>
-
-                <div>
-                  <Label htmlFor="reg-socmed-username">Username (optional)</Label>
-                  <Input
-                    id="reg-socmed-username"
-                    value={draft.socmed_username}
-                    onChange={(e) => updateDraft({ socmed_username: e.target.value })}
-                    placeholder="@username"
-                    autoComplete="off"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="reg-preferred-contact">Preferred contact mode</Label>
-                  <Select
-                    id="reg-preferred-contact"
-                    value={draft.preferred_contact_mode}
-                    onChange={(e) =>
-                      updateDraft({ preferred_contact_mode: e.target.value as PreferredContactMode })
-                    }
-                  >
-                    <option value="phone">Phone</option>
-                    <option value="email">Email</option>
-                    <option value="messenger">Messenger</option>
-                    <option value="instagram">Instagram</option>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="border-t border-mist/70 pt-4 space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-pine/75">
-                  Emergency Contact
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="reg-em-name">Contact name</Label>
-                    <Input
-                      id="reg-em-name"
-                      value={draft.emergency_contact_name}
-                      onChange={(e) => updateDraft({ emergency_contact_name: e.target.value })}
-                      autoComplete="off"
-                      aria-invalid={!!stepErrors.emergency_contact_name}
-                      aria-describedby={stepErrors.emergency_contact_name ? 'reg-em-name-error' : undefined}
-                    />
-                    <FieldError id="reg-em-name-error" message={stepErrors.emergency_contact_name} />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="reg-em-relation">Relation</Label>
-                    <Input
-                      id="reg-em-relation"
-                      value={draft.emergency_contact_relation}
-                      onChange={(e) => updateDraft({ emergency_contact_relation: e.target.value })}
-                      placeholder="e.g. Spouse"
-                      autoComplete="off"
-                      aria-invalid={!!stepErrors.emergency_contact_relation}
-                      aria-describedby={stepErrors.emergency_contact_relation ? 'reg-em-rel-error' : undefined}
-                    />
-                    <FieldError id="reg-em-rel-error" message={stepErrors.emergency_contact_relation} />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="reg-em-number">Contact number</Label>
-                    <Input
-                      id="reg-em-number"
-                      type="tel"
-                      value={draft.emergency_contact_number}
-                      onChange={(e) => updateDraft({ emergency_contact_number: e.target.value })}
-                      autoComplete="off"
-                      aria-invalid={!!stepErrors.emergency_contact_number}
-                      aria-describedby={stepErrors.emergency_contact_number ? 'reg-em-num-error' : undefined}
-                    />
-                    <FieldError id="reg-em-num-error" message={stepErrors.emergency_contact_number} />
-                  </div>
-                </div>
-              </div>
-            </div>
+          {/* STEPS 1..N: Dynamic CMS Profile & Consent Pages */}
+          {!isAccountStep && currentCmsPage && (
+            <DynamicWizardPage
+              page={currentCmsPage}
+              allPages={cmsPages}
+              values={wizardValues}
+              errors={stepErrors}
+              isSelf={true}
+              consentVersion={liveConsentVersion}
+              services={services}
+              onChange={handleWizardFieldChange}
+              onJumpToStep={(step) => {
+                setAttempted(false);
+                setWizardStep(step);
+              }}
+              idPrefix="reg"
+            />
           )}
 
-          {/* STEP 2: Account & Privacy */}
-          {wizardStep === 2 && (
+          {/* FINAL STEP (N + 1): Account & Privacy */}
+          {isAccountStep && (
             <div className="space-y-5">
               <div>
                 <Label htmlFor="register-email">Email address</Label>
@@ -1099,8 +792,8 @@ export default function RegisterPage() {
                   type="email"
                   autoComplete="email"
                   placeholder="you@example.com"
-                  value={draft.email}
-                  onChange={(e) => updateDraft({ email: e.target.value })}
+                  value={account.email}
+                  onChange={(e) => updateAccount({ email: e.target.value })}
                   aria-invalid={!!stepErrors.email}
                   aria-describedby={stepErrors.email ? 'register-email-error' : undefined}
                 />
@@ -1114,8 +807,8 @@ export default function RegisterPage() {
                   type="text"
                   autoComplete="username"
                   placeholder="your_username"
-                  value={draft.username}
-                  onChange={(e) => updateDraft({ username: e.target.value })}
+                  value={account.username}
+                  onChange={(e) => updateAccount({ username: e.target.value })}
                   aria-invalid={!!stepErrors.username}
                   aria-describedby={stepErrors.username ? 'register-username-error' : 'register-username-hint'}
                 />
@@ -1136,8 +829,8 @@ export default function RegisterPage() {
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password"
                     placeholder="••••••••"
-                    value={draft.password}
-                    onChange={(e) => updateDraft({ password: e.target.value })}
+                    value={account.password}
+                    onChange={(e) => updateAccount({ password: e.target.value })}
                     aria-invalid={!!stepErrors.password}
                     aria-describedby={stepErrors.password ? 'register-password-error' : undefined}
                     className="pr-10"
@@ -1154,8 +847,8 @@ export default function RegisterPage() {
                 </div>
                 <FieldError id="register-password-error" message={stepErrors.password} />
                 <PasswordStrengthBar
-                  password={draft.password}
-                  userInputs={[draft.email, draft.username]}
+                  password={account.password}
+                  userInputs={[account.email, account.username]}
                 />
                 <ul
                   id="register-password-requirements"
@@ -1163,27 +856,21 @@ export default function RegisterPage() {
                   aria-label="Password requirements"
                 >
                   {[
-                    { label: 'At least 8 characters', met: draft.password.length >= 8 },
-                    { label: 'One uppercase letter (A–Z)', met: /[A-Z]/.test(draft.password) },
-                    { label: 'One number (0–9)', met: /[0-9]/.test(draft.password) },
-                    { label: 'One special character (e.g. !@#$)', met: /[^A-Za-z0-9]/.test(draft.password) },
+                    { label: 'At least 8 characters', met: account.password.length >= 8 },
+                    { label: 'One uppercase letter (A–Z)', met: /[A-Z]/.test(account.password) },
+                    { label: 'One number (0–9)', met: /[0-9]/.test(account.password) },
+                    { label: 'One special character (e.g. !@#$)', met: /[^A-Za-z0-9]/.test(account.password) },
                     {
                       label: 'Strength rated Good or Strong',
-                      met: isAcceptablePasswordStrength(draft.password, [draft.email, draft.username]),
+                      met: isAcceptablePasswordStrength(account.password, [account.email, account.username]),
                     },
                   ].map((rule) => (
                     <li
                       key={rule.label}
-                      className={`flex items-center gap-1.5 ${
+                      className={
                         rule.met ? 'text-accent-ink font-medium' : 'text-pine/70'
-                      }`}
+                      }
                     >
-                      <Check
-                        className={`w-3.5 h-3.5 shrink-0 ${
-                          rule.met ? 'text-accent-ink' : 'text-pine/30'
-                        }`}
-                        aria-hidden="true"
-                      />
                       <span>{rule.label}</span>
                     </li>
                   ))}
@@ -1198,8 +885,8 @@ export default function RegisterPage() {
                     type={showConfirmPassword ? 'text' : 'password'}
                     autoComplete="new-password"
                     placeholder="••••••••"
-                    value={draft.confirmPassword}
-                    onChange={(e) => updateDraft({ confirmPassword: e.target.value })}
+                    value={account.confirmPassword}
+                    onChange={(e) => updateAccount({ confirmPassword: e.target.value })}
                     aria-invalid={!!stepErrors.confirmPassword}
                     aria-describedby={stepErrors.confirmPassword ? 'register-confirm-error' : undefined}
                     className="pr-10"
@@ -1224,8 +911,8 @@ export default function RegisterPage() {
                 >
                   <Checkbox
                     id="register-privacy-consent"
-                    checked={draft.privacyConsent}
-                    onChange={(e) => updateDraft({ privacyConsent: e.target.checked })}
+                    checked={account.privacyConsent}
+                    onChange={(e) => updateAccount({ privacyConsent: e.target.checked })}
                     aria-invalid={!!stepErrors.privacyConsent}
                     aria-describedby={stepErrors.privacyConsent ? 'register-consent-error' : undefined}
                     className="mt-0.5"
@@ -1253,214 +940,9 @@ export default function RegisterPage() {
             </div>
           )}
 
-          {/* STEP 3: Scope & Acknowledgements */}
-          {wizardStep === 3 && (
-            <div className="space-y-5">
-              <div>
-                <Label htmlFor="reg-scope-text" variant="doc">
-                  Scope &amp; limitations of services — scroll to read
-                </Label>
-                <div
-                  id="reg-scope-text"
-                  tabIndex={0}
-                  className="mt-1.5 max-h-48 overflow-y-auto p-4 rounded-lg bg-parchment border border-mist text-xs text-pine/90 leading-relaxed whitespace-pre-wrap"
-                >
-                  {liveScopeLimitationsText}
-                </div>
-              </div>
-              <label className="flex items-start gap-3 text-sm text-pine cursor-pointer p-4 rounded-xl border border-mist hover:border-mint transition-colors">
-                <Checkbox
-                  id="reg-scope-ack"
-                  className="mt-0.5"
-                  checked={draft.scope_acknowledged}
-                  onChange={(e) => updateDraft({ scope_acknowledged: e.target.checked })}
-                  aria-invalid={!!stepErrors.scope_acknowledged}
-                  aria-describedby={stepErrors.scope_acknowledged ? 'reg-scope-error' : undefined}
-                />
-                <span className="leading-relaxed text-xs">{liveScopeAckText}</span>
-              </label>
-              <FieldError id="reg-scope-error" message={stepErrors.scope_acknowledged} />
-
-              <label className="flex items-start gap-3 text-sm text-pine cursor-pointer">
-                <Checkbox
-                  id="reg-overseas-flag"
-                  className="mt-0.5"
-                  checked={draft.is_overseas_or_foreign}
-                  onChange={(e) =>
-                    updateDraft({
-                      is_overseas_or_foreign: e.target.checked,
-                      overseas_acknowledged: e.target.checked ? draft.overseas_acknowledged : false,
-                    })
-                  }
-                />
-                <span className="leading-relaxed text-xs">I am an overseas client or foreign national</span>
-              </label>
-
-              {draft.is_overseas_or_foreign && (
-                <div className="space-y-2">
-                  <Label htmlFor="reg-overseas-text" variant="doc">
-                    Limitations for overseas clients and foreign nationals — scroll to read
-                  </Label>
-                  <div
-                    id="reg-overseas-text"
-                    tabIndex={0}
-                    className="max-h-48 overflow-y-auto p-4 rounded-lg bg-parchment border border-mist text-xs text-pine/90 leading-relaxed whitespace-pre-wrap"
-                  >
-                    {liveOverseasLimitationsText}
-                  </div>
-                  <label className="flex items-start gap-3 text-sm text-pine cursor-pointer p-4 rounded-xl bg-surface-sunken border border-sage/50">
-                    <Checkbox
-                      id="reg-overseas-ack"
-                      className="mt-0.5"
-                      checked={draft.overseas_acknowledged}
-                      onChange={(e) => updateDraft({ overseas_acknowledged: e.target.checked })}
-                      aria-invalid={!!stepErrors.overseas_acknowledged}
-                      aria-describedby={stepErrors.overseas_acknowledged ? 'reg-overseas-error' : undefined}
-                    />
-                    <span className="leading-relaxed text-xs">{liveOverseasAckText}</span>
-                  </label>
-                </div>
-              )}
-              <FieldError id="reg-overseas-error" message={stepErrors.overseas_acknowledged} />
-            </div>
-          )}
-
-          {/* STEP 4: Informed Consent & Agreement (Self Profile) */}
-          {wizardStep === 4 && (
-            <div className="space-y-5">
-              <div className="rounded-lg bg-surface-sunken border border-mist px-4 py-3 text-xs text-pine/80 leading-relaxed">
-                Your account automatically includes your personal client profile (<strong>Self</strong>). Dependents or family members can be added after registration.
-              </div>
-              <div>
-                <Label htmlFor="reg-consent-text" variant="doc">
-                  Informed consent &amp; data privacy agreement — scroll to read
-                </Label>
-                <div
-                  id="reg-consent-text"
-                  tabIndex={0}
-                  className="mt-1.5 max-h-48 overflow-y-auto p-4 rounded-lg bg-parchment border border-mist text-xs text-pine/90 leading-relaxed whitespace-pre-wrap"
-                >
-                  {liveInformedConsentText}
-                </div>
-              </div>
-              <div>
-                <label className="flex items-start gap-3 text-sm text-pine cursor-pointer p-4 rounded-xl border border-mist hover:border-mint transition-colors">
-                  <Checkbox
-                    id="reg-terms-agreed"
-                    className="mt-0.5"
-                    checked={draft.terms_agreed}
-                    onChange={(e) => updateDraft({ terms_agreed: e.target.checked })}
-                    aria-invalid={!!stepErrors.terms_agreed}
-                    aria-describedby={stepErrors.terms_agreed ? 'reg-terms-agreed-error' : undefined}
-                  />
-                  <span className="leading-relaxed text-xs">
-                    I confirm that I have read, understood, and voluntarily agreed to the terms stated in this agreement.
-                  </span>
-                </label>
-                <FieldError id="reg-terms-agreed-error" message={stepErrors.terms_agreed} />
-              </div>
-            </div>
-          )}
-
-          {/* STEP 5: Confirmation & Final Consent */}
-          {wizardStep === 5 && (
-            <div className="space-y-5">
-              <div className="rounded-lg border border-mist overflow-hidden">
-                {[
-                  {
-                    title: 'Personal demographics',
-                    step: 1 as const,
-                    rows: [
-                      ['First name', draft.first_name.trim() || '—'],
-                      ['Last name', draft.last_name.trim() || '—'],
-                      ['Date of birth', draft.date_of_birth || '—'],
-                      ['Contact', draft.contact_number || '—'],
-                      ['Nationality', draft.nationality || '—'],
-                      ['Preferred contact', draft.preferred_contact_mode],
-                      [
-                        'Emergency contact',
-                        draft.emergency_contact_name
-                          ? `${draft.emergency_contact_name} (${draft.emergency_contact_relation}) · ${draft.emergency_contact_number}`
-                          : '—',
-                      ],
-                    ],
-                  },
-                  {
-                    title: 'Account credentials',
-                    step: 2 as const,
-                    rows: [
-                      ['Email', draft.email || '—'],
-                      ['Username', draft.username || '—'],
-                    ],
-                  },
-                  {
-                    title: 'Scope & acknowledgements',
-                    step: 3 as const,
-                    rows: [
-                      ['Scope acknowledged', draft.scope_acknowledged ? 'Yes' : 'No'],
-                      ['Overseas / foreign national', draft.is_overseas_or_foreign ? 'Yes' : 'No'],
-                      ...(draft.is_overseas_or_foreign
-                        ? [['Overseas acknowledged', draft.overseas_acknowledged ? 'Yes' : 'No'] as [string, string]]
-                        : []),
-                    ],
-                  },
-                  {
-                    title: 'Consent & agreement',
-                    step: 4 as const,
-                    rows: [
-                      ['Profile relation', 'Self (Primary)'],
-                      ['Informed consent', draft.terms_agreed ? 'Agreed' : 'No'],
-                    ],
-                  },
-                ].map((group) => (
-                  <div key={group.title} className="border-b border-mist last:border-b-0">
-                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-mist">
-                      <p className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                        {group.title}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAttempted(false);
-                          setWizardStep(group.step);
-                        }}
-                        className="text-xs font-medium text-sage hover:text-pine transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage rounded"
-                      >
-                        Edit
-                      </button>
-                    </div>
-                    <dl className="px-4 py-2 space-y-1">
-                      {group.rows.map(([k, v]) => (
-                        <div key={k} className="flex justify-between gap-4 text-xs">
-                          <dt className="text-pine/65">{k}</dt>
-                          <dd className="font-medium text-pine text-right break-words">{v}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex items-start gap-3 py-1">
-                <Checkbox
-                  id="reg-confirm-checkbox"
-                  checked={draft.information_confirmed}
-                  onChange={(e) => updateDraft({ information_confirmed: e.target.checked })}
-                  aria-invalid={!!stepErrors.information_confirmed}
-                  aria-describedby={stepErrors.information_confirmed ? 'reg-confirm-info-error' : undefined}
-                />
-                <label htmlFor="reg-confirm-checkbox" className="text-xs text-pine leading-relaxed cursor-pointer">
-                  I confirm that the information I have provided is accurate and complete.{' '}
-                  {liveFinalConsentStatement}
-                </label>
-              </div>
-              <FieldError id="reg-confirm-info-error" message={stepErrors.information_confirmed} />
-            </div>
-          )}
-
           {/* Wizard Navigation */}
           <div className="pt-2 flex items-center justify-between gap-3">
-            {wizardStep > 1 ? (
+            {safeStep > 1 ? (
               <Button
                 type="button"
                 variant="outline"
@@ -1474,7 +956,7 @@ export default function RegisterPage() {
               <span />
             )}
 
-            {wizardStep < 5 ? (
+            {!isAccountStep ? (
               <Button
                 key="register-next"
                 id="register-next"
@@ -1503,9 +985,14 @@ export default function RegisterPage() {
                 type="submit"
                 variant="dark"
                 size="lg"
-                disabled={isLoading}
+                disabled={isLoading || isCheckingAvailability}
               >
-                {isLoading ? (
+                {isCheckingAvailability ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Checking…
+                  </>
+                ) : isLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Creating account…
@@ -1553,7 +1040,7 @@ export default function RegisterPage() {
             psychological care.
           </p>
           <div className="max-h-72 overflow-y-auto rounded-lg border border-mist bg-parchment p-4 whitespace-pre-wrap text-pine/90">
-            {INFORMED_CONSENT_TEXT}
+            {liveInformedConsentText}
           </div>
         </div>
       </Modal>

@@ -26,6 +26,7 @@ import {
   BookingStatusTag,
   Button,
   EmptyState,
+  Select,
   Skeleton,
 } from '@/components/ui/primitives';
 
@@ -130,25 +131,10 @@ export default function ClientBookingsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-mist pb-5">
-        <div className="space-y-1.5">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-heading text-3xl sm:text-4xl font-medium text-pine tracking-tight">
-              My Bookings
-            </h1>
-            {!isLoading && (
-              <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold tabular-nums rounded-full bg-surface-sunken border border-mist text-pine">
-                {sortedBookings.length}{' '}
-                {sortedBookings.length === 1 ? 'booking' : 'bookings'}
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-pine/75 max-w-2xl">
-            Select any booking to view full schedule options, session notes, payment details, or
-            psychologist contact links. All times are in{' '}
-            <strong className="font-semibold text-pine">Philippine Time (PHT, GMT+8)</strong>.
-          </p>
-        </div>
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-mist pb-5">
+        <h1 className="font-heading text-3xl sm:text-4xl font-medium text-pine tracking-tight">
+          My Bookings
+        </h1>
 
         <Button
           variant="primary"
@@ -202,38 +188,30 @@ export default function ClientBookingsPage() {
 
       {/* Interactive Filter Controls */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div
-          role="group"
-          aria-label="Filter bookings by status"
-          className="flex flex-wrap items-center gap-1 p-1 bg-surface-sunken rounded-lg border border-mist"
-        >
-          {FILTER_TABS.filter(
-            (tab) =>
-              tab.id !== 'partially-refunded' ||
-              sortedBookings.some(
-                (b) => b.status === 'partially-refunded' || b.status === 'refunded'
-              )
-          ).map((tab) => {
-            const count = sortedBookings.filter((b) =>
-              matchesFilter(b.status, tab.id)
-            ).length;
-            const isActive = statusFilter === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                aria-pressed={isActive}
-                onClick={() => setStatusFilter(tab.id)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors duration-150 cursor-pointer whitespace-nowrap tabular-nums focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sage ${
-                  isActive
-                    ? 'bg-surface-raised text-pine font-semibold shadow-xs'
-                    : 'text-pine/70 hover:text-pine'
-                }`}
-              >
-                {tab.label} ({count})
-              </button>
-            );
-          })}
+        <div className="w-full sm:w-64">
+          <Select
+            id="bookings-status-filter"
+            aria-label="Filter bookings by status"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as 'all' | BookingStatus)}
+          >
+            {FILTER_TABS.filter(
+              (tab) =>
+                tab.id !== 'partially-refunded' ||
+                sortedBookings.some(
+                  (b) => b.status === 'partially-refunded' || b.status === 'refunded'
+                )
+            ).map((tab) => {
+              const count = sortedBookings.filter((b) =>
+                matchesFilter(b.status, tab.id)
+              ).length;
+              return (
+                <option key={tab.id} value={tab.id}>
+                  {tab.label} ({count})
+                </option>
+              );
+            })}
+          </Select>
         </div>
       </div>
 

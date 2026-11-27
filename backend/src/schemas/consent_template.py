@@ -19,7 +19,8 @@ from models.consent_template import (
 
 REQUIRED_OPERATIONAL_KEYS = (
     "relation_to_account_holder",
-    "profile_name",
+    "first_name",
+    "last_name",
     "date_of_birth",
     "socmed_platform",
     "socmed_username",

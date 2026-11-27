@@ -18,8 +18,8 @@ import { getFriendlyErrorMessage } from '@/lib/errorMessages';
 import {
   DEFAULT_WIZARD_PAGES,
   didConsentBlocksChange,
-  isWizardBlockVisible,
 } from '@/lib/consent';
+import { DynamicWizardPage } from '@/components/DynamicWizardPage';
 import {
   cmsOverviewSchema,
   CmsOverviewFormValues,
@@ -252,6 +252,7 @@ export default function AdminCmsPage() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewStep, setPreviewStep] = useState(1);
   const [previewValues, setPreviewValues] = useState<Record<string, unknown>>({});
+  const [previewFlow, setPreviewFlow] = useState<'self' | 'dependent'>('self');
 
   useEffect(() => {
     if (activeTemplate?.wizardPages && activeTemplate.wizardPages.length > 0) {
@@ -2527,248 +2528,71 @@ export default function AdminCmsPage() {
                 })}
               </ol>
 
-              {activePreviewPage?.description && (
-                <p className="text-xs text-pine/75">{activePreviewPage.description}</p>
-              )}
-
-              <div className="space-y-4">
-                {activePreviewPage?.blocks.map((block) => {
-                  if (block.blockId === 'who_for') return null;
-                  if (!isWizardBlockVisible(block, false, previewValues)) return null;
-
-                  if (block.type === 'scrollable_doc') {
-                    return (
-                      <div key={block.blockId}>
-                        <Label variant="doc">
-                          {block.label} ({previewVersion})
-                        </Label>
-                        <div className="mt-1.5 max-h-44 overflow-y-auto p-4 rounded-lg bg-parchment border border-mist text-xs text-pine/90 leading-relaxed whitespace-pre-wrap">
-                          {block.content}
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  if (block.type === 'services_list') {
-                    const activeServices = services.filter((s) => s.isActive !== false);
-                    return (
-                      <div key={block.blockId} className="space-y-2">
-                        <h3 className="font-heading text-base font-medium text-pine">
-                          {block.label}
-                        </h3>
-                        <ul className="space-y-2">
-                          {activeServices.map((s) => (
-                            <li
-                              key={s.id}
-                              className="p-3 rounded-lg bg-parchment border border-mist space-y-1"
-                            >
-                              <p className="text-xs font-semibold text-pine">
-                                {s.title}{' '}
-                                <span className="font-normal text-accent-ink">
-                                  · {s.durationLabel}
-                                  {s.rateLabel ? ` · ${s.rateLabel}` : ''}
-                                </span>
-                              </p>
-                              {s.description && (
-                                <p className="text-xs text-pine/85 leading-relaxed">
-                                  {s.description}
-                                </p>
-                              )}
-                              {s.guardrailNotice && (
-                                <p className="text-xs text-pine/70 italic">
-                                  {s.guardrailNotice}
-                                </p>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    );
-                  }
-
-                  if (block.type === 'section_heading') {
-                    return (
-                      <div
-                        key={block.blockId}
-                        className="border-t border-mist/70 pt-3 space-y-1"
-                      >
-                        <span className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                          {block.label}
-                        </span>
-                        {block.content && (
-                          <p className="text-xs text-pine/70">{block.content}</p>
-                        )}
-                      </div>
-                    );
-                  }
-
-                  if (block.type === 'info_text') {
-                    return (
-                      <div
-                        key={block.blockId}
-                        className="p-3.5 rounded-lg bg-surface-sunken border border-mist text-xs text-pine/85 leading-relaxed"
-                      >
-                        {block.content || block.label}
-                      </div>
-                    );
-                  }
-
-                  if (block.type === 'review_summary') {
-                    const groups = previewPages
-                      .map((p, idx) => {
-                        if (p.pageId === activePreviewPage.pageId) return null;
-                        const rows: [string, string][] = [];
-                        for (const b of p.blocks) {
-                          if (!INPUT_BLOCK_TYPES.has(b.type) || !b.fieldKey) continue;
-                          if (!isWizardBlockVisible(b, false, previewValues)) continue;
-                          const raw = previewValues[b.fieldKey];
-                          const formatted =
-                            b.type === 'checkbox'
-                              ? raw
-                                ? 'Yes'
-                                : 'No'
-                              : raw != null && String(raw).trim() !== ''
-                                ? String(raw)
-                                : '—';
-                          rows.push([b.label, formatted]);
-                        }
-                        return rows.length > 0
-                          ? { title: p.title, step: idx + 1, rows }
-                          : null;
-                      })
-                      .filter((g): g is NonNullable<typeof g> => g !== null);
-
-                    return (
-                      <div
-                        key={block.blockId}
-                        className="rounded-lg border border-mist overflow-hidden"
-                      >
-                        {groups.map((group) => (
-                          <div
-                            key={`${group.title}-${group.step}`}
-                            className="border-b border-mist last:border-b-0"
-                          >
-                            <div className="flex items-center justify-between px-3.5 py-2 border-b border-mist bg-surface-sunken/40">
-                              <p className="text-xs font-medium uppercase tracking-wider text-pine/60">
-                                {group.title}
-                              </p>
-                              <button
-                                type="button"
-                                onClick={() => setPreviewStep(group.step)}
-                                className="text-xs font-medium text-sage hover:text-pine cursor-pointer"
-                              >
-                                Edit
-                              </button>
-                            </div>
-                            <dl className="px-3.5 py-2 space-y-1">
-                              {group.rows.map(([k, v]) => (
-                                <div key={k} className="flex justify-between gap-4 text-xs">
-                                  <dt className="text-pine/65">{k}</dt>
-                                  <dd className="font-medium text-pine text-right">{v}</dd>
-                                </div>
-                              ))}
-                            </dl>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  }
-
-                  const key = block.fieldKey || block.blockId;
-                  const val = previewValues[key];
-                  const setPreviewField = (nextVal: unknown) =>
-                    setPreviewValues((prev) => ({ ...prev, [key]: nextVal }));
-
-                  if (block.type === 'checkbox') {
-                    return (
-                      <label
-                        key={block.blockId}
-                        className="flex items-start gap-3 text-xs text-pine cursor-pointer p-3 rounded-xl border border-mist hover:border-mint transition-colors"
-                      >
-                        <Checkbox
-                          className="mt-0.5"
-                          checked={Boolean(val)}
-                          onChange={(e) => setPreviewField(e.target.checked)}
-                        />
-                        <span className="leading-relaxed">{block.label}</span>
-                      </label>
-                    );
-                  }
-
-                  if (block.type === 'select') {
-                    const strVal = val == null ? '' : String(val);
-                    return (
-                      <div key={block.blockId}>
-                        <Label>
-                          {block.label}
-                          {block.required ? ' *' : ''}
-                        </Label>
-                        <Select
-                          value={strVal}
-                          onChange={(e) => setPreviewField(e.target.value)}
-                        >
-                          <option value="">Select an option…</option>
-                          {block.options.map((opt) => (
-                            <option
-                              key={`${block.blockId}-${opt.value}`}
-                              value={opt.value}
-                            >
-                              {opt.label}
-                            </option>
-                          ))}
-                        </Select>
-                        {block.helperText && (
-                          <p className="text-xs text-pine/70 mt-1">{block.helperText}</p>
-                        )}
-                      </div>
-                    );
-                  }
-
-                  if (block.type === 'textarea') {
-                    return (
-                      <div key={block.blockId}>
-                        <Label>
-                          {block.label}
-                          {block.required ? ' *' : ''}
-                        </Label>
-                        <Textarea
-                          rows={2}
-                          value={val == null ? '' : String(val)}
-                          placeholder={block.placeholder || undefined}
-                          onChange={(e) => setPreviewField(e.target.value)}
-                        />
-                        {block.helperText && (
-                          <p className="text-xs text-pine/70 mt-1">{block.helperText}</p>
-                        )}
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div key={block.blockId}>
-                      <Label>
-                        {block.label}
-                        {block.required ? ' *' : ''}
-                      </Label>
-                      <Input
-                        type={
-                          block.type === 'date'
-                            ? 'date'
-                            : block.type === 'phone'
-                              ? 'tel'
-                              : 'text'
-                        }
-                        value={val == null ? '' : String(val)}
-                        placeholder={block.placeholder || undefined}
-                        onChange={(e) => setPreviewField(e.target.value)}
-                      />
-                      {block.helperText && (
-                        <p className="text-xs text-pine/70 mt-1">{block.helperText}</p>
-                      )}
-                    </div>
-                  );
-                })}
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-mist/60">
+                <span className="text-xs font-medium text-pine/70">
+                  Preview as:
+                </span>
+                <div
+                  role="group"
+                  aria-label="Preview flow mode"
+                  className="inline-flex items-center gap-1 p-0.5 rounded-md bg-surface-sunken border border-mist"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setPreviewFlow('self')}
+                    className={`px-2.5 py-1 text-xs rounded transition-colors cursor-pointer ${
+                      previewFlow === 'self'
+                        ? 'bg-surface-raised text-pine font-semibold shadow-xs'
+                        : 'text-pine/70 hover:text-pine'
+                    }`}
+                  >
+                    Self (Registration)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewFlow('dependent')}
+                    className={`px-2.5 py-1 text-xs rounded transition-colors cursor-pointer ${
+                      previewFlow === 'dependent'
+                        ? 'bg-surface-raised text-pine font-semibold shadow-xs'
+                        : 'text-pine/70 hover:text-pine'
+                    }`}
+                  >
+                    Dependent (Profile)
+                  </button>
+                </div>
               </div>
+
+              {activePreviewPage && (
+                <DynamicWizardPage
+                  page={activePreviewPage}
+                  allPages={previewPages}
+                  values={previewValues}
+                  errors={{}}
+                  isSelf={previewFlow === 'self'}
+                  consentVersion={previewVersion}
+                  services={services}
+                  onChange={(fieldKey, nextVal) =>
+                    setPreviewValues((prev) => {
+                      const next: Record<string, unknown> = {
+                        ...prev,
+                        [fieldKey]: nextVal,
+                      };
+                      if (fieldKey === 'sameAsPermanent' && nextVal === true) {
+                        next.present_address = String(next.permanent_address ?? '');
+                      }
+                      if (fieldKey === 'permanent_address' && next.sameAsPermanent) {
+                        next.present_address = String(nextVal ?? '');
+                      }
+                      if (fieldKey === 'is_overseas_or_foreign' && nextVal === false) {
+                        next.overseas_acknowledged = false;
+                      }
+                      return next;
+                    })
+                  }
+                  onJumpToStep={(step) => setPreviewStep(step)}
+                  idPrefix="cms-preview"
+                />
+              )}
             </div>
           </Modal>
         );

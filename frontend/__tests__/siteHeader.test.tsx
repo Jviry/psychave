@@ -83,7 +83,7 @@ describe('SiteHeader role-based navigation', () => {
     expect(screen.getByRole('link', { name: 'Account Management' })).toHaveAttribute('href', '/psych/profile');
   });
 
-  it('shows Account Management and CMS for admin', () => {
+  it('shows Account Management, Manual Payments, and CMS for admin', () => {
     mockPathname = '/admin/users';
     useAuthStore.setState({
       isAuthenticated: true,
@@ -92,6 +92,7 @@ describe('SiteHeader role-based navigation', () => {
     render(<SiteHeader />);
 
     expect(screen.getAllByRole('link', { name: 'Account Management' })[0]).toHaveAttribute('href', '/admin/users');
+    expect(screen.getAllByRole('link', { name: 'Manual Payments' })[0]).toHaveAttribute('href', '/admin/bookings');
     expect(screen.getAllByRole('link', { name: 'CMS' })[0]).toHaveAttribute('href', '/admin/cms');
 
     fireEvent.click(screen.getByRole('button', { name: /admin1/i }));

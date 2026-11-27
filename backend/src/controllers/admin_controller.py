@@ -8,6 +8,7 @@ from models.appointment import AppointmentStatus
 from models.user import UserRole
 from schemas.admin import (
     AdminRefundRequest,
+    AdminUserDetailRead,
     AdminUserPage,
     AdminUserRead,
     ManualPaymentConfirmRequest,
@@ -36,6 +37,17 @@ def list_users(
     return AdminUsecase(auth_service, db).list_users(
         role, search, page, page_size
     )
+
+
+@router.get("/users/{user_id}", response_model=AdminUserDetailRead)
+def get_user_detail(
+    user_id: uuid.UUID,
+    auth_service: AuthServiceDep,
+    current_user: AdminUserDep,
+    db: DbDep,
+):
+    """Retrieve account and profile details for a single user."""
+    return AdminUsecase(auth_service, db).get_user_detail(user_id)
 
 
 @router.patch("/users/{user_id}/role", response_model=AdminUserRead)
