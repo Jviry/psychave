@@ -552,20 +552,6 @@ function ClientBookingDetailContent() {
                 </div>
               )}
 
-            {booking.status === 'awaiting-client' && counterSlot && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50/60 px-4 py-3 space-y-1">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-900">
-                  Alternative Time Offered
-                </p>
-                <p className="text-sm font-semibold text-pine tabular-nums">
-                  {counterSlot.dateLabel}
-                </p>
-                <p className="text-xs font-mono text-amber-900 tabular-nums">
-                  {counterSlot.timeLabel}
-                </p>
-              </div>
-            )}
-
             {(booking.status === 'pending' ||
               booking.status === 'awaiting-review' ||
               booking.status === 'awaiting-client' ||
@@ -713,10 +699,13 @@ function ClientBookingDetailContent() {
           </>
         }
       >
+        <p className="text-sm text-pine/80 leading-relaxed">
+          Any preferred or held schedule slots will be released immediately.
+        </p>
         {cancelError && (
           <div
             role="alert"
-            className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-900"
+            className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-900"
           >
             {cancelError}
           </div>

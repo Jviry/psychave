@@ -258,7 +258,7 @@ test.describe('03 — Full Multi-Role Booking Lifecycle (Client -> Psych -> Admi
         }
       );
 
-      // STEP 6 (Client): Verify meeting link & completed state directly on /bookings/[id]
+      // STEP 6 (Client): Verify completed state on /bookings/[id]
       await withRolePage(
         browser,
         AUTH_FILES.client,
@@ -267,7 +267,7 @@ test.describe('03 — Full Multi-Role Booking Lifecycle (Client -> Psych -> Admi
         async (clientPage) => {
           await clientPage.goto(`/bookings/${createdAppointmentId}`);
           await clientPage.waitForLoadState('networkidle');
-          await expect(clientPage.getByText(/meet\.google\.com/i).first()).toBeVisible({
+          await expect(clientPage.getByText(/Completed with/i).first()).toBeVisible({
             timeout: 15_000,
           });
         }

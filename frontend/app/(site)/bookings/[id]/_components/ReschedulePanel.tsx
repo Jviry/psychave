@@ -25,8 +25,15 @@ export function ReschedulePanel({
   const [feeAck, setFeeAck] = useState(false);
 
   const filledSlots = slots.map((s) => s.trim()).filter(Boolean);
-  const canSubmit =
-    !isPending && filledSlots.length >= 3 && (!isWithin2Hours || feeAck);
+  const slotsAreFuture = filledSlots.every((value) => {
+    const normalized = value.length === 16 ? `${value}:00+08:00` : `${value}+08:00`;
+    const parsed = new Date(normalized);
+    return !Number.isNaN(parsed.getTime()) && parsed.getTime() > Date.now();
+  });
+  const slotsAreDistinct =
+    new Set(filledSlots.map((value) => value.slice(0, 16))).size === filledSlots.length;
+  const slotsValid = filledSlots.length >= 3 && slotsAreFuture && slotsAreDistinct;
+  const canSubmit = !isPending && slotsValid && (!isWithin2Hours || feeAck);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -88,7 +95,12 @@ export function ReschedulePanel({
           </p>
 
           <div className="space-y-2">
-            <Label>New preferred times (3 to 5 required)</Label>
+            <div>
+              <Label>New preferred times (3 to 5 required)</Label>
+              <p className="text-xs text-pine/65 mt-0.5">
+                All times in Philippine Time (PHT, GMT+8).
+              </p>
+            </div>
             {slots.map((slotValue, index) => (
               <div key={index} className="flex items-center gap-2">
                 <span className="w-5 shrink-0 text-xs font-semibold text-pine/60 tabular-nums">
@@ -125,6 +137,12 @@ export function ReschedulePanel({
                 <Plus className="w-4 h-4" aria-hidden="true" />
                 Add another time
               </Button>
+            )}
+
+            {filledSlots.length > 0 && !slotsValid && (
+              <p className="text-xs text-red-700">
+                Provide at least 3 distinct future times.
+              </p>
             )}
           </div>
 

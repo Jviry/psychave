@@ -234,52 +234,60 @@ export function BookingStatusPanel({
               : `Confirmed with ${booking.psychologistCode}`}
           </p>
 
-          {/* Teleconsultation Meeting Link */}
-          <div className="rounded-xl border border-mist bg-parchment p-4 space-y-2.5">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-accent-ink">
-              <Video className="w-4 h-4 shrink-0" aria-hidden="true" />
-              <span>Teleconsultation Meeting Link</span>
-            </div>
-
-            {booking.meetingLink ? (
-              <div className="space-y-2.5">
-                <a
-                  href={booking.meetingLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 w-full rounded-full bg-sage px-4 py-2.5 text-sm font-medium text-white hover:bg-accent-ink transition-colors"
-                >
-                  <span>Join Teleconsultation Session</span>
-                  <ExternalLink className="w-4 h-4 shrink-0" aria-hidden="true" />
-                </a>
-                <div className="flex items-center justify-between gap-2 text-xs">
-                  <span className="font-mono text-pine/75 truncate">{booking.meetingLink}</span>
-                  <button
-                    type="button"
-                    onClick={() => void handleCopyMeetingLink(booking.meetingLink!)}
-                    className="inline-flex items-center gap-1 shrink-0 font-semibold text-accent-ink hover:text-pine cursor-pointer"
-                  >
-                    {copiedLink ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" aria-hidden="true" />
-                        <span>Copied</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" aria-hidden="true" />
-                        <span>Copy link</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+          {/* Active Teleconsultation Meeting Link — shown for upcoming confirmed sessions only */}
+          {booking.status === 'paid-confirmed' && (
+            <div className="rounded-xl border border-mist bg-parchment p-4 space-y-2.5">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-accent-ink">
+                <Video className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span>Teleconsultation Meeting Link</span>
               </div>
-            ) : (
-              <p className="text-xs text-pine/75 leading-relaxed">
-                Your meeting link will appear here once added by your psychologist before the
-                session.
-              </p>
-            )}
-          </div>
+
+              {booking.meetingLink ? (
+                <div className="space-y-2.5">
+                  <a
+                    href={booking.meetingLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 w-full rounded-full bg-sage px-4 py-2.5 text-sm font-medium text-white hover:bg-accent-ink transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
+                  >
+                    <span>Join Teleconsultation Session</span>
+                    <ExternalLink className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  </a>
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="font-mono text-pine/75 truncate">{booking.meetingLink}</span>
+                    <button
+                      type="button"
+                      onClick={() => void handleCopyMeetingLink(booking.meetingLink!)}
+                      className="inline-flex items-center gap-1 shrink-0 font-semibold text-accent-ink hover:text-pine cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage"
+                    >
+                      {copiedLink ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                          <span>Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" aria-hidden="true" />
+                          <span>Copy link</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-pine/75 leading-relaxed">
+                  Your meeting link will appear here once added by your psychologist before the
+                  session.
+                </p>
+              )}
+            </div>
+          )}
+
+          {booking.status === 'completed' && !evaluationFormUrl && (
+            <p className="text-xs text-pine/75 leading-relaxed">
+              This session has been completed. Thank you for booking with PsychAve PH.
+            </p>
+          )}
 
           {booking.status === 'completed' && evaluationFormUrl && (
             <div className="rounded-xl border border-sage/40 bg-surface-sunken p-4 space-y-2 text-xs">
@@ -291,7 +299,7 @@ export function BookingStatusPanel({
                 href={evaluationFormUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 font-semibold text-accent-ink underline underline-offset-4 hover:text-pine"
+                className="inline-flex items-center gap-1.5 font-semibold text-accent-ink underline underline-offset-4 hover:text-pine focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage rounded-xs"
               >
                 <span>Open Evaluation Form</span>
                 <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
