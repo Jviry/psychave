@@ -174,7 +174,7 @@ export default function ClientBookingsPage() {
           <Button
             variant="dark"
             size="md"
-            onClick={() => router.push(`/proposal/${firstAction.id}`)}
+            onClick={() => router.push(`/bookings/${firstAction.id}`)}
           >
             {firstAction.status === 'awaiting-payment'
               ? 'Complete Payment'
