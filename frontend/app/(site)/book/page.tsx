@@ -182,7 +182,8 @@ function ClientBookingFlow() {
           </h2>
           <p className="text-sm text-pine/80 leading-relaxed">
             A verified psychologist will review your preferred schedules and accept one or offer the
-            nearest available alternative. Your contact details unlock after payment.
+            nearest available alternative. Your psychologist&apos;s contact links unlock as soon as
+            they pick up your request.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -553,9 +554,7 @@ export default function BookPage() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
   const getDashboardPath = useAuthStore((s) => s.getDashboardPath);
-  const [hydrated, setHydrated] = useState(
-    () => useAuthStore.persist?.hasHydrated?.() ?? false
-  );
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     const persistApi = useAuthStore.persist;
