@@ -15,6 +15,7 @@ let mockParams: { id?: string } = { id: 'bk-new' };
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: pushMock, replace: vi.fn() }),
   useParams: () => mockParams,
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 function makeBooking(overrides: Partial<BookingRequest>): BookingRequest {
@@ -263,5 +264,100 @@ describe('ClientBookingDetailPage', () => {
       'href',
       '/bookings'
     );
+  });
+
+  it('renders meeting link, psychologist contact, and collapsible reschedule on paid-confirmed', async () => {
+    mockParams = { id: 'bk-confirmed' };
+    vi.spyOn(api, 'getBookingById').mockResolvedValue(
+      makeBooking({
+        id: 'bk-confirmed',
+        status: 'paid-confirmed',
+        psychologistCode: 'Resident Psychologist #RP-11',
+        pricePhp: 1500,
+        isSessionPaid: true,
+        contactUnlocked: true,
+        meetingLink: 'https://meet.google.com/abc-defg-hij',
+        psychologistSocialLinks: [
+          { platform: 'Facebook', url: 'https://facebook.com/psychaveph' },
+        ],
+      })
+    );
+
+    renderWithQuery(<ClientBookingDetailPage />);
+
+    const joinLink = await screen.findByRole('link', {
+      name: /Join Teleconsultation Session/i,
+    });
+    expect(joinLink).toHaveAttribute('href', 'https://meet.google.com/abc-defg-hij');
+    expect(screen.getByText(/How to reach your psychologist/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Reschedule/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Cancel Request/i })).not.toBeInTheDocument();
+  });
+
+  it('shows pickup-unlocked psychologist contact on awaiting-client and hides Cancel when session is already paid', async () => {
+    mockParams = { id: 'bk-resched' };
+    vi.spyOn(api, 'getBookingById').mockResolvedValue(
+      makeBooking({
+        id: 'bk-resched',
+        status: 'awaiting-client',
+        psychologistCode: 'Resident Psychologist #RP-11',
+        isSessionPaid: true,
+        contactUnlocked: true,
+        psychologistSocialLinks: [
+          { platform: 'Facebook', url: 'https://facebook.com/psychaveph' },
+        ],
+      })
+    );
+
+    renderWithQuery(<ClientBookingDetailPage />);
+
+    expect(await screen.findByText(/How to reach your psychologist/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Cancel Request/i })).not.toBeInTheDocument();
+  });
+
+  it('hides the active Join CTA on completed bookings and renders offered counter-slot only once on awaiting-client', async () => {
+    mockParams = { id: 'bk-completed' };
+    vi.spyOn(api, 'getBookingById').mockResolvedValue(
+      makeBooking({
+        id: 'bk-completed',
+        status: 'completed',
+        psychologistCode: 'Resident Psychologist #RP-11',
+        meetingLink: 'https://meet.google.com/past-session',
+        isSessionPaid: true,
+        contactUnlocked: true,
+      })
+    );
+
+    const { unmount } = renderWithQuery(<ClientBookingDetailPage />);
+    expect(await screen.findByText(/Completed with Resident Psychologist #RP-11/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /Join Teleconsultation Session/i })
+    ).not.toBeInTheDocument();
+    unmount();
+
+    mockParams = { id: 'bk-counter' };
+    vi.spyOn(api, 'getBookingById').mockResolvedValue(
+      makeBooking({
+        id: 'bk-counter',
+        status: 'awaiting-client',
+        psychologistCode: 'Resident Psychologist #RP-11',
+        proposedSlots: [
+          {
+            id: 'slot-psych-1',
+            slotNumber: 1,
+            isoDateTime: '2026-12-15T15:00',
+            dateLabel: 'Tue, Dec 15, 2026',
+            timeLabel: '3:00 PM – 4:00 PM PHT',
+            proposedBy: 'psychologist',
+            status: 'proposed',
+            round: 1,
+          },
+        ],
+      })
+    );
+
+    renderWithQuery(<ClientBookingDetailPage />);
+    expect(await screen.findAllByText('Tue, Dec 15, 2026')).toHaveLength(1);
+    expect(screen.queryByText(/Alternative Time Offered/i)).not.toBeInTheDocument();
   });
 });

@@ -81,8 +81,8 @@ class TestPaymentUsecase:
         assert checkout_call["amount"] == 2000.0
         assert checkout_call["currency"] == "PHP"
         assert checkout_call["reference"] == str(appt_id)
-        assert f"/proposal/{appt_id}?payment=success" in checkout_call["success_url"]
-        assert f"/proposal/{appt_id}?payment=cancelled" in checkout_call["cancel_url"]
+        assert f"/bookings/{appt_id}?payment=success" in checkout_call["success_url"]
+        assert f"/bookings/{appt_id}?payment=cancelled" in checkout_call["cancel_url"]
 
         assert db.add.called
         assert db.commit.called

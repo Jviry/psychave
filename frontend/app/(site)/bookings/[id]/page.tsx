@@ -1,33 +1,29 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { useAppStore } from '@/stores/useAppStore';
 import { BookingStatus } from '@/lib/types';
 import {
   agreedSlot,
   clientPreferredSlots,
-  formatDeadlineCountdown,
-  formatManilaDateTime,
+  parseManilaDateTime,
   psychologistCounterSlot,
 } from '@/lib/booking';
 import { getFriendlyErrorMessage } from '@/lib/errorMessages';
+import { AlertCircle, ArrowLeft, Calendar } from 'lucide-react';
 import {
-  AlertCircle,
-  ArrowLeft,
-  Calendar,
-  Clock,
-} from 'lucide-react';
-import { SocialLinksList } from '@/components/SocialLinksList';
-import {
+  BookingStatusTag,
   Button,
   EmptyState,
   Modal,
   Skeleton,
 } from '@/components/ui/primitives';
+import { BookingStatusPanel } from './_components/BookingStatusPanel';
+import { ReschedulePanel } from './_components/ReschedulePanel';
 
 const CANCELLABLE_STATUSES: BookingStatus[] = [
   'pending',
@@ -36,15 +32,24 @@ const CANCELLABLE_STATUSES: BookingStatus[] = [
   'awaiting-payment',
 ];
 
-export default function ClientBookingDetailPage() {
+function ClientBookingDetailContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
   const routeParams = useParams<{ id: string }>();
   const bookingId = routeParams.id || '';
+  const paymentQueryState = searchParams.get('payment');
   const publishFlowEvent = useAppStore((s) => s.publishFlowEvent);
 
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [isGatewayUnavailable, setIsGatewayUnavailable] = useState(false);
+  const [isRedirectingToCheckout, setIsRedirectingToCheckout] = useState(false);
+  const [pollingTimedOut, setPollingTimedOut] = useState(false);
+  const [pollingRestartKey, setPollingRestartKey] = useState(0);
+  const publishedWebhookConfirmRef = useRef(false);
+  const publishedRescheduleFeeRef = useRef(false);
 
   const {
     data: booking,
@@ -57,6 +62,76 @@ export default function ClientBookingDetailPage() {
     queryFn: () => api.getBookingById(bookingId),
     enabled: Boolean(bookingId),
   });
+
+  const { data: cms } = useQuery({
+    queryKey: ['cms'],
+    queryFn: () => api.getCmsContent(),
+    enabled: booking?.status === 'completed',
+  });
+
+  // Poll booking status after returning from PayMongo checkout
+  useEffect(() => {
+    if (paymentQueryState !== 'success' || !booking) return;
+
+    if (booking.status === 'paid-confirmed') {
+      if (!publishedWebhookConfirmRef.current) {
+        publishedWebhookConfirmRef.current = true;
+        queryClient.invalidateQueries({ queryKey: ['bookings'] });
+        publishFlowEvent(
+          'Payment Confirmed & Session Finalized',
+          `Booking ${booking.id} is now paid-confirmed and reminders are scheduled.`
+        );
+      }
+      return;
+    }
+
+    if (
+      (booking.status === 'awaiting-client' || booking.status === 'awaiting-review') &&
+      booking.isSessionPaid
+    ) {
+      if (!publishedRescheduleFeeRef.current) {
+        publishedRescheduleFeeRef.current = true;
+        queryClient.invalidateQueries({ queryKey: ['bookings'] });
+        publishFlowEvent(
+          '₱600 Reschedule Fee Paid',
+          booking.status === 'awaiting-review'
+            ? `Reschedule fee confirmed for booking ${booking.id}. Your psychologist is now reviewing your preferred times.`
+            : `Reschedule fee confirmed for booking ${booking.id}. Submit 3 to 5 new preferred times to continue.`
+        );
+      }
+      return;
+    }
+
+    if (
+      booking.status !== 'awaiting-payment' &&
+      booking.status !== 'reschedule-requested' &&
+      booking.status !== 'no-show'
+    ) {
+      return;
+    }
+
+    setPollingTimedOut(false);
+    const startedAt = Date.now();
+    const interval = setInterval(() => {
+      if (Date.now() - startedAt >= 30_000) {
+        setPollingTimedOut(true);
+        clearInterval(interval);
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
+    }, 2_000);
+
+    return () => clearInterval(interval);
+  }, [
+    paymentQueryState,
+    booking?.status,
+    booking?.isSessionPaid,
+    booking?.id,
+    bookingId,
+    pollingRestartKey,
+    publishFlowEvent,
+    queryClient,
+  ]);
 
   const cancelMutation = useMutation({
     mutationFn: () => api.cancelBooking(bookingId),
@@ -78,6 +153,106 @@ export default function ClientBookingDetailPage() {
         )
       );
     },
+  });
+
+  const acceptCounterMutation = useMutation({
+    mutationFn: (slotId: string) => api.acceptCounterSlot({ bookingId, slotId }),
+    onSuccess: (updated) => {
+      setActionError(null);
+      queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      publishFlowEvent(
+        updated.status === 'paid-confirmed'
+          ? 'Rescheduled Session Confirmed'
+          : 'Suggested Time Accepted',
+        updated.status === 'paid-confirmed'
+          ? `Booking ${updated.id} is confirmed for the rescheduled time.`
+          : `Booking ${updated.id} is now awaiting payment for the agreed schedule.`
+      );
+    },
+    onError: (err: Error) => setActionError(err.message),
+  });
+
+  const replaceSlotsMutation = useMutation({
+    mutationFn: ({ slots }: { slots: string[]; onReset: () => void }) =>
+      api.replacePreferredSlots({ bookingId, preferredSlots: slots }),
+    onSuccess: (updated, vars) => {
+      setActionError(null);
+      vars.onReset();
+      queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      publishFlowEvent(
+        'New Preferred Times Submitted',
+        `Booking ${updated.id} returned to your psychologist with fresh preferred times.`
+      );
+    },
+    onError: (err: Error) => setActionError(err.message),
+  });
+
+  const payMutation = useMutation({
+    mutationFn: () => api.payBooking(bookingId),
+    onSuccess: (updated) => {
+      setActionError(null);
+      setIsGatewayUnavailable(false);
+      if (updated.status !== 'paid-confirmed') {
+        setIsRedirectingToCheckout(true);
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      publishFlowEvent(
+        'Payment Confirmed & Session Finalized',
+        `Booking ${updated.id} is now paid-confirmed and reminders are scheduled.`
+      );
+    },
+    onError: (err: Error) => {
+      setIsRedirectingToCheckout(false);
+      setIsGatewayUnavailable(err instanceof ApiError && err.status === 503);
+      setActionError(err.message);
+    },
+  });
+
+  const payRescheduleMutation = useMutation({
+    mutationFn: () => api.payRescheduleFee(bookingId),
+    onSuccess: (updated) => {
+      setActionError(null);
+      setIsGatewayUnavailable(false);
+      if (updated.status === 'reschedule-requested' || updated.status === 'no-show') {
+        setIsRedirectingToCheckout(true);
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+    },
+    onError: (err: Error) => {
+      setIsRedirectingToCheckout(false);
+      setIsGatewayUnavailable(err instanceof ApiError && err.status === 503);
+      setActionError(err.message);
+    },
+  });
+
+  const rescheduleMutation = useMutation({
+    mutationFn: ({
+      payload,
+    }: {
+      payload: { reason?: string; preferredSlots: string[] };
+      onReset: () => void;
+    }) => api.requestReschedule(bookingId, payload),
+    onSuccess: (updated, vars) => {
+      setActionError(null);
+      vars.onReset();
+      queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      publishFlowEvent(
+        updated.status === 'reschedule-requested'
+          ? 'Reschedule Fee Required (₱600)'
+          : 'Reschedule Requested',
+        updated.status === 'reschedule-requested'
+          ? `Booking ${updated.id} is within 2 hours of the session. Please pay the ₱600 reschedule fee.`
+          : `Booking ${updated.id} returned to schedule negotiation.`
+      );
+    },
+    onError: (err: Error) => setActionError(err.message),
   });
 
   if (isLoading) {
@@ -173,8 +348,9 @@ export default function ClientBookingDetailPage() {
   const chosenSlot = agreedSlot(booking);
   const preferredSlots = clientPreferredSlots(booking);
   const counterSlot = psychologistCounterSlot(booking);
-  const canCancel = CANCELLABLE_STATUSES.includes(booking.status);
+  const canCancel = CANCELLABLE_STATUSES.includes(booking.status) && !booking.isSessionPaid;
   const isPaid =
+    booking.isSessionPaid ||
     booking.status === 'paid-confirmed' ||
     booking.status === 'completed' ||
     booking.status === 'reschedule-requested';
@@ -183,6 +359,13 @@ export default function ClientBookingDetailPage() {
     booking.serviceDurationMinutes > 0
       ? `${booking.serviceDurationMinutes} mins`
       : booking.serviceDuration;
+
+  const slotStartMs = chosenSlot
+    ? parseManilaDateTime(chosenSlot.isoDateTime).getTime()
+    : Number.NaN;
+  const isFutureSession = Number.isNaN(slotStartMs) || slotStartMs > Date.now();
+  const isWithin2Hours =
+    !Number.isNaN(slotStartMs) && slotStartMs - Date.now() < 2 * 60 * 60 * 1000;
 
   return (
     <div className="space-y-6">
@@ -199,39 +382,43 @@ export default function ClientBookingDetailPage() {
 
       {/* Header */}
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-mist pb-5">
-        <div>
-          <h1 className="font-heading text-3xl sm:text-4xl font-medium text-pine tracking-tight">
-            {booking.serviceTitle}
-          </h1>
+        <h1 className="font-heading text-3xl sm:text-4xl font-medium text-pine tracking-tight">
+          {booking.serviceTitle}
+        </h1>
+        <div className="self-start md:self-auto">
+          <BookingStatusTag status={booking.status} />
         </div>
-
-        {(booking.status === 'awaiting-client' || booking.status === 'awaiting-payment') && (
-          <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
-            {booking.status === 'awaiting-client' && (
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={() => router.push(`/proposal/${booking.id}`)}
-              >
-                Review &amp; Respond
-              </Button>
-            )}
-            {booking.status === 'awaiting-payment' && (
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={() => router.push(`/proposal/${booking.id}`)}
-              >
-                Pay Now
-              </Button>
-            )}
-          </div>
-        )}
       </header>
 
-      {/* Main Content */}
+      {/* Inline Action Error Banner */}
+      {actionError && (
+        <div
+          role="alert"
+          className="rounded-2xl border border-red-200 bg-red-50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-red-900"
+        >
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 text-red-700 shrink-0 mt-0.5" aria-hidden="true" />
+            <div>
+              <p className="font-semibold">The action could not be completed.</p>
+              <p className="mt-0.5 text-red-800">{actionError}</p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setActionError(null);
+              queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
+            }}
+            className="shrink-0"
+          >
+            Refresh
+          </Button>
+        </div>
+      )}
+
+      {/* Main Content — Status & primary actions come first on mobile */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left: Session Details & Schedule */}
         <div className="lg:col-span-7 space-y-6">
@@ -350,7 +537,8 @@ export default function ClientBookingDetailPage() {
               (booking.status === 'awaiting-payment' ||
                 booking.status === 'paid-confirmed' ||
                 booking.status === 'completed' ||
-                booking.status === 'reschedule-requested') && (
+                booking.status === 'reschedule-requested' ||
+                booking.status === 'no-show') && (
                 <div className="rounded-xl border border-mist bg-parchment px-4 py-3 space-y-1">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-accent-ink">
                     Agreed Schedule
@@ -363,20 +551,6 @@ export default function ClientBookingDetailPage() {
                   </p>
                 </div>
               )}
-
-            {booking.status === 'awaiting-client' && counterSlot && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50/60 px-4 py-3 space-y-1">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-900">
-                  Alternative Time Offered
-                </p>
-                <p className="text-sm font-semibold text-pine tabular-nums">
-                  {counterSlot.dateLabel}
-                </p>
-                <p className="text-xs font-mono text-amber-900 tabular-nums">
-                  {counterSlot.timeLabel}
-                </p>
-              </div>
-            )}
 
             {(booking.status === 'pending' ||
               booking.status === 'awaiting-review' ||
@@ -421,136 +595,43 @@ export default function ClientBookingDetailPage() {
           </section>
         </div>
 
-        {/* Right: Status Guidance, Contact & Actions */}
-        <aside className="lg:col-span-5 space-y-6">
-          <section
-            aria-labelledby="next-steps-heading"
-            className="rounded-2xl border border-mist bg-surface-raised p-6 space-y-4"
-          >
-            <h2
-              id="next-steps-heading"
-              className="font-heading text-xl font-medium text-pine"
-            >
-              Status
-            </h2>
+        {/* Right (first on mobile): Status, Primary Actions, Contact, Reschedule & Cancel */}
+        <aside className="order-first lg:order-none lg:col-span-5 space-y-6">
+          <BookingStatusPanel
+            booking={booking}
+            counterSlot={counterSlot}
+            paymentQueryState={paymentQueryState}
+            pollingTimedOut={pollingTimedOut}
+            isGatewayUnavailable={isGatewayUnavailable}
+            isRedirectingToCheckout={isRedirectingToCheckout}
+            isAcceptingCounter={acceptCounterMutation.isPending}
+            isSubmittingSlots={replaceSlotsMutation.isPending}
+            isPayingSession={payMutation.isPending}
+            isPayingRescheduleFee={payRescheduleMutation.isPending}
+            evaluationFormUrl={cms?.evaluationFormUrl}
+            onAcceptCounter={(slotId) => acceptCounterMutation.mutate(slotId)}
+            onSubmitNewSlots={(slots, onReset) =>
+              replaceSlotsMutation.mutate({ slots, onReset })
+            }
+            onPaySession={() => payMutation.mutate()}
+            onPayRescheduleFee={() => payRescheduleMutation.mutate()}
+            onRetryPolling={() => {
+              setPollingTimedOut(false);
+              setPollingRestartKey((k) => k + 1);
+              queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
+            }}
+            onNewBooking={() => router.push('/book')}
+          />
 
-            {booking.status === 'pending' && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs font-semibold text-amber-900">
-                  <Clock className="w-4 h-4 text-amber-700 shrink-0" aria-hidden="true" />
-                  <span>Waiting for a psychologist</span>
-                </div>
-                <p className="text-sm text-pine/80 leading-relaxed">
-                  Verified psychologists are reviewing your request and preferred times. You
-                  won&apos;t be charged until you agree on a schedule together.
-                </p>
-              </div>
-            )}
-
-            {booking.status === 'awaiting-review' && (
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-pine">
-                  Assigned to {booking.psychologistCode}
-                </p>
-                <p className="text-sm text-pine/80 leading-relaxed">
-                  Your psychologist is reviewing your preferred times. We&apos;ll notify you as
-                  soon as they confirm a slot or suggest an alternative.
-                </p>
-              </div>
-            )}
-
-            {booking.status === 'awaiting-client' && (
-              <div className="space-y-3">
-                <p className="text-sm font-semibold text-amber-900">
-                  Response needed on suggested time
-                </p>
-                <p className="text-sm text-pine/80 leading-relaxed">
-                  Accept the psychologist&apos;s suggested schedule to proceed to payment, or
-                  propose a fresh set of preferred times.
-                </p>
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="md"
-                  onClick={() => router.push(`/proposal/${booking.id}`)}
-                  className="w-full sm:w-auto"
-                >
-                  Review &amp; Respond
-                </Button>
-              </div>
-            )}
-
-            {booking.status === 'awaiting-payment' && (
-              <div className="space-y-3">
-                <p className="text-sm font-semibold text-pine">
-                  Agreed with {booking.psychologistCode}
-                </p>
-                {booking.paymentDeadline && (
-                  <p className="text-xs text-pine/85 leading-relaxed">
-                    Pay by{' '}
-                    <strong className="font-semibold text-pine">
-                      {formatManilaDateTime(booking.paymentDeadline)} PHT
-                    </strong>{' '}
-                    · {formatDeadlineCountdown(booking.paymentDeadline)}
-                  </p>
-                )}
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="md"
-                  onClick={() => router.push(`/proposal/${booking.id}`)}
-                  className="w-full sm:w-auto"
-                >
-                  Pay Now
-                </Button>
-              </div>
-            )}
-
-            {(booking.status === 'paid-confirmed' ||
-              booking.status === 'completed' ||
-              booking.status === 'reschedule-requested') && (
-              <div className="space-y-4">
-                <p className="text-sm font-semibold text-pine">
-                  {booking.status === 'completed'
-                    ? `Completed with ${booking.psychologistCode}`
-                    : `Confirmed with ${booking.psychologistCode}`}
-                </p>
-
-                {booking.contactUnlocked && (
-                  <div className="pt-3 border-t border-mist/60 space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-pine/60">
-                      How to reach your psychologist
-                    </p>
-                    <p className="text-xs text-pine/75 leading-relaxed">
-                      Connect using any link below to coordinate your session.
-                    </p>
-                    <SocialLinksList
-                      links={booking.psychologistSocialLinks}
-                      emptyMessage="Your psychologist has not added contact links yet."
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-
-            {booking.status === 'cancelled' && (
-              <div className="space-y-3">
-                <p className="text-sm font-semibold text-red-900">Session Cancelled</p>
-                <p className="text-sm text-red-800 leading-relaxed">
-                  This session request has been cancelled. You can submit a new request whenever
-                  you&apos;re ready.
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => router.push('/book')}
-                >
-                  Request a New Session
-                </Button>
-              </div>
-            )}
-          </section>
+          {booking.status === 'paid-confirmed' && isFutureSession && (
+            <ReschedulePanel
+              isWithin2Hours={isWithin2Hours}
+              isPending={rescheduleMutation.isPending}
+              onSubmitReschedule={(payload, onReset) =>
+                rescheduleMutation.mutate({ payload, onReset })
+              }
+            />
+          )}
 
           {canCancel && (
             <section
@@ -618,15 +699,34 @@ export default function ClientBookingDetailPage() {
           </>
         }
       >
+        <p className="text-sm text-pine/80 leading-relaxed">
+          Any preferred or held schedule slots will be released immediately.
+        </p>
         {cancelError && (
           <div
             role="alert"
-            className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-900"
+            className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-900"
           >
             {cancelError}
           </div>
         )}
       </Modal>
     </div>
+  );
+}
+
+export default function ClientBookingDetailPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-6">
+          <Skeleton className="h-5 w-36" />
+          <Skeleton className="h-10 w-72 max-w-full" />
+          <Skeleton className="h-64" />
+        </div>
+      }
+    >
+      <ClientBookingDetailContent />
+    </Suspense>
   );
 }

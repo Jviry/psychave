@@ -14,9 +14,7 @@ export default function AccountPage() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
 
-  const [hydrated, setHydrated] = useState(
-    () => useAuthStore.persist?.hasHydrated?.() ?? false
-  );
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     const persistApi = useAuthStore.persist;

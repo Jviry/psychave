@@ -48,7 +48,7 @@ class BaseEmailService(ABC):
         slots: Sequence[SlotTime] = (),
     ) -> None:
         subject = "We received your session request"
-        link = f"{self.frontend_base_url}/proposal/{appointment_id}"
+        link = f"{self.frontend_base_url}/bookings/{appointment_id}"
         slot_lines = (
             "\n".join(f"  - {self._format_slot(slot)}" for slot in slots)
             if slots
@@ -100,7 +100,7 @@ times or offer the nearest available alternative.</p>
         price: float,
     ) -> None:
         subject = "Your session schedule is agreed — complete payment to confirm"
-        link = f"{self.frontend_base_url}/proposal/{appointment_id}"
+        link = f"{self.frontend_base_url}/bookings/{appointment_id}"
         formatted_slot = self._format_slot(slot)
         fee = self._format_price(price)
         text = (
@@ -136,7 +136,7 @@ psychologist's contact details.</p>
         price: float,
     ) -> None:
         subject = "Your psychologist offered an alternative session time"
-        link = f"{self.frontend_base_url}/proposal/{appointment_id}"
+        link = f"{self.frontend_base_url}/bookings/{appointment_id}"
         formatted_slot = self._format_slot(slot)
         fee = self._format_price(price)
         text = (
@@ -224,7 +224,7 @@ offer an alternative schedule.</p>
                 "Your payment was received and your session is confirmed. Your "
                 "psychologist's contact details are now available in your booking."
             )
-            link = f"{self.frontend_base_url}/proposal/{appointment_id}"
+            link = f"{self.frontend_base_url}/bookings/{appointment_id}"
             cta = "View your booking"
 
         text = (
@@ -290,7 +290,7 @@ offer an alternative schedule.</p>
         link = (
             f"{self.frontend_base_url}/psych/schedule"
             if recipient == "psychologist"
-            else f"{self.frontend_base_url}/proposal/{appointment_id}"
+            else f"{self.frontend_base_url}/bookings/{appointment_id}"
         )
         if initiated_by == "psychologist":
             if recipient == "client":
@@ -412,7 +412,7 @@ offer an alternative schedule.</p>
                 )
             )
         else:
-            link = f"{self.frontend_base_url}/proposal/{appointment_id}"
+            link = f"{self.frontend_base_url}/bookings/{appointment_id}"
             subject = f"Reschedule fee {('waived' if waived else 'confirmed')} — next step"
             lead = (
                 f"Your ₱600 reschedule fee has been {status_label}. "
@@ -460,7 +460,7 @@ offer an alternative schedule.</p>
                 "waive the ₱600 reschedule fee from your schedule dashboard."
             )
         else:
-            link = f"{self.frontend_base_url}/proposal/{appointment_id}"
+            link = f"{self.frontend_base_url}/bookings/{appointment_id}"
             subject = "Your session was marked as a No-Show"
             lead = (
                 "Your session was marked as a No-Show. To reschedule, a ₱600 "
@@ -505,7 +505,7 @@ offer an alternative schedule.</p>
                 "appointment and released the scheduled slot from your calendar."
             )
         else:
-            link = f"{self.frontend_base_url}/proposal/{appointment_id}"
+            link = f"{self.frontend_base_url}/bookings/{appointment_id}"
             subject = f"Your {kind} refund ({refund_php}) has been processed"
             lead = (
                 f"A {kind} refund of {refund_php} has been processed for your booking."
@@ -579,7 +579,7 @@ offer an alternative schedule.</p>
         meeting_link: str,
     ) -> None:
         subject = "Your session meeting link is ready"
-        booking_url = f"{self.frontend_base_url}/proposal/{appointment_id}"
+        booking_url = f"{self.frontend_base_url}/bookings/{appointment_id}"
         text = (
             "Hi,\n\n"
             "Your psychologist has added the video meeting link for your confirmed session.\n\n"
@@ -600,7 +600,7 @@ offer an alternative schedule.</p>
 
     def send_payment_expired(self, to: str, appointment_id: str) -> None:
         subject = "Payment deadline passed — submit new preferred schedules"
-        link = f"{self.frontend_base_url}/proposal/{appointment_id}"
+        link = f"{self.frontend_base_url}/bookings/{appointment_id}"
         text = (
             "Hi,\n\n"
             "The payment deadline for your agreed session schedule has passed, "
@@ -655,7 +655,7 @@ has been in the pending queue for over {hours_waiting} hours without being picke
     ) -> None:
         subject = f"Reminder: your session starts in {hours_before} hour{'s' if hours_before != 1 else ''}"
         formatted_slot = self._format_slot(slot)
-        portal_path = "/psych/schedule" if recipient == "psychologist" else f"/proposal/{appointment_id}"
+        portal_path = "/psych/schedule" if recipient == "psychologist" else f"/bookings/{appointment_id}"
         portal_link = f"{self.frontend_base_url}{portal_path}"
         meeting_line = f"Meeting link: {meeting_link}\n" if meeting_link else ""
         meeting_html = (
@@ -690,7 +690,7 @@ has been in the pending queue for over {hours_waiting} hours without being picke
         evaluation_form_url: str | None = None,
     ) -> None:
         subject = "How was your session? Share your feedback"
-        link = evaluation_form_url or f"{self.frontend_base_url}/proposal/{appointment_id}"
+        link = evaluation_form_url or f"{self.frontend_base_url}/bookings/{appointment_id}"
         text = (
             "Hi,\n\n"
             "Your session has been marked as completed. We would appreciate your "

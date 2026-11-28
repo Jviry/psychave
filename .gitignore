@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!.env.e2e.example
 *.env
 
 # Python
@@ -66,3 +67,8 @@ SKILLS.md
 
 # Graphs
 graphify-out/
+
+# Playwright E2E
+frontend/playwright-report/
+frontend/test-results/
+frontend/e2e/.auth/
