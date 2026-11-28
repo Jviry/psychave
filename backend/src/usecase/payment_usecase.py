@@ -86,8 +86,8 @@ class PaymentUsecase:
                     return existing
 
         base_fe = settings.FRONTEND_URL.rstrip("/")
-        default_success = f"{base_fe}/proposal/{appointment_id}?payment=success"
-        default_cancel = f"{base_fe}/proposal/{appointment_id}?payment=cancelled"
+        default_success = f"{base_fe}/bookings/{appointment_id}?payment=success"
+        default_cancel = f"{base_fe}/bookings/{appointment_id}?payment=cancelled"
         final_success_url = self._validate_redirect_url(success_url, default_success)
         final_cancel_url = self._validate_redirect_url(cancel_url, default_cancel)
 
@@ -142,8 +142,8 @@ class PaymentUsecase:
                     return existing
 
         base_fe = settings.FRONTEND_URL.rstrip("/")
-        default_success = f"{base_fe}/proposal/{appointment_id}?payment=success"
-        default_cancel = f"{base_fe}/proposal/{appointment_id}?payment=cancelled"
+        default_success = f"{base_fe}/bookings/{appointment_id}?payment=success"
+        default_cancel = f"{base_fe}/bookings/{appointment_id}?payment=cancelled"
         final_success_url = self._validate_redirect_url(success_url, default_success)
         final_cancel_url = self._validate_redirect_url(cancel_url, default_cancel)
 
