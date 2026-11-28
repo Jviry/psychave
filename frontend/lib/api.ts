@@ -363,7 +363,7 @@ function formatSlotDateAndTime(isoString: string, durationMinutes = 60): { dateL
   });
   return {
     dateLabel,
-    timeLabel: `${startLabel} – ${endLabel} PST`,
+    timeLabel: `${startLabel} – ${endLabel} PHT`,
   };
 }
 

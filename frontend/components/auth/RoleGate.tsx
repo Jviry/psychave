@@ -20,9 +20,7 @@ export function RoleGate({
   const router = useRouter();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const user = useAuthStore((state) => state.user);
-  const [hydrated, setHydrated] = useState(
-    () => useAuthStore.persist?.hasHydrated?.() ?? false
-  );
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     const persistApi = useAuthStore.persist;
